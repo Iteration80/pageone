@@ -1,0 +1,1 @@
+Always read context from and write updates to the JSON files located in the /global_state/ directory. Treat these files as the single source of truth for the project. Never overwrite existing data without explicit confirmation.

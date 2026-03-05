@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PageOne V2</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">PageOne</div>
+            <nav class="stages-nav">
+                <a href="#" class="stage-link active">Stage 1: Pitch</a>
+                <a href="#" class="stage-link disabled">Stage 2: Outline</a>
+                <a href="#" class="stage-link disabled">Stage 3: Draft</a>
+            </nav>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <header class="workspace-header">
+                <h1>Stage 1: Pitch Generation</h1>
+                <p>Brainstorm three distinct, high-concept movie pitch options.</p>
+            </header>
+
+            <section class="prompt-section">
+                <textarea id="promptInput" placeholder="Enter your raw story idea here..."></textarea>
+                <button id="generateBtn" class="primary-btn">Generate Pitches</button>
+            </section>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden">
+                <div class="spinner"></div>
+                <p>Generating high-concept pitches...</p>
+            </div>
+
+            <!-- Pitch Results Container -->
+            <div id="resultsContainer" class="results-grid">
+                <!-- Cards will be injected here dynamically -->
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
