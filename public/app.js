@@ -140,6 +140,67 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         selectedCard.appendChild(workshopSection);
 
+        // Event listener for Revise Pitch
+        const reviseBtn = workshopSection.querySelector('.revise-btn');
+        const notesInput = workshopSection.querySelector('.notes-input');
+
+        reviseBtn.addEventListener('click', async () => {
+            const userNote = notesInput.value.trim();
+            if (!userNote) {
+                alert("Please enter a note for the revision.");
+                return;
+            }
+
+            // Gather current pitch data
+            const currentFields = selectedCard.querySelectorAll('.pitch-card > .field-group .editable-field');
+            const currentPitch = {};
+            currentFields.forEach(field => {
+                const key = field.getAttribute('data-field');
+                currentPitch[key] = field.value;
+            });
+
+            // Set loading state
+            const originalText = reviseBtn.textContent;
+            reviseBtn.textContent = 'Revising...';
+            reviseBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/refine-pitch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPitch, userNote })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+
+                const data = await response.json();
+                const revisedPitch = data.result;
+
+                if (revisedPitch) {
+                    // Update UI fields
+                    currentFields.forEach(field => {
+                        const key = field.getAttribute('data-field');
+                        if (revisedPitch[key]) {
+                            field.value = revisedPitch[key];
+                        }
+                    });
+
+                    // Clear notes
+                    notesInput.value = '';
+                } else {
+                    alert("Unexpected response format from server.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("An error occurred while revising the pitch.");
+            } finally {
+                reviseBtn.textContent = originalText;
+                reviseBtn.disabled = false;
+            }
+        });
+
         // Event listener for Final Approve
         const finalApproveBtn = workshopSection.querySelector('.final-approve-btn');
         finalApproveBtn.addEventListener('click', () => {
