@@ -347,3 +347,69 @@ textarea.synopsis-input {
     border-color: var(--accent-color);
     color: white;
 }
+
+/* Workshop Expansion */
+.pitch-card.expanded {
+    grid-column: 1 / -1;
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.workshop-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 24px;
+    border-top: 1px solid var(--card-border);
+}
+
+.workshop-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.revise-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.revise-btn:hover:not(:disabled) {
+    background: rgba(37, 99, 235, 0.1);
+}
+
+.revise-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.final-approve-btn {
+    flex: 1;
+    background-color: #10b981;
+    /* emerald-500 */
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.final-approve-btn:hover:not(:disabled) {
+    background-color: #059669;
+    /* emerald-600 */
+}
+
+.final-approve-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

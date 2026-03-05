@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label>Synopsis</label>
                     <textarea class="editable-field synopsis-input" data-field="synopsis">${escapeHtml(pitch.synopsis)}</textarea>
                 </div>
-                <button class="approve-btn">Select & Approve This Pitch</button>
+                <button class="approve-btn">Select to Workshop</button>
             `;
 
             // Add approve event listener
@@ -110,8 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
             approvedData[key] = field.value;
         });
 
-        console.log('Approved Pitch', approvedData);
-
         // Clear the other two cards from the screen
         const allCards = document.querySelectorAll('.pitch-card');
         allCards.forEach(card => {
@@ -120,11 +118,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Optionally, make the selected card look "approved"
-        selectedCard.style.border = '2px solid var(--accent-color)';
+        // Expand the selected card
+        selectedCard.classList.add('expanded');
+
+        // Hide the "Select to Workshop" button
         const btn = selectedCard.querySelector('.approve-btn');
-        btn.textContent = 'Pitch Approved ✔';
-        btn.disabled = true;
+        btn.style.display = 'none';
+
+        // Add the workshop UI at the bottom of the card
+        const workshopSection = document.createElement('div');
+        workshopSection.className = 'workshop-section';
+        workshopSection.innerHTML = `
+            <div class="field-group">
+                <label>Notes</label>
+                <textarea class="editable-field notes-input" placeholder="e.g., Make it scarier, change the setting..."></textarea>
+            </div>
+            <div class="workshop-actions">
+                <button class="revise-btn">Revise Pitch</button>
+                <button class="final-approve-btn">Approve</button>
+            </div>
+        `;
+        selectedCard.appendChild(workshopSection);
+
+        // Event listener for Final Approve
+        const finalApproveBtn = workshopSection.querySelector('.final-approve-btn');
+        finalApproveBtn.addEventListener('click', () => {
+            // Re-grab the edited data just in case they changed it during workshop
+            const finalFields = selectedCard.querySelectorAll('.pitch-card > .field-group .editable-field');
+            const finalData = {};
+            finalFields.forEach(field => {
+                const key = field.getAttribute('data-field');
+                finalData[key] = field.value;
+            });
+            const notes = workshopSection.querySelector('.notes-input').value;
+            console.log('Final Approved Pitch:', finalData, 'Workshop Notes:', notes);
+
+            finalApproveBtn.textContent = 'Pitch Approved ✔';
+            finalApproveBtn.disabled = true;
+            workshopSection.querySelector('.revise-btn').disabled = true;
+        });
     }
 
     // Utility for safely rendering HTML
