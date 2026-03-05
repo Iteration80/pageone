@@ -3,11 +3,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const promptInput = document.getElementById('promptInput');
     const loadingState = document.getElementById('loadingState');
     const resultsContainer = document.getElementById('resultsContainer');
+    const pdfUpload = document.getElementById('pdfUpload');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    pdfUpload.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            fileNameDisplay.textContent = e.target.files[0].name;
+            fileNameDisplay.style.display = 'inline-block';
+        } else {
+            fileNameDisplay.textContent = '';
+            fileNameDisplay.style.display = 'none';
+        }
+    });
 
     generateBtn.addEventListener('click', async () => {
         const prompt = promptInput.value.trim();
-        if (!prompt) {
-            alert("Please enter a story idea first.");
+        const pdfFile = pdfUpload.files[0];
+
+        if (!prompt && !pdfFile) {
+            alert("Please enter a story idea or attach a PDF first.");
             return;
         }
 
@@ -17,10 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtn.disabled = true;
 
         try {
+            const formData = new FormData();
+            if (prompt) formData.append('prompt', prompt);
+            if (pdfFile) formData.append('pdfFile', pdfFile);
+
             const response = await fetch('/api/execute', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
+                body: formData
             });
 
             if (!response.ok) {

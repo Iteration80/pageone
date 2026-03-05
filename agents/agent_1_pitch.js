@@ -4,10 +4,23 @@ const { GoogleGenAI } = require('@google/genai');
 // Initialize with explicit API key to avoid SDK options undefined bug
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent1Pitch = async (prompt) => {
+const agent1Pitch = async (prompt, pdfFile) => {
+    const contents = [];
+    if (pdfFile) {
+        contents.push({
+            inlineData: {
+                data: pdfFile.buffer.toString("base64"),
+                mimeType: pdfFile.mimetype || "application/pdf"
+            }
+        });
+    }
+    if (prompt) {
+        contents.push(prompt);
+    }
+
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: prompt,
+        contents: contents,
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
