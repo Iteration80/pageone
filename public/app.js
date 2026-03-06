@@ -8,12 +8,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectsGrid = document.getElementById('projectsGrid');
     const createNewProjectBtn = document.getElementById('createNewProjectBtn');
 
+    // Navigation
+    const navStage1 = document.getElementById('navStage1');
+    const navStage2 = document.getElementById('navStage2');
+    const stage1Workspace = document.getElementById('stage1Workspace');
+    const stage2Workspace = document.getElementById('stage2Workspace');
+
+    // Stage 1 Elements
     const generateBtn = document.getElementById('generateBtn');
     const promptInput = document.getElementById('promptInput');
     const loadingState = document.getElementById('loadingState');
     const resultsContainer = document.getElementById('resultsContainer');
     const pdfUpload = document.getElementById('pdfUpload');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    // Stage 2 Elements
+    const generateOutlineBtn = document.getElementById('generateOutlineBtn');
+    const saveOutlineBtn = document.getElementById('saveOutlineBtn');
+    const outlineContainer = document.getElementById('outlineContainer');
+    const loadingStateOutline = document.getElementById('loadingStateOutline');
 
     const renameModal = document.getElementById('renameModal');
     const renameInput = document.getElementById('renameInput');
@@ -143,6 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     resultsContainer.innerHTML = ''; // Start clean
 
+                    // Always default back to Stage 1 when opening a project
+                    switchStage(1);
+
                     if (projectDetails.data && projectDetails.data.stage1_pitch) {
                         const { pitch, notes } = projectDetails.data.stage1_pitch;
 
@@ -166,6 +182,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 finalApproveBtn.textContent = 'Pitch Approved & Saved ✔';
                             }
                         }
+
+                        // Enable Stage 2
+                        navStage2.classList.remove('disabled');
+
+                        // Hydrate Stage 2 Outline if exists
+                        if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
+                            renderOutline(projectDetails.data.stage2_outline.outline);
+                        } else {
+                            document.getElementById('act1Container').innerHTML = '';
+                            document.getElementById('act2Container').innerHTML = '';
+                            document.getElementById('act3Container').innerHTML = '';
+                            saveOutlineBtn.classList.add('hidden');
+                        }
+                    } else {
+                        navStage2.classList.add('disabled');
                     }
                 } catch (err) {
                     console.error("Error loading project details:", err);
@@ -430,6 +461,165 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- Navigation Logic ---
+    function switchStage(stageNum) {
+        if (stageNum === 1) {
+            navStage1.classList.add('active');
+            navStage2.classList.remove('active');
+            stage1Workspace.classList.remove('hidden');
+            stage2Workspace.classList.add('hidden');
+        } else if (stageNum === 2) {
+            navStage2.classList.add('active');
+            navStage1.classList.remove('active');
+            stage2Workspace.classList.remove('hidden');
+            stage1Workspace.classList.add('hidden');
+        }
+    }
+
+    navStage1.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchStage(1);
+    });
+
+    navStage2.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!navStage2.classList.contains('disabled')) {
+            switchStage(2);
+        }
+    });
+
+    // --- Stage 2 Logic ---
+    generateOutlineBtn.addEventListener('click', async () => {
+        if (!activeProjectId) return;
+
+        loadingStateOutline.classList.remove('hidden');
+        outlineContainer.innerHTML = '';
+        generateOutlineBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/generate-outline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to generate outline");
+            }
+
+            const data = await res.json();
+            renderOutline(data.result.outline);
+        } catch (err) {
+            console.error(err);
+            alert(err.message);
+        } finally {
+            loadingStateOutline.classList.add('hidden');
+            generateOutlineBtn.disabled = false;
+        }
+    });
+
+    function renderOutline(outlineData) {
+        const act1Container = document.getElementById('act1Container');
+        const act2Container = document.getElementById('act2Container');
+        const act3Container = document.getElementById('act3Container');
+
+        act1Container.innerHTML = '';
+        act2Container.innerHTML = '';
+        act3Container.innerHTML = '';
+
+        const renderSequences = (sequences, container) => {
+            sequences.forEach(seq => {
+                const seqBlock = document.createElement('div');
+                seqBlock.className = 'sequence-block';
+
+                const header = document.createElement('div');
+                header.className = 'sequence-header';
+                header.textContent = seq.sequence_number_and_title;
+                seqBlock.appendChild(header);
+
+                seq.beats.forEach(beat => {
+                    const card = document.createElement('div');
+                    card.className = 'beat-card';
+                    card.innerHTML = `
+                        <h4>${escapeHtml(beat.beat_label)}</h4>
+                        <textarea class="beat-description">${escapeHtml(beat.description)}</textarea>
+                    `;
+                    seqBlock.appendChild(card);
+                });
+
+                container.appendChild(seqBlock);
+            });
+        };
+
+        if (outlineData.act_1) renderSequences(outlineData.act_1, act1Container);
+        if (outlineData.act_2) renderSequences(outlineData.act_2, act2Container);
+        if (outlineData.act_3) renderSequences(outlineData.act_3, act3Container);
+
+        saveOutlineBtn.classList.remove('hidden');
+        document.getElementById('outlineContainer').classList.remove('hidden');
+    }
+
+    saveOutlineBtn.addEventListener('click', async () => {
+        if (!activeProjectId) return;
+
+        const scrapeAct = (containerId) => {
+            const container = document.getElementById(containerId);
+            const sequenceBlocks = container.querySelectorAll('.sequence-block');
+            const sequences = [];
+
+            sequenceBlocks.forEach(block => {
+                const title = block.querySelector('.sequence-header').textContent;
+                const beatCards = block.querySelectorAll('.beat-card');
+                const beats = [];
+
+                beatCards.forEach(card => {
+                    const label = card.querySelector('h4').textContent;
+                    const desc = card.querySelector('textarea').value;
+                    beats.push({ beat_label: label, description: desc });
+                });
+
+                sequences.push({
+                    sequence_number_and_title: title,
+                    beats: beats
+                });
+            });
+
+            return sequences;
+        };
+
+        const updatedOutline = {
+            act_1: scrapeAct('act1Container'),
+            act_2: scrapeAct('act2Container'),
+            act_3: scrapeAct('act3Container')
+        };
+
+        saveOutlineBtn.textContent = 'Saving...';
+        saveOutlineBtn.disabled = true;
+
+        try {
+            await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: {
+                        stage2_outline: { outline: updatedOutline }
+                    }
+                })
+            });
+            saveOutlineBtn.textContent = 'Outline Saved ✔';
+            setTimeout(() => {
+                saveOutlineBtn.textContent = 'Save Outline Edits';
+            }, 3000);
+        } catch (err) {
+            console.error("Failed to save outline:", err);
+            alert("Error saving outline.");
+            saveOutlineBtn.textContent = 'Save Outline Edits';
+        } finally {
+            saveOutlineBtn.disabled = false;
+        }
+    });
 
     // Utility for safely rendering HTML
     function escapeHtml(unsafe) {

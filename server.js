@@ -4,6 +4,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
+const { agent2Outline } = require('./agents/agent_2_outline');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +59,43 @@ app.post('/api/refine-pitch', async (req, res) => {
         res.json({ result });
     } catch (error) {
         console.error("Error executing refine agent:", error);
+        res.status(500).json({ error: error.message || "An error occurred" });
+    }
+});
+
+app.post('/api/generate-outline', async (req, res) => {
+    try {
+        const { projectId } = req.body;
+        if (!projectId) {
+            return res.status(400).json({ error: "Missing projectId" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const stage1 = projectData.data?.stage1_pitch?.pitch;
+        if (!stage1) {
+            return res.status(400).json({ error: "Project has no finalized Stage 1 Pitch" });
+        }
+
+        console.log("Generating Stage 2 Outline...");
+        const outlineData = await agent2Outline(stage1);
+
+        // Save to Stage 2
+        projectData.data = projectData.data || {};
+        projectData.data.stage2_outline = outlineData;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: outlineData });
+    } catch (error) {
+        console.error("Error executing outline agent:", error);
         res.status(500).json({ error: error.message || "An error occurred" });
     }
 });
