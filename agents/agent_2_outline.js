@@ -3,7 +3,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 // Initialize the Google Gen AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent2Outline = async (pitchData) => {
+const agent2Outline = async (pitchData, currentBeats, notes) => {
     const systemInstruction = "You are an elite Hollywood Story Architect. Your objective is to take a movie pitch and expand it into a professional, highly readable 8-Sequence Broad Outline. CRITICAL RULES: The 8-Sequence Structure: Divide the narrative into 8 sequences (2 for Act I, 4 for Act II, 2 for Act III). Give each sequence a thematic title. Plant the Tentpoles: Ensure the major structural pillars serve as the climaxes of their respective sequences. Invisible Cause-and-Effect: The narrative must flow using the Therefore/But engine naturally. Lean Formatting: Write exclusively in present tense.";
 
     const outlineSchema = {
@@ -23,9 +23,14 @@ const agent2Outline = async (pitchData) => {
         }
     };
 
+    let contentsText = JSON.stringify(pitchData);
+    if (notes && currentBeats) {
+        contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working beat sheet: ${JSON.stringify(currentBeats)}. Please revise the beat sheet specifically based on these User Notes: ${notes}. Ensure you output the entire revised 8-sequence structure.`;
+    }
+
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: [JSON.stringify(pitchData)],
+        contents: [contentsText],
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },

@@ -22,11 +22,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfUpload = document.getElementById('pdfUpload');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
 
-    // Stage 2 Elements
     const generateOutlineBtn = document.getElementById('generateOutlineBtn');
     const saveOutlineBtn = document.getElementById('saveOutlineBtn');
     const outlineContainer = document.getElementById('outlineContainer');
     const loadingStateOutline = document.getElementById('loadingStateOutline');
+
+    // Stage 2 Workshop Elements
+    const stage2Workshop = document.getElementById('stage2Workshop');
+    const stage2Notes = document.getElementById('stage2Notes') || document.getElementById('stage2-notes');
+    const btnStage2Revise = document.getElementById('btnStage2Revise') || document.getElementById('btn-stage2-revise');
+    const btnStage2Approve = document.getElementById('btnStage2Approve') || document.getElementById('btn-stage2-approve');
 
     const renameModal = document.getElementById('renameModal');
     const renameInput = document.getElementById('renameInput');
@@ -193,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             document.getElementById('act2Container').innerHTML = '';
                             document.getElementById('act3Container').innerHTML = '';
                             saveOutlineBtn.classList.add('hidden');
+                            stage2Workshop.classList.add('hidden');
                         }
                     } else {
                         updateStageNav(projectDetails.data);
@@ -587,11 +593,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         saveOutlineBtn.classList.remove('hidden');
         document.getElementById('outlineContainer').classList.remove('hidden');
+        stage2Workshop.classList.remove('hidden');
     }
 
-    saveOutlineBtn.addEventListener('click', async () => {
-        if (!activeProjectId) return;
-
+    function scrapeOutline() {
         const scrapeAct = (containerId) => {
             const container = document.getElementById(containerId);
             const sequenceBlocks = container.querySelectorAll('.sequence-block');
@@ -617,14 +622,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return sequences;
         };
 
-        const updatedOutline = {
+        return {
             act_1: scrapeAct('act1Container'),
             act_2: scrapeAct('act2Container'),
             act_3: scrapeAct('act3Container')
         };
+    }
 
-        saveOutlineBtn.textContent = 'Saving...';
-        saveOutlineBtn.disabled = true;
+    async function saveOutlineEdits(triggerBtn) {
+        if (!activeProjectId) return;
+
+        const updatedOutline = scrapeOutline();
+        const originalText = triggerBtn.textContent;
+
+        triggerBtn.textContent = 'Saving...';
+        triggerBtn.disabled = true;
 
         try {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
@@ -641,16 +653,65 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Navigation UI
             updateStageNav(updatedProject.data);
 
-            saveOutlineBtn.textContent = 'Beats Saved ✔';
+            triggerBtn.textContent = 'Beats Saved ✔';
+            if (triggerBtn.id === 'btn-stage2-approve') {
+                triggerBtn.style.backgroundColor = '#10b981'; // solid emerald-500
+            }
             setTimeout(() => {
-                saveOutlineBtn.textContent = 'Save Beat Edits';
+                triggerBtn.textContent = originalText;
             }, 3000);
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
-            saveOutlineBtn.textContent = 'Save Beat Edits';
+            triggerBtn.textContent = originalText;
         } finally {
-            saveOutlineBtn.disabled = false;
+            triggerBtn.disabled = false;
+        }
+    }
+
+    saveOutlineBtn.addEventListener('click', () => saveOutlineEdits(saveOutlineBtn));
+    btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
+
+    btnStage2Revise.addEventListener('click', async () => {
+        if (!activeProjectId) return;
+        const notes = stage2Notes.value.trim();
+        if (!notes) {
+            alert("Please enter notes for revision.");
+            return;
+        }
+
+        const currentBeats = scrapeOutline();
+        loadingStateOutline.classList.remove('hidden');
+        btnStage2Revise.disabled = true;
+        const originalText = btnStage2Revise.textContent;
+        btnStage2Revise.textContent = 'Revising...';
+
+        try {
+            const res = await fetch('/api/generate-outline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    currentBeats,
+                    notes
+                })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to revise outline");
+            }
+
+            const data = await res.json();
+            renderOutline(data.result.outline);
+            stage2Notes.value = '';
+        } catch (err) {
+            console.error(err);
+            alert(err.message);
+        } finally {
+            loadingStateOutline.classList.add('hidden');
+            btnStage2Revise.disabled = false;
+            btnStage2Revise.textContent = originalText;
         }
     });
 

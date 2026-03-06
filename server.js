@@ -65,7 +65,7 @@ app.post('/api/refine-pitch', async (req, res) => {
 
 app.post('/api/generate-outline', async (req, res) => {
     try {
-        const { projectId } = req.body;
+        const { projectId, currentBeats, notes } = req.body;
         if (!projectId) {
             return res.status(400).json({ error: "Missing projectId" });
         }
@@ -85,7 +85,7 @@ app.post('/api/generate-outline', async (req, res) => {
         }
 
         console.log("Generating Stage 2 Outline...");
-        const outlineData = await agent2Outline(stage1);
+        const outlineData = await agent2Outline(stage1, currentBeats, notes);
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
