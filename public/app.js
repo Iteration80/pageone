@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
+    let targetProjectId = null; // Used for rename and delete operations
 
     // --- DOM Elements ---
     const projectsHub = document.getElementById('projectsHub');
@@ -13,6 +14,75 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsContainer = document.getElementById('resultsContainer');
     const pdfUpload = document.getElementById('pdfUpload');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    const renameModal = document.getElementById('renameModal');
+    const renameInput = document.getElementById('renameInput');
+    const cancelRenameBtn = document.getElementById('cancelRenameBtn');
+    const saveRenameBtn = document.getElementById('saveRenameBtn');
+
+    const deleteModal = document.getElementById('deleteModal');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    // --- Modal Logic ---
+    function openRenameModal(id, currentTitle) {
+        targetProjectId = id;
+        renameInput.value = currentTitle;
+        renameModal.classList.remove('hidden');
+        renameInput.focus();
+    }
+
+    function closeRenameModal() {
+        targetProjectId = null;
+        renameInput.value = '';
+        renameModal.classList.add('hidden');
+    }
+
+    function openDeleteModal(id) {
+        targetProjectId = id;
+        deleteModal.classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        targetProjectId = null;
+        deleteModal.classList.add('hidden');
+    }
+
+    // Modal Events
+    cancelRenameBtn.addEventListener('click', closeRenameModal);
+
+    saveRenameBtn.addEventListener('click', async () => {
+        if (!targetProjectId) return;
+        const newTitle = renameInput.value.trim();
+        if (newTitle) {
+            try {
+                // Determine if we need to check if the title actually changed.
+                // It's safe to just send it.
+                await fetch(`/api/projects/${targetProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle })
+                });
+                closeRenameModal();
+                initHub();
+            } catch (err) {
+                console.error("Error renaming project", err);
+            }
+        }
+    });
+
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+    confirmDeleteBtn.addEventListener('click', async () => {
+        if (!targetProjectId) return;
+        try {
+            await fetch(`/api/projects/${targetProjectId}`, { method: 'DELETE' });
+            closeDeleteModal();
+            initHub();
+        } catch (err) {
+            console.error("Error deleting project", err);
+        }
+    });
 
     // --- Project Hub Logic ---
     async function initHub() {
@@ -31,41 +101,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'project-card';
             card.innerHTML = `
-                <input type="text" class="project-title" value="${escapeHtml(project.title)}" data-id="${project.id}">
+                <h3 class="project-title" data-id="${project.id}">${escapeHtml(project.title)}</h3>
                 <div class="project-meta">ID: ${project.id}</div>
                 <div class="project-actions">
+                    <button class="edit-btn" data-id="${project.id}" title="Rename Project">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
                     <button class="delete-btn" data-id="${project.id}" title="Delete Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     </button>
                 </div>
             `;
 
-            // Handle title rename via blur
-            const titleInput = card.querySelector('.project-title');
-            titleInput.addEventListener('blur', async (e) => {
-                const newTitle = e.target.value.trim();
-                const id = e.target.getAttribute('data-id');
-                if (newTitle && newTitle !== project.title) {
-                    await fetch(`/api/projects/${id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: newTitle })
-                    });
-                }
+            // Handle Rename
+            const editBtn = card.querySelector('.edit-btn');
+            editBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent card from opening
+                openRenameModal(project.id, project.title);
             });
-
-            // Prevent card click when typing in title
-            titleInput.addEventListener('click', (e) => e.stopPropagation());
 
             // Handle Delete
             const deleteBtn = card.querySelector('.delete-btn');
-            deleteBtn.addEventListener('click', async (e) => {
+            deleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                if (confirm("Are you sure you want to delete this project?")) {
-                    const id = e.currentTarget.getAttribute('data-id');
-                    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-                    initHub(); // refresh
-                }
+                openDeleteModal(project.id);
             });
 
             // Handle Card clicking -> Load project Workspace

@@ -84,6 +84,31 @@
             </div>
         </main>
     </div>
+
+    <!-- Rename Project Modal -->
+    <div id="renameModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Rename Project</h3>
+            <input type="text" id="renameInput" class="modal-input" placeholder="Enter new project name">
+            <div class="modal-actions">
+                <button id="cancelRenameBtn" class="secondary-btn">Cancel</button>
+                <button id="saveRenameBtn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Project Modal -->
+    <div id="deleteModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Delete Project</h3>
+            <p>Are you sure you want to delete this project? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
+                <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 
