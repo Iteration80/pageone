@@ -128,13 +128,12 @@ body {
 }
 
 .stage-link.completed .badge {
-    background-color: #10b981;
-    /* emerald-500 */
-    color: white;
+    background-color: #ffffff;
+    color: #000000;
 }
 
 .stage-link.completed.active .badge {
-    box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px #10b981;
+    box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px #ffffff;
 }
 
 /* Workspace */
