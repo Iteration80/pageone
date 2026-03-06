@@ -608,14 +608,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 })
             });
-            saveOutlineBtn.textContent = 'Outline Saved ✔';
+            saveOutlineBtn.textContent = 'Beats Saved ✔';
             setTimeout(() => {
-                saveOutlineBtn.textContent = 'Save Outline Edits';
+                saveOutlineBtn.textContent = 'Save Beat Edits';
             }, 3000);
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
-            saveOutlineBtn.textContent = 'Save Outline Edits';
+            saveOutlineBtn.textContent = 'Save Beat Edits';
         } finally {
             saveOutlineBtn.disabled = false;
         }
