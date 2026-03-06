@@ -11,6 +11,152 @@
         "synopsis": "Act 1: Annie runs a Michelin-aspirational restaurant with military precision, but her rigid menu is driving away customers and the bank is foreclosing. Her only hope is winning a lucrative spot on a hit restaurant reality show, but the producers want drama and romance, not just geometry on a plate. Annie hires Leo, a method actor working as a waiter, to pretend to be her fiery, passionate sous-chef and lover to secure the TV deal. Act 2: The cameras roll, and Leo dives into his persona, a mix of intense bad-boy charm and culinary passion. The dynamic works perfectly on screen, and the restaurant is suddenly booked solid. However, Leo's improvised additions to Annie's precise recipes infuriate her, even though the customers love them. As they navigate the high-stress kitchen and fake on-camera kisses, their fake friction turns into real chemistry. Leo helps Annie see that her obsessive control is rooted in a fear of failure. Act 3: During the live finale of the reality show, a critical ingredient delivery fails. Annie freezes, her perfect plan destroyed. Leo drops his persona and gently guides her to improvise a new dish using what they have, resulting in a chaotic but brilliant culinary triumph. They win the show, but Leo prepares to leave, his job done. Annie stops him in the middle of the crowded dining room, abandoning her pristine chef's coat and rigid posture, to kiss him in a completely unscripted moment."
       },
       "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Flaw in the Formula",
+            "beats": [
+              {
+                "beat_label": "Opening Image",
+                "description": "Annie plates a dish with tweezers, measuring the sauce with a ruler. The kitchen is silent, militant, and completely devoid of joy."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "Annie learns the bank is foreclosing on her restaurant in thirty days. Her only lifeline is an audition for a hit reality TV show that saves failing eateries, but the producers reject her pristine pitch because it lacks drama, passion, and a compelling storyline."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "Desperate, Annie witnesses her clumsy but charismatic waiter, Leo, effortlessly charm a furious customer using an improvised acting persona. A lightbulb goes off."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Recipe for Deception",
+            "beats": [
+              {
+                "beat_label": "The Setup",
+                "description": "Annie corners Leo and offers him the ultimate acting gig: play her fiery, passionate sous-chef and secret lover to sell a narrative to the reality show producers."
+              },
+              {
+                "beat_label": "The Rehearsal",
+                "description": "They clumsily attempt to build their fake backstory. Annie wants a rigid script, but Leo insists on method acting, creating a wildly chaotic bad-boy persona that deeply annoys her."
+              },
+              {
+                "beat_label": "Act I Climax",
+                "description": "The producers arrive for a second look. Leo launches into his intense persona, pulling Annie into a heated, passionate fake argument that ends in palpable tension. The producers are hooked and greenlight the show, locking Annie and Leo into their lie."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Cooking for the Cameras",
+            "beats": [
+              {
+                "beat_label": "Entering the New World",
+                "description": "Camera crews invade the pristine kitchen. Annie struggles to maintain her strict culinary standards while navigating the constant intrusion and producer demands."
+              },
+              {
+                "beat_label": "The Persona Unleashed",
+                "description": "Leo goes full method, throwing ingredients, shouting passionately, and playing the tortured artist. The crew loves it, but Annie's anxiety skyrockets."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "During a dinner service, a producer demands an on-camera kiss to sell the romance. Annie freezes, but Leo dips her and delivers a cinematic, sweeping kiss that leaves Annie genuinely flustered and the producers ecstatic."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: A Dash of Chaos",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "The show begins airing, and the restaurant is suddenly booked solid. The fake dynamic is working beautifully for business."
+              },
+              {
+                "beat_label": "The Culinary Clash",
+                "description": "Emboldened by his character, Leo starts improvising additions to Annie's mathematically precise recipes, adding unmeasured spices and messy garnishes."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "A renowned food critic visits. Leo accidentally serves an improvised, chaotic version of Annie's signature dish. Annie prepares for ruin, but the critic declares it a masterpiece of passion. Annie is forced to realize her rigid control might be holding her back."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: Simmering Tension",
+            "beats": [
+              {
+                "beat_label": "Vulnerability",
+                "description": "After hours, Annie and Leo prep alone without the cameras. The personas drop. Leo gently probes why Annie is so obsessed with perfection."
+              },
+              {
+                "beat_label": "The Core Wound",
+                "description": "Annie confesses that her rigid control stems from a massive, public culinary failure early in her career. She believes perfection is her only armor against being hurt again."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "Leo teaches her to cook a simple, rustic meal without measuring anything. They share a genuine, off-camera moment of intimacy that almost leads to a real kiss, blurring the lines between the act and reality."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Boiling Point",
+            "beats": [
+              {
+                "beat_label": "The Pressure Mounts",
+                "description": "The live finale of the reality show approaches. The producers demand even more manufactured drama, pushing Annie to play the villain who tries to fire Leo."
+              },
+              {
+                "beat_label": "The Misunderstanding",
+                "description": "Annie, terrified of her growing real feelings, leans hard into the fake villain script, harshly criticizing Leo's lack of formal training in front of the crew."
+              },
+              {
+                "beat_label": "Act II Climax",
+                "description": "Leo, genuinely hurt, breaks character. He calls Annie out for using her perfectionism as a shield to avoid real human connection. He threatens to walk away from the show right before the live finale, leaving Annie completely alone."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Missing Ingredient",
+            "beats": [
+              {
+                "beat_label": "The Dark Night",
+                "description": "Annie is alone in her kitchen before the live broadcast, staring at her rulers and tweezers, realizing they bring her no comfort. She misses Leo's chaos."
+              },
+              {
+                "beat_label": "The Disaster",
+                "description": "The live broadcast begins. A critical delivery of a rare ingredient fails to arrive. Annie's perfectly calculated finale menu is impossible to execute. She freezes on live television."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "Leo pushes through the kitchen doors, dropping his bad-boy persona entirely. As himself, he stands beside Annie and gently challenges her to trust her instincts and improvise with what they have in the pantry."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Unscripted Kiss",
+            "beats": [
+              {
+                "beat_label": "The Climax",
+                "description": "Annie throws away her clipboard. Together, she and Leo fly by the seat of their pants, communicating silently, tossing ingredients, and creating a brilliant, chaotic, and deeply soulful dish."
+              },
+              {
+                "beat_label": "The Victory",
+                "description": "The judges taste the improvised dish and declare it the winner. The restaurant is saved, and the crowd goes wild."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The cameras cut. Leo, believing his job is done, quietly packs his bag and heads for the door. Annie abandons her pristine chef's coat, runs into the crowded dining room, and pulls Leo into a messy, completely unscripted kiss. The kitchen is finally full of life."
+              }
+            ]
+          }
+        ]
+      }
     }
   }
 }

@@ -95,8 +95,8 @@ app.post('/api/generate-outline', async (req, res) => {
 
         res.json({ result: outlineData });
     } catch (error) {
-        console.error("Error executing outline agent:", error);
-        res.status(500).json({ error: error.message || "An error occurred" });
+        console.error('Outline Gen Error:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
