@@ -123,6 +123,20 @@ body {
     /* text-gray-400 */
 }
 
+.stage-link.completed {
+    color: var(--text-primary);
+}
+
+.stage-link.completed .badge {
+    background-color: #10b981;
+    /* emerald-500 */
+    color: white;
+}
+
+.stage-link.completed.active .badge {
+    box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px #10b981;
+}
+
 /* Workspace */
 .workspace {
     flex: 1;

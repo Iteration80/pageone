@@ -183,8 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
 
-                        // Enable Stage 2
-                        navStage2.classList.remove('disabled');
+                        updateStageNav(projectDetails.data);
 
                         // Hydrate Stage 2 Outline if exists
                         if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
@@ -196,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             saveOutlineBtn.classList.add('hidden');
                         }
                     } else {
-                        navStage2.classList.add('disabled');
+                        updateStageNav(projectDetails.data);
                     }
                 } catch (err) {
                     console.error("Error loading project details:", err);
@@ -443,16 +442,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalApproveBtn.textContent = 'Saving...';
                 finalApproveBtn.disabled = true;
 
-                await fetch(`/api/projects/${activeProjectId}`, {
+                const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                const updatedProject = await res.json();
 
                 console.log('Final Approved Pitch Saved:', payload);
 
                 finalApproveBtn.textContent = 'Pitch Approved & Saved ✔';
                 workshopSection.querySelector('.revise-btn').disabled = true;
+
+                // Update Navigation UI
+                updateStageNav(updatedProject.data);
             } catch (error) {
                 console.error("Failed to save approved pitch:", error);
                 alert("An error occurred while saving to the database.");
@@ -463,6 +466,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Navigation Logic ---
+    function updateStageNav(data) {
+        function toggle(navEl, isDone, num) {
+            const b = navEl.querySelector('.badge');
+            if (isDone) {
+                navEl.classList.add('completed');
+                b.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            } else {
+                navEl.classList.remove('completed');
+                b.textContent = num;
+            }
+        }
+
+        const stage1Done = data && data.stage1_pitch && data.stage1_pitch.pitch;
+        const stage2Done = data && data.stage2_outline && data.stage2_outline.outline;
+
+        toggle(navStage1, stage1Done, '1');
+        toggle(navStage2, stage2Done, '2');
+
+        if (stage1Done) {
+            navStage2.classList.remove('disabled');
+        } else {
+            navStage2.classList.add('disabled');
+        }
+    }
+
     function switchStage(stageNum) {
         if (stageNum === 1) {
             navStage1.classList.add('active');
@@ -599,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveOutlineBtn.disabled = true;
 
         try {
-            await fetch(`/api/projects/${activeProjectId}`, {
+            const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -608,6 +636,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 })
             });
+            const updatedProject = await res.json();
+
+            // Update Navigation UI
+            updateStageNav(updatedProject.data);
+
             saveOutlineBtn.textContent = 'Beats Saved ✔';
             setTimeout(() => {
                 saveOutlineBtn.textContent = 'Save Beat Edits';
