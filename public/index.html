@@ -10,7 +10,25 @@
 </head>
 
 <body>
-    <div class="app-container">
+    <!-- Projects Hub Overlay -->
+    <div id="projectsHub" class="projects-hub">
+        <header class="hub-header">
+            <div class="logo-container">
+                <div class="logo-badge">P1</div>
+                <div class="logo-text">PageOne Hub</div>
+            </div>
+            <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
+        </header>
+        <main class="hub-workspace">
+            <h2>Your Projects</h2>
+            <div id="projectsGrid" class="projects-grid">
+                <!-- Project cards injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Main App Container (Hidden by default until a project is selected) -->
+    <div id="appContainer" class="app-container hidden">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo-container">
