@@ -602,6 +602,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('outlineContainer').classList.remove('hidden');
         stage2Workshop.classList.remove('hidden');
+
+        // Reset approve button to unapproved state after rendering new beats
+        if (btnStage2Approve) {
+            btnStage2Approve.textContent = 'Approve';
+            btnStage2Approve.classList.remove('approve-btn-green');
+            btnStage2Approve.disabled = false;
+        }
     }
 
     function scrapeOutline() {
