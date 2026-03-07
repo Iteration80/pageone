@@ -239,10 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const prompt = promptInput.value.trim();
         const pdfFile = pdfUpload.files[0];
 
-        if (!prompt && !pdfFile) {
-            alert("Please enter a story idea or attach a PDF first.");
-            return;
-        }
+        // If prompt is empty, the backend will generate random pitches
 
         // Show loading state, clean up results
         loadingState.classList.remove('hidden');

@@ -34,9 +34,7 @@ app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
         const { prompt } = req.body;
         const pdfFile = req.file;
 
-        if (!prompt && !pdfFile) {
-            return res.status(400).json({ error: "Prompt or PDF file is required" });
-        }
+        // Validation removed to allow random pitch generation if both are empty
 
         console.log("Generating pitch options...");
         const result = await agent1Pitch(prompt, pdfFile);

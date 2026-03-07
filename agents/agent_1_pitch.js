@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, Type } = require('@google/genai');
 
 // Initialize the Google Gen AI SDK
 // Initialize with explicit API key to avoid SDK options undefined bug
@@ -18,6 +18,23 @@ const agent1Pitch = async (prompt, pdfFile) => {
         contents.push(prompt);
     }
 
+    // If no prompt or PDF was provided, prompt for Random Ideas
+    if (contents.length === 0) {
+        contents.push("Generate 3 completely random, entirely original, high-concept movie pitches spanning different genres.");
+    }
+
+    const pitchItemSchema = {
+        type: Type.OBJECT,
+        properties: {
+            title: { type: Type.STRING },
+            logline: { type: Type.STRING },
+            genre: { type: Type.STRING },
+            core_theme: { type: Type.STRING },
+            synopsis: { type: Type.STRING }
+        },
+        required: ["title", "logline", "genre", "core_theme", "synopsis"]
+    };
+
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
         contents: contents,
@@ -27,21 +44,11 @@ const agent1Pitch = async (prompt, pdfFile) => {
             systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. Do not include conversational filler. You must output your response strictly according to the defined JSON schema.",
             responseMimeType: "application/json",
             responseSchema: {
-                type: "OBJECT",
+                type: Type.OBJECT,
                 properties: {
                     pitch_options: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                title: { type: "STRING" },
-                                logline: { type: "STRING" },
-                                genre: { type: "STRING" },
-                                core_theme: { type: "STRING" },
-                                synopsis: { type: "STRING" }
-                            },
-                            required: ["title", "logline", "genre", "core_theme", "synopsis"]
-                        }
+                        type: Type.ARRAY,
+                        items: pitchItemSchema
                     }
                 },
                 required: ["pitch_options"]
