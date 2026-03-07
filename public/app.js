@@ -518,7 +518,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         loadingStateOutline.classList.remove('hidden');
-        outlineContainer.innerHTML = '';
+        document.getElementById('act1Container').innerHTML = '';
+        document.getElementById('act2Container').innerHTML = '';
+        document.getElementById('act3Container').innerHTML = '';
         generateOutlineBtn.disabled = true;
 
         try {

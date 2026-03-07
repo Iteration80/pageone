@@ -1,0 +1,133 @@
+{
+  "id": "1772842413929",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Right Time, Wrong Place",
+        "genre": "Romantic Comedy / Magical Realism",
+        "core_theme": "Learning to let go of the past to embrace the unexpected future.",
+        "logline": "A cynical divorce attorney discovers a magical photobooth that sends her back to the exact moments her past relationships fell apart, but she keeps running into the same charming stranger in every timeline.",
+        "synopsis": "Act 1: Annie, a successful but lonely divorce attorney, gets drunk at a wedding and uses an antique photobooth, wishing she could fix her past mistakes. She wakes up five years earlier on the day of her worst breakup. Act 2: As Annie jumps through different pivotal relationship failures, she realizes she cannot change the outcomes. However, a quirky wedding photographer named Jack keeps appearing in these timelines. They bond over their mutual displacement in time and start falling for each other. Act 3: Annie must make a choice: stay in a perfect, curated past with Jack or return to her present reality, risking everything on the hope that she can find the real Jack in the modern day. She chooses the present, finds Jack, and they begin a new, unwritten chapter together."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "genre": "Romantic Comedy / Magical Realism",
+      "logline": "A cynical divorce attorney discovers a magical photobooth that sends her back to the exact moments her past relationships fell apart, but she keeps running into the same charming stranger in every timeline.",
+      "outline": {
+        "act_1": [
+          {
+            "beats": [
+              {
+                "beat_label": "Opening Image",
+                "description": "Annie dominates a divorce mediation proving her deeply cynical view on love and commitment."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "Annie attends her best friend's wedding gets drunk and hides in an antique photobooth wishing she could undo her own romantic regrets."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 1: The Cynic at the Altar"
+          },
+          {
+            "beats": [
+              {
+                "beat_label": "The Awakening",
+                "description": "Annie wakes up five years earlier on the exact day her worst breakup occurs."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "She frantically tries to fix the relationship but fails spectacularly realizing she is trapped in a time-loop of her own romantic failures as the photobooth flashes again."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 2: Flashback to Heartbreak"
+          }
+        ],
+        "act_2": [
+          {
+            "beats": [
+              {
+                "beat_label": "The Next Jump",
+                "description": "Annie lands in another past relationship disaster attempting new tactics to save it but facing the same inevitable ruin."
+              },
+              {
+                "beat_label": "Meeting Jack",
+                "description": "She repeatedly bumps into Jack a quirky wedding photographer who seems completely out of place and realizes he remembers the previous timeline jumps."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 3: A Familiar Face"
+          },
+          {
+            "beats": [
+              {
+                "beat_label": "Bonding",
+                "description": "Annie and Jack team up treating her past breakups like an escape room they must solve together."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "Annie gives up on saving her past relationships and shares a perfect romantic night with Jack in a doomed timeline shifting her desire entirely to him."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 4: Let It Burn"
+          },
+          {
+            "beats": [
+              {
+                "beat_label": "Escalation",
+                "description": "The timeline jumps accelerate giving Annie and Jack less time together in each era and forcing them into a panicked race against time."
+              },
+              {
+                "beat_label": "The Warning",
+                "description": "They discover the photobooth's magic is running out of film meaning the next jump will be their final destination."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 5: The Rules of Time"
+          },
+          {
+            "beats": [
+              {
+                "beat_label": "All Is Lost",
+                "description": "The photobooth offers Annie a choice to permanently stay in a curated safe past with Jack but it means erasing her hard-earned career and personal growth."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "Jack refuses to let her sacrifice her true self and urges her to return to the present resulting in a tearful goodbye as she steps into the flash alone."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 6: The Ultimate Ultimatum"
+          }
+        ],
+        "act_3": [
+          {
+            "beats": [
+              {
+                "beat_label": "The Return",
+                "description": "Annie wakes up in her present-day apartment fundamentally changed and ready to embrace the unknown."
+              },
+              {
+                "beat_label": "The Climax",
+                "description": "She uses every clue she gathered about Jack from the past timelines to track down his present-day whereabouts across the city."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 7: The Leap of Faith"
+          },
+          {
+            "beats": [
+              {
+                "beat_label": "The Reunion",
+                "description": "Annie finds Jack at a local art gallery where he looks at her with a spark of recognition proving the magic was real."
+              },
+              {
+                "beat_label": "Final Image",
+                "description": "Annie steps into a modern photobooth with Jack smiling as the flash goes off finally looking forward instead of backward."
+              }
+            ],
+            "sequence_number_and_title": "Sequence 8: The Unwritten Chapter"
+          }
+        ]
+      },
+      "title": "Right Time, Wrong Place"
+    }
+  }
+}

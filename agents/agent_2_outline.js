@@ -23,9 +23,9 @@ const agent2Outline = async (pitchData, currentBeats, notes) => {
         }
     };
 
-    let contentsText = JSON.stringify(pitchData);
+    let contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. You MUST generate the full JSON structure including title, genre, logline, and the 8-sequence outline containing act_1, act_2, and act_3.`;
     if (notes && currentBeats) {
-        contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working beat sheet: ${JSON.stringify(currentBeats)}. Please revise the beat sheet specifically based on these User Notes: ${notes}. Ensure you output the entire revised 8-sequence structure.`;
+        contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working beat sheet: ${JSON.stringify(currentBeats)}. Please revise the beat sheet specifically based on these User Notes: ${notes}. You MUST generate the full JSON structure including title, genre, logline, and the entirely revised 8-sequence outline containing act_1, act_2, and act_3.`;
     }
 
     const response = await ai.models.generateContent({
