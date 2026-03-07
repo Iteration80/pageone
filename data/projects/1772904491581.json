@@ -1,0 +1,133 @@
+{
+  "id": "1772904491581",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Chrono-Heist",
+        "genre": "Sci-Fi Thriller",
+        "core_theme": "The inescapable weight of our past choices and the danger of trying to rewrite history.",
+        "logline": "A team of elite thieves must steal an artifact from a vault that exists simultaneously in three different time periods, requiring them to execute the heist in the past, present, and future perfectly in sync.",
+        "synopsis": "Act 1: Master thief Elias is recruited for an impossible job: stealing the Genesis Drive, a device locked in a quantum vault. To bypass the lock, three teams must break into the same physical location in 1924, 2024, and 2124.\n\nAct 2: Elias coordinates the teams across time using quantum communicators. Changes made by the 1924 team instantly alter the architecture and security measures for the 2024 and 2124 teams, leading to deadly, unpredictable paradoxes.\n\nAct 3: As the vault opens, Elias realizes the employer intends to use the Drive to erase history. He must sabotage his own heist across all timelines to save reality, sacrificing his only chance to undo his greatest regret."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "title": "Chrono-Heist",
+      "genre": "Sci-Fi Thriller",
+      "logline": "A team of elite thieves must steal an artifact from a vault that exists simultaneously in three different time periods, requiring them to execute the heist in the past, present, and future perfectly in sync.",
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Weight of the Past",
+            "beats": [
+              {
+                "beat_label": "Introduction",
+                "description": "Elias pulls off a flawless high-stakes heist in the present but returns home to a life defined by isolation, haunted by a tragic past mistake he cannot fix."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "A mysterious employer approaches Elias with an impossible job to steal the Genesis Drive from a tri-temporal quantum vault, offering Elias the one thing he wants: the power to rewrite his own history."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: Assembling the Chrono-Crew",
+            "beats": [
+              {
+                "beat_label": "Preparation",
+                "description": "Elias recruits specialized thieves for three distinct eras, briefing them on the strict rules of quantum entanglement communication and the lethal dangers of temporal divergence."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "The three teams synchronize their chronometers and simultaneously breach the perimeter in 1924, 2024, and 2124, crossing the threshold and locking themselves into the heist."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Butterfly Effect",
+            "beats": [
+              {
+                "beat_label": "Infiltration",
+                "description": "The teams navigate era-specific security measures, from analog guards to drone patrols, maintaining constant communication to stay perfectly aligned."
+              },
+              {
+                "beat_label": "First Ripple",
+                "description": "The 1924 team cuts a seemingly harmless power line to bypass a door, which instantly manifests as a deadly, unexpected laser grid for the 2024 and 2124 teams."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: Escalating Paradoxes",
+            "beats": [
+              {
+                "beat_label": "Adaptation",
+                "description": "Elias frantically coordinates workarounds, forcing the past team to make precise environmental changes to save the future teams from being annihilated by the shifting architecture."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "A guard in 1924 is accidentally killed during a scuffle, causing a massive temporal wave that shifts the 2024 and 2124 vaults into a heavily militarized lockdown, trapping the crews with no way out but forward."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: Fractured Timelines",
+            "beats": [
+              {
+                "beat_label": "Rising Tension",
+                "description": "Paranoia sets in as the teams realize their reality is fluid, and Elias struggles to keep them focused on the prize while casualties mount in the future timeline."
+              },
+              {
+                "beat_label": "Revelation",
+                "description": "While hacking the 2124 mainframe to bypass the lockdown, the future team uncovers encrypted files detailing the employer's true identity and their apocalyptic intentions for the Genesis Drive."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Vault Opens",
+            "beats": [
+              {
+                "beat_label": "Desperation",
+                "description": "Elias pushes the teams to the brink, intentionally using the temporal shifts to their advantage to destroy the final, impossible security gates across all three eras."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "The three vault doors open simultaneously to reveal the Genesis Drive, but Elias receives the decoded files proving the employer plans to use the artifact to erase all of modern history, forcing a devastating realization."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Sabotage",
+            "beats": [
+              {
+                "beat_label": "The Choice",
+                "description": "Elias realizes he must abandon his dream of fixing his own past to prevent global erasure, ordering his confused and angry teams to destroy the drive's temporal anchors instead of extracting it."
+              },
+              {
+                "beat_label": "The Pushback",
+                "description": "The employer anticipates the betrayal and deploys temporal mercenaries into all three timelines to secure the artifact and eliminate Elias's crew."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: Collapsing the Quantum State",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "Elias orchestrates a synchronized detonation across 1924, 2024, and 2124, fighting off the mercenaries in a desperate last stand while the timelines violently collapse around them."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The vault implodes, severing the temporal link and saving reality, leaving Elias in the present to finally accept the weight of his past choices and move forward."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
