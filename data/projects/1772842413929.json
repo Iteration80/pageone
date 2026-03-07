@@ -13,121 +13,121 @@
       "notes": ""
     },
     "stage2_outline": {
-      "genre": "Romantic Comedy / Magical Realism",
-      "logline": "A cynical divorce attorney discovers a magical photobooth that sends her back to the exact moments her past relationships fell apart, but she keeps running into the same charming stranger in every timeline.",
+      "title": "Right Time, Wrong Place",
+      "genre": "Horror / Romantic Thriller",
+      "logline": "A cynical divorce attorney trapped in a haunted mansion discovers a cursed photobooth that forces her to survive terrifying, demonic manifestations of her past breakups, aided only by a mysterious ghost hunter trapped in the same nightmare.",
       "outline": {
         "act_1": [
           {
+            "sequence_number_and_title": "Sequence 1: The Cynical Present",
             "beats": [
               {
-                "beat_label": "Opening Image",
-                "description": "Annie dominates a divorce mediation proving her deeply cynical view on love and commitment."
+                "beat_label": "Status Quo",
+                "description": "Annie dominates divorce court by proving love is a toxic trap, therefore she begrudgingly attends her sister's wedding at a notoriously haunted mansion and avoids all romantic encounters."
               },
               {
                 "beat_label": "Inciting Incident",
-                "description": "Annie attends her best friend's wedding gets drunk and hides in an antique photobooth wishing she could undo her own romantic regrets."
+                "description": "Annie gets drunk and wanders into the mansion's shadowy basement to hide, therefore she steps inside a rotting antique photobooth and wishes to erase her past, but a blood-red flash plunges her into a nightmarish, supernatural version of the house."
               }
-            ],
-            "sequence_number_and_title": "Sequence 1: The Cynic at the Altar"
+            ]
           },
           {
+            "sequence_number_and_title": "Sequence 2: The First Nightmare",
             "beats": [
               {
-                "beat_label": "The Awakening",
-                "description": "Annie wakes up five years earlier on the exact day her worst breakup occurs."
+                "beat_label": "The Attempt",
+                "description": "Annie wakes up trapped in a twisted, decaying version of the mansion on the day of her worst breakup, therefore she tries to reason with the manifestation of her ex, but he transforms into a grotesque entity that hunts her through the dark corridors."
               },
               {
                 "beat_label": "Plot Point 1",
-                "description": "She frantically tries to fix the relationship but fails spectacularly realizing she is trapped in a time-loop of her own romantic failures as the photobooth flashes again."
+                "description": "Annie realizes the timeline will reset only if she uses a past version of the cursed photobooth, therefore she takes another picture while fleeing the monster, firmly locking herself into a horrifying labyrinth of her past romantic failures."
               }
-            ],
-            "sequence_number_and_title": "Sequence 2: Flashback to Heartbreak"
+            ]
           }
         ],
         "act_2": [
           {
+            "sequence_number_and_title": "Sequence 3: The Pattern Emerges",
             "beats": [
               {
-                "beat_label": "The Next Jump",
-                "description": "Annie lands in another past relationship disaster attempting new tactics to save it but facing the same inevitable ruin."
+                "beat_label": "The Anomaly",
+                "description": "Annie lands in a new, terrifying timeline facing a demonic manifestation of a different ex, therefore she tries to hide in the mansion's attic, but she spots a bloodied paranormal photographer named Jack hiding in the shadows."
               },
               {
-                "beat_label": "Meeting Jack",
-                "description": "She repeatedly bumps into Jack a quirky wedding photographer who seems completely out of place and realizes he remembers the previous timeline jumps."
+                "beat_label": "The Confrontation",
+                "description": "Annie corners Jack, therefore they realize they are both trapped in this shifting, malevolent purgatory, but neither knows how to break the curse before the house consumes them."
               }
-            ],
-            "sequence_number_and_title": "Sequence 3: A Familiar Face"
+            ]
           },
           {
+            "sequence_number_and_title": "Sequence 4: Partners in Terror",
             "beats": [
               {
-                "beat_label": "Bonding",
-                "description": "Annie and Jack team up treating her past breakups like an escape room they must solve together."
+                "beat_label": "Teamwork",
+                "description": "Jack agrees to help Annie navigate the deadly traps of her manifested traumas, therefore they construct makeshift weapons to fight off her monstrous exes, but every victory only makes the haunted house more hostile and structurally unstable."
               },
               {
                 "beat_label": "Midpoint",
-                "description": "Annie gives up on saving her past relationships and shares a perfect romantic night with Jack in a doomed timeline shifting her desire entirely to him."
+                "description": "Annie stops running from her past and fights back alongside Jack to secure a safe room, therefore they share a profound, adrenaline-fueled romantic connection, fundamentally shifting her goal from mere survival to saving them both from the house."
               }
-            ],
-            "sequence_number_and_title": "Sequence 4: Let It Burn"
+            ]
           },
           {
+            "sequence_number_and_title": "Sequence 5: The Complication",
             "beats": [
               {
-                "beat_label": "Escalation",
-                "description": "The timeline jumps accelerate giving Annie and Jack less time together in each era and forcing them into a panicked race against time."
+                "beat_label": "The Distraction",
+                "description": "Annie and Jack discover a brief moment of peace and fall deeply in love, therefore they mistakenly believe they can survive indefinitely in the shadows, but the cursed photobooth strip physically manifests in blood to show they only have one jump left before their souls are trapped forever."
               },
               {
-                "beat_label": "The Warning",
-                "description": "They discover the photobooth's magic is running out of film meaning the next jump will be their final destination."
+                "beat_label": "The Ultimatum",
+                "description": "Jack reveals he is a spirit bound to the walls of this house, therefore he begs Annie to use the final jump to escape alone, but Annie refuses to abandon him to the dark entities closing in."
               }
-            ],
-            "sequence_number_and_title": "Sequence 5: The Rules of Time"
+            ]
           },
           {
+            "sequence_number_and_title": "Sequence 6: The Ultimate Choice",
             "beats": [
               {
                 "beat_label": "All Is Lost",
-                "description": "The photobooth offers Annie a choice to permanently stay in a curated safe past with Jack but it means erasing her hard-earned career and personal growth."
+                "description": "The haunted mansion unleashes a massive, horrific amalgamation of all Annie's past traumas to destroy them, therefore she pleads with Jack to step into the booth with her, but the house physically restrains him."
               },
               {
                 "beat_label": "Plot Point 2",
-                "description": "Jack refuses to let her sacrifice her true self and urges her to return to the present resulting in a tearful goodbye as she steps into the flash alone."
+                "description": "Annie makes the agonizing choice to break the curse by destroying the booth from the inside, therefore she triggers the final flash as the monsters tear into the room, sacrificing her safety for a terrifying leap into the unknown."
               }
-            ],
-            "sequence_number_and_title": "Sequence 6: The Ultimate Ultimatum"
+            ]
           }
         ],
         "act_3": [
           {
+            "sequence_number_and_title": "Sequence 7: The Present Reality",
             "beats": [
               {
                 "beat_label": "The Return",
-                "description": "Annie wakes up in her present-day apartment fundamentally changed and ready to embrace the unknown."
+                "description": "Annie wakes up gasping in the present day inside the dusty, dormant photobooth at her sister's wedding, therefore she rushes out to find Jack, but the basement is empty and completely normal."
               },
               {
-                "beat_label": "The Climax",
-                "description": "She uses every clue she gathered about Jack from the past timelines to track down his present-day whereabouts across the city."
+                "beat_label": "The Search",
+                "description": "Annie uses her aggressive investigative skills to research the mansion's history, therefore she discovers Jack was a missing photographer who recently escaped the house's curse and woke up from a coma, but she is terrified his trauma erased his memory of her."
               }
-            ],
-            "sequence_number_and_title": "Sequence 7: The Leap of Faith"
+            ]
           },
           {
+            "sequence_number_and_title": "Sequence 8: Unwritten Future",
             "beats": [
               {
-                "beat_label": "The Reunion",
-                "description": "Annie finds Jack at a local art gallery where he looks at her with a spark of recognition proving the magic was real."
+                "beat_label": "The Climax",
+                "description": "Annie tracks Jack down to a local hospital where he is recovering, but he initially looks at her as a stranger, therefore she takes a massive leap of faith and shows him a torn photo strip from the cursed booth."
               },
               {
-                "beat_label": "Final Image",
-                "description": "Annie steps into a modern photobooth with Jack smiling as the flash goes off finally looking forward instead of backward."
+                "beat_label": "Resolution",
+                "description": "Jack sees the photo and feels a strange, undeniable spark of recognition, therefore Annie finally lets go of her past fears, stepping confidently into a completely unwritten, ghost-free future together."
               }
-            ],
-            "sequence_number_and_title": "Sequence 8: The Unwritten Chapter"
+            ]
           }
         ]
-      },
-      "title": "Right Time, Wrong Place"
+      }
     }
   }
 }
