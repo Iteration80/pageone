@@ -186,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Re-bind final approve button text if it was already saved
                             if (btnStage1Approve) {
                                 btnStage1Approve.textContent = 'Approved ✓';
+                                btnStage1Approve.classList.add('approve-btn-green');
                             }
                         }
 
@@ -194,6 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Hydrate Stage 2 Outline if exists
                         if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
                             renderOutline(projectDetails.data.stage2_outline.outline);
+                            if (btnStage2Approve) {
+                                btnStage2Approve.textContent = 'Approved ✓';
+                                btnStage2Approve.classList.add('approve-btn-green');
+                            }
                         } else {
                             document.getElementById('act1Container').innerHTML = '';
                             document.getElementById('act2Container').innerHTML = '';
@@ -398,6 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Clear notes
                 stage1Notes.value = '';
+                if (btnStage1Approve) {
+                    btnStage1Approve.textContent = 'Approve';
+                    btnStage1Approve.classList.remove('approve-btn-green');
+                }
             } else {
                 alert("Unexpected response format from server.");
             }
@@ -439,6 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!activeProjectId) throw new Error("No active project ID.");
             btnStage1Approve.textContent = 'Saving...';
             btnStage1Approve.disabled = true;
+            btnStage1Approve.classList.remove('approve-btn-green');
 
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
@@ -450,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Final Approved Pitch Saved:', payload);
 
             btnStage1Approve.textContent = 'Approved ✓';
+            btnStage1Approve.classList.add('approve-btn-green');
             btnStage1Revise.disabled = true;
 
             // Update Navigation UI
@@ -457,7 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
             alert("An error occurred while saving to the database.");
-            btnStage1Approve.textContent = 'Approved ✓';
+            btnStage1Approve.textContent = 'Approve';
+            btnStage1Approve.classList.remove('approve-btn-green');
             btnStage1Approve.disabled = false;
         }
     });
@@ -629,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         triggerBtn.textContent = 'Saving...';
         triggerBtn.disabled = true;
+        triggerBtn.classList.remove('approve-btn-green');
 
         try {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
@@ -646,9 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStageNav(updatedProject.data);
 
             triggerBtn.textContent = 'Approved ✓';
-            setTimeout(() => {
-                triggerBtn.textContent = originalText;
-            }, 3000);
+            triggerBtn.classList.add('approve-btn-green');
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
@@ -693,6 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             renderOutline(data.result.outline);
             stage2Notes.value = '';
+
+            if (btnStage2Approve) {
+                btnStage2Approve.textContent = 'Approve';
+                btnStage2Approve.classList.remove('approve-btn-green');
+            }
         } catch (err) {
             console.error(err);
             alert(err.message);

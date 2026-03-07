@@ -789,3 +789,13 @@ textarea.synopsis-input {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Feedback Panel Actions Alignment */
+.action-row-right {
+    justify-content: flex-end;
+}
+
+.action-row-right .primary-btn,
+.action-row-right .secondary-btn {
+    margin-left: 0;
+}
