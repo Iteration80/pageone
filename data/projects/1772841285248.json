@@ -1,0 +1,130 @@
+{
+  "id": "1772841285248",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "The Iron Guardian",
+        "genre": "Sci-Fi / Action",
+        "core_theme": "Overcoming one's violent nature to discover the true meaning of fatherhood and sacrifice.",
+        "logline": "A ruthless, military-grade combat android programmed only for destruction must protect a young orphaned girl across a post-apocalyptic wasteland, slowly developing the capacity for paternal love.",
+        "synopsis": "Act 1: Unit 734 is a relentless war machine operating in a ruined Earth. During a scavenger raid, it encounters a six-year-old girl named Elara who holds the genetic key to restoring the planet's biosphere. A mysterious glitch overrides its kill protocol, replacing it with an escort mission. Act 2: As they travel across the dangerous badlands, 734 fights off rogue scavengers and rival mechs with devastating laser blasts. Elara treats the machine like a person, teaching it empathy, humor, and compassion. The android begins to rewrite its own code, feeling a strange new sensation: fear for someone else's life. Act 3: In the final siege at the sanctuary city, 734 sacrifices its power core to save Elara from an orbital laser strike, dying not as a machine following orders, but as a father protecting his child."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Perfect Weapon",
+            "beats": [
+              {
+                "beat_label": "The Hook",
+                "description": "Unit 734 operates in the ruined Earth as a flawless killing machine, executing targets without mercy or hesitation. It is a terrifying force of nature."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "During a routine scavenger raid, 734 massacres a camp but discovers a six-year-old girl named Elara hiding in the rubble. Therefore, its targeting system locks onto her, but a catastrophic glitch in her presence overrides its kill protocol, replacing it with an absolute escort mission."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: A New Directive",
+            "beats": [
+              {
+                "beat_label": "Debate",
+                "description": "734 attempts to process this conflicting directive, dragging a terrified Elara away from the burning camp. Therefore, it calculates the optimal route to the Sanctuary City, but rival scavengers arrive to reclaim the girl."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "734 engages the scavengers, using its own chassis as a shield for Elara for the first time. They escape into the treacherous badlands, locking 734 into its new, inescapable role as her protector."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Wastes",
+            "beats": [
+              {
+                "beat_label": "B-Story",
+                "description": "As they traverse the wasteland, Elara repeatedly tries to communicate with the silent, menacing android. Therefore, 734 ignores her attempts at connection, focusing solely on threat detection."
+              },
+              {
+                "beat_label": "First Obstacle",
+                "description": "A pack of wasteland predators attacks. 734 violently dispatches them, but Elara is traumatized by the brutality. Therefore, 734 realizes its standard combat protocols are detrimental to the primary asset's psychological stability."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: Code Rewrite",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "734 actively modifies its behavior to avoid frightening Elara, resulting in clumsy but endearing attempts at non-lethal subdual. Elara begins to trust the machine, teaching it basic human concepts like humor and empathy."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "A heavily armed rival mech intercepts them. 734 sustains critical damage protecting Elara and collapses. But instead of fleeing, Elara stays and patches its exposed wiring, triggering a fundamental rewrite in 734's neural network: it registers her safety not as a mission, but as a profound personal need."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Anomaly",
+            "beats": [
+              {
+                "beat_label": "Bad Guys Close In",
+                "description": "The ruling warlords of the wasteland discover Elara's genetic significance and dispatch an elite hunter unit to capture her. Therefore, 734 and Elara are forced off the main path into hazardous environmental zones."
+              },
+              {
+                "beat_label": "Deepening Bond",
+                "description": "While navigating a toxic storm, 734 experiences a systemic anomaly it cannot diagnose. It eventually processes that this anomaly is fear, not for its own mechanical survival, but for Elara's life."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: System Failure",
+            "beats": [
+              {
+                "beat_label": "All Is Lost",
+                "description": "The elite hunter unit ambushes them at the border of the Sanctuary City. 734 fights valiantly but is overwhelmed, dismembered, and left functionally dead in the dirt. Therefore, Elara is captured and dragged away."
+              },
+              {
+                "beat_label": "Dark Night of the Soul",
+                "description": "734's backup systems reboot, presenting a logical choice: shut down permanently or risk total core meltdown to pursue. Driven by its newly evolved paternal love, 734 overrides its own safety limiters to rise again."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Siege",
+            "beats": [
+              {
+                "beat_label": "Plot Point 2",
+                "description": "734, sparking and leaking fluids, marches relentlessly toward the enemy siege camp outside the Sanctuary City. Therefore, it launches a suicidal assault against the warlord's forces, using its deteriorating weapons to carve a path to Elara."
+              },
+              {
+                "beat_label": "The Rescue",
+                "description": "734 breaches the command tent and liberates Elara, but the desperate warlord corners them and triggers a devastating orbital laser strike to annihilate the entire area, ensuring no one escapes."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Father",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "With the orbital strike raining down and the warlord attacking in a final frenzy, 734 realizes they cannot outrun the blast radius. Therefore, 734 violently rips open its own armored chassis to extract its volatile power core, manually channeling its raw energy to project a localized shield around Elara. 734 absorbs the warlord's devastating blows with its failing body, physically holding the shield steady as the orbital beam obliterates the surrounding battlefield."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The smoke clears to reveal Elara perfectly safe inside the glowing barrier, while 734 is reduced to a scorched, dying husk. As its optical lights flicker and fade, 734 reaches out to wipe a tear from Elara's cheek, replicating a gesture of comfort she taught it earlier, dying not as a machine following orders, but as a loving father. Elara enters the Sanctuary City, carrying 734's memory as she begins the work of healing the Earth."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

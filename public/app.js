@@ -21,9 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsContainer = document.getElementById('resultsContainer');
     const pdfUpload = document.getElementById('pdfUpload');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const stage1FeedbackPanel = document.getElementById('stage1FeedbackPanel');
+    const stage1Notes = document.getElementById('stage1-notes');
+    const btnStage1Revise = document.getElementById('btn-stage1-revise');
+    const btnStage1Approve = document.getElementById('btn-stage1-approve');
 
     const generateOutlineBtn = document.getElementById('generateOutlineBtn');
-    const saveOutlineBtn = document.getElementById('saveOutlineBtn');
     const outlineContainer = document.getElementById('outlineContainer');
     const loadingStateOutline = document.getElementById('loadingStateOutline');
 
@@ -176,15 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             handleApprove(cardElement, 0);
 
                             // Pre-fill notes
-                            const notesInput = cardElement.querySelector('.notes-input');
-                            if (notesInput && notes) {
-                                notesInput.value = notes;
+                            if (stage1Notes && notes) {
+                                stage1Notes.value = notes;
                             }
 
                             // Re-bind final approve button text if it was already saved
-                            const finalApproveBtn = cardElement.querySelector('.final-approve-btn');
-                            if (finalApproveBtn) {
-                                finalApproveBtn.textContent = 'Pitch Approved & Saved ✔';
+                            if (btnStage1Approve) {
+                                btnStage1Approve.textContent = 'Approved ✓';
                             }
                         }
 
@@ -197,7 +198,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             document.getElementById('act1Container').innerHTML = '';
                             document.getElementById('act2Container').innerHTML = '';
                             document.getElementById('act3Container').innerHTML = '';
-                            saveOutlineBtn.classList.add('hidden');
                             stage2Workshop.classList.add('hidden');
                         }
                     } else {
@@ -342,134 +342,124 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide the "Select to Workshop" button
         const btn = selectedCard.querySelector('.approve-btn');
-        btn.style.display = 'none';
+        if (btn) btn.style.display = 'none';
 
-        // Add the workshop UI at the bottom of the card
-        const workshopSection = document.createElement('div');
-        workshopSection.className = 'workshop-section';
-        workshopSection.innerHTML = `
-            <div class="field-group">
-                <label>Notes</label>
-                <textarea class="editable-field notes-input" placeholder="e.g., Make it scarier, change the setting..."></textarea>
-            </div>
-            <div class="workshop-actions">
-                <button class="revise-btn">Revise Pitch</button>
-                <button class="final-approve-btn">Approve</button>
-            </div>
-        `;
-        selectedCard.appendChild(workshopSection);
-
-        // Event listener for Revise Pitch
-        const reviseBtn = workshopSection.querySelector('.revise-btn');
-        const notesInput = workshopSection.querySelector('.notes-input');
-
-        reviseBtn.addEventListener('click', async () => {
-            const userNote = notesInput.value.trim();
-            if (!userNote) {
-                alert("Please enter a note for the revision.");
-                return;
-            }
-
-            // Gather current pitch data
-            const currentFields = selectedCard.querySelectorAll('.pitch-card > .field-group .editable-field');
-            const currentPitch = {};
-            currentFields.forEach(field => {
-                const key = field.getAttribute('data-field');
-                currentPitch[key] = field.value;
-            });
-
-            // Set loading state
-            const originalText = reviseBtn.textContent;
-            reviseBtn.textContent = 'Revising...';
-            reviseBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/refine-pitch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currentPitch, userNote })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with ${response.status}`);
-                }
-
-                const data = await response.json();
-                const revisedPitch = data.result;
-
-                if (revisedPitch) {
-                    // Update UI fields
-                    currentFields.forEach(field => {
-                        const key = field.getAttribute('data-field');
-                        if (revisedPitch[key]) {
-                            field.value = revisedPitch[key];
-                        }
-                    });
-
-                    // Clear notes
-                    notesInput.value = '';
-                } else {
-                    alert("Unexpected response format from server.");
-                }
-            } catch (error) {
-                console.error(error);
-                alert("An error occurred while revising the pitch.");
-            } finally {
-                reviseBtn.textContent = originalText;
-                reviseBtn.disabled = false;
-            }
-        });
-
-        // Event listener for Final Approve
-        const finalApproveBtn = workshopSection.querySelector('.final-approve-btn');
-        finalApproveBtn.addEventListener('click', async () => {
-            // Re-grab the edited data just in case they changed it during workshop
-            const finalFields = selectedCard.querySelectorAll('.pitch-card > .field-group .editable-field');
-            const finalData = {};
-            finalFields.forEach(field => {
-                const key = field.getAttribute('data-field');
-                finalData[key] = field.value;
-            });
-            const notes = workshopSection.querySelector('.notes-input').value;
-
-            // Set nested payload for Stage 1 data
-            const payload = {
-                data: {
-                    stage1_pitch: {
-                        pitch: finalData,
-                        notes: notes
-                    }
-                }
-            };
-
-            // Save to the active project DB route
-            try {
-                if (!activeProjectId) throw new Error("No active project ID.");
-                finalApproveBtn.textContent = 'Saving...';
-                finalApproveBtn.disabled = true;
-
-                const res = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const updatedProject = await res.json();
-
-                console.log('Final Approved Pitch Saved:', payload);
-
-                finalApproveBtn.textContent = 'Pitch Approved & Saved ✔';
-                workshopSection.querySelector('.revise-btn').disabled = true;
-
-                // Update Navigation UI
-                updateStageNav(updatedProject.data);
-            } catch (error) {
-                console.error("Failed to save approved pitch:", error);
-                alert("An error occurred while saving to the database.");
-                finalApproveBtn.textContent = 'Approve';
-                finalApproveBtn.disabled = false;
-            }
-        });
+        // Show the Stage 1 Feedback Panel
+        stage1FeedbackPanel.classList.remove('hidden');
     }
+
+    // --- Stage 1 Feedback Panel Logic ---
+    btnStage1Revise.addEventListener('click', async () => {
+        const userNote = stage1Notes.value.trim();
+        if (!userNote) {
+            alert("Please enter a note for the revision.");
+            return;
+        }
+
+        // Grab current pitch data from expanded card
+        const expandedCard = document.querySelector('.pitch-card.expanded');
+        if (!expandedCard) return;
+
+        const currentFields = expandedCard.querySelectorAll('.field-group .editable-field');
+        const currentPitch = {};
+        currentFields.forEach(field => {
+            const key = field.getAttribute('data-field');
+            currentPitch[key] = field.value;
+        });
+
+        // Set loading state
+        const originalText = btnStage1Revise.textContent;
+        btnStage1Revise.textContent = 'Revising...';
+        btnStage1Revise.disabled = true;
+
+        try {
+            const response = await fetch('/api/refine-pitch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPitch, userNote })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+
+            const data = await response.json();
+            const revisedPitch = data.result;
+
+            if (revisedPitch) {
+                // Update UI fields
+                currentFields.forEach(field => {
+                    const key = field.getAttribute('data-field');
+                    if (revisedPitch[key]) {
+                        field.value = revisedPitch[key];
+                    }
+                });
+
+                // Clear notes
+                stage1Notes.value = '';
+            } else {
+                alert("Unexpected response format from server.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred while revising the pitch.");
+        } finally {
+            btnStage1Revise.textContent = originalText;
+            btnStage1Revise.disabled = false;
+        }
+    });
+
+    // Event listener for Final Approve Stage 1
+    btnStage1Approve.addEventListener('click', async () => {
+        const expandedCard = document.querySelector('.pitch-card.expanded');
+        if (!expandedCard) return;
+
+        // Re-grab the edited data just in case they changed it during workshop
+        const finalFields = expandedCard.querySelectorAll('.field-group .editable-field');
+        const finalData = {};
+        finalFields.forEach(field => {
+            const key = field.getAttribute('data-field');
+            finalData[key] = field.value;
+        });
+        const notes = stage1Notes.value;
+
+        // Set nested payload for Stage 1 data
+        const payload = {
+            data: {
+                stage1_pitch: {
+                    pitch: finalData,
+                    notes: notes
+                }
+            }
+        };
+
+        // Save to the active project DB route
+        try {
+            if (!activeProjectId) throw new Error("No active project ID.");
+            btnStage1Approve.textContent = 'Saving...';
+            btnStage1Approve.disabled = true;
+
+            const res = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const updatedProject = await res.json();
+
+            console.log('Final Approved Pitch Saved:', payload);
+
+            btnStage1Approve.textContent = 'Approved ✓';
+            btnStage1Revise.disabled = true;
+
+            // Update Navigation UI
+            updateStageNav(updatedProject.data);
+        } catch (error) {
+            console.error("Failed to save approved pitch:", error);
+            alert("An error occurred while saving to the database.");
+            btnStage1Approve.textContent = 'Approved ✓';
+            btnStage1Approve.disabled = false;
+        }
+    });
 
     // --- Navigation Logic ---
     function updateStageNav(data) {
@@ -591,7 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (outlineData.act_2) renderSequences(outlineData.act_2, act2Container);
         if (outlineData.act_3) renderSequences(outlineData.act_3, act3Container);
 
-        saveOutlineBtn.classList.remove('hidden');
         document.getElementById('outlineContainer').classList.remove('hidden');
         stage2Workshop.classList.remove('hidden');
     }
@@ -653,10 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Navigation UI
             updateStageNav(updatedProject.data);
 
-            triggerBtn.textContent = 'Beats Saved ✔';
-            if (triggerBtn.id === 'btn-stage2-approve') {
-                triggerBtn.style.backgroundColor = '#10b981'; // solid emerald-500
-            }
+            triggerBtn.textContent = 'Approved ✓';
             setTimeout(() => {
                 triggerBtn.textContent = originalText;
             }, 3000);
@@ -669,7 +655,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    saveOutlineBtn.addEventListener('click', () => saveOutlineEdits(saveOutlineBtn));
     btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
 
     btnStage2Revise.addEventListener('click', async () => {

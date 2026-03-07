@@ -49,93 +49,107 @@
 
         <!-- Main Workspace (Stage 1) -->
         <main id="stage1Workspace" class="workspace">
-            <header class="workspace-header">
-                <h1>Stage 1: Pitch Generation</h1>
-                <p>Brainstorm three distinct, high-concept movie pitch options.</p>
-            </header>
+            <div class="workspace-scrollable">
+                <header class="workspace-header">
+                    <h1>Stage 1: Pitch Generation</h1>
+                    <p>Brainstorm three distinct, high-concept movie pitch options.</p>
+                </header>
 
-            <section class="prompt-section">
-                <textarea id="promptInput" placeholder="Enter your raw story idea here..."></textarea>
+                <section class="prompt-section">
+                    <textarea id="promptInput" placeholder="Enter your raw story idea here..."></textarea>
+                    <div class="action-row">
+                        <label for="pdfUpload" class="icon-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-paperclip">
+                                <path
+                                    d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                            </svg>
+                            Attach PDF
+                        </label>
+                        <input type="file" id="pdfUpload" accept="application/pdf" class="hidden">
+                        <span id="fileNameDisplay" class="file-name"></span>
+                        <button id="generateBtn" class="primary-btn">Generate Pitches</button>
+                    </div>
+                </section>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Generating high-concept pitches...</p>
+                </div>
+
+                <!-- Pitch Results Container -->
+                <div id="resultsContainer" class="results-grid">
+                    <!-- Cards will be injected here dynamically -->
+                </div>
+            </div>
+
+            <!-- Stage 1 Feedback Panel (Sticky) -->
+            <section id="stage1FeedbackPanel" class="feedback-panel hidden">
+                <label for="stage1-notes" class="feedback-label">FEEDBACK</label>
+                <textarea id="stage1-notes" class="notes-input"
+                    placeholder="e.g. Make it scarier, change the setting..."></textarea>
                 <div class="action-row">
-                    <label for="pdfUpload" class="icon-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-paperclip">
-                            <path
-                                d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                        </svg>
-                        Attach PDF
-                    </label>
-                    <input type="file" id="pdfUpload" accept="application/pdf" class="hidden">
-                    <span id="fileNameDisplay" class="file-name"></span>
-                    <button id="generateBtn" class="primary-btn">Generate Pitches</button>
+                    <button id="btn-stage1-revise" class="secondary-btn">Revise Pitch</button>
+                    <button id="btn-stage1-approve" class="primary-btn approve-btn-green">Approved ✓</button>
                 </div>
             </section>
-
-            <!-- Loading State -->
-            <div id="loadingState" class="hidden">
-                <div class="spinner"></div>
-                <p>Generating high-concept pitches...</p>
-            </div>
-
-            <!-- Pitch Results Container -->
-            <div id="resultsContainer" class="results-grid">
-                <!-- Cards will be injected here dynamically -->
-            </div>
         </main>
 
         <!-- Stage 2 Workspace (Hidden by default) -->
         <main id="stage2Workspace" class="workspace hidden">
-            <header class="workspace-header">
-                <h1>Stage 2: Beats</h1>
-                <p>Expand your finalized pitch into a structured 8-sequence beat sheet.</p>
-                <div class="action-row" style="margin-top: 16px;">
-                    <button id="generateOutlineBtn" class="primary-btn">Generate Beats</button>
-                    <button id="saveOutlineBtn" class="secondary-btn hidden">Save Beat Edits</button>
-                </div>
-            </header>
+            <div class="workspace-scrollable">
+                <header class="workspace-header">
+                    <h1>Stage 2: Beats</h1>
+                    <p>Expand your finalized pitch into a structured 8-sequence beat sheet.</p>
+                    <div class="action-row" style="margin-top: 16px;">
+                        <button id="generateOutlineBtn" class="primary-btn">Generate Beats</button>
+                    </div>
+                </header>
 
-            <!-- Loading State for Outline -->
-            <div id="loadingStateOutline" class="hidden" style="text-align: center; margin-top: 32px;">
-                <div class="spinner"></div>
-                <p>Structuring story beats...</p>
+                <!-- Loading State for Outline -->
+                <div id="loadingStateOutline" class="hidden" style="text-align: center; margin-top: 32px;">
+                    <div class="spinner"></div>
+                    <p>Structuring story beats...</p>
+                </div>
+
+                <!-- Outline Results Container (3-Act Structure) -->
+                <div id="outlineContainer" class="three-act-grid hidden"
+                    style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; padding: 16px 0; margin-top: 24px;">
+                    <!-- Act I Column -->
+                    <div class="act-column">
+                        <h2>Act I <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
+                                1-2)</span></h2>
+                        <div id="act1Container" class="sequence-list"></div>
+                    </div>
+
+                    <!-- Act II Column -->
+                    <div class="act-column">
+                        <h2>Act II <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
+                                3-6)</span></h2>
+                        <div id="act2Container" class="sequence-list"></div>
+                    </div>
+
+                    <!-- Act III Column -->
+                    <div class="act-column">
+                        <h2>Act III <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
+                                7-8)</span></h2>
+                        <div id="act3Container" class="sequence-list"></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Outline Results Container (3-Act Structure) -->
-            <div id="outlineContainer" class="three-act-grid hidden"
-                style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; padding: 16px 0; margin-top: 24px;">
-                <!-- Act I Column -->
-                <div class="act-column">
-                    <h2>Act I <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
-                            1-2)</span></h2>
-                    <div id="act1Container" class="sequence-list"></div>
+            <!-- Stage 2 Workshop section (Sticky Feedback Panel) -->
+            <section id="stage2Workshop" class="feedback-panel hidden">
+                <label for="stage2-notes" class="feedback-label">FEEDBACK</label>
+                <textarea id="stage2-notes" class="notes-input"
+                    placeholder="e.g. Make the midpoint more dramatic..."></textarea>
+                <div class="action-row">
+                    <button id="btn-stage2-revise" class="secondary-btn">Revise Beats</button>
+                    <button id="btn-stage2-approve" class="primary-btn approve-btn-green">Approved ✓</button>
                 </div>
-
-                <!-- Act II Column -->
-                <div class="act-column">
-                    <h2>Act II <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
-                            3-6)</span></h2>
-                    <div id="act2Container" class="sequence-list"></div>
-                </div>
-
-                <!-- Act III Column -->
-                <div class="act-column">
-                    <h2>Act III <span style="font-size: 0.8rem; color: #9ca3af; font-weight: normal;">(Sequences
-                            7-8)</span></h2>
-                    <div id="act3Container" class="sequence-list"></div>
-                </div>
-
-                <!-- Stage 2 Workshop section -->
-                <section id="stage2Workshop" class="prompt-section hidden" style="margin-top: 32px;">
-                    <label for="stage2-notes"
-                        style="display: block; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.9rem;">NOTES</label>
-                    <textarea id="stage2-notes" placeholder="e.g. Make the midpoint more dramatic..."></textarea>
-                    <div class="action-row">
-                        <button id="btn-stage2-revise" class="secondary-btn">Revise Beats</button>
-                        <button id="btn-stage2-approve" class="primary-btn" style="background-color: #10b981;">Beats
-                            Approved & Saved ✓</button>
-                    </div>
-                </section>
+            </section>
         </main>
     </div>
 
