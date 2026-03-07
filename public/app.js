@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage1Notes = document.getElementById('stage1-notes');
     const btnStage1Revise = document.getElementById('btn-stage1-revise');
     const btnStage1Approve = document.getElementById('btn-stage1-approve');
+    const btnStage1Edit = document.getElementById('btn-stage1-edit');
 
     const outlineContainer = document.getElementById('outlineContainer');
     const loadingStateOutline = document.getElementById('loadingStateOutline');
@@ -182,11 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 stage1Notes.value = notes;
                             }
 
-                            // Re-bind final approve button text if it was already saved
-                            if (btnStage1Approve) {
-                                btnStage1Approve.textContent = 'Approved ✓';
-                                btnStage1Approve.classList.add('approve-btn-green');
-                            }
+                            // Lock textareas and show Approved / Revise state
+                            toggleStage1EditMode(true);
                         }
 
                         updateStageNav(projectDetails.data);
@@ -349,7 +347,39 @@ document.addEventListener('DOMContentLoaded', () => {
         stage1FeedbackPanel.classList.remove('hidden');
     }
 
+    function toggleStage1EditMode(isApproved) {
+        const expandedCard = document.querySelector('.pitch-card.expanded');
+        if (expandedCard) {
+            const fields = expandedCard.querySelectorAll('.field-group .editable-field');
+            fields.forEach(f => f.disabled = isApproved);
+        }
+        if (stage1Notes) stage1Notes.disabled = isApproved;
+
+        if (isApproved) {
+            if (btnStage1Revise) btnStage1Revise.disabled = true;
+            if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
+            if (btnStage1Approve) {
+                btnStage1Approve.textContent = 'Approved ✓';
+                btnStage1Approve.classList.add('approve-btn-green');
+                btnStage1Approve.disabled = true;
+            }
+        } else {
+            if (btnStage1Revise) btnStage1Revise.disabled = false;
+            if (btnStage1Edit) btnStage1Edit.classList.add('hidden');
+            if (btnStage1Approve) {
+                btnStage1Approve.textContent = 'Approve';
+                btnStage1Approve.classList.remove('approve-btn-green');
+                btnStage1Approve.disabled = false;
+            }
+        }
+    }
+
     // --- Stage 1 Feedback Panel Logic ---
+    if (btnStage1Edit) {
+        btnStage1Edit.addEventListener('click', () => {
+            toggleStage1EditMode(false);
+        });
+    }
     btnStage1Revise.addEventListener('click', async () => {
         const userNote = stage1Notes.value.trim();
         if (!userNote) {
@@ -458,9 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('Final Approved Pitch Saved:', payload);
 
-            btnStage1Approve.textContent = 'Approved ✓';
-            btnStage1Approve.classList.add('approve-btn-green');
-            btnStage1Revise.disabled = true;
+            toggleStage1EditMode(true);
 
             // Update Navigation UI
             updateStageNav(updatedProject.data);

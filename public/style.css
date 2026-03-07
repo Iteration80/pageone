@@ -251,6 +251,35 @@ body {
     transform: scale(0.98);
 }
 
+.primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.danger-btn {
+    margin-left: auto;
+    background-color: #ef4444;
+    /* red-500 */
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.danger-btn:hover {
+    background-color: #dc2626;
+    /* red-600 */
+}
+
+.danger-btn:active {
+    transform: scale(0.98);
+}
+
 /* Loading State */
 .hidden {
     display: none !important;

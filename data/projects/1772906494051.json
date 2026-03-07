@@ -13,9 +13,6 @@
       "notes": ""
     },
     "stage2_outline": {
-      "title": "The Memory Mint",
-      "genre": "Sci-Fi Thriller",
-      "logline": "In a dystopian future where human memories are traded as currency, a desperate cop must expose a counterfeiting ring injecting fake, euphoric memories into the populace before society entirely loses its grip on reality.",
       "outline": {
         "act_1": [
           {
@@ -51,7 +48,7 @@
             "beats": [
               {
                 "beat_label": "Entering the Unknown",
-                "description": "Kael navigates the dangerous memory-trading underworld and apprehends a cynical but brilliant rogue memory-weaver named Elara."
+                "description": "Kael navigates the dangerous memory-trading underworld and apprehends a cynical but brilliant rogue memory-weaver named Cora."
               },
               {
                 "beat_label": "The Bargain",
