@@ -382,10 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     btnStage1Revise.addEventListener('click', async () => {
         const userNote = stage1Notes.value.trim();
-        if (!userNote) {
-            alert("Please enter a note for the revision.");
-            return;
-        }
 
         // Grab current pitch data from expanded card
         const expandedCard = document.querySelector('.pitch-card.expanded');
@@ -400,6 +396,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set loading state
         const originalText = btnStage1Revise.textContent;
+
+        if (!userNote) {
+            // No AI feedback provided, treat as a manual save
+            if (!activeProjectId) return;
+            try {
+                btnStage1Revise.textContent = 'Saving...';
+                btnStage1Revise.disabled = true;
+
+                const payload = {
+                    data: {
+                        stage1_pitch: {
+                            pitch: currentPitch,
+                            notes: ""
+                        }
+                    }
+                };
+
+                await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // Indicate success visually
+                btnStage1Revise.textContent = 'Saved!';
+                setTimeout(() => {
+                    btnStage1Revise.textContent = originalText;
+                    btnStage1Revise.disabled = false;
+                }, 1500);
+
+                if (btnStage1Approve) {
+                    btnStage1Approve.textContent = 'Approve';
+                    btnStage1Approve.classList.remove('approve-btn-green');
+                }
+            } catch (err) {
+                console.error("Failed to manual save:", err);
+                alert("An error occurred while saving your manual changes.");
+                btnStage1Revise.textContent = originalText;
+                btnStage1Revise.disabled = false;
+            }
+            return;
+        }
+
+        // Set loading state for AI revision
         btnStage1Revise.textContent = 'Revising...';
         btnStage1Revise.disabled = true;
 
@@ -710,15 +750,47 @@ document.addEventListener('DOMContentLoaded', () => {
     btnStage2Revise.addEventListener('click', async () => {
         if (!activeProjectId) return;
         const notes = stage2Notes.value.trim();
+
+        const currentBeats = scrapeOutline();
+        const originalText = btnStage2Revise.textContent;
+
         if (!notes) {
-            alert("Please enter notes for revision.");
+            // Treat as a manual save if there's no feedback
+            try {
+                btnStage2Revise.textContent = 'Saving...';
+                btnStage2Revise.disabled = true;
+
+                await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: {
+                            stage2_outline: { outline: currentBeats }
+                        }
+                    })
+                });
+
+                btnStage2Revise.textContent = 'Saved!';
+                setTimeout(() => {
+                    btnStage2Revise.textContent = originalText;
+                    btnStage2Revise.disabled = false;
+                }, 1500);
+
+                if (btnStage2Approve) {
+                    btnStage2Approve.textContent = 'Approve';
+                    btnStage2Approve.classList.remove('approve-btn-green');
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to save manual changes.");
+                btnStage2Revise.textContent = originalText;
+                btnStage2Revise.disabled = false;
+            }
             return;
         }
 
-        const currentBeats = scrapeOutline();
         loadingStateOutline.classList.remove('hidden');
         btnStage2Revise.disabled = true;
-        const originalText = btnStage2Revise.textContent;
         btnStage2Revise.textContent = 'Revising...';
 
         try {
