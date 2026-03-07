@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage1Revise = document.getElementById('btn-stage1-revise');
     const btnStage1Approve = document.getElementById('btn-stage1-approve');
 
-    const generateOutlineBtn = document.getElementById('generateOutlineBtn');
     const outlineContainer = document.getElementById('outlineContainer');
     const loadingStateOutline = document.getElementById('loadingStateOutline');
 
@@ -300,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="field-group">
                     <label>Core Theme</label>
-                    <input type="text" class="editable-field" data-field="core_theme" value="${escapeHtml(pitch.core_theme)}">
+                    <textarea class="editable-field" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
                 </div>
                 <div class="field-group">
                     <label>Logline</label>
@@ -470,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const stage2Done = updatedProject.data && updatedProject.data.stage2_outline && updatedProject.data.stage2_outline.outline;
             if (!stage2Done) {
                 switchStage(2);
-                generateOutlineBtn.click();
+                autoGenerateBeats();
             }
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
@@ -534,14 +533,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Stage 2 Logic ---
-    generateOutlineBtn.addEventListener('click', async () => {
+    async function autoGenerateBeats() {
         if (!activeProjectId) return;
 
         loadingStateOutline.classList.remove('hidden');
         document.getElementById('act1Container').innerHTML = '';
         document.getElementById('act2Container').innerHTML = '';
         document.getElementById('act3Container').innerHTML = '';
-        generateOutlineBtn.disabled = true;
 
         try {
             const res = await fetch('/api/generate-outline', {
@@ -562,9 +560,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(err.message);
         } finally {
             loadingStateOutline.classList.add('hidden');
-            generateOutlineBtn.disabled = false;
         }
-    });
+    }
 
     function renderOutline(outlineData) {
         const act1Container = document.getElementById('act1Container');

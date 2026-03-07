@@ -345,11 +345,11 @@ body {
 
 textarea.editable-field {
     resize: vertical;
-    min-height: 80px;
+    min-height: 120px;
 }
 
 textarea.synopsis-input {
-    min-height: 160px;
+    min-height: 260px;
 }
 
 .approve-btn {
