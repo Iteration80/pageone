@@ -493,12 +493,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Navigation UI
             updateStageNav(updatedProject.data);
 
-            // Auto-trigger Stage 2 Beats if not already generated
-            const stage2Done = updatedProject.data && updatedProject.data.stage2_outline && updatedProject.data.stage2_outline.outline;
-            if (!stage2Done) {
-                switchStage(2);
-                autoGenerateBeats();
-            }
+            // Auto-trigger Stage 2 Beats
+            switchStage(2);
+            autoGenerateBeats();
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
             alert("An error occurred while saving to the database.");
