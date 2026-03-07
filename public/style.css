@@ -84,6 +84,7 @@ body {
     padding: 12px 16px;
     border-radius: 8px;
     font-weight: 600;
+    color: var(--text-secondary);
     transition: all 0.2s ease;
 }
 
