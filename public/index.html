@@ -29,6 +29,7 @@
 
     <!-- Main App Container (Hidden by default until a project is selected) -->
     <div id="appContainer" class="app-container hidden">
+
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo-container">
@@ -45,6 +46,15 @@
                 <a href="#" class="stage-link disabled"><span class="badge">7</span> Edit</a>
                 <a href="#" class="stage-link disabled"><span class="badge">8</span> Polish</a>
             </nav>
+            <div class="sidebar-footer">
+                <button id="btnReturnHome" class="sidebar-home-btn" title="Return Home">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                </button>
+            </div>
         </aside>
 
         <!-- Main Workspace (Stage 1) -->
@@ -90,10 +100,14 @@
                 <label for="stage1-notes" class="feedback-label">FEEDBACK</label>
                 <textarea id="stage1-notes" class="notes-input"
                     placeholder="e.g. Make it scarier, change the setting..."></textarea>
-                <div class="action-row action-row-right">
-                    <button id="btn-stage1-revise" class="primary-btn">Submit</button>
-                    <button id="btn-stage1-approve" class="primary-btn">Approve</button>
-                    <button id="btn-stage1-edit" class="danger-btn hidden">Revise</button>
+                <div class="action-row action-row-split">
+                    <div class="action-left">
+                        <button id="btn-stage1-edit" class="danger-btn hidden">Revise</button>
+                    </div>
+                    <div class="action-group-right">
+                        <button id="btn-stage1-revise" class="primary-btn">Submit</button>
+                        <button id="btn-stage1-approve" class="primary-btn">Approve</button>
+                    </div>
                 </div>
             </section>
         </main>
@@ -143,9 +157,14 @@
                 <label for="stage2-notes" class="feedback-label">FEEDBACK</label>
                 <textarea id="stage2-notes" class="notes-input"
                     placeholder="e.g. Make the midpoint more dramatic..."></textarea>
-                <div class="action-row action-row-right">
-                    <button id="btn-stage2-revise" class="primary-btn">Submit</button>
-                    <button id="btn-stage2-approve" class="primary-btn">Approve</button>
+                <div class="action-row action-row-split">
+                    <div class="action-left">
+                        <!-- Space for a future left button if needed -->
+                    </div>
+                    <div class="action-group-right">
+                        <button id="btn-stage2-revise" class="primary-btn">Submit</button>
+                        <button id="btn-stage2-approve" class="primary-btn">Approve</button>
+                    </div>
                 </div>
             </section>
         </main>

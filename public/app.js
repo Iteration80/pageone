@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.getElementById('appContainer');
     const projectsGrid = document.getElementById('projectsGrid');
     const createNewProjectBtn = document.getElementById('createNewProjectBtn');
+    const btnReturnHome = document.getElementById('btnReturnHome');
 
     // Navigation
     const navStage1 = document.getElementById('navStage1');
@@ -151,63 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Handle Card clicking -> Load project Workspace
-            card.addEventListener('click', async () => {
-                activeProjectId = project.id;
-                projectsHub.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-
-                // Hydrate the workspace with saved data
-                try {
-                    const res = await fetch(`/api/projects/${activeProjectId}`);
-                    if (!res.ok) throw new Error("Failed to fetch project details");
-                    const projectDetails = await res.json();
-
-                    resultsContainer.innerHTML = ''; // Start clean
-
-                    // Always default back to Stage 1 when opening a project
-                    switchStage(1);
-
-                    if (projectDetails.data && projectDetails.data.stage1_pitch) {
-                        const { pitch, notes } = projectDetails.data.stage1_pitch;
-
-                        // Render a single pitch card with the saved data
-                        renderPitches([pitch]);
-
-                        // Auto-approve and go into workshop view
-                        const cardElement = resultsContainer.querySelector('.pitch-card');
-                        if (cardElement) {
-                            handleApprove(cardElement, 0);
-
-                            // Pre-fill notes
-                            if (stage1Notes && notes) {
-                                stage1Notes.value = notes;
-                            }
-
-                            // Lock textareas and show Approved / Revise state
-                            toggleStage1EditMode(true);
-                        }
-
-                        updateStageNav(projectDetails.data);
-
-                        // Hydrate Stage 2 Outline if exists
-                        if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
-                            renderOutline(projectDetails.data.stage2_outline.outline);
-                            if (btnStage2Approve) {
-                                btnStage2Approve.textContent = 'Approved ✓';
-                                btnStage2Approve.classList.add('approve-btn-green');
-                            }
-                        } else {
-                            document.getElementById('act1Container').innerHTML = '';
-                            document.getElementById('act2Container').innerHTML = '';
-                            document.getElementById('act3Container').innerHTML = '';
-                            stage2Workshop.classList.add('hidden');
-                        }
-                    } else {
-                        updateStageNav(projectDetails.data);
-                    }
-                } catch (err) {
-                    console.error("Error loading project details:", err);
-                }
+            card.addEventListener('click', () => {
+                window.location.hash = `project-${project.id}`;
             });
 
             projectsGrid.appendChild(card);
@@ -216,15 +162,106 @@ document.addEventListener('DOMContentLoaded', () => {
 
     createNewProjectBtn.addEventListener('click', async () => {
         try {
-            await fetch('/api/projects', { method: 'POST' });
-            initHub();
+            const res = await fetch('/api/projects', { method: 'POST' });
+            const data = await res.json();
+            window.location.hash = `project-${data.id}`;
         } catch (error) {
             console.error("Failed to create project:", error);
         }
     });
 
-    // Initialize the hub on load
-    initHub();
+    async function openProject(projectId) {
+        activeProjectId = projectId;
+        projectsHub.classList.add('hidden');
+        appContainer.classList.remove('hidden');
+
+        // Hydrate the workspace with saved data
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}`);
+            if (!res.ok) throw new Error("Failed to fetch project details");
+            const projectDetails = await res.json();
+
+            resultsContainer.innerHTML = ''; // Start clean
+
+            // Always default back to Stage 1 when opening a project
+            switchStage(1);
+
+            if (projectDetails.data && projectDetails.data.stage1_pitch) {
+                const { pitch, notes } = projectDetails.data.stage1_pitch;
+
+                // Render a single pitch card with the saved data
+                renderPitches([pitch]);
+
+                // Auto-approve and go into workshop view
+                const cardElement = resultsContainer.querySelector('.pitch-card');
+                if (cardElement) {
+                    handleApprove(cardElement, 0);
+
+                    // Pre-fill notes
+                    if (stage1Notes && notes) {
+                        stage1Notes.value = notes;
+                    }
+
+                    // Lock textareas and show Approved / Revise state
+                    toggleStage1EditMode(true);
+                }
+
+                updateStageNav(projectDetails.data);
+
+                // Hydrate Stage 2 Outline if exists
+                if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
+                    renderOutline(projectDetails.data.stage2_outline.outline);
+                    if (btnStage2Approve) {
+                        btnStage2Approve.textContent = 'Approved ✓';
+                        btnStage2Approve.classList.add('approve-btn-green');
+                    }
+                } else {
+                    document.getElementById('act1Container').innerHTML = '';
+                    document.getElementById('act2Container').innerHTML = '';
+                    document.getElementById('act3Container').innerHTML = '';
+                    stage2Workshop.classList.add('hidden');
+                }
+            } else {
+                updateStageNav(projectDetails.data);
+            }
+        } catch (err) {
+            console.error("Error loading project details:", err);
+            window.location.hash = ''; // Revert to hub on error
+        }
+    }
+
+    function handleHashChange() {
+        const hash = window.location.hash;
+        if (hash.startsWith('#project-')) {
+            const projectId = hash.replace('#project-', '');
+            openProject(projectId);
+        } else {
+            activeProjectId = null;
+            appContainer.classList.add('hidden');
+            projectsHub.classList.remove('hidden');
+
+            // Clear workspace state
+            resultsContainer.innerHTML = '';
+            promptInput.value = '';
+            stage1FeedbackPanel.classList.add('hidden');
+            if (stage1Notes) stage1Notes.value = '';
+
+            // Reset to Stage 1
+            switchStage(1);
+
+            // Refresh project list
+            initHub();
+        }
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    btnReturnHome.addEventListener('click', () => {
+        window.location.hash = '';
+    });
+
+    // Initialize the app state based on URL
+    handleHashChange();
 
     // --- Main App Logic ---
     pdfUpload.addEventListener('change', (e) => {
@@ -296,12 +333,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="text" class="editable-field" data-field="genre" value="${escapeHtml(pitch.genre)}">
                 </div>
                 <div class="field-group">
-                    <label>Core Theme</label>
-                    <textarea class="editable-field" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
-                </div>
-                <div class="field-group">
                     <label>Logline</label>
                     <textarea class="editable-field" data-field="logline">${escapeHtml(pitch.logline)}</textarea>
+                </div>
+                <div class="field-group">
+                    <label>Core Theme</label>
+                    <textarea class="editable-field" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
                 </div>
                 <div class="field-group">
                     <label>Synopsis</label>
@@ -356,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stage1Notes) stage1Notes.disabled = isApproved;
 
         if (isApproved) {
-            if (btnStage1Revise) btnStage1Revise.disabled = true;
+            if (btnStage1Revise) btnStage1Revise.disabled = true; // Submit button should be grayed out when Approved
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
             if (btnStage1Approve) {
                 btnStage1Approve.textContent = 'Approved ✓';
@@ -736,6 +773,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             triggerBtn.textContent = 'Approved ✓';
             triggerBtn.classList.add('approve-btn-green');
+
+            // Ensure Revise/Submit is not grayed out
+            if (btnStage2Revise) btnStage2Revise.disabled = false;
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");

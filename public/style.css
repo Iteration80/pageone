@@ -30,6 +30,34 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    position: relative;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.sidebar-home-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sidebar-home-btn:hover {
+    color: white;
+    background: var(--card-hover);
+    border-color: var(--accent-color);
+    transform: scale(1.05);
 }
 
 /* Sidebar */
@@ -200,6 +228,28 @@ body {
     flex-wrap: wrap;
 }
 
+.action-row-split {
+    justify-content: space-between;
+    width: 100%;
+}
+
+.action-row-right {
+    justify-content: flex-end;
+}
+
+.action-group-right {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-left: auto;
+    /* Pushes the group to the right natively */
+}
+
+.action-left {
+    display: flex;
+    align-items: center;
+}
+
 .icon-btn {
     display: flex;
     align-items: center;
@@ -231,7 +281,6 @@ body {
 }
 
 .primary-btn {
-    margin-left: auto;
     background-color: var(--accent-color);
     color: white;
     border: none;
