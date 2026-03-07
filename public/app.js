@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="field-group">
                     <label>Synopsis</label>
-                    <textarea class="editable-field synopsis-input" data-field="synopsis">${escapeHtml(pitch.synopsis)}</textarea>
+                    <textarea class="editable-field synopsis-input" data-field="synopsis">${escapeHtml((pitch.synopsis || '').replace(/(?:\s*)(Act 2:)/ig, '\n\n$1').replace(/(?:\s*)(Act 3:)/ig, '\n\n$1').trim())}</textarea>
                 </div>
                 <button class="approve-btn">Select to Workshop</button>
             `;
@@ -388,7 +388,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentFields.forEach(field => {
                     const key = field.getAttribute('data-field');
                     if (revisedPitch[key]) {
-                        field.value = revisedPitch[key];
+                        if (key === 'synopsis') {
+                            field.value = (revisedPitch[key] || '').replace(/(?:\s*)(Act 2:)/ig, '\n\n$1').replace(/(?:\s*)(Act 3:)/ig, '\n\n$1').trim();
+                        } else {
+                            field.value = revisedPitch[key];
+                        }
                     }
                 });
 
