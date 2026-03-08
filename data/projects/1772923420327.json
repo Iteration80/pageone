@@ -16,43 +16,43 @@
       "outline": {
         "act_1": [
           {
-            "sequence_number_and_title": "Sequence 1: The Trauma Club",
+            "sequence_number_and_title": "Sequence 1: Welcome to the Trauma Ward",
             "beats": [
               {
                 "beat_label": "Opening Image",
-                "description": "Chloe wakes from a hyper-violent summer camp nightmare, showcasing her severe PTSD and inability to move past her trauma."
+                "description": "Chloe wakes up from a nightmare about her summer camp massacre, establishing her lingering trauma and hyper-vigilance."
               },
               {
                 "beat_label": "Inciting Incident",
-                "description": "Chloe reluctantly arrives at the secluded Pine Haven wellness retreat, meeting the meek therapist Dr. Vance and a cynical group of fellow Final Girls who immediately begin swapping survival stories and mocking horror tropes."
+                "description": "Chloe reluctantly arrives at the secluded wellness retreat, meeting the meek therapist Dr. Vance and a cynical group of fellow survivors who refuse to be vulnerable."
               }
             ]
           },
           {
-            "sequence_number_and_title": "Sequence 2: No Cell Service",
+            "sequence_number_and_title": "Sequence 2: The Sequel Begins",
             "beats": [
               {
                 "beat_label": "Rising Action",
-                "description": "The group refuses to engage in actual therapy, instead bonding over their shared hyper-vigilance and pointing out all the structural flaws of the retreat's security."
+                "description": "The group spends their first day swapping trauma stories and mocking horror tropes, actively ignoring subtle red flags around the retreat because they assume they are safe."
               },
               {
-                "beat_label": "Act I Climax",
-                "description": "The retreat's lone groundskeeper is found dead in a stylized, classic slasher setup, therefore confirming a new killer has trapped them in the woods without communication."
+                "beat_label": "Plot Point 1",
+                "description": "A staff member is brutally murdered using a classic horror trope, and the retreat is suddenly locked down, trapping the survivors inside with a new killer."
               }
             ]
           }
         ],
         "act_2": [
           {
-            "sequence_number_and_title": "Sequence 3: The Old Routine",
+            "sequence_number_and_title": "Sequence 3: Playing the Hits",
             "beats": [
               {
-                "beat_label": "Rising Action",
-                "description": "The Final Girls instantly snap into their respective veteran survival modes, effortlessly barricading doors and fashioning makeshift weapons."
+                "beat_label": "Reaction",
+                "description": "The survivors immediately fall back on their individual final girl survival tactics, such as hiding in closets, securing weapons, and fortifying rooms."
               },
               {
-                "beat_label": "Sequence Climax",
-                "description": "The masked killer attacks but perfectly predicts their veteran maneuvers, using their specific franchise tropes against them and nearly slaughtering the entire group."
+                "beat_label": "Failure",
+                "description": "The masked killer easily counters their moves because their tactics are entirely predictable, resulting in a narrow escape and the terrifying realization that their old tricks are useless."
               }
             ]
           },
@@ -60,66 +60,66 @@
             "sequence_number_and_title": "Sequence 4: Flipping the Script",
             "beats": [
               {
-                "beat_label": "Rising Action",
-                "description": "Retreating into the woods, the group realizes their battle-tested tactics are now fatal liabilities because the killer has studied all their movies."
+                "beat_label": "Epiphany",
+                "description": "Chloe analyzes the killer's movements and realizes the attacker is a genre-savvy fanatic who has studied all of their previous movies and survival patterns."
               },
               {
-                "beat_label": "Midpoint Climax",
-                "description": "Chloe steps up as the definitive leader, proposing a radical survival plan: they must act like clueless, doomed first-act victims to completely disrupt the killer's narrative expectations."
+                "beat_label": "Midpoint",
+                "description": "Chloe takes charge and convinces the group that the only way to survive is to act like clueless first victims, completely abandoning their final girl instincts to break the killer's script."
               }
             ]
           },
           {
-            "sequence_number_and_title": "Sequence 5: Dumb Decisions",
+            "sequence_number_and_title": "Sequence 5: Dumb and Dumber",
             "beats": [
               {
-                "beat_label": "Rising Action",
-                "description": "The hardened survivors awkwardly force themselves to split up, drink inappropriately, and loudly investigate strange noises in the dark."
+                "beat_label": "Execution",
+                "description": "The group awkwardly attempts to act like stereotypical doomed teens by throwing a fake party, wandering off alone into the dark, and pretending to trip over nothing."
               },
               {
-                "beat_label": "Sequence Climax",
-                "description": "The killer becomes deeply confused and frustrated by their bizarre, illogical behavior, which successfully causes the killer to hesitate and miss a massive ambush."
+                "beat_label": "Success",
+                "description": "The killer is completely baffled by their illogical behavior, causing the elaborate murder traps to fail and giving the survivors a much-needed temporary advantage."
               }
             ]
           },
           {
-            "sequence_number_and_title": "Sequence 6: The Sequel Escalation",
+            "sequence_number_and_title": "Sequence 6: The Genre Strikes Back",
             "beats": [
               {
-                "beat_label": "Rising Action",
-                "description": "Furious at the broken rules, the killer abandons classic slasher tropes and pivots to brutal, unpredictable modern horror tactics."
+                "beat_label": "Adaptation",
+                "description": "The killer realizes they are being mocked and aggressively shifts tactics, abandoning horror tropes to turn the retreat into a chaotic, unpredictable nightmare."
               },
               {
-                "beat_label": "Act II Climax",
-                "description": "The killer violently breaches their safe room, seemingly killing the group's toughest survivor and cornering Chloe, forcing her to relive the exact summer camp trauma she has been running from."
+                "beat_label": "All Is Lost",
+                "description": "Dr. Vance is seemingly murdered in front of them, their only escape vehicle is destroyed, and the group fractures, realizing they cannot outrun their trauma with jokes."
               }
             ]
           }
         ],
         "act_3": [
           {
-            "sequence_number_and_title": "Sequence 7: The Final Girl Trap",
+            "sequence_number_and_title": "Sequence 7: The Trope-Defying Trap",
             "beats": [
               {
-                "beat_label": "Rising Action",
-                "description": "Chloe refuses to be a victim again, therefore she rallies the remaining survivors to stop running and weaponize the retreat's layout against the killer."
+                "beat_label": "Rally",
+                "description": "Chloe steps up as a true leader, convincing the group to stop running and start fighting back using genuine teamwork instead of isolated horror logic."
               },
               {
-                "beat_label": "Sequence Climax",
-                "description": "The survivors lure the killer into the main lodge using perfectly executed anti-tropes, trapping the murderer in a heavily fortified, inescapable dead-end."
+                "beat_label": "Preparation",
+                "description": "The survivors pool their diverse experiences to rig the retreat center with absurd, non-lethal traps designed to humiliate and disarm rather than kill."
               }
             ]
           },
           {
-            "sequence_number_and_title": "Sequence 8: Therapy Concluded",
+            "sequence_number_and_title": "Sequence 8: The Ultimate Sequel",
             "beats": [
               {
                 "beat_label": "Climax",
-                "description": "The group subdues the killer, unmasking them as Dr. Vance, who maniacally monologues about orchestrating the ultimate sequel to cure their trauma through extreme exposure therapy."
+                "description": "The killer triggers the traps and is finally subdued, unmasked to reveal Dr. Vance, who faked his death to force the survivors into creating the ultimate horror sequel."
               },
               {
                 "beat_label": "Resolution",
-                "description": "Chloe interrupts the villain's monologue with a genre-defying one-liner, neutralizes Vance permanently, and leads the surviving women out of the woods, finally healed and ready to live normal lives."
+                "description": "Instead of engaging in a dramatic final battle, the group collectively knocks Dr. Vance out with a blunt object, walking away into the sunrise as a truly healed and united front."
               }
             ]
           }
@@ -131,70 +131,36 @@
         {
           "name": "Chloe",
           "role": "Protagonist",
-          "brief_summary": "A deeply traumatized survivor of a summer camp massacre who hides her severe PTSD behind biting cynicism. She serves as the reluctant leader who must learn to break the 'Final Girl' mold to save herself and her peers.",
+          "brief_summary": "A hardened survivor of a summer camp massacre who hides her severe PTSD behind a wall of cynical, genre-savvy humor. She functions as the reluctant leader who must learn to rely on others instead of her isolated survival instincts.",
           "psychological_core": {
-            "wound": "She survived her original massacre while all her friends died, leaving her with crushing survivor's guilt.",
-            "false_belief": "I only survived by being an isolated, paranoid victim, and I can never function as a normal person again.",
-            "fear": "Taking on a leadership role and being responsible for other people's deaths a second time.",
-            "desire": "To feel genuinely safe and finally get a single good night of sleep.",
-            "need": "To let go of her survivor's guilt, trust others, and take proactive control of her own narrative."
+            "wound": "The crushing survivor's guilt of being the only one to walk away from her summer camp massacre.",
+            "false_belief": "If I never let my guard down or form attachments, I can never be hurt or lose anyone again.",
+            "fear": "Being responsible for the deaths of others and facing genuine emotional vulnerability.",
+            "desire": "To feel safe, normal, and completely free from her exhausting hyper-vigilance.",
+            "need": "To accept that true survival and healing require connection, trust, and shared vulnerability."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Uses dark humor, morbid sarcasm, and clinical horror terminology to distance herself from genuine emotion. She NEVER says anything optimistic like 'We are going to be fine' or offers false hope to anyone.",
-            "deflection_tactic": "She points out the logistical or tactical flaws in someone's argument, or critiques the room's physical security, instead of addressing the emotional weight of the conversation."
+            "speech_patterns": "Dry, observational, and slightly detached, often using clinical terms for horrific things. She NEVER says 'Everything is going to be okay' or makes optimistic promises.",
+            "deflection_tactic": "Sarcastic movie critiques. When asked about her feelings, she pivots to analyzing the 'tropes' of her current situation instead of addressing her emotional reality."
           },
-          "subtlety_guidelines": "Chloe appears highly competent and casually sarcastic 90 percent of the time, merely double-checking exits or sitting facing the door to mask her hyper-vigilance. Her raw trauma only breaks through in the 10 percent of moments when she is forced to make a decision that puts someone else in danger, causing her voice to crack and her to lash out aggressively."
+          "subtlety_guidelines": "90 percent of the time, she comes across as a chill, slightly aloof young woman with a dark sense of humor. Under severe stress, her 10 percent tic surfaces: she obsessively catalogs exits and potential makeshift weapons, masking it by casually stretching or adjusting her posture."
         },
         {
           "name": "Dr. Vance",
           "role": "Antagonist",
-          "brief_summary": "A seemingly mild-mannered, empathetic therapist who runs the Pine Haven wellness retreat. In reality, he is a deranged horror-fanatic obsessed with curing trauma through extreme, cinematic exposure therapy.",
+          "brief_summary": "A seemingly meek and empathetic trauma therapist who runs the wellness retreat. In reality, he is a deeply obsessed horror fanatic orchestrating the 'ultimate sequel' to validate his twisted worldview.",
           "psychological_core": {
-            "wound": "He was a helpless, ignored victim of his own past trauma who felt empowered only by watching horror movie survivors overcome their monsters.",
-            "false_belief": "True psychological healing can only be achieved by facing imminent death and recreating the cinematic crucible of survival.",
-            "fear": "Being ordinary, forgettable, and entirely ineffective in his psychiatric practice.",
-            "desire": "To orchestrate the ultimate real-life sequel and go down in history as a mastermind who successfully 'fixed' Final Girls.",
-            "need": "To realize his god-complex is just a pathetic mask for his own untreated cowardice and lack of control."
+            "wound": "A lifelong feeling of insignificance, constantly feeling overshadowed by the 'stars' of the world while he remains invisible.",
+            "false_belief": "Trauma is the only crucible for true greatness, and I am the visionary auteur who can draw it out of these survivors.",
+            "fear": "Being forgotten, remaining mediocre, and being dismissed as a pathetic footnote in someone else's story.",
+            "desire": "To be feared, respected, and recognized as a mastermind who controls the fates of famous survivors.",
+            "need": "To face the reality that he is not a brilliant auteur, but rather a sad, insignificant man causing senseless pain."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Speaks in soothing, overly-measured therapeutic buzzwords like 'holding space' and 'validating your journey'. He NEVER uses vulgarity, raises his voice, or interrupts someone else's sentence during normal conversation.",
-            "deflection_tactic": "He turns the question back on the patient with a gentle, probing inquiry, such as 'And how does that make you feel?' or 'Why do you think you are asking me that?'"
+            "speech_patterns": "Soft-spoken, validating, and heavily reliant on gentle therapy-speak like 'holding space' and 'honoring your journey.' He NEVER uses aggressive, commanding, or overtly judgmental language.",
+            "deflection_tactic": "Turning the question back on the patient. If challenged, he gently deflects with 'But how does that make you feel?' or 'Let us unpack why you are asking me that.'"
           },
-          "subtlety_guidelines": "Vance plays the perfectly harmless, slightly pathetic beta-male therapist 90 percent of the time, using his meekness to make the women drop their guard. Only 10 percent of the time, specifically when someone accidentally breaks a horror trope or insults the slasher genre, does a terrifying flash of intense, rigid, and controlling fanaticism bleed through his soft-spoken demeanor."
-        },
-        {
-          "name": "Riley",
-          "role": "Supporting",
-          "brief_summary": "A former suburban babysitter who survived a Halloween night massacre and now overcompensates with hyper-aggressive, weapon-hoarding paranoia. She acts as the group's muscle and primary skeptic of the 'play dumb' strategy.",
-          "psychological_core": {
-            "wound": "The children she was babysitting were killed while she was hiding in a closet.",
-            "false_belief": "Violence and physical aggression are the only guaranteed ways to prevent victimization.",
-            "fear": "Being helpless, unarmed, and failing to protect the innocent ever again.",
-            "desire": "To kill the monster before it even has a chance to strike, proving she is no longer weak.",
-            "need": "To forgive herself for the past and realize true strength is not just about wielding a weapon."
-          },
-          "voice_and_behavior": {
-            "speech_patterns": "Speaks in clipped, aggressive, tactical jargon and swears frequently. She NEVER says 'I am sorry' or admits to being afraid of anything.",
-            "deflection_tactic": "She instigates a physical task like sharpening a knife, checking ammunition, or barricading a door to avoid answering a personal question."
-          },
-          "subtlety_guidelines": "Riley comes off as a gym-obsessed, slightly intense tomboy 90 percent of the time, projecting an aura of untouchable confidence. Only 10 percent of the time, specifically when children or hiding spots are mentioned, does her aggressive facade crack, revealing a frantic, trembling desperation to maintain control."
-        },
-        {
-          "name": "Lexi",
-          "role": "Supporting",
-          "brief_summary": "A former sorority sister who survived a campus slasher by sheer dumb luck and masks her imposter syndrome with superficiality. She serves as the group's unwilling bait and unexpected tactical genius when playing dumb.",
-          "psychological_core": {
-            "wound": "She only survived her massacre because she was passed out drunk while her braver sisters fought and died.",
-            "false_belief": "I am a fake Final Girl who does not deserve to be alive or in this support group.",
-            "fear": "The other survivors finding out she is a fraud and abandoning her to die.",
-            "desire": "To prove she is genuinely smart and worthy of the survivor title.",
-            "need": "To accept that survival is not a meritocracy and that her life still has value."
-          },
-          "voice_and_behavior": {
-            "speech_patterns": "Uses vocal fry, upspeak, and rapid-fire pop-culture references, talking extremely fast when nervous. She NEVER talks about the actual night of her survival in any specific detail.",
-            "deflection_tactic": "She changes the subject to mundane gossip, fashion, or complains about the retreat's lack of amenities like Wi-Fi and good coffee."
-          },
-          "subtlety_guidelines": "Lexi acts like a vapid, self-absorbed influencer who accidentally stumbled into a trauma group 90 percent of the time. Only 10 percent of the time, when someone praises her bravery or directly asks how she defeated her killer, does she completely freeze, her eyes darting in panic as she desperately searches for an excuse to leave the room."
+          "subtlety_guidelines": "90 percent of the time, he is the picture of Mr. Rogers-esque warmth and professional boundaries. His 10 percent stress tic is an intense, unblinking stare and a micro-smirk when someone describes a gruesome detail, which he quickly covers with a sympathetic nod."
         }
       ]
     }

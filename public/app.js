@@ -424,17 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stage1Notes) stage1Notes.disabled = isApproved;
 
         if (isApproved) {
-            if (btnStage1Revise) btnStage1Revise.disabled = true; // Submit button should be grayed out when Approved
+            if (btnStage1Revise) btnStage1Revise.classList.add('hidden');
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
-            if (btnStage1Approve) {
-                btnStage1Approve.textContent = 'Approved ✓';
-                btnStage1Approve.classList.add('approve-btn-green');
-                btnStage1Approve.disabled = true;
-            }
+            if (btnStage1Approve) btnStage1Approve.classList.add('hidden');
         } else {
-            if (btnStage1Revise) btnStage1Revise.disabled = false;
+            if (btnStage1Revise) {
+                btnStage1Revise.classList.remove('hidden');
+                btnStage1Revise.disabled = false;
+            }
             if (btnStage1Edit) btnStage1Edit.classList.add('hidden');
             if (btnStage1Approve) {
+                btnStage1Approve.classList.remove('hidden');
                 btnStage1Approve.textContent = 'Approve';
                 btnStage1Approve.classList.remove('approve-btn-green');
                 btnStage1Approve.disabled = false;

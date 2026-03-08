@@ -131,50 +131,53 @@
         {
           "name": "Detective Jax",
           "role": "Protagonist",
+          "brief_summary": "A cynical, low-rent private investigator in Neo-Angeles who uses his five-second foresight to win bar fights and scrape by. He operates under the assumption that the future is fixed and nothing matters, until he is forced to protect a witness who challenges his worldview.",
           "psychological_core": {
-            "wound": "Survivor's guilt from a past trauma where his five-second foresight was not enough to save someone he loved.",
-            "false_belief": "The future is fixed and I am just a passive observer. If I know what happens next, I cannot be hurt.",
-            "fear": "Being genuinely surprised, out of control, or responsible for another person's life.",
-            "desire": "To scrape by, make a quick buck, and stay completely detached from the messy world.",
-            "need": "To realize he has the power to actively choose his fate and write the future, even if it requires self-sacrifice."
+            "wound": "He previously foresaw a tragic accident involving a loved one but was unable to change the outcome, convincing him his power is a curse.",
+            "false_belief": "The universe is entirely deterministic, meaning free will is an illusion and trying to change the world is pointless.",
+            "fear": "Being responsible for someone else's life and failing them all over again.",
+            "desire": "To make enough credits to numb himself and survive another day without getting emotionally involved.",
+            "need": "To realize he has the agency to write the future, embracing free will even if it costs him his life."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Short, clipped, and highly reactive. He often answers questions a split-second before they are fully asked. He NEVER says 'I do not know' or 'I am not sure.'",
-            "deflection_tactic": "Making a hyper-specific, mundane observation about the immediate physical environment to derail emotional conversations."
+            "speech_patterns": "Terse, predictive, and impatient. He often interrupts people right before they finish their sentence and NEVER talks about his past or expresses overt optimism.",
+            "deflection_tactic": "He points out an immediate, mundane physical detail in the room or anticipates a minor physical inconvenience, like catching a falling glass, to abruptly change the subject."
           },
-          "subtlety_guidelines": "He plays the role of a relaxed, cynical slacker 90% of the time. Under extreme emotional stress, the 10% surfaces: he taps his fingers exactly five times against his thigh or interrupts someone with a perfectly timed, dry observation to kill a sensitive topic."
+          "subtlety_guidelines": "Jax shouldn't act like a magical wizard; he just seems like a guy with incredibly fast reflexes and a slightly bored demeanor. His habit of finishing people's sentences should feel like natural conversational overlap rather than psychic parlor tricks, only becoming obvious and intense when he is deeply stressed."
+        },
+        {
+          "name": "Silas Thorne (Cartel Boss)",
+          "role": "Antagonist",
+          "brief_summary": "A ruthless, calculating syndicate leader who has monopolized chronal-tech to stay ten steps ahead of his enemies. He views time as a commodity to be hoarded and seeks to erase his rivals from existence to achieve absolute control.",
+          "psychological_core": {
+            "wound": "A profound past betrayal that made him realize the chaotic, unpredictable nature of human free will is a fatal threat.",
+            "false_belief": "Total control over time is the only way to achieve perfect order and absolute security.",
+            "fear": "The unknown, and the possibility of a variable or timeline he cannot predict or control.",
+            "desire": "To activate the chronal-engine and rewrite history to cement his eternal, unchallenged rule.",
+            "need": "To accept that time and human will cannot be perfectly subjugated, a lesson he learns too late."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Measured, perfectly paced, and eerily calm. He NEVER raises his voice, rushes his words, or uses filler words like um or uh.",
+            "deflection_tactic": "He answers a probing question by revealing a disturbing piece of the questioner's own immediate future, weaponizing his precog intel to unnerve them."
+          },
+          "subtlety_guidelines": "Silas behaves like a bored CEO who has already read the minutes of the meeting rather than a cartoon villain. He rarely makes eye contact because he is often looking at invisible temporal overlays, making him seem aloof and detached rather than overtly menacing until his plans are genuinely threatened."
         },
         {
           "name": "Elara",
           "role": "Supporting",
+          "brief_summary": "A resilient survivor whose biometric signature is the key to a reality-altering prototype device. Thrust into a deadly conspiracy after her sister's murder, she serves as the moral anchor who forces Jax to care about the future.",
           "psychological_core": {
-            "wound": "The sudden, brutal murder of her overprotective older sister right in front of her.",
-            "false_belief": "I am a helpless burden who relies on others to survive.",
-            "fear": "Being the reason another person, especially Jax, gets killed.",
-            "desire": "To decode the biometric key and destroy the cartel's chronal-device so her sister's death was not in vain.",
-            "need": "To step into her own agency and realize she is strong enough to shape her own destiny."
+            "wound": "The sudden, brutal murder of her older sister, who was her only remaining family and protector.",
+            "false_belief": "She is a helpless liability who brings death and misfortune to anyone trying to protect her.",
+            "fear": "That her sister died for nothing and the cartel will use her existence to rewrite history for the worse.",
+            "desire": "To destroy the chronal device and ensure the cartel can never hurt anyone else.",
+            "need": "To step out of her sister's shadow, stop running, and take active control of her own destiny."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Observant, analytical, and prone to speaking in hypotheticals. She asks probing questions to map out situations. She NEVER says 'Save me' or 'I give up.'",
-            "deflection_tactic": "Hyper-focusing on technical details, logistics, or the mechanics of the chronal-tech to avoid talking about her feelings."
+            "speech_patterns": "Earnest, question-heavy, and slightly breathless when anxious. She NEVER uses fatalistic language or accepts defeat.",
+            "deflection_tactic": "She hyper-focuses on the technical aspects of the chronal-tech or the immediate logistics of their escape rather than addressing her grief."
           },
-          "subtlety_guidelines": "She presents as a grounded, somewhat overwhelmed civilian 90% of the time. Her 10% stress reaction manifests not as panic, but as an unnerving, mechanical quietness where she obsessively rubs the edge of her sister's biometric key to avoid processing her grief."
-        },
-        {
-          "name": "Cartel Boss",
-          "role": "Antagonist",
-          "psychological_core": {
-            "wound": "A deeply chaotic, traumatic childhood where he was entirely at the mercy of random, violent events.",
-            "false_belief": "Total control over time and absolute predictability is the only way to achieve perfect order and peace.",
-            "fear": "Chaos, randomness, and the butterfly effect introducing a variable he cannot control.",
-            "desire": "To activate the chronal device, erase his rivals from history, and establish an unstoppable monopoly on time.",
-            "need": "To accept that free will and human unpredictability are inherent to existence and cannot be calculated away."
-          },
-          "voice_and_behavior": {
-            "speech_patterns": "Measured, precise, and speaks as if reading from a script he has already memorized. He uses absolute terms. He NEVER says 'Maybe,' 'Perhaps,' or 'We will see.'",
-            "deflection_tactic": "Pivoting to condescending, abstract philosophical monologues about physics, time, and inevitability to minimize emotional or physical threats."
-          },
-          "subtlety_guidelines": "He presents as an urbane, polite, and reasonable corporate executive 90% of the time. His 10% stress reaction leaks out when his control is threatened: he will perfectly align objects on a table or correct someone's grammar mere seconds before ordering their execution."
+          "subtlety_guidelines": "Elara masks her deep survivor's guilt with utility, constantly trying to make herself useful by checking ammo or decoding tech so she doesn't have to sit with her feelings. She doesn't weep openly; her grief only leaks out in rare moments of stillness when she thinks no one is looking."
         }
       ]
     }
