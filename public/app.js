@@ -1235,10 +1235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (generateCharactersBtn) {
-        generateCharactersBtn.addEventListener('click', () => autoGenerateCharacters());
-    }
-
     if (btnStage3Edit) {
         btnStage3Edit.addEventListener('click', () => {
             btnStage3Edit.classList.add('hidden');
