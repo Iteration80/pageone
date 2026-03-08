@@ -35,6 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage2Notes = document.getElementById('stage2-notes');
     const stage3Notes = document.getElementById('stage3-notes');
 
+    const stage1PdfUpload = document.getElementById('stage1PdfUpload');
+    const stage1FileNameDisplay = document.getElementById('stage1FileNameDisplay');
+    const stage2PdfUpload = document.getElementById('stage2PdfUpload');
+    const stage2FileNameDisplay = document.getElementById('stage2FileNameDisplay');
+    const stage3PdfUpload = document.getElementById('stage3PdfUpload');
+    const stage3FileNameDisplay = document.getElementById('stage3FileNameDisplay');
+
     // Textarea/Notes auto-resize listeners
     [stage1Notes, stage2Notes, stage3Notes, promptInput].forEach(el => {
         if (el) {
@@ -333,13 +340,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Main App Logic ---
     pdfUpload.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            fileNameDisplay.textContent = e.target.files[0].name;
-            fileNameDisplay.style.display = 'inline-block';
-        } else {
-            fileNameDisplay.textContent = '';
-            fileNameDisplay.style.display = 'none';
-        }
+        const file = e.target.files[0];
+        fileNameDisplay.textContent = file ? file.name : '';
+    });
+
+    stage1PdfUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        stage1FileNameDisplay.textContent = file ? file.name : '';
+    });
+
+    stage2PdfUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        stage2FileNameDisplay.textContent = file ? file.name : '';
+    });
+
+    stage3PdfUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        stage3FileNameDisplay.textContent = file ? file.name : '';
     });
 
     generateBtn.addEventListener('click', async () => {
@@ -561,10 +578,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage1Revise.disabled = true;
 
         try {
+            const formData = new FormData();
+            formData.append('currentPitch', JSON.stringify(currentPitch));
+            formData.append('userNote', userNote);
+            if (stage1PdfUpload && stage1PdfUpload.files[0]) {
+                formData.append('pdfFile', stage1PdfUpload.files[0]);
+            }
+
             const response = await fetch('/api/refine-pitch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currentPitch, userNote })
+                body: formData
             });
 
             if (!response.ok) {
@@ -587,8 +610,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // Clear notes
+                // Clear notes and PDF
                 stage1Notes.value = '';
+                if (stage1PdfUpload) stage1PdfUpload.value = '';
+                if (stage1FileNameDisplay) stage1FileNameDisplay.textContent = '';
+
                 if (btnStage1Approve) {
                     btnStage1Approve.textContent = 'Approve';
                     btnStage1Approve.classList.remove('approve-btn-green');
@@ -937,8 +963,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentBeats = scrapeOutline();
         const originalText = btnStage2Revise.textContent;
 
-        if (!notes) {
-            // Treat as a manual save if there's no feedback
+        if (!notes && (!stage2PdfUpload || !stage2PdfUpload.files[0])) {
+            // Treat as a manual save if there's no feedback or PDF
             try {
                 btnStage2Revise.textContent = 'Saving...';
                 btnStage2Revise.disabled = true;
@@ -969,18 +995,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingStateOutline.classList.remove('hidden');
+        document.getElementById('act1Container').innerHTML = '';
+        document.getElementById('act2Container').innerHTML = '';
+        document.getElementById('act3Container').innerHTML = '';
+
         btnStage2Revise.disabled = true;
         btnStage2Revise.textContent = 'Revising...';
 
         try {
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            formData.append('currentBeats', JSON.stringify(currentBeats));
+            formData.append('notes', notes);
+            if (stage2PdfUpload && stage2PdfUpload.files[0]) {
+                formData.append('pdfFile', stage2PdfUpload.files[0]);
+            }
+
             const res = await fetch('/api/generate-outline', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: activeProjectId,
-                    currentBeats,
-                    notes
-                })
+                body: formData
             });
 
             if (!res.ok) {
@@ -990,7 +1023,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
             renderOutline(data.result.outline);
+
+            // Clear notes and PDF
             stage2Notes.value = '';
+            if (stage2PdfUpload) stage2PdfUpload.value = '';
+            if (stage2FileNameDisplay) stage2FileNameDisplay.textContent = '';
+
+            const projectRes = await fetch(`/api/projects/${activeProjectId}`);
+            const projectDetails = await projectRes.json();
+            updateStageNav(projectDetails.data);
 
             if (btnStage2Approve) {
                 btnStage2Approve.textContent = 'Approve';
@@ -998,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error(err);
-            alert(err.message);
+            alert("Error revising beats.");
         } finally {
             loadingStateOutline.classList.add('hidden');
             btnStage2Revise.disabled = false;
@@ -1259,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentCharacters = scrapeCharacters();
             const originalText = btnStage3Revise.textContent;
 
-            if (!notes) {
+            if (!notes && (!stage3PdfUpload || !stage3PdfUpload.files[0])) {
                 // Manual save
                 try {
                     btnStage3Revise.textContent = 'Saving...';
@@ -1296,33 +1337,47 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage3Revise.textContent = 'Revising...';
 
             try {
+                const formData = new FormData();
+                formData.append('projectId', activeProjectId);
+                formData.append('currentCharacters', JSON.stringify(currentCharacters));
+                formData.append('notes', notes);
+                if (stage3PdfUpload && stage3PdfUpload.files[0]) {
+                    formData.append('pdfFile', stage3PdfUpload.files[0]);
+                }
+
                 const res = await fetch('/api/generate-characters', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        projectId: activeProjectId,
-                        currentCharacters,
-                        notes
-                    })
+                    body: formData
                 });
 
-                if (!res.ok) throw new Error("Failed to revise characters");
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Failed to revise characters");
+                }
                 const data = await res.json();
                 renderCharacters(data.result.characters);
 
+                // Clear notes and PDF
                 if (stage3Notes) stage3Notes.value = ''; // clear notes
+                if (stage3PdfUpload) stage3PdfUpload.value = '';
+                if (stage3FileNameDisplay) stage3FileNameDisplay.textContent = '';
+
+                const projectRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projectDetails = await projectRes.json();
+                updateStageNav(projectDetails.data);
+
                 if (btnStage3Approve) {
                     btnStage3Approve.textContent = 'Approve';
                     btnStage3Approve.classList.remove('approve-btn-green');
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error revising characters");
+                alert("Error revising characters.");
             } finally {
                 loadingStateCharacters.classList.add('hidden');
-                charactersContainer.classList.remove('hidden');
-                btnStage3Revise.textContent = originalText;
                 btnStage3Revise.disabled = false;
+                btnStage3Revise.textContent = originalText;
+                charactersContainer.classList.remove('hidden');
             }
         });
     }

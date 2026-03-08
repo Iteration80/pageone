@@ -46,15 +46,20 @@ app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
     }
 });
 
-app.post('/api/refine-pitch', async (req, res) => {
+app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
     try {
         const { currentPitch, userNote } = req.body;
+        const pdfFile = req.file;
+
         if (!currentPitch || !userNote) {
             return res.status(400).json({ error: "Missing currentPitch or userNote" });
         }
 
+        // currentPitch might be a string if sent via FormData
+        const parsedPitch = typeof currentPitch === 'string' ? JSON.parse(currentPitch) : currentPitch;
+
         console.log("Revising pitch...");
-        const result = await agent1Refine(JSON.stringify(currentPitch), userNote);
+        const result = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile);
         res.json({ result });
     } catch (error) {
         console.error("Error executing refine agent:", error);
@@ -62,9 +67,11 @@ app.post('/api/refine-pitch', async (req, res) => {
     }
 });
 
-app.post('/api/generate-outline', async (req, res) => {
+app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentBeats, notes } = req.body;
+        const pdfFile = req.file;
+
         if (!projectId) {
             return res.status(400).json({ error: "Missing projectId" });
         }
@@ -83,8 +90,10 @@ app.post('/api/generate-outline', async (req, res) => {
             return res.status(400).json({ error: "Project has no finalized Stage 1 Pitch" });
         }
 
+        const parsedBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
+
         console.log("Generating Stage 2 Outline...");
-        const outlineData = await agent2Outline(stage1, currentBeats, notes);
+        const outlineData = await agent2Outline(stage1, parsedBeats, notes, pdfFile);
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -99,9 +108,11 @@ app.post('/api/generate-outline', async (req, res) => {
     }
 });
 
-app.post('/api/generate-characters', async (req, res) => {
+app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentCharacters, notes } = req.body;
+        const pdfFile = req.file;
+
         if (!projectId) {
             return res.status(400).json({ error: "Missing projectId" });
         }
@@ -122,8 +133,10 @@ app.post('/api/generate-characters', async (req, res) => {
             return res.status(400).json({ error: "Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters" });
         }
 
+        const parsedChars = currentCharacters ? (typeof currentCharacters === 'string' ? JSON.parse(currentCharacters) : currentCharacters) : null;
+
         console.log("Generating Stage 3 Characters...");
-        const characterData = await agent3Characters(pitchData, beatsData, currentCharacters, notes);
+        const characterData = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile);
 
         // Save to Stage 3
         projectData.data = projectData.data || {};

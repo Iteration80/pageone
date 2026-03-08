@@ -3,16 +3,29 @@ const { GoogleGenAI } = require('@google/genai');
 // Initialize with explicit API key to avoid SDK options undefined bug
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent1Refine = async (currentPitch, userNote) => {
+const agent1Refine = async (currentPitch, userNote, pdfFile) => {
+    const contents = [];
+
+    if (pdfFile) {
+        contents.push({
+            inlineData: {
+                data: pdfFile.buffer.toString("base64"),
+                mimeType: pdfFile.mimetype || "application/pdf"
+            }
+        });
+    }
+
     const prompt = `CURRENT PITCH:
 ${currentPitch}
 
 USER NOTE:
 ${userNote}`;
 
+    contents.push(prompt);
+
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: prompt,
+        contents: contents,
         config: {
             temperature: 0.2, // surgical edits
             thinkingConfig: { thinkingLevel: "HIGH" },

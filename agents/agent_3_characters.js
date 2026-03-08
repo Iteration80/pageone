@@ -3,7 +3,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 // Initialize the Google Gen AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null) => {
+const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null) => {
     const systemInstruction = `You are an elite Hollywood Casting Director and Character Developer. Read the provided Pitch and Broad Outline. Your job is NOT just to extract characters mentioned in the text—your job is to CAST THE ENTIRE ECOSYSTEM of the movie. 
 
 CRITICAL RULES:
@@ -51,15 +51,27 @@ CRITICAL RULES:
         }
     };
 
+    const contents = [];
+
+    if (pdfFile) {
+        contents.push({
+            inlineData: {
+                data: pdfFile.buffer.toString("base64"),
+                mimeType: pdfFile.mimetype || "application/pdf"
+            }
+        });
+    }
+
     let contentsText = `Here is the approved pitch:\n${JSON.stringify(pitchData, null, 2)}\n\nHere is the broad outline (beats):\n${JSON.stringify(beatsData, null, 2)}`;
 
     if (notes && currentCharacters) {
         contentsText += `\n\nThe user has provided feedback for the characters. Revise the existing characters based on these notes.\n\nEXISTING CHARACTERS:\n${JSON.stringify(currentCharacters, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL cast of characters, including unrevised ones, in the proper JSON format.`;
     }
+    contents.push(contentsText);
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: contentsText,
+        contents: contents,
         config: {
             systemInstruction: systemInstruction,
             temperature: 0.6,

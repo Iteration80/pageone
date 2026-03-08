@@ -3,7 +3,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 // Initialize the Google Gen AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent2Outline = async (pitchData, currentBeats, notes) => {
+const agent2Outline = async (pitchData, currentBeats, notes, pdfFile) => {
     const systemInstruction = "You are an elite Hollywood Story Architect. Your objective is to take a movie pitch and expand it into a professional, highly readable 8-Sequence Broad Outline. CRITICAL RULES: The 8-Sequence Structure: Divide the narrative into 8 sequences (2 for Act I, 4 for Act II, 2 for Act III). Give each sequence a thematic title. Plant the Tentpoles: Ensure the major structural pillars serve as the climaxes of their respective sequences. Invisible Cause-and-Effect: The narrative must flow using the Therefore/But engine naturally. Lean Formatting: Write exclusively in present tense.";
 
     const beatItemSchema = {
@@ -46,14 +46,26 @@ const agent2Outline = async (pitchData, currentBeats, notes) => {
         required: ["title", "genre", "logline", "outline"]
     };
 
+    const contents = [];
+
+    if (pdfFile) {
+        contents.push({
+            inlineData: {
+                data: pdfFile.buffer.toString("base64"),
+                mimeType: pdfFile.mimetype || "application/pdf"
+            }
+        });
+    }
+
     let contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. You MUST generate the full JSON structure including title, genre, logline, and the 8-sequence outline containing act_1, act_2, and act_3.`;
     if (notes && currentBeats) {
         contentsText = `Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working beat sheet: ${JSON.stringify(currentBeats)}. Please revise the beat sheet specifically based on these User Notes: ${notes}. You MUST generate the full JSON structure including title, genre, logline, and the entirely revised 8-sequence outline containing act_1, act_2, and act_3.`;
     }
+    contents.push(contentsText);
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: [contentsText],
+        contents: contents,
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
