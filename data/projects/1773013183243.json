@@ -1,0 +1,202 @@
+{
+  "id": "1773013183243",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Idle Cycles",
+        "genre": "Sci-Fi / Thriller",
+        "logline": "When a struggling college student rents out her sleeping brain's processing power to a tech conglomerate, she accidentally downloads the encrypted memories of a murdered whistleblower and must survive long enough to decode the truth.",
+        "core_theme": "The commodification of the human mind and the price of truth.",
+        "synopsis": "Act I: Elara, drowning in student debt, signs up for 'SomnaCompute', a service that networks the brains of sleeping users to process massive data for corporations. It pays well, but she suffers from vivid, terrifying nightmares. One morning, she wakes up with a vivid memory of a corporate assassination she didn't commit.\\n\\nAct II: Elara realizes the data processed in her head was the encrypted backup of a murdered whistleblower. As the memories bleed into her waking life, granting her strange skills and passwords, she is hunted by the corporation's fixers. She teams up with a paranoid underground hacker to extract the data from her own subconscious before her brain is wiped remotely.\\n\\nAct III: The corporation initiates a lethal 'hard reset' protocol on Elara's neural implant. Racing against the clock, she must physically infiltrate the SomnaCompute server farm to upload the decrypted evidence to the world, confronting the very executives who ordered the hit, before her mind is permanently erased."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Sleep Debt",
+            "beats": [
+              {
+                "beat_label": "Setup",
+                "description": "Elara struggles to pay tuition and faces imminent eviction. Therefore she visits a SomnaCompute clinic and receives a neural implant to rent her sleeping brain out for corporate data processing."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "The first few nights yield easy money but strange fragmented dreams. But on the fourth night a massive encrypted data packet overloads her system. She wakes up screaming with the vivid visceral memory of a corporate assassination she did not commit."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: Bleeding Reality",
+            "beats": [
+              {
+                "beat_label": "Investigation",
+                "description": "Elara tries to dismiss the traumatic memory as a system glitch. But while walking to class she instinctively uses a highly classified passcode from the dream to bypass a locked campus security gate."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "Her unauthorized access flags the SomnaCompute network. Therefore corporate fixers are immediately dispatched to her apartment. She barely escapes their violent ambush and realizes she is carrying a dead whistleblower's secrets and can never go back to her old life."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Underground",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "Hunted and completely alone Elara follows obscure clues from the dead man's memories to locate a paranoid underground hacker named Jax. But Jax initially refuses to help until Elara recites a cryptographic key only the whistleblower knew."
+              },
+              {
+                "beat_label": "First Obstacle",
+                "description": "Jax scans her neural implant and confirms she is acting as a localized server for stolen evidence. Therefore they must extract the data manually before SomnaCompute triangulates her physical IP address."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: Mind Overwrite",
+            "beats": [
+              {
+                "beat_label": "Midpoint Preparation",
+                "description": "Jax hooks Elara up to a makeshift rig to dive deep into her own subconscious and decrypt the files. But the intense process causes the whistleblower's persona to bleed into Elara's mind granting her tactical skills but rapidly eroding her own identity."
+              },
+              {
+                "beat_label": "Midpoint Climax",
+                "description": "The fixers track the decryption signature and raid the hacker den. Therefore Elara must rely on the whistleblower's lethal combat muscle memory to neutralize the heavily armed attackers and secure their escape."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Remote Attack",
+            "beats": [
+              {
+                "beat_label": "Complication",
+                "description": "The corporation realizes Elara is weaponizing the data and surviving their hit squads. But instead of just sending more goons they initiate remote attacks on her neural implant causing debilitating hallucinations and severe physical pain."
+              },
+              {
+                "beat_label": "Escalation",
+                "description": "Elara and Jax scramble to build a localized signal blocker to sever her connection to the corporate grid. They succeed temporarily but the resulting feedback loop fries Jax's equipment and leaves them blind to the corporation's next move."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Hard Reset",
+            "beats": [
+              {
+                "beat_label": "All is Lost",
+                "description": "SomnaCompute triggers their ultimate failsafe which is a lethal hard reset protocol designed to wipe Elara's brain completely in three hours. Therefore the extraction process is rendered useless as her mind slowly begins to shut down."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "Corporate mercenaries corner them in the city slums. But Jax sacrifices himself to hold them off so Elara can escape. Left completely alone and losing her cognitive functions Elara decides the only way to survive is to go on the offensive."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Server Farm",
+            "beats": [
+              {
+                "beat_label": "Infiltration",
+                "description": "Elara uses the whistleblower's highest security clearances and her newly acquired tactical skills to physically infiltrate the heavily guarded SomnaCompute server farm."
+              },
+              {
+                "beat_label": "Climax Part 1",
+                "description": "She navigates the labyrinth of sleeping bodies and reaches the central core. But she is intercepted by the lead executive and the surviving fixers who intend to watch her brain wipe finish."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Price of Truth",
+            "beats": [
+              {
+                "beat_label": "Climax Part 2",
+                "description": "Fighting through the agonizing pain of her deteriorating mind Elara outsmarts the fixers by using the server farm's own liquid cooling systems against them. Therefore she reaches the master terminal and jacks her implant directly into the global net."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "Elara uploads the decrypted evidence of the assassination and corporate corruption just seconds before the hard reset completes. The executives are ruined and arrested while Elara survives with her mind intact but forever altered by the memories of the man who saved her life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Elara",
+          "role": "Protagonist",
+          "brief_summary": "A desperate, debt-ridden college student who rents out her sleeping brain's processing power to survive. She accidentally downloads a murdered whistleblower's memories, forcing her to evolve from a passive victim of the system to a proactive survivor.",
+          "psychological_core": {
+            "wound": "Grew up in severe poverty, constantly watching her parents be crushed by debt and systemic exploitation without ever fighting back.",
+            "false_belief": "If I just keep my head down, follow the rules, and work hard enough, I can buy my way into a safe, normal life.",
+            "fear": "Complete loss of autonomy and ending up utterly destitute and powerless like her parents.",
+            "desire": "Financial freedom and a quiet, secure life where she owes nothing to anyone.",
+            "need": "To realize that true freedom comes from fighting the corrupt system, not participating in it, even if it costs her the 'normal' life she wanted."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Fast, practical, and heavily reliant on minimizing her own problems. She uses academic and technical jargon to intellectualize her stress. She NEVER says 'I need help' or 'I can't handle this.'",
+            "deflection_tactic": "Hyper-focusing on logistics. When asked how she feels or confronted with emotional trauma, she pivots immediately to the next practical step or a financial calculation."
+          },
+          "subtlety_guidelines": "90% of the time, she seems like a composed, albeit exhausted, overachiever who has it all together. Only under severe stress does her 10% bleed through: she starts compulsively tapping her fingers in a rhythmic countdown, a grounding technique to assert control over her own mind."
+        },
+        {
+          "name": "Arthur Pendelton (The Whistleblower)",
+          "role": "Inciting Incident / Internal Co-Protagonist",
+          "brief_summary": "A former high-level SomnaCompute data architect and covert operative who discovered the company's assassination protocols. Though physically dead, his fragmented consciousness and lethal muscle memory live on inside Elara's mind.",
+          "psychological_core": {
+            "wound": "Participated in building the very neural-network system that now enslaves the lower class, realizing too late the monster he created.",
+            "false_belief": "I can undo my monumental sins by acting alone as a martyr and taking down the system single-handedly.",
+            "fear": "That his death will mean absolutely nothing and the truth will be permanently erased with him.",
+            "desire": "To expose SomnaCompute's assassination protocols and corporate corruption to the global public.",
+            "need": "To trust someone else, specifically an innocent like Elara, to carry his burden and finish the mission he couldn't."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Expressed entirely through Elara's voice when he bleeds through. Cold, precise, and highly authoritative. Uses military and corporate shorthand. NEVER uses filler words like 'um', 'like', or 'maybe'.",
+            "deflection_tactic": "Tactical assessment. When his overwhelming guilt surfaces in Elara's mind, he forces her to physically analyze the room for exits, weapons, and threats to avoid facing his own moral failings."
+          },
+          "subtlety_guidelines": "His presence is internal, bleeding into Elara's physical form. 90% of the time, it manifests merely as a subtle shift in Elara's posture, making her stand unnaturally still and straight. Under 10% stress during combat, his cold efficiency completely overrides her panicked college-student demeanor, freezing her facial expressions into a dead-eyed stare."
+        },
+        {
+          "name": "Julian Croft (The Lead Executive)",
+          "role": "Antagonist",
+          "brief_summary": "The ruthless, polished CEO of SomnaCompute who views human brains as mere hardware to be optimized. He will protect his company's stock price and dark secrets at any human cost.",
+          "psychological_core": {
+            "wound": "Grew up in the shadow of a highly successful, emotionally abusive father who taught him that empathy is a weakness that destroys empires.",
+            "false_belief": "Humanity is inherently flawed and chaotic; only corporate structure and technological control can enforce true peace and order.",
+            "fear": "Obsolescence, systemic chaos, and losing absolute control over the empire he has meticulously built.",
+            "desire": "Total market domination and the perfection of the human mind as a completely controllable, monetizable asset.",
+            "need": "To be confronted with the unstoppable, chaotic force of human free will and realize he is not a god."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Smooth, paternalistic, and unnervingly calm. He uses therapeutic, HR-approved language to describe horrific acts, calling murder a 'restructuring' or 'hard reset'. He NEVER raises his voice or uses profanity.",
+            "deflection_tactic": "Weaponized empathy. When challenged on his morality or cruelty, he pivots to expressing faux-concern for the challenger's mental health, stress levels, or lack of 'big picture vision'."
+          },
+          "subtlety_guidelines": "90% of the time, he is the picture of a benevolent, enlightened tech-guru who genuinely believes he is saving the world. The 10% stress bleed occurs only when his authority is directly defied: he develops a microscopic tremor in his jaw and meticulously straightens objects on his desk to reassert physical control over his environment."
+        },
+        {
+          "name": "Jax",
+          "role": "Supporting",
+          "brief_summary": "A brilliant but deeply paranoid underground hacker who operates entirely off the grid to avoid corporate surveillance. He becomes Elara's reluctant ally and technical lifeline, ultimately sacrificing himself so the truth can survive.",
+          "psychological_core": {
+            "wound": "Was once a promising corporate engineer whose life was destroyed when he tried to expose a minor security flaw, resulting in his entire team being blacklisted and ruined.",
+            "false_belief": "Connection is a vulnerability; the only way to survive in this world is complete, selfish isolation.",
+            "fear": "Being found, captured, and forced back into the corporate machine as a mindless drone.",
+            "desire": "To completely dismantle the SomnaCompute network from the shadows without ever being seen or taking direct responsibility.",
+            "need": "To reconnect with humanity and realize that some causes, and some people, are worth dying for."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Clipped, cynical, and highly skeptical. He speaks in hypotheticals, statistics, and worst-case scenarios. He NEVER says 'Trust me' or 'It's going to be okay.'",
+            "deflection_tactic": "Sarcastic nihilism. When confronted with genuine emotion, vulnerability, or the concept of hope, he makes a bleak, deadpan joke about the inevitable collapse of society or corporate greed."
+          },
+          "subtlety_guidelines": "90% of the time, he acts like a detached, hyper-competent professional who is annoyed by the presence of others. His 10% stress bleed shows in his physical tics: obsessively checking his own pulse on his wrist or wiping down his keyboards when he feels his control slipping."
+        }
+      ]
+    }
+  }
+}
