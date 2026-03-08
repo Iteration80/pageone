@@ -39,7 +39,7 @@
             <nav class="stages-nav">
                 <a href="#" id="navStage1" class="stage-link active"><span class="badge">1</span> Pitch</a>
                 <a href="#" id="navStage2" class="stage-link"><span class="badge">2</span> Beats</a>
-                <a href="#" class="stage-link disabled"><span class="badge">3</span> Characters</a>
+                <a href="#" id="navStage3" class="stage-link disabled"><span class="badge">3</span> Characters</a>
                 <a href="#" class="stage-link disabled"><span class="badge">4</span> Treatment</a>
                 <a href="#" class="stage-link disabled"><span class="badge">5</span> Scenes</a>
                 <a href="#" class="stage-link disabled"><span class="badge">6</span> Draft</a>
@@ -159,11 +159,51 @@
                     placeholder="e.g. Make the midpoint more dramatic..."></textarea>
                 <div class="action-row action-row-split">
                     <div class="action-left">
-                        <!-- Space for a future left button if needed -->
+                        <button id="btn-stage2-edit" class="danger-btn hidden">Revise</button>
                     </div>
                     <div class="action-group-right">
                         <button id="btn-stage2-revise" class="primary-btn">Submit</button>
                         <button id="btn-stage2-approve" class="primary-btn">Approve</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Main Workspace (Stage 3) -->
+        <main id="stage3Workspace" class="workspace hidden">
+            <div class="workspace-scrollable">
+                <header class="workspace-header">
+                    <h1>Stage 3: Characters</h1>
+                    <p>Develop deep, psychologically grounded character profiles based on your story.</p>
+                </header>
+
+                <div class="prompt-section">
+                    <button id="generateCharactersBtn" class="primary-btn" style="width: 250px;">Generate
+                        Characters</button>
+                </div>
+
+                <div id="loadingStateCharacters" class="hidden" style="text-align: center; margin-top: 32px;">
+                    <div class="spinner"></div>
+                    <p>Casting your characters...</p>
+                </div>
+
+                <div id="charactersContainer" class="hidden"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; margin-top: 24px;">
+                    <!-- Character cards injected here -->
+                </div>
+            </div>
+
+            <section id="stage3Workshop" class="feedback-panel hidden">
+                <label for="stage3-notes" class="feedback-label">FEEDBACK</label>
+                <textarea id="stage3-notes" class="notes-input"
+                    placeholder="e.g. Make the Protagonist more conflicted..."></textarea>
+                <div class="action-row action-row-split">
+                    <div class="action-left">
+                        <button id="btn-stage3-edit" class="danger-btn hidden">Revise</button>
+                    </div>
+                    <div class="action-group-right">
+                        <button id="btn-stage3-revise" class="primary-btn">Submit</button>
+                        <button id="btn-stage3-approve" class="primary-btn">Approve</button>
                     </div>
                 </div>
             </section>

@@ -5,6 +5,7 @@ const path = require('path');
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
 const { agent2Outline } = require('./agents/agent_2_outline');
+const { agent3Characters } = require('./agents/agent_3_characters');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -95,6 +96,45 @@ app.post('/api/generate-outline', async (req, res) => {
     } catch (error) {
         console.error('Outline Gen Error:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/generate-characters', async (req, res) => {
+    try {
+        const { projectId, currentCharacters, notes } = req.body;
+        if (!projectId) {
+            return res.status(400).json({ error: "Missing projectId" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const pitchData = projectData.data?.stage1_pitch?.pitch;
+        const beatsData = projectData.data?.stage2_outline?.outline;
+
+        if (!pitchData || !beatsData) {
+            return res.status(400).json({ error: "Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters" });
+        }
+
+        console.log("Generating Stage 3 Characters...");
+        const characterData = await agent3Characters(pitchData, beatsData, currentCharacters, notes);
+
+        // Save to Stage 3
+        projectData.data = projectData.data || {};
+        projectData.data.stage3_characters = characterData;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: characterData });
+    } catch (error) {
+        console.error('Character Gen Error:', error);
+        res.status(500).json({ error: error.message || "Failed to generate characters" });
     }
 });
 

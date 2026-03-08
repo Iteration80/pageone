@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const navStage2 = document.getElementById('navStage2');
     const stage1Workspace = document.getElementById('stage1Workspace');
     const stage2Workspace = document.getElementById('stage2Workspace');
+    const navStage3 = document.getElementById('navStage3');
+    const stage3Workspace = document.getElementById('stage3Workspace');
 
     // Stage 1 Elements
     const generateBtn = document.getElementById('generateBtn');
@@ -36,9 +38,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage2Notes = document.getElementById('stage2Notes') || document.getElementById('stage2-notes');
     const btnStage2Revise = document.getElementById('btnStage2Revise') || document.getElementById('btn-stage2-revise');
     const btnStage2Approve = document.getElementById('btnStage2Approve') || document.getElementById('btn-stage2-approve');
+    const btnStage2Edit = document.getElementById('btn-stage2-edit');
 
     const renameModal = document.getElementById('renameModal');
     const renameInput = document.getElementById('renameInput');
+
+    // Stage 3 Workshop Elements
+    const stage3Workshop = document.getElementById('stage3Workshop');
+    const generateCharactersBtn = document.getElementById('generateCharactersBtn');
+    const loadingStateCharacters = document.getElementById('loadingStateCharacters');
+    const charactersContainer = document.getElementById('charactersContainer');
+    const stage3Notes = document.getElementById('stage3-notes');
+    const btnStage3Revise = document.getElementById('btn-stage3-revise');
+    const btnStage3Approve = document.getElementById('btn-stage3-approve');
+    const btnStage3Edit = document.getElementById('btn-stage3-edit');
     const cancelRenameBtn = document.getElementById('cancelRenameBtn');
     const saveRenameBtn = document.getElementById('saveRenameBtn');
 
@@ -215,11 +228,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         btnStage2Approve.textContent = 'Approved ✓';
                         btnStage2Approve.classList.add('approve-btn-green');
                     }
+                    if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
+                    if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
+                    if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
                 } else {
                     document.getElementById('act1Container').innerHTML = '';
                     document.getElementById('act2Container').innerHTML = '';
                     document.getElementById('act3Container').innerHTML = '';
                     stage2Workshop.classList.add('hidden');
+                }
+
+                // Hydrate Stage 3 Characters if exists
+                if (projectDetails.data.stage3_characters && projectDetails.data.stage3_characters.characters) {
+                    renderCharacters(projectDetails.data.stage3_characters.characters);
+                    if (btnStage3Approve) {
+                        btnStage3Approve.textContent = 'Approved ✓';
+                        btnStage3Approve.classList.add('approve-btn-green');
+                    }
+                    if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
+                    if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
+                    if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
+                } else {
+                    if (charactersContainer) charactersContainer.innerHTML = '';
+                    if (stage3Workshop) stage3Workshop.classList.add('hidden');
                 }
             } else {
                 updateStageNav(projectDetails.data);
@@ -595,16 +626,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const stage1Done = data && data.stage1_pitch && data.stage1_pitch.pitch;
-        const stage2Done = data && data.stage2_outline && data.stage2_outline.outline;
+        const stage1Done = !!data.stage1_pitch;
+        const stage2Done = !!data.stage2_outline;
+        const stage3Done = !!data.stage3_characters;
 
         toggle(navStage1, stage1Done, '1');
         toggle(navStage2, stage2Done, '2');
+        toggle(navStage3, stage3Done, '3');
 
         if (stage1Done) {
             navStage2.classList.remove('disabled');
         } else {
             navStage2.classList.add('disabled');
+        }
+
+        if (stage2Done) {
+            navStage3.classList.remove('disabled');
+        } else {
+            navStage3.classList.add('disabled');
         }
     }
 
@@ -612,13 +651,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stageNum === 1) {
             navStage1.classList.add('active');
             navStage2.classList.remove('active');
+            if (navStage3) navStage3.classList.remove('active');
             stage1Workspace.classList.remove('hidden');
             stage2Workspace.classList.add('hidden');
+            if (stage3Workspace) stage3Workspace.classList.add('hidden');
         } else if (stageNum === 2) {
             navStage2.classList.add('active');
             navStage1.classList.remove('active');
+            if (navStage3) navStage3.classList.remove('active');
             stage2Workspace.classList.remove('hidden');
             stage1Workspace.classList.add('hidden');
+            if (stage3Workspace) stage3Workspace.classList.add('hidden');
+        } else if (stageNum === 3) {
+            if (navStage3) navStage3.classList.add('active');
+            navStage1.classList.remove('active');
+            navStage2.classList.remove('active');
+            if (stage3Workspace) stage3Workspace.classList.remove('hidden');
+            stage1Workspace.classList.add('hidden');
+            stage2Workspace.classList.add('hidden');
         }
     }
 
@@ -633,6 +683,15 @@ document.addEventListener('DOMContentLoaded', () => {
             switchStage(2);
         }
     });
+
+    if (navStage3) {
+        navStage3.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!navStage3.classList.contains('disabled')) {
+                switchStage(3);
+            }
+        });
+    }
 
     // --- Stage 2 Logic ---
     async function autoGenerateBeats() {
@@ -774,8 +833,10 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerBtn.textContent = 'Approved ✓';
             triggerBtn.classList.add('approve-btn-green');
 
-            // Ensure Revise/Submit is not grayed out
-            if (btnStage2Revise) btnStage2Revise.disabled = false;
+            // Toggle back to Edit mode
+            if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
+            if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
+            if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
@@ -786,6 +847,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
+
+    if (btnStage2Edit) {
+        btnStage2Edit.addEventListener('click', () => {
+            btnStage2Edit.classList.add('hidden');
+            if (btnStage2Revise) {
+                btnStage2Revise.classList.remove('hidden');
+                btnStage2Revise.textContent = 'Submit';
+                btnStage2Revise.disabled = false;
+            }
+            if (btnStage2Approve) {
+                btnStage2Approve.classList.remove('hidden');
+                btnStage2Approve.textContent = 'Approve';
+                btnStage2Approve.classList.remove('approve-btn-green');
+                btnStage2Approve.disabled = false;
+            }
+        });
+    }
 
     btnStage2Revise.addEventListener('click', async () => {
         if (!activeProjectId) return;
@@ -816,10 +894,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnStage2Revise.disabled = false;
                 }, 1500);
 
-                if (btnStage2Approve) {
-                    btnStage2Approve.textContent = 'Approve';
-                    btnStage2Approve.classList.remove('approve-btn-green');
-                }
             } catch (err) {
                 console.error(err);
                 alert("Failed to save manual changes.");
@@ -866,6 +940,286 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage2Revise.textContent = originalText;
         }
     });
+
+    // --- Stage 3 Logic: Characters ---
+    function renderCharacters(characters) {
+        if (!charactersContainer) return;
+        charactersContainer.innerHTML = '';
+
+        characters.forEach((char, index) => {
+            const card = document.createElement('div');
+            card.className = 'character-card';
+            card.style.backgroundColor = '#1f2937';
+            card.style.borderRadius = '8px';
+            card.style.padding = '20px';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.gap = '12px';
+            // Store name & role as data attributes for reliable scraping
+            card.dataset.charName = char.name || '';
+            card.dataset.charRole = char.role || '';
+
+            card.innerHTML = `
+                <div style="border-bottom: 1px solid #374151; padding-bottom: 12px; margin-bottom: 8px;">
+                    <h3 style="margin: 0; color: #f3f4f6; font-size: 1.2rem;">${escapeHtml(char.name || 'Unnamed')}</h3>
+                    <div style="color: #9ca3af; font-size: 0.9rem; font-style: italic;">${escapeHtml(char.role || '')}</div>
+                </div>
+
+                <div class="char-section">
+                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Psychological Core</h4>
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Wound</label>
+                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.wound" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.wound || '')}</textarea>
+                    
+                    <label style="font-size: 0.8rem; color: #9ca3af;">False Belief</label>
+                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.false_belief" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.false_belief || '')}</textarea>
+                    
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Fear</label>
+                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.fear" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.fear || '')}</textarea>
+                    
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Desire</label>
+                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.desire" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.desire || '')}</textarea>
+                    
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Need</label>
+                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.need" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 16px; resize: vertical;">${escapeHtml(char.psychological_core?.need || '')}</textarea>
+                </div>
+
+                <div class="char-section">
+                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Voice & Behavior</h4>
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Speech Patterns</label>
+                    <textarea class="char-input" data-index="${index}" data-field="voice_and_behavior.speech_patterns" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.voice_and_behavior?.speech_patterns || '')}</textarea>
+                    
+                    <label style="font-size: 0.8rem; color: #9ca3af;">Deflection Tactic</label>
+                    <textarea class="char-input" data-index="${index}" data-field="voice_and_behavior.deflection_tactic" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 16px; resize: vertical;">${escapeHtml(char.voice_and_behavior?.deflection_tactic || '')}</textarea>
+                </div>
+
+                <div class="char-section">
+                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Subtlety Guidelines</h4>
+                    <textarea class="char-input" data-index="${index}" data-field="subtlety_guidelines" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; resize: vertical;">${escapeHtml(char.subtlety_guidelines || '')}</textarea>
+                </div>
+            `;
+            charactersContainer.appendChild(card);
+        });
+
+        charactersContainer.classList.remove('hidden');
+        if (stage3Workshop) stage3Workshop.classList.remove('hidden');
+    }
+
+    function scrapeCharacters() {
+        const charCards = Array.from(document.querySelectorAll('.character-card'));
+        const currentCharacters = [];
+
+        charCards.forEach((card) => {
+            // Use data attributes for reliable name/role retrieval
+            const charObj = {
+                name: card.dataset.charName || '',
+                role: card.dataset.charRole || '',
+                psychological_core: { wound: '', false_belief: '', fear: '', desire: '', need: '' },
+                voice_and_behavior: { speech_patterns: '', deflection_tactic: '' },
+                subtlety_guidelines: ''
+            };
+
+            const inputs = card.querySelectorAll('.char-input');
+            inputs.forEach(input => {
+                const field = input.getAttribute('data-field');
+                const val = input.value;
+                if (field.startsWith('psychological_core.')) {
+                    charObj.psychological_core[field.split('.')[1]] = val;
+                } else if (field.startsWith('voice_and_behavior.')) {
+                    charObj.voice_and_behavior[field.split('.')[1]] = val;
+                } else if (field === 'subtlety_guidelines') {
+                    charObj.subtlety_guidelines = val;
+                }
+            });
+
+            currentCharacters.push(charObj);
+        });
+
+        return currentCharacters;
+    }
+
+    if (generateCharactersBtn) {
+        generateCharactersBtn.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+
+            loadingStateCharacters.classList.remove('hidden');
+            charactersContainer.classList.add('hidden');
+            if (stage3Workshop) stage3Workshop.classList.add('hidden');
+            generateCharactersBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/generate-characters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: activeProjectId })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Failed to generate characters");
+                }
+                const data = await res.json();
+
+                renderCharacters(data.result.characters);
+
+                const projectRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projectDetails = await projectRes.json();
+                updateStageNav(projectDetails.data);
+
+                // Always show Submit + Approve after a fresh generation
+                if (btnStage3Edit) btnStage3Edit.classList.add('hidden');
+                if (btnStage3Revise) {
+                    btnStage3Revise.classList.remove('hidden');
+                    btnStage3Revise.textContent = 'Submit';
+                    btnStage3Revise.disabled = false;
+                }
+                if (btnStage3Approve) {
+                    btnStage3Approve.classList.remove('hidden');
+                    btnStage3Approve.textContent = 'Approve';
+                    btnStage3Approve.classList.remove('approve-btn-green');
+                    btnStage3Approve.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error generating characters: " + err.message);
+            } finally {
+                loadingStateCharacters.classList.add('hidden');
+                generateCharactersBtn.disabled = false;
+            }
+        });
+    }
+
+    if (btnStage3Edit) {
+        btnStage3Edit.addEventListener('click', () => {
+            btnStage3Edit.classList.add('hidden');
+            if (btnStage3Revise) {
+                btnStage3Revise.classList.remove('hidden');
+                btnStage3Revise.textContent = 'Submit';
+                btnStage3Revise.disabled = false;
+            }
+            if (btnStage3Approve) {
+                btnStage3Approve.classList.remove('hidden');
+                btnStage3Approve.textContent = 'Approve';
+                btnStage3Approve.classList.remove('approve-btn-green');
+                btnStage3Approve.disabled = false;
+            }
+        });
+    }
+
+    if (btnStage3Revise) {
+        btnStage3Revise.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            const notes = stage3Notes ? stage3Notes.value.trim() : '';
+            const currentCharacters = scrapeCharacters();
+            const originalText = btnStage3Revise.textContent;
+
+            if (!notes) {
+                // Manual save
+                try {
+                    btnStage3Revise.textContent = 'Saving...';
+                    btnStage3Revise.disabled = true;
+
+                    await fetch(`/api/projects/${activeProjectId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            data: {
+                                stage3_characters: { characters: currentCharacters }
+                            }
+                        })
+                    });
+
+                    btnStage3Revise.textContent = 'Saved!';
+                    setTimeout(() => {
+                        btnStage3Revise.textContent = originalText;
+                        btnStage3Revise.disabled = false;
+                    }, 1500);
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Failed to save manual changes.");
+                    btnStage3Revise.textContent = originalText;
+                    btnStage3Revise.disabled = false;
+                }
+                return;
+            }
+
+            loadingStateCharacters.classList.remove('hidden');
+            charactersContainer.classList.add('hidden');
+            btnStage3Revise.disabled = true;
+            btnStage3Revise.textContent = 'Revising...';
+
+            try {
+                const res = await fetch('/api/generate-characters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: activeProjectId,
+                        currentCharacters,
+                        notes
+                    })
+                });
+
+                if (!res.ok) throw new Error("Failed to revise characters");
+                const data = await res.json();
+                renderCharacters(data.result.characters);
+
+                if (stage3Notes) stage3Notes.value = ''; // clear notes
+                if (btnStage3Approve) {
+                    btnStage3Approve.textContent = 'Approve';
+                    btnStage3Approve.classList.remove('approve-btn-green');
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error revising characters");
+            } finally {
+                loadingStateCharacters.classList.add('hidden');
+                charactersContainer.classList.remove('hidden');
+                btnStage3Revise.textContent = originalText;
+                btnStage3Revise.disabled = false;
+            }
+        });
+    }
+
+    if (btnStage3Approve) {
+        btnStage3Approve.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+
+            const currentCharacters = scrapeCharacters();
+            const originalText = btnStage3Approve.textContent;
+
+            btnStage3Approve.textContent = 'Saving...';
+            btnStage3Approve.disabled = true;
+            btnStage3Approve.classList.remove('approve-btn-green');
+
+            try {
+                const res = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: {
+                            stage3_characters: { characters: currentCharacters }
+                        }
+                    })
+                });
+                const updatedProject = await res.json();
+                updateStageNav(updatedProject.data);
+
+                btnStage3Approve.textContent = 'Approved ✓';
+                btnStage3Approve.classList.add('approve-btn-green');
+
+                // Toggle back to edit mode
+                if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
+                if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
+                if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
+            } catch (err) {
+                console.error(err);
+                alert("Error saving approved characters.");
+                btnStage3Approve.textContent = originalText;
+            } finally {
+                btnStage3Approve.disabled = false;
+            }
+        });
+    }
 
     // Utility for safely rendering HTML
     function escapeHtml(unsafe) {
