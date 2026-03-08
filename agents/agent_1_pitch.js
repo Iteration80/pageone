@@ -41,7 +41,7 @@ const agent1Pitch = async (prompt, pdfFile) => {
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
-            systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. Do not include conversational filler. You must output your response strictly according to the defined JSON schema.",
+            systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. Do not include conversational filler. You must output your response strictly according to the defined JSON schema. CRITICAL FORMATTING: You MUST separate Act I, Act II, and Act III in the Synopsis with double line breaks (\\n\\n) so they render as distinct paragraphs. Do not output the synopsis as a single block of text.",
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,

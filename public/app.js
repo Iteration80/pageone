@@ -2,6 +2,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
 
+    function autoResize(textarea) {
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
     // --- DOM Elements ---
     const projectsHub = document.getElementById('projectsHub');
     const appContainer = document.getElementById('appContainer');
@@ -26,6 +32,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileNameDisplay = document.getElementById('fileNameDisplay');
     const stage1FeedbackPanel = document.getElementById('stage1FeedbackPanel');
     const stage1Notes = document.getElementById('stage1-notes');
+    const stage2Notes = document.getElementById('stage2-notes');
+    const stage3Notes = document.getElementById('stage3-notes');
+
+    // Textarea/Notes auto-resize listeners
+    [stage1Notes, stage2Notes, stage3Notes, promptInput].forEach(el => {
+        if (el) {
+            el.addEventListener('input', () => autoResize(el));
+            el.addEventListener('focus', () => { el.style.background = 'rgba(31,41,55,0.8)'; el.style.outline = '1px solid #374151'; });
+            el.addEventListener('blur', () => { el.style.background = 'transparent'; el.style.outline = 'none'; });
+
+            // Initial call for promptInput if it has content (e.g. after refresh)
+            if (el.id === 'promptInput') requestAnimationFrame(() => autoResize(el));
+        }
+    });
     const btnStage1Revise = document.getElementById('btn-stage1-revise');
     const btnStage1Approve = document.getElementById('btn-stage1-approve');
     const btnStage1Edit = document.getElementById('btn-stage1-edit');
@@ -35,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stage 2 Workshop Elements
     const stage2Workshop = document.getElementById('stage2Workshop');
-    const stage2Notes = document.getElementById('stage2Notes') || document.getElementById('stage2-notes');
+    // const stage2Notes = document.getElementById('stage2Notes') || document.getElementById('stage2-notes'); // This line is now redundant due to the new declaration above
     const btnStage2Revise = document.getElementById('btnStage2Revise') || document.getElementById('btn-stage2-revise');
     const btnStage2Approve = document.getElementById('btnStage2Approve') || document.getElementById('btn-stage2-approve');
     const btnStage2Edit = document.getElementById('btn-stage2-edit');
@@ -48,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateCharactersBtn = document.getElementById('generateCharactersBtn');
     const loadingStateCharacters = document.getElementById('loadingStateCharacters');
     const charactersContainer = document.getElementById('charactersContainer');
-    const stage3Notes = document.getElementById('stage3-notes');
+    // const stage3Notes = document.getElementById('stage3-notes'); // This line is now redundant due to the new declaration above
     const btnStage3Revise = document.getElementById('btn-stage3-revise');
     const btnStage3Approve = document.getElementById('btn-stage3-approve');
     const btnStage3Edit = document.getElementById('btn-stage3-edit');
@@ -217,6 +237,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Lock textareas and show Approved / Revise state
                     toggleStage1EditMode(true);
+
+                    // Auto-resize notes if visible
+                    if (stage1Notes) autoResize(stage1Notes);
                 }
 
                 updateStageNav(projectDetails.data);
@@ -231,6 +254,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
                     if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
                     if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
+
+                    // Pre-fill notes
+                    if (stage2Notes && projectDetails.data.stage2_outline.notes) {
+                        stage2Notes.value = projectDetails.data.stage2_outline.notes;
+                    }
+                    if (stage2Notes) autoResize(stage2Notes);
                 } else {
                     document.getElementById('act1Container').innerHTML = '';
                     document.getElementById('act2Container').innerHTML = '';
@@ -248,6 +277,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                     if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
                     if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
+
+                    // Pre-fill notes
+                    if (stage3Notes && projectDetails.data.stage3_characters.notes) {
+                        stage3Notes.value = projectDetails.data.stage3_characters.notes;
+                    }
+                    if (stage3Notes) autoResize(stage3Notes);
                 } else {
                     if (charactersContainer) charactersContainer.innerHTML = '';
                     if (stage3Workshop) stage3Workshop.classList.add('hidden');
@@ -276,6 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
             promptInput.value = '';
             stage1FeedbackPanel.classList.add('hidden');
             if (stage1Notes) stage1Notes.value = '';
+            if (stage2Notes) stage2Notes.value = '';
+            if (stage3Notes) stage3Notes.value = '';
 
             // Reset to Stage 1
             switchStage(1);
@@ -355,28 +392,39 @@ document.addEventListener('DOMContentLoaded', () => {
             card.id = `pitch-card-${index}`;
 
             card.innerHTML = `
-                <div class="field-group">
-                    <label>Title</label>
-                    <input type="text" class="editable-field title-input" data-field="title" value="${escapeHtml(pitch.title)}">
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Title</label>
+                    <input type="text" class="editable-field title-input w-full bg-transparent border-none text-gray-100 font-bold" data-field="title" value="${escapeHtml(pitch.title)}">
                 </div>
-                <div class="field-group">
-                    <label>Genre</label>
-                    <input type="text" class="editable-field" data-field="genre" value="${escapeHtml(pitch.genre)}">
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Genre</label>
+                    <input type="text" class="editable-field w-full bg-transparent border-none text-gray-300" data-field="genre" value="${escapeHtml(pitch.genre)}">
                 </div>
-                <div class="field-group">
-                    <label>Logline</label>
-                    <textarea class="editable-field" data-field="logline">${escapeHtml(pitch.logline)}</textarea>
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Logline</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="logline">${escapeHtml(pitch.logline)}</textarea>
                 </div>
-                <div class="field-group">
-                    <label>Core Theme</label>
-                    <textarea class="editable-field" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Core Theme</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
                 </div>
-                <div class="field-group">
-                    <label>Synopsis</label>
-                    <textarea class="editable-field synopsis-input" data-field="synopsis">${escapeHtml((pitch.synopsis || '').replace(/(?:\s*)(Act 2:)/ig, '\n\n$1').replace(/(?:\s*)(Act 3:)/ig, '\n\n$1').trim())}</textarea>
+                <div class="field-group mb-6">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Synopsis</label>
+                    <textarea class="editable-field synopsis-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="synopsis">${escapeHtml((pitch.synopsis || '').replace(/(?:\s+)(Act (?:II|III|2|3):)/ig, '\n\n$1').trim())}</textarea>
                 </div>
                 <button class="approve-btn">Select to Workshop</button>
             `;
+
+            // Auto-resize and listeners
+            card.querySelectorAll('textarea').forEach(ta => {
+                ta.addEventListener('input', () => autoResize(ta));
+                // Initial resize after it's in the DOM
+                requestAnimationFrame(() => autoResize(ta));
+
+                // Same hover/focus effects as Stage 3 for consistency
+                ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+            });
 
             // Add approve event listener
             const approveBtn = card.querySelector('.approve-btn');
@@ -748,8 +796,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.className = 'beat-card';
                     card.innerHTML = `
                         <h4>${escapeHtml(beat.beat_label)}</h4>
-                        <textarea class="beat-description">${escapeHtml(beat.description)}</textarea>
+                        <textarea class="beat-description w-full bg-transparent border-none resize-none overflow-hidden text-gray-300">${escapeHtml(beat.description)}</textarea>
                     `;
+
+                    const ta = card.querySelector('textarea');
+                    ta.addEventListener('input', () => autoResize(ta));
+                    requestAnimationFrame(() => autoResize(ta));
+
+                    // Hover/focus effects
+                    ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                    ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+
                     seqBlock.appendChild(card);
                 });
 
@@ -942,11 +999,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Stage 3 Logic: Characters ---
-
-    function autoResize(textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
-    }
 
     function renderCharacters(characters) {
         if (!charactersContainer) return;
