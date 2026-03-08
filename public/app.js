@@ -942,62 +942,149 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Stage 3 Logic: Characters ---
+
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
 
-        characters.forEach((char, index) => {
+        // Sort: Protagonist first, Antagonist second, Supporting last
+        const sorted = [...characters].sort((a, b) => {
+            const rank = r => {
+                const role = (r.role || '').toLowerCase();
+                if (role.includes('protagonist')) return 0;
+                if (role.includes('antagonist')) return 1;
+                return 2;
+            };
+            return rank(a) - rank(b);
+        });
+
+        sorted.forEach((char, index) => {
+            const role = char.role || '';
+            const roleLower = role.toLowerCase();
+
+            // Role-based border colour
+            let borderColor, badgeBg, badgeColor;
+            if (roleLower.includes('protagonist')) {
+                borderColor = 'rgba(59,130,246,0.4)';
+                badgeBg = 'rgba(59,130,246,0.15)';
+                badgeColor = '#93c5fd';
+            } else if (roleLower.includes('antagonist')) {
+                borderColor = 'rgba(239,68,68,0.4)';
+                badgeBg = 'rgba(239,68,68,0.15)';
+                badgeColor = '#fca5a5';
+            } else {
+                borderColor = '#374151';
+                badgeBg = 'rgba(107,114,128,0.15)';
+                badgeColor = '#9ca3af';
+            }
+
+            // Invisible textarea style (transparent, no border, auto-height)
+            const taStyle = `
+                width: 100%;
+                background: transparent;
+                border: none;
+                resize: none;
+                overflow: hidden;
+                color: #d1d5db;
+                font-size: 0.88rem;
+                line-height: 1.5;
+                padding: 4px 6px;
+                border-radius: 4px;
+                outline: none;
+                font-family: inherit;
+                transition: background 0.15s;
+            `;
+
             const card = document.createElement('div');
             card.className = 'character-card';
-            card.style.backgroundColor = '#1f2937';
-            card.style.borderRadius = '8px';
-            card.style.padding = '20px';
-            card.style.display = 'flex';
-            card.style.flexDirection = 'column';
-            card.style.gap = '12px';
+            card.style.backgroundColor = '#111827';
+            card.style.borderRadius = '12px';
+            card.style.border = `1px solid ${borderColor}`;
+            card.style.padding = '24px';
+            card.style.display = 'grid';
+            card.style.gridTemplateColumns = '1fr 2fr';
+            card.style.gap = '28px';
+            card.style.alignItems = 'start';
             // Store name & role as data attributes for reliable scraping
             card.dataset.charName = char.name || '';
-            card.dataset.charRole = char.role || '';
+            card.dataset.charRole = role;
 
-            card.innerHTML = `
-                <div style="border-bottom: 1px solid #374151; padding-bottom: 12px; margin-bottom: 8px;">
-                    <h3 style="margin: 0; color: #f3f4f6; font-size: 1.2rem;">${escapeHtml(char.name || 'Unnamed')}</h3>
-                    <div style="color: #9ca3af; font-size: 0.9rem; font-style: italic;">${escapeHtml(char.role || '')}</div>
-                </div>
-
-                <div class="char-section">
-                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Psychological Core</h4>
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Wound</label>
-                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.wound" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.wound || '')}</textarea>
-                    
-                    <label style="font-size: 0.8rem; color: #9ca3af;">False Belief</label>
-                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.false_belief" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.false_belief || '')}</textarea>
-                    
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Fear</label>
-                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.fear" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.fear || '')}</textarea>
-                    
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Desire</label>
-                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.desire" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.psychological_core?.desire || '')}</textarea>
-                    
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Need</label>
-                    <textarea class="char-input" data-index="${index}" data-field="psychological_core.need" style="width: 100%; min-height: 40px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 16px; resize: vertical;">${escapeHtml(char.psychological_core?.need || '')}</textarea>
-                </div>
-
-                <div class="char-section">
-                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Voice & Behavior</h4>
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Speech Patterns</label>
-                    <textarea class="char-input" data-index="${index}" data-field="voice_and_behavior.speech_patterns" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 8px; resize: vertical;">${escapeHtml(char.voice_and_behavior?.speech_patterns || '')}</textarea>
-                    
-                    <label style="font-size: 0.8rem; color: #9ca3af;">Deflection Tactic</label>
-                    <textarea class="char-input" data-index="${index}" data-field="voice_and_behavior.deflection_tactic" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 16px; resize: vertical;">${escapeHtml(char.voice_and_behavior?.deflection_tactic || '')}</textarea>
-                </div>
-
-                <div class="char-section">
-                    <h4 style="color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 4px;">Subtlety Guidelines</h4>
-                    <textarea class="char-input" data-index="${index}" data-field="subtlety_guidelines" style="width: 100%; min-height: 60px; background: #111827; border: 1px solid #374151; color: #e5e7eb; padding: 8px; border-radius: 4px; resize: vertical;">${escapeHtml(char.subtlety_guidelines || '')}</textarea>
+            // Build field helper: label + auto-expanding transparent textarea
+            const field = (label, dataField, value) => `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 2px;">${label}</div>
+                    <textarea
+                        class="char-input char-ta"
+                        data-index="${index}"
+                        data-field="${dataField}"
+                        style="${taStyle}"
+                    >${escapeHtml(value || '')}</textarea>
                 </div>
             `;
+
+            card.innerHTML = `
+                <!-- LEFT COLUMN: Identity -->
+                <div style="border-right: 1px solid #1f2937; padding-right: 24px;">
+                    <h3 style="margin: 0 0 4px; color: #f9fafb; font-size: 1.5rem; font-weight: 700;">${escapeHtml(char.name || 'Unnamed')}</h3>
+                    <div style="display: inline-block; background: ${badgeBg}; color: ${badgeColor}; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 10px; border-radius: 20px; margin-bottom: 16px;">${escapeHtml(role)}</div>
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Bio</div>
+                        <textarea
+                            class="char-input char-ta"
+                            data-index="${index}"
+                            data-field="brief_summary"
+                            style="${taStyle} font-style: italic; color: #9ca3af;"
+                        >${escapeHtml(char.brief_summary || '')}</textarea>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: Deep Dive -->
+                <div>
+                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Psychological Core</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                        ${field('Wound', 'psychological_core.wound', char.psychological_core?.wound)}
+                        ${field('False Belief', 'psychological_core.false_belief', char.psychological_core?.false_belief)}
+                        ${field('Fear', 'psychological_core.fear', char.psychological_core?.fear)}
+                        ${field('Desire', 'psychological_core.desire', char.psychological_core?.desire)}
+                        ${field('Need', 'psychological_core.need', char.psychological_core?.need)}
+                    </div>
+
+                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Voice &amp; Behavior</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                        ${field('Speech Patterns', 'voice_and_behavior.speech_patterns', char.voice_and_behavior?.speech_patterns)}
+                        ${field('Deflection Tactic', 'voice_and_behavior.deflection_tactic', char.voice_and_behavior?.deflection_tactic)}
+                    </div>
+
+                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (90/10 Rule)</div>
+                    <textarea
+                        class="char-input char-ta"
+                        data-index="${index}"
+                        data-field="subtlety_guidelines"
+                        style="${taStyle}"
+                    >${escapeHtml(char.subtlety_guidelines || '')}</textarea>
+                </div>
+            `;
+
+            // Hover/focus effect on transparent textareas
+            card.querySelectorAll('.char-ta').forEach(ta => {
+                ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+                ta.addEventListener('input', () => autoResize(ta));
+            });
+
             charactersContainer.appendChild(card);
+        });
+
+        // Auto-resize all textareas after DOM is populated
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
         });
 
         charactersContainer.classList.remove('hidden');
@@ -1009,10 +1096,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentCharacters = [];
 
         charCards.forEach((card) => {
-            // Use data attributes for reliable name/role retrieval
             const charObj = {
                 name: card.dataset.charName || '',
                 role: card.dataset.charRole || '',
+                brief_summary: '',
                 psychological_core: { wound: '', false_belief: '', fear: '', desire: '', need: '' },
                 voice_and_behavior: { speech_patterns: '', deflection_tactic: '' },
                 subtlety_guidelines: ''
@@ -1020,13 +1107,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const inputs = card.querySelectorAll('.char-input');
             inputs.forEach(input => {
-                const field = input.getAttribute('data-field');
+                const f = input.getAttribute('data-field');
                 const val = input.value;
-                if (field.startsWith('psychological_core.')) {
-                    charObj.psychological_core[field.split('.')[1]] = val;
-                } else if (field.startsWith('voice_and_behavior.')) {
-                    charObj.voice_and_behavior[field.split('.')[1]] = val;
-                } else if (field === 'subtlety_guidelines') {
+                if (f === 'brief_summary') {
+                    charObj.brief_summary = val;
+                } else if (f.startsWith('psychological_core.')) {
+                    charObj.psychological_core[f.split('.')[1]] = val;
+                } else if (f.startsWith('voice_and_behavior.')) {
+                    charObj.voice_and_behavior[f.split('.')[1]] = val;
+                } else if (f === 'subtlety_guidelines') {
                     charObj.subtlety_guidelines = val;
                 }
             });

@@ -14,10 +14,11 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
                 type: Type.ARRAY,
                 items: {
                     type: Type.OBJECT,
-                    required: ['name', 'role', 'psychological_core', 'voice_and_behavior', 'subtlety_guidelines'],
+                    required: ['name', 'role', 'brief_summary', 'psychological_core', 'voice_and_behavior', 'subtlety_guidelines'],
                     properties: {
                         name: { type: Type.STRING },
                         role: { type: Type.STRING, description: "e.g., Protagonist, Antagonist, Supporting" },
+                        brief_summary: { type: Type.STRING, description: "A punchy, 2-sentence bio encapsulating who they are, their occupation/status, and their exact narrative function." },
                         psychological_core: {
                             type: Type.OBJECT,
                             required: ['wound', 'false_belief', 'fear', 'desire', 'need'],

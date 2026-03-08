@@ -131,97 +131,49 @@
         {
           "name": "Chloe",
           "psychological_core": {
-            "desire": "To feel safe and live a completely boring, predictable life.",
-            "false_belief": "I only survived through dumb luck, and I am cursed to eventually get everyone around me killed.",
-            "fear": "Being placed in a leadership role and failing to save people again.",
-            "need": "To accept her trauma, stop running from her past, and embrace her own agency and leadership.",
-            "wound": "Survived a brutal summer camp massacre where all of her closest friends were slaughtered."
+            "desire": "To finally feel safe enough to sleep through the night without waking up in a cold sweat.",
+            "false_belief": "I am permanently broken and can only exist in a state of perpetual warfare.",
+            "fear": "Being completely helpless and watching people die because she was not prepared.",
+            "need": "To let go of her hyper-vigilance and realize she is more than just a survivor.",
+            "wound": "The summer camp massacre where she was the sole survivor, bearing the crushing guilt of her friends' deaths."
           },
           "role": "Protagonist",
-          "subtlety_guidelines": "She masks her hyper-vigilance by appearing quietly observant. She behaves like a grounded, introverted young woman, and her trauma only surfaces under stress when she obsessively maps out room exits or checks the locks.",
+          "subtlety_guidelines": "She masks her severe PTSD by appearing bored and cynical. She does not scream or cry; instead, she quietly maps out exits, counts knives in the kitchen, and always positions herself facing the door. Her trauma only surfaces when someone touches her unexpectedly.",
           "voice_and_behavior": {
-            "deflection_tactic": "She pivots the conversation to hyper-practical, logistical details to avoid emotional intimacy.",
-            "speech_patterns": "Speaks in a dry, clinical tone when discussing horrific events. She NEVER says 'Everything is going to be okay' or makes promises about the future."
+            "deflection_tactic": "Pivoting to logistical or tactical observations. If asked about her emotional state, she will critique the structural integrity of the room's windows.",
+            "speech_patterns": "Blunt, clinical, and devoid of emotional adjectives. She NEVER says 'I am scared' or offers false reassurance like 'Everything will be fine.'"
           }
         },
         {
           "name": "Dr. Vance",
           "psychological_core": {
-            "desire": "To be recognized as a brilliant mastermind and the ultimate director of the greatest horror sequel ever.",
-            "false_belief": "True healing can only be achieved by forcing victims to conquer a perfectly orchestrated, escalated trauma.",
-            "fear": "Remaining invisible, forgettable, and forever relegated to the role of a background character.",
-            "need": "To realize that human lives are not narratives to be controlled and manipulated for his own ego.",
-            "wound": "A lifelong feeling of deep insignificance and being overshadowed by the 'stars' he treats."
+            "desire": "To orchestrate the ultimate, trope-defying horror sequel in real life.",
+            "false_belief": "Extreme, life-threatening exposure therapy is the only way to cure trauma, making him a visionary psychological savior.",
+            "fear": "Being dismissed as ordinary, mediocre, or a forgettable background character in someone else's story.",
+            "need": "To face his own profound insignificance and lack of empathy, though he is too far gone to achieve this.",
+            "wound": "A lifetime of being ignored, bullied, and overshadowed, leading to a pathological obsession with horror movie power dynamics."
           },
           "role": "Antagonist",
-          "subtlety_guidelines": "He presents as deeply empathetic, soft-spoken, and utterly harmless. His megalomania and God-complex only leak out 10% of the time when someone interrupts his therapeutic 'process' or questions his methods.",
+          "subtlety_guidelines": "He plays the meek, overly empathetic therapist flawlessly 90 percent of the time. His psychotic nature only bleeds through in his intense, unblinking eye contact and overly enthusiastic note-taking when the survivors describe their most gruesome, bloody memories.",
           "voice_and_behavior": {
-            "deflection_tactic": "He turns questions back on the asker with a sympathetic head tilt, using therapy as a shield.",
-            "speech_patterns": "Speaks in soothing, gentle therapeutic buzzwords like 'holding space' and 'processing.' He NEVER raises his voice or curses until his final monologue."
+            "deflection_tactic": "Weaponizing therapy-speak. When challenged or cornered, he softly turns the question back on the accuser with phrases like 'Why do you feel the need to deflect with hostility?'",
+            "speech_patterns": "Soft-spoken, measured, and heavily reliant on academic psychology buzzwords. He NEVER raises his voice, interrupts, or uses profanity until his final unmasking in the third act."
           }
         },
         {
-          "name": "Riley",
+          "name": "Lexi",
           "psychological_core": {
-            "desire": "Total control over her physical environment and absolute self-reliance.",
-            "false_belief": "Trusting anyone else is a fatal liability, and I must be the strongest in the room to survive.",
-            "fear": "Physical weakness, vulnerability, and having to rely on someone else to save her.",
-            "need": "To learn to trust others, allow herself to be vulnerable, and realize strength isn't just physical.",
-            "wound": "Was betrayed by the authorities during her original horror scenario, leaving her to fight entirely alone."
+            "desire": "To prove she is invincible and can never be victimized or overpowered again.",
+            "false_belief": "Physical strength and relentless aggression are the only valid shields against trauma.",
+            "fear": "Vulnerability, emotional intimacy, and being perceived as weak by her peers.",
+            "need": "To accept that relying on others and showing fear does not equate to weakness.",
+            "wound": "A brutal, prolonged home invasion where she had to fight her way out with her bare hands, losing her family in the process."
           },
           "role": "Supporting",
-          "subtlety_guidelines": "She appears relaxed but constantly performs subtle physical assessments, like stretching or checking her watch. She only gets aggressive or commanding when someone makes what she perceives as a 'stupid' tactical mistake.",
+          "subtlety_guidelines": "She masks her deep-seated fear with aggressive humor and physical intimidation. She casually sharpens objects or exercises relentlessly during group therapy to avoid sitting still with her thoughts.",
           "voice_and_behavior": {
-            "deflection_tactic": "She uses dark, aggressive humor or challenges the person physically to shut down emotional conversations.",
-            "speech_patterns": "Uses short, clipped, military-style sentences. She NEVER says 'I need help' or 'I can't do this.'"
-          }
-        },
-        {
-          "name": "Sydney",
-          "psychological_core": {
-            "desire": "To be proven wrong about her fatalism and actually find a reason to hope for a future.",
-            "false_belief": "The world is inherently doomed and everyone dies eventually, so there is no point in trying too hard.",
-            "fear": "Hoping for a good outcome and being emotionally devastated when the inevitable tragedy strikes.",
-            "need": "To find genuine hope and actively fight for a future instead of just waiting for the end.",
-            "wound": "Nobody believed her when she tried to warn her town about a supernatural threat until it was too late."
-          },
-          "role": "Supporting",
-          "subtlety_guidelines": "She uses thick sarcasm as a shield, acting like she is entirely above the situation. Her underlying panic only shows when she compulsively checks reflections, shadows, or dark corners.",
-          "voice_and_behavior": {
-            "deflection_tactic": "She makes a meta-joke about horror movies or dramatically rolls her eyes to dismiss rising tension.",
-            "speech_patterns": "Speaks in a bored, pop-culture-heavy drawl with a highly sarcastic tone. She NEVER says 'I believe you' or 'We can win.'"
-          }
-        },
-        {
-          "name": "Harper",
-          "psychological_core": {
-            "desire": "To expose Dr. Vance's twisted network and clear her own disgraced name.",
-            "false_belief": "The only way to beat a monster is to treat the victims as expendable pawns in a chess game.",
-            "fear": "Being outsmarted, caught off guard, and proven crazy by the system again.",
-            "need": "To prioritize saving actual human lives over her obsession with solving the puzzle.",
-            "wound": "Uncovered a killer's plot previously but was discredited by corrupt authorities, losing her career and credibility."
-          },
-          "role": "Supporting",
-          "subtlety_guidelines": "She acts like a detached, mildly annoyed local who just happens to know too much. Her intense paranoia and manipulative agenda only surface 10% of the time when Chloe deviates from her instructions, causing Harper's voice to crack with desperate, controlling panic.",
-          "voice_and_behavior": {
-            "deflection_tactic": "Answers a direct question with a cryptic counter-question or abruptly cuts off communication to maintain leverage.",
-            "speech_patterns": "Speaks in transactional, precise terms, often using hypotheticals. She NEVER says 'I am here to help you' or gives a direct, comforting answer."
-          }
-        },
-        {
-          "name": "Sam",
-          "psychological_core": {
-            "desire": "To connect with someone who truly understands his specific trauma without judgment.",
-            "false_belief": "I am broken goods and incapable of protecting anyone I love, so I must never get close to anyone again.",
-            "fear": "Falling in love and being forced to watch that person die horribly in front of him.",
-            "need": "To realize that loving someone is worth the risk, and he is worthy of love despite his past failures.",
-            "wound": "Survived a horrific cabin massacre but was forced to leave his significant other behind in order to escape."
-          },
-          "role": "Supporting",
-          "subtlety_guidelines": "He presents as a charming, easygoing guy who makes the best of group therapy. His deep fear of attachment only shows 10% of the time when Chloe gets too emotionally close, causing him to physically flinch, pull away, or abruptly change the subject.",
-          "voice_and_behavior": {
-            "deflection_tactic": "He deflects emotional intimacy by making a self-effacing joke or suddenly remembering a mundane chore he has to go do.",
-            "speech_patterns": "Uses gentle, self-deprecating humor and speaks in a warm, inviting tone. He NEVER says 'I will protect you' or 'You are safe with me.'"
+            "deflection_tactic": "Using abrasive, sarcastic dark humor or initiating a physical challenge to completely derail vulnerable emotional conversations.",
+            "speech_patterns": "Loud, confrontational, and highly sarcastic. She NEVER asks for help, apologizes, or admits she does not know what to do."
           }
         }
       ]
