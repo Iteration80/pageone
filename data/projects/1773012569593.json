@@ -1,0 +1,185 @@
+{
+  "id": "1773012569593",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Repo Mind",
+        "genre": "Sci-Fi Thriller",
+        "logline": "When a corporate memory-repo agent repossesses a defaulting client's memories, he uncovers a hidden file depicting his own unsolved murder in a past life, forcing him to go rogue to find his killer before his current mind is wiped.",
+        "core_theme": "The commodification of the human soul and the inescapable nature of the past.",
+        "synopsis": "Act I: In a dystopian future where memories are stored on expensive corporate servers, Elias works as a 'Repo Man,' legally extracting memories from defaulting citizens. He is cold, efficient, and unquestioning. During a routine extraction from an elderly woman, he accidentally syncs with a hidden, encrypted memory file. He experiences a vivid first-person memory of being murdered—and realizes the victim is a past version of himself.\n\nAct II: Elias investigates the memory, discovering that the corporation he works for has been recycling consciousnesses for decades, wiping memories of those who get too close to their dark secrets. Hunted by his own ruthless colleagues and a specialized team of corporate assassins, Elias teams up with an underground network of 'memory pirates.' Together, they attempt to hack the central server to retrieve the rest of Elias's past life, leading to a series of mind-bending heists where the laws of physics are dictated by the memories they infiltrate.\n\nAct III: Elias successfully breaches the corporate mainframe, only to face the CEO—the very man who murdered him in his past life. In a climactic battle fought simultaneously in the physical world and a collapsing digital memory-scape, Elias manages to broadcast the corporation's crimes to the world. He sacrifices his own digital immortality to destroy the servers, freeing humanity's memories and finally finding peace."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Repo Man",
+            "beats": [
+              {
+                "beat_label": "Opening Image",
+                "description": "Elias coldly extracts a cherished memory from a defaulting citizen, establishing his ruthless efficiency and the bleak status quo."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "During a routine extraction from an elderly woman, Elias accidentally syncs with an encrypted hidden file and experiences a vivid first-person memory of being murdered by a shadowy figure."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Awakening",
+            "beats": [
+              {
+                "beat_label": "Investigation",
+                "description": "Elias secretly analyzes the memory file, discovering that the victim is a past version of himself and realizing the corporation recycles consciousnesses."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "Corporate monitors detect Elias's unauthorized access, prompting an assassination squad to attack his apartment, forcing him to abandon his life and flee into the city's underbelly."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Memory Pirates",
+            "beats": [
+              {
+                "beat_label": "B-Story",
+                "description": "Hunted and out of options, Elias seeks out an underground network of memory pirates who operate outside corporate control."
+              },
+              {
+                "beat_label": "Fun and Games",
+                "description": "Elias learns to navigate the pirates' illegal memory-hacking tech, experiencing surreal digital landscapes where the laws of physics are dictated by the host's subconscious."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The First Heist",
+            "beats": [
+              {
+                "beat_label": "Preparation",
+                "description": "Elias and the pirates orchestrate a mind-bending heist into a mid-level corporate server to retrieve the missing fragments of his past life."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "They successfully extract the data, revealing that the current corporate CEO is Elias's killer, but their breach triggers a massive system alarm that exposes their location."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Walls Close In",
+            "beats": [
+              {
+                "beat_label": "Bad Guys Close In",
+                "description": "The CEO dispatches a specialized team of corporate assassins who relentlessly track Elias's digital and physical footprints."
+              },
+              {
+                "beat_label": "Attack on the Hideout",
+                "description": "The assassins ambush the pirates' physical hideout while they are jacked into the network, resulting in a chaotic battle across two realities."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Dark Night",
+            "beats": [
+              {
+                "beat_label": "All is Lost",
+                "description": "The pirates suffer heavy casualties, and the corporation initiates a remote wipe of Elias's current mind, causing his identity to disintegrate."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "With his memories fading fast, Elias realizes he cannot run and decides on a suicidal mission to physically breach the central corporate mainframe."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Mainframe Breach",
+            "beats": [
+              {
+                "beat_label": "Gathering the Team",
+                "description": "Elias and the surviving pirates launch a desperate, two-pronged assault on the heavily fortified corporate headquarters."
+              },
+              {
+                "beat_label": "The Confrontation",
+                "description": "Elias breaks into the server room and connects to the mainframe, facing the CEO in a climactic battle fought simultaneously in the physical world and a collapsing digital memory-scape."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Sacrifice",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "Elias overpowers the CEO's digital avatar and manages to broadcast the corporation's dark secrets and recycled consciousness files to the entire world."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "To finalize the broadcast, Elias destroys the primary servers, sacrificing his own digital immortality to free humanity's memories and finally finding peace as his mind fades."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Elias",
+          "role": "Protagonist",
+          "brief_summary": "A cold, highly efficient memory-repo agent who extracts defaulting clients' memories to survive in a dystopian society. Once a loyal corporate drone, he becomes a rogue fugitive seeking his own truth after discovering he is a recycled consciousness.",
+          "psychological_core": {
+            "wound": "A deep, unexplainable emptiness and lack of formative childhood memories, which is a hidden side effect of his consciousness being recycled.",
+            "false_belief": "If I follow the rules, do my job perfectly, and never ask questions, my life has value and I am safe from the chaos of the world.",
+            "fear": "Complete erasure; ceasing to exist without ever knowing who he truly was or leaving a genuine mark on the world.",
+            "desire": "To find his killer, solve the mystery of his past life, and reclaim his stolen memories before his current mind is wiped.",
+            "need": "To accept that his humanity and soul are defined by his present choices and sacrifices, not by the fragments of his stolen past."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Clinical, precise, and highly economical. He speaks in declarative statements and rarely asks questions. He NEVER says 'I feel' or 'I believe.'",
+            "deflection_tactic": "Reciting corporate policy, citing legal extraction statutes, or pivoting entirely to logistical facts when confronted with emotional or moral dilemmas."
+          },
+          "subtlety_guidelines": "Elias appears as a well-adjusted, slightly detached professional who fits perfectly into normal society. His robotic adherence to logic only breaks about 10% of the time under severe stress, manifesting as a momentary freeze or a rigid adjustment of his shirt cuffs before he smoothly changes the subject to mask his internal panic."
+        },
+        {
+          "name": "Silas Vance",
+          "role": "Antagonist",
+          "brief_summary": "The charismatic, ruthless CEO and architect of the memory-storage monopoly who murdered Elias in a past life. He views human consciousness as a resource to be mined, believing himself to be a necessary god of the new digital era.",
+          "psychological_core": {
+            "wound": "A profound, hidden terror of his own mortality and irrelevance, stemming from a forgotten early life trauma of absolute powerlessness.",
+            "false_belief": "Immortality and absolute control over the minds of others is the only way to ensure my own survival and secure a lasting legacy.",
+            "fear": "Being forgotten, losing control of his empire, and facing the karmic consequences of the atrocities he has committed.",
+            "desire": "To maintain absolute control over the global memory market and eliminate Elias to protect his darkest secret.",
+            "need": "To realize that true legacy cannot be forced or stolen, and to accept his own natural mortality, though his hubris prevents him from ever achieving this."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Warm, paternal, and philosophically grandiose. He speaks like a benevolent mentor guiding a lost student. He NEVER raises his voice or uses crude profanity.",
+            "deflection_tactic": "Answering a direct accusation or threat with a calm philosophical question or a nostalgic anecdote about the 'greater good' of humanity."
+          },
+          "subtlety_guidelines": "Vance comes across as a deeply empathetic, reasonable, and grounded leader. His sociopathy is expertly masked by genuine-sounding warmth. Only when his control is legitimately threatened does his mask slip, revealing a dead, unblinking stare for just a fraction of a second, even as his tone remains perfectly pleasant."
+        },
+        {
+          "name": "Jax",
+          "role": "Supporting",
+          "brief_summary": "A cynical, brilliant underground hacker who leads the memory pirates from the city's underbelly. She fights a guerrilla war against the corporation to preserve authentic human history, serving as Elias's reluctant guide and eventual ally.",
+          "psychological_core": {
+            "wound": "The traumatic loss of her family to a corporate memory wipe, leaving her with only fragmented, painful recollections that she cannot verify as real.",
+            "false_belief": "Everyone will eventually betray you or be erased to save their own skin, so it is never safe to trust anyone fully.",
+            "fear": "Losing the last few genuine memories she has of her loved ones and forgetting what they looked like entirely.",
+            "desire": "To tear down the corporate memory monopoly, expose their lies to the public, and avenge the erasure of her family.",
+            "need": "To learn to trust others again and fight for a shared human future rather than just seeking destructive revenge for the past."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Fast, colloquial, and laced with dark, defensive humor. She uses dense technical jargon as a linguistic shield. She NEVER says 'Thank you' or expresses direct gratitude.",
+            "deflection_tactic": "Using biting sarcasm or hyper-focusing on a piece of technology, such as aggressively typing or tinkering, to avoid eye contact during vulnerable moments."
+          },
+          "subtlety_guidelines": "Jax acts like a tough, careless outlaw who only cares about the next score, blending in perfectly with the criminal underworld. She hides her deep well of grief under layers of irony. Only when someone inadvertently reminds her of her lost family does she abruptly go silent, aggressively dismantling a piece of hardware to hide her shaking hands."
+        }
+      ]
+    }
+  }
+}

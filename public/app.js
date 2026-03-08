@@ -247,13 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hydrate Stage 2 Outline if exists
                 if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
                     renderOutline(projectDetails.data.stage2_outline.outline);
+
+                    // Outline is approved — override the unapproved state set by renderOutline
                     if (btnStage2Approve) {
                         btnStage2Approve.textContent = 'Approved ✓';
                         btnStage2Approve.classList.add('approve-btn-green');
                     }
-                    if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
-                    if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
-                    if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
+                    toggleStage2EditMode(true);
 
                     // Pre-fill notes
                     if (stage2Notes && projectDetails.data.stage2_outline.notes) {
@@ -461,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show the Stage 1 Feedback Panel
         stage1FeedbackPanel.classList.remove('hidden');
+        toggleStage1EditMode(false);
     }
 
     function toggleStage1EditMode(isApproved) {
@@ -821,12 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('outlineContainer').classList.remove('hidden');
         stage2Workshop.classList.remove('hidden');
 
-        // Reset approve button to unapproved state after rendering new beats
-        if (btnStage2Approve) {
-            btnStage2Approve.textContent = 'Approve';
-            btnStage2Approve.classList.remove('approve-btn-green');
-            btnStage2Approve.disabled = false;
-        }
+        toggleStage2EditMode(false);
     }
 
     function scrapeOutline() {
@@ -887,13 +883,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Navigation UI
             updateStageNav(updatedProject.data);
 
+            // Indicate success visually
             triggerBtn.textContent = 'Approved ✓';
             triggerBtn.classList.add('approve-btn-green');
 
-            // Toggle back to Edit mode
-            if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
-            if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
-            if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
+            toggleStage2EditMode(true);
+
+            // Auto-trigger Stage 3 Characters
+            switchStage(3);
+            autoGenerateCharacters();
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
@@ -903,11 +901,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
-
-    if (btnStage2Edit) {
-        btnStage2Edit.addEventListener('click', () => {
-            btnStage2Edit.classList.add('hidden');
+    function toggleStage2EditMode(isApproved) {
+        if (isApproved) {
+            if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
+            if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
+            if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
+        } else {
+            if (btnStage2Edit) btnStage2Edit.classList.add('hidden');
             if (btnStage2Revise) {
                 btnStage2Revise.classList.remove('hidden');
                 btnStage2Revise.textContent = 'Submit';
@@ -919,6 +919,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage2Approve.classList.remove('approve-btn-green');
                 btnStage2Approve.disabled = false;
             }
+        }
+    }
+
+    btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
+
+    if (btnStage2Edit) {
+        btnStage2Edit.addEventListener('click', () => {
+            toggleStage2EditMode(false);
         });
     }
 
@@ -1178,55 +1186,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return currentCharacters;
     }
 
-    if (generateCharactersBtn) {
-        generateCharactersBtn.addEventListener('click', async () => {
-            if (!activeProjectId) return;
+    async function autoGenerateCharacters() {
+        if (!activeProjectId) return;
 
-            loadingStateCharacters.classList.remove('hidden');
-            charactersContainer.classList.add('hidden');
-            if (stage3Workshop) stage3Workshop.classList.add('hidden');
-            generateCharactersBtn.disabled = true;
+        loadingStateCharacters.classList.remove('hidden');
+        charactersContainer.classList.add('hidden');
+        if (stage3Workshop) stage3Workshop.classList.add('hidden');
+        if (generateCharactersBtn) generateCharactersBtn.disabled = true;
 
-            try {
-                const res = await fetch('/api/generate-characters', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId })
-                });
+        try {
+            const res = await fetch('/api/generate-characters', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
 
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.error || "Failed to generate characters");
-                }
-                const data = await res.json();
-
-                renderCharacters(data.result.characters);
-
-                const projectRes = await fetch(`/api/projects/${activeProjectId}`);
-                const projectDetails = await projectRes.json();
-                updateStageNav(projectDetails.data);
-
-                // Always show Submit + Approve after a fresh generation
-                if (btnStage3Edit) btnStage3Edit.classList.add('hidden');
-                if (btnStage3Revise) {
-                    btnStage3Revise.classList.remove('hidden');
-                    btnStage3Revise.textContent = 'Submit';
-                    btnStage3Revise.disabled = false;
-                }
-                if (btnStage3Approve) {
-                    btnStage3Approve.classList.remove('hidden');
-                    btnStage3Approve.textContent = 'Approve';
-                    btnStage3Approve.classList.remove('approve-btn-green');
-                    btnStage3Approve.disabled = false;
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error generating characters: " + err.message);
-            } finally {
-                loadingStateCharacters.classList.add('hidden');
-                generateCharactersBtn.disabled = false;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to generate characters");
             }
-        });
+            const data = await res.json();
+
+            renderCharacters(data.result.characters);
+
+            const projectRes = await fetch(`/api/projects/${activeProjectId}`);
+            const projectDetails = await projectRes.json();
+            updateStageNav(projectDetails.data);
+
+            // Always show Submit + Approve after a fresh generation
+            if (btnStage3Edit) btnStage3Edit.classList.add('hidden');
+            if (btnStage3Revise) {
+                btnStage3Revise.classList.remove('hidden');
+                btnStage3Revise.textContent = 'Submit';
+                btnStage3Revise.disabled = false;
+            }
+            if (btnStage3Approve) {
+                btnStage3Approve.classList.remove('hidden');
+                btnStage3Approve.textContent = 'Approve';
+                btnStage3Approve.classList.remove('approve-btn-green');
+                btnStage3Approve.disabled = false;
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error generating characters: " + err.message);
+        } finally {
+            loadingStateCharacters.classList.add('hidden');
+            if (generateCharactersBtn) generateCharactersBtn.disabled = false;
+        }
+    }
+
+    if (generateCharactersBtn) {
+        generateCharactersBtn.addEventListener('click', () => autoGenerateCharacters());
     }
 
     if (btnStage3Edit) {
