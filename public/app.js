@@ -1026,16 +1026,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
         } else {
             if (btnStage2Edit) btnStage2Edit.classList.add('hidden');
+
+            // FIX: Only show Revise if you want it visible during the drafting phase.
+            // If you want it to behave like Stage 1, it should stay hidden 
+            // until the first 'Approve' or only show 'Submit' if notes are present.
             if (btnStage2Revise) {
                 btnStage2Revise.classList.remove('hidden');
                 btnStage2Revise.textContent = 'Submit';
-                btnStage2Revise.disabled = false;
             }
+
             if (btnStage2Approve) {
                 btnStage2Approve.classList.remove('hidden');
                 btnStage2Approve.textContent = 'Approve';
                 btnStage2Approve.classList.remove('approve-btn-green');
-                btnStage2Approve.disabled = false;
             }
         }
     }
