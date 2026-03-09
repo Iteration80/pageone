@@ -1,5 +1,408 @@
 {
   "id": "1773077925402",
-  "title": "New Project",
-  "data": {}
+  "title": "The Somnus Drive",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "The Somnus Drive",
+        "genre": "Sci-Fi Thriller",
+        "logline": "When a desperate gig worker rents out her REM sleep as cloud storage for a tech conglomerate, she begins experiencing terrifying, hyper-realistic nightmares that reveal a massive corporate conspiracy.",
+        "core_theme": "The exploitation of the human mind and the loss of privacy in the digital age.",
+        "synopsis": "Act I: Elara, struggling to pay her mother's medical bills, signs up for 'Somnus,' a gig-economy app that uses the human brain's idle processing power during sleep as server space. Initially, the money is great, and she only experiences mild, abstract dreams.\n\nAct II: Elara starts having vivid, recurring nightmares of a corporate assassination. She realizes these aren't dreams, but encrypted video files being stored in her mind. She teams up with a rogue Somnus technician to extract the data, making her a target for the corporation's real-world hitmen.\n\nAct III: In a desperate bid to expose the truth, Elara must stay awake long enough to physically reach a whistleblower journalist. The corporation hacks her neural implant, blurring the lines between reality and the digital nightmares, leading to a mind-bending climax where she must use the stored data to override their system and broadcast the truth to the world."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Desperate Hustle",
+            "beats": [
+              {
+                "beat_label": "Opening Image",
+                "description": "Elara works a grueling gig-economy job, returning to a cramped apartment to find another final notice for her mother's life-saving medical treatments."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "Desperate for cash, Elara visits a sterile Somnus clinic and agrees to have a neural implant installed, renting her REM sleep as cloud storage for corporate data."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Upload",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "The initial uploads are painless. Elara receives massive payouts and pays off her mother's immediate debt, experiencing only abstract, harmless shapes during her sleep."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "During a routine sleep cycle, the abstract shapes violently shift into a hyper-realistic, terrifying nightmare of a man being murdered in a corporate boardroom. She wakes up screaming, realizing she just witnessed a real event."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Glitch",
+            "beats": [
+              {
+                "beat_label": "Investigation",
+                "description": "Unable to shake the nightmare, Elara digs into the victim's identity, discovering he was an executive about to blow the whistle on Somnus."
+              },
+              {
+                "beat_label": "First Culmination",
+                "description": "She tracks down Jax, a disillusioned Somnus technician. Jax scans her implant and confirms the nightmare is a highly encrypted video file. The system detects their scan, flagging them as security threats."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: Hunted",
+            "beats": [
+              {
+                "beat_label": "Chase",
+                "description": "Corporate hitmen arrive at Jax's underground lab. Elara and Jax narrowly escape into the city's neon-lit underbelly, realizing they are dealing with a massive cover-up."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "Jax manages to partially decrypt the file, revealing the Somnus CEO pulling the trigger. The stakes are raised as Elara becomes a walking hard drive containing the ultimate smoking gun, but her location is now constantly tracked whenever she sleeps."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: Sleep Deprivation",
+            "beats": [
+              {
+                "beat_label": "Complication",
+                "description": "To avoid detection and deletion of the file, Elara must stay awake. They formulate a plan to find a legendary underground journalist who can broadcast the decrypted file."
+              },
+              {
+                "beat_label": "Subplot Climax",
+                "description": "Exhaustion sets in. Somnus begins remotely pinging Elara's implant, causing micro-hallucinations in her waking life. The line between reality and the digital nightmare begins to blur."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: System Crash",
+            "beats": [
+              {
+                "beat_label": "All Is Lost",
+                "description": "The hitmen ambush them at a safe house. Jax sacrifices himself so Elara can escape, leaving her entirely alone, exhausted, and losing her grip on reality."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "Elara realizes she cannot run forever. She maps the route to the journalist's heavily fortified broadcast tower. She prepares for a suicidal sprint across the city, vowing to stay awake long enough to expose the truth."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: Waking Nightmare",
+            "beats": [
+              {
+                "beat_label": "The Descent",
+                "description": "Elara makes her way through the hostile city streets. Somnus initiates a full-scale neural hack, projecting terrifying digital monsters and false realities into her waking vision to stop her."
+              },
+              {
+                "beat_label": "Climax Begins",
+                "description": "Fighting through the hallucinations, Elara breaches the broadcast tower but is cornered by the lead hitman and a digital projection of the CEO in her mind, threatening to wipe her brain completely."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Broadcast",
+            "beats": [
+              {
+                "beat_label": "Final Climax",
+                "description": "Instead of fighting the hack, Elara leans into it, using her own brain's processing power to reverse the connection. She overrides the corporate firewall from the inside and dumps the unencrypted murder footage directly into the journalist's broadcast feed."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The footage goes viral globally. The hitman stands down as authorities raid Somnus headquarters. Elara, finally safe and her mother's future secured, closes her eyes and falls into a deep, dreamless sleep."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Elara Vance",
+          "role": "Protagonist",
+          "brief_summary": "A resourceful but exhausted gig worker who rents out her REM sleep to save her dying mother. She serves as the audience's grounded entry point into a dystopian tech-nightmare, transforming from a passive victim of the system to its ultimate saboteur.",
+          "psychological_core": {
+            "wound": "Watched her father die because they could not afford systemic healthcare upgrades, leaving her with a crushing sense of responsibility.",
+            "false_belief": "If I just work hard enough and sacrifice my own well-being, I can keep the people I love safe from a broken system.",
+            "fear": "Complete loss of bodily autonomy and failing to save her mother.",
+            "desire": "To pay off her mother's medical debt and finally experience a night of peaceful, dreamless rest.",
+            "need": "To realize her own mind and life have inherent value beyond what she can produce, sell, or sacrifice for others."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Short, transactional sentences heavily focused on time and money. She never uses metaphors or flowery language; everything is literal.",
+            "deflection_tactic": "Shifts the focus to logistics, finances, or the immediate next task to avoid discussing her emotional or physical exhaustion."
+          },
+          "subtlety_guidelines": "She rarely complains about being tired. Instead, she constantly checks her pulse or rubs her temples, masking her severe sleep deprivation as mere physical habit."
+        },
+        {
+          "name": "Julian Sterling",
+          "role": "Antagonist",
+          "brief_summary": "The visionary but sociopathic CEO of Somnus who views the human brain as untapped real estate. He represents the ultimate, unchecked endpoint of surveillance capitalism and corporate greed.",
+          "psychological_core": {
+            "wound": "Grew up in extreme poverty, feeling powerless, invisible, and at the mercy of the wealthy elite.",
+            "false_belief": "Human consciousness is inefficient and only has true value when monetized, optimized, and controlled by superior intellects.",
+            "fear": "Chaos, unpredictability, and losing his god-like control over the digital and physical world.",
+            "desire": "To achieve total market dominance and omniscience over human thought and memory.",
+            "need": "To be humbled and destroyed by the unpredictable, unquantifiable power of human resilience."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in soothing, therapeutic tech-jargon and wellness buzzwords. He never raises his voice, curses, or uses overtly aggressive language.",
+            "deflection_tactic": "Answers a direct accusation with a philosophical question about human potential, progress, or the greater good."
+          },
+          "subtlety_guidelines": "He acts like a disappointed but loving father when challenged. His cruelty is entirely sanitized, masked behind a serene, meditative posture and a gentle smile."
+        },
+        {
+          "name": "Jax",
+          "role": "Supporting",
+          "brief_summary": "A cynical, burnt-out former Somnus technician who operates an underground cyber-clinic. As the B-Story Anchor, he serves as Elara's guide to the underworld and the catalyst for her emotional awakening.",
+          "psychological_core": {
+            "wound": "Accidentally caused a patient's brain-death during the early, unethical Somnus beta testing phases.",
+            "false_belief": "The corporate system is too big to fail, and fighting back only gets innocent people killed.",
+            "fear": "Being responsible for another person's death and facing his own cowardice.",
+            "desire": "To remain hidden, numb, and detached from the corporate wars raging above ground.",
+            "need": "To stop running, take a moral stand, and forgive himself by sacrificing his safety to help Elara."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Sarcastic, rapid-fire, and heavily reliant on dark humor. He never says 'I am sorry' or expresses direct empathy.",
+            "deflection_tactic": "Uses hyper-technical jargon and complains about his broken equipment to avoid emotional intimacy or vulnerability."
+          },
+          "subtlety_guidelines": "He masks his deep guilt with a facade of lazy indifference. He only shows he cares by aggressively fixing Elara's gear or upgrading her tech without being asked."
+        },
+        {
+          "name": "Silvia Vance",
+          "role": "Supporting",
+          "brief_summary": "Elara's chronically ill mother, whose failing health drives Elara's descent into the Somnus program. She represents the fragile, analog humanity that the tech world discards.",
+          "psychological_core": {
+            "wound": "Spent her life working in data-entry factories that slowly poisoned her nervous system, leaving her dependent on her daughter.",
+            "false_belief": "I am nothing but a burden to my daughter, and my continued existence is ruining her future.",
+            "fear": "Dying and leaving Elara completely alone and hardened by a ruthless world.",
+            "desire": "To see Elara live a life free of debt, worry, and the gig-economy grind.",
+            "need": "To accept her daughter's love without guilt and fight for her own dignity in her final days."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Warm, nostalgic, but often interrupted by breathlessness or coughing. She never talks about her physical pain or the bleakness of the past.",
+            "deflection_tactic": "Changes the subject to Elara's childhood or offers to make her food when the conversation gets too emotionally heavy."
+          },
+          "subtlety_guidelines": "She hides her neurological tremors by constantly knitting, folding laundry, or gripping her mug tightly. She smiles the brightest when she is in the most physical pain to protect Elara."
+        },
+        {
+          "name": "Kaelen Thorne",
+          "role": "Supporting",
+          "brief_summary": "A paranoid, reclusive underground journalist who operates the last pirate broadcast tower in the city. He acts as the Skeptic and Threshold Guardian, testing Elara's resolve to expose the truth.",
+          "psychological_core": {
+            "wound": "Was discredited and financially ruined by Somnus years ago, losing his family in the subsequent fallout.",
+            "false_belief": "The public is too brainwashed and distracted by digital noise to care about the truth, even if it is handed to them.",
+            "fear": "Hoping again, only to be crushed by the corporate machine one final time.",
+            "desire": "To completely disconnect from society and fade into obscure, safe isolation.",
+            "need": "To remember why he became a journalist in the first place and risk his life to broadcast the ultimate truth."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in cynical, poetic monologues and uses outdated analog terminology. He never uses modern slang or corporate tech-abbreviations.",
+            "deflection_tactic": "Quotes dead philosophers or classic literature to mock the current situation and deflect from his own terror."
+          },
+          "subtlety_guidelines": "He projects an aura of intellectual superiority to hide his deep-seated PTSD. His hands shake constantly, but he hides them in his trench coat pockets during confrontations."
+        },
+        {
+          "name": "Graves",
+          "role": "Supporting",
+          "brief_summary": "A cold, ruthlessly efficient corporate cleaner tasked with hunting Elara down. He is the physical manifestation of Somnus's inescapable reach and the Shape-shifter of the thriller.",
+          "psychological_core": {
+            "wound": "Was stripped of his own memories by Somnus neural-programming to make him the perfect, remorseless soldier.",
+            "false_belief": "I am a machine, and human emotions are merely glitches to be overwritten and deleted.",
+            "fear": "Remembering who he was before the corporation erased his past and facing the monster he has become.",
+            "desire": "To execute his orders flawlessly and maintain his internal, programmed equilibrium.",
+            "need": "To experience a moment of undeniable human empathy that shatters his corporate programming."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Monotone, precise, and entirely devoid of contractions. He never asks questions, only gives declarative statements.",
+            "deflection_tactic": "Ignores the question entirely and states a cold, statistical fact about the target's impending death or failure."
+          },
+          "subtlety_guidelines": "He mimics normal human behavior, like smiling or nodding, but does it slightly too late or too rigidly, revealing the sociopathic disconnect beneath his impeccably tailored suit."
+        }
+      ]
+    },
+    "stage4_beats": {
+      "stc_genre_category": "Dude with a Problem",
+      "hybrid_beat_sheet": [
+        {
+          "sequence_number": 1,
+          "sequence_title": "The Desperate Hustle",
+          "beats": [
+            {
+              "beat_name": "Opening Image",
+              "genre_variation_notes": "Establishes the 'innocent hero' in their ordinary, relatable struggle before the sudden, extraordinary event disrupts their life.",
+              "emotional_arc": "Crushing exhaustion masked by transactional numbness.",
+              "pacing_notes": "Slow, methodical, and oppressive to emphasize the inescapable daily grind.",
+              "detailed_action": "Elara Vance finishes a grueling 14-hour shift delivering synthetic protein packs, her eyes bloodshot and hands trembling from fatigue. She returns to her cramped, neon-lit apartment only to find another glowing red final notice for her mother Silvia's life-saving neurological treatments. The stark contrast between the glittering corporate skyline outside her window and the squalor of her reality establishes the oppressive world she inhabits and her desperate lack of options."
+            },
+            {
+              "beat_name": "Theme Stated",
+              "genre_variation_notes": "The theme of human exploitation versus intrinsic value is presented through a conversation with a loved one.",
+              "emotional_arc": "A brief moment of warmth undercut by Elara's defensive deflection.",
+              "pacing_notes": "A quiet, intimate pause before the plot accelerates.",
+              "detailed_action": "While tending to her mother, Silvia gently touches Elara's exhausted face and tells her that a person's mind is their only true sanctuary. Silvia warns her daughter not to sell her soul just to keep a dying woman alive for a few more months. Elara dismisses this entirely, shifting the focus to logistics and embodying her false belief that relentless sacrifice is the only way to protect her loved ones."
+            },
+            {
+              "beat_name": "Setup",
+              "genre_variation_notes": "Highlights the specific 'problem' (debt and illness) that will force the protagonist into the path of the 'sudden event'.",
+              "emotional_arc": "Rising panic and the suffocating weight of responsibility.",
+              "pacing_notes": "Steadily building tension as time and resources run out.",
+              "detailed_action": "Elara frantically crunches numbers on a cracked datapad, realizing her gig-economy wages will never cover the impending medical debt. She watches a slick, holographic advertisement for 'Somnus,' a tech conglomerate offering massive payouts for renting out idle REM sleep as cloud storage. Despite the unsettling street rumors about the neural implants causing psychological damage, Elara's desperation peaks when Silvia suffers a severe, painful tremor, proving that time has officially run out."
+            },
+            {
+              "beat_name": "Catalyst",
+              "genre_variation_notes": "The 'sudden event' that thrusts the innocent hero into a life-or-death situation, usually an irreversible physical action.",
+              "emotional_arc": "Resignation giving way to a cold, clinical dread.",
+              "pacing_notes": "Fast, sharp, and jarring, marking the point of no return.",
+              "detailed_action": "Pushed to the absolute brink, Elara visits a sterile, intimidating Somnus clinic and signs her life away on a dense digital contract. She lies back in a stark white medical chair as a cold, robotic arm drills the Somnus neural port directly into the base of her skull. This irrevocable physical intrusion marks her crossing the threshold, officially turning her subconscious brain into corporate property."
+            }
+          ]
+        },
+        {
+          "sequence_number": 2,
+          "sequence_title": "The Upload",
+          "beats": [
+            {
+              "beat_name": "Debate",
+              "genre_variation_notes": "The hero questions if they can survive the new status quo, experiencing the early, deceptive benefits of the catalyst.",
+              "emotional_arc": "Cautious relief battling with a creeping, visceral unease.",
+              "pacing_notes": "A rhythmic, repetitive montage of sleep and waking, slowly introducing discordant elements.",
+              "detailed_action": "Over the next few days, Elara experiences the initial phases of the Somnus program, receiving massive direct deposits that instantly clear her mother's immediate debts. During her sleep cycles, she experiences only mild, abstract geometric shapes, leading her to wonder if the rumors of psychological damage were overblown. However, a lingering sense of unease grows as she notices strange gaps in her memory and persistent lethargy, debating whether the financial security is worth the invisible toll on her mind."
+            },
+            {
+              "beat_name": "Break into Two",
+              "genre_variation_notes": "The protagonist is thrust into the upside-down world of the thriller, realizing the true nature of the 'problem'.",
+              "emotional_arc": "Absolute terror and the shattering of her perceived safety.",
+              "pacing_notes": "A sudden, violent spike in adrenaline and pacing.",
+              "detailed_action": "During a seemingly routine sleep cycle, the harmless abstract shapes violently glitch and tear away, plunging Elara into a hyper-realistic, terrifying nightmare. She watches from a first-person perspective as a terrified man is brutally murdered in a sleek corporate boardroom by a shadowy figure. Elara wakes up screaming, her heart pounding, suddenly realizing this was not a dream but a raw, unencrypted video file of a real-world assassination downloaded directly into her subconscious."
+            }
+          ]
+        },
+        {
+          "sequence_number": 3,
+          "sequence_title": "The Glitch",
+          "beats": [
+            {
+              "beat_name": "B-Story",
+              "genre_variation_notes": "Introduces the supporting character who helps the hero navigate the new world and sparks their internal change.",
+              "emotional_arc": "Desperate need for validation meeting cynical resistance.",
+              "pacing_notes": "Dialogue-heavy and investigative, slowing down to build character dynamics.",
+              "detailed_action": "Desperate for answers and unable to shake the visceral nightmare, Elara ventures into the city's subterranean tech-slums and tracks down Jax. Jax is a cynical, burnt-out former Somnus technician operating an illegal cyber-clinic who initially refuses to help her. He reluctantly agrees to examine her port after seeing her desperation, serving as her guide to the underworld and the catalyst for her eventual emotional awakening."
+            },
+            {
+              "beat_name": "Fun and Games (Part 1)",
+              "genre_variation_notes": "The hero explores the premise, investigating the mystery and discovering the mechanics of the conspiracy.",
+              "emotional_arc": "Morbid curiosity transforming into horrifying validation.",
+              "pacing_notes": "Tense and methodical, like a ticking clock building to an alarm.",
+              "detailed_action": "Jax hooks Elara up to his jury-rigged diagnostic machines, initiating a painful, invasive scan of her neural implant. He confirms her worst fears: the nightmare is actually a highly encrypted, fragmented data packet containing a massive corporate secret. Unfortunately, the unauthorized scan triggers a silent alarm within the Somnus network, instantly flagging Elara and Jax as critical security threats to the corporation."
+            }
+          ]
+        },
+        {
+          "sequence_number": 4,
+          "sequence_title": "Hunted",
+          "beats": [
+            {
+              "beat_name": "Fun and Games (Part 2)",
+              "genre_variation_notes": "The 'promise of the premise' delivers action as the innocent hero is actively pursued by the institutional threat.",
+              "emotional_arc": "Frantic survival instinct overriding all rational thought.",
+              "pacing_notes": "High-octane, kinetic action with rapid cuts and breathless momentum.",
+              "detailed_action": "Before they can fully process the data discovery, Graves, a ruthlessly efficient corporate cleaner, breaches the underground clinic with a squad of armed hitmen. Elara and Jax barely escape the barrage of gunfire, fleeing through the labyrinthine, neon-lit alleys of the city's underbelly. The chase forces Elara to rely entirely on Jax's street smarts, transforming her from a passive gig worker into an active fugitive navigating a deadly conspiracy."
+            },
+            {
+              "beat_name": "Midpoint",
+              "genre_variation_notes": "A false victory where the hero gains crucial information, but the stakes are raised to life-or-death.",
+              "emotional_arc": "A fleeting moment of triumph instantly crushed by an overwhelming revelation.",
+              "pacing_notes": "A sharp halt in the action to deliver a massive, paradigm-shifting reveal.",
+              "detailed_action": "Hiding in a forgotten, flooded subway tunnel, Jax manages to partially decrypt the file, revealing the face of the killer: Julian Sterling, the visionary CEO of Somnus. This is a false victory; they have the smoking gun, but the stakes are exponentially raised as Elara realizes she is a walking hard drive containing the ultimate truth. The crushing revelation hits that her location is now constantly tracked by Somnus servers the moment she falls asleep, effectively making rest a death sentence."
+            }
+          ]
+        },
+        {
+          "sequence_number": 5,
+          "sequence_title": "Sleep Deprivation",
+          "beats": [
+            {
+              "beat_name": "Bad Guys Close In",
+              "genre_variation_notes": "The antagonist uses their institutional power to squeeze the hero, attacking them physically and psychologically.",
+              "emotional_arc": "Paranoia, severe mental degradation, and the blurring of reality.",
+              "pacing_notes": "A hallucinatory, disjointed rhythm that mimics the protagonist's sleep deprivation.",
+              "detailed_action": "To avoid detection and the remote deletion of the file, Elara must force herself to stay awake using dangerous, black-market chemical stimulants. As profound exhaustion ravages her body, Somnus begins remotely pinging her implant, causing terrifying micro-hallucinations that bleed monstrous digital imagery into her waking life. Elara and Jax formulate a desperate plan to find Kaelen Thorne, a legendary underground journalist with a pirate broadcast tower, but the physical and mental toll pushes Elara to the brink of total collapse."
+            }
+          ]
+        },
+        {
+          "sequence_number": 6,
+          "sequence_title": "System Crash",
+          "beats": [
+            {
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The mentor/ally is removed, leaving the hero entirely vulnerable to the overwhelming power of the antagonist.",
+              "emotional_arc": "Profound grief, isolation, and the total collapse of hope.",
+              "pacing_notes": "Sudden, brutal violence followed by a deafening, tragic silence.",
+              "detailed_action": "Graves and his hitmen finally track the neural pings and corner Elara and Jax at their temporary safe house, launching a devastating, coordinated ambush. In the ensuing chaos, Jax is fatally wounded and uses his last breath to lock down the blast doors, sacrificing himself to buy Elara the precious seconds she needs to escape. Elara flees into the rainy night, entirely alone, profoundly exhausted, and mourning the loss of her only ally, representing a total collapse of her hopes."
+            },
+            {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The hero processes their loss and realizes they must stop running and face the problem head-on.",
+              "emotional_arc": "Hitting rock bottom before finding a spark of defiant resilience.",
+              "pacing_notes": "Slow, introspective, and highly emotional, focusing on internal resolve.",
+              "detailed_action": "Huddled in a dark, abandoned alleyway, Elara's grip on reality severely fractures as the sleep deprivation and relentless neural pings overwhelm her mind. She contemplates surrendering to Somnus just to make the terrifying hallucinations stop and finally get some rest. However, remembering her mother's words about the sanctity of the mind and Jax's sacrifice, she realizes she cannot run forever and must claim her own agency to destroy the system."
+            },
+            {
+              "beat_name": "Break into Three",
+              "genre_variation_notes": "The hero proactively chooses to go on the offensive, armed with a new plan and a synthesized understanding of the theme.",
+              "emotional_arc": "Fierce determination replacing passive victimhood.",
+              "pacing_notes": "A rising crescendo of purpose as the final plan is locked in.",
+              "detailed_action": "With renewed, desperate resolve, Elara pulls up her datapad and maps a direct, highly dangerous route to Kaelen Thorne's heavily fortified broadcast tower. She loads her last stimulant injector into her neck, preparing for a suicidal sprint across the hostile city. She vows to stay awake just long enough to expose Julian Sterling's crimes, shifting from a hunted victim to an active saboteur taking the fight directly to the antagonist."
+            }
+          ]
+        },
+        {
+          "sequence_number": 7,
+          "sequence_title": "Waking Nightmare",
+          "beats": [
+            {
+              "beat_name": "Finale (Part 1)",
+              "genre_variation_notes": "Executing the plan and storming the castle. The hero faces the antagonist's ultimate defenses.",
+              "emotional_arc": "Unrelenting courage in the face of psychological torture.",
+              "pacing_notes": "Frenetic, chaotic, and visually overwhelming as reality and digital space collide.",
+              "detailed_action": "Elara makes her agonizing descent through the city streets, battling both heavily armed corporate security and Somnus's full-scale neural hack. The corporation projects terrifying digital monsters and false realities into her waking vision, trying to break her mind and force her into unconsciousness before she reaches the tower. Fighting through the agonizing hallucinations, she breaches the broadcast room, only to be cornered by Graves and a digital, god-like projection of Julian Sterling inside her mind, threatening to wipe her brain completely."
+            }
+          ]
+        },
+        {
+          "sequence_number": 8,
+          "sequence_title": "The Broadcast",
+          "beats": [
+            {
+              "beat_name": "Finale (Part 2)",
+              "genre_variation_notes": "The High Tower Surprise forces the hero to 'dig deep down' and defeat the antagonist using the thematic lesson learned.",
+              "emotional_arc": "Transcendent empowerment and the ultimate reclamation of autonomy.",
+              "pacing_notes": "A breathless climax that shifts from physical action to an intense, internal battle of wills.",
+              "detailed_action": "Instead of fighting the overwhelming neural hack, Elara embraces it, leaning into the connection to access the Somnus network from the inside. Using her own brain's raw processing power and the sheer force of her human will, she reverses the data flow and overrides the corporate firewall. She successfully dumps the unencrypted murder footage directly into Kaelen's pirate broadcast feed, neutralizing Graves's programming with the undeniable truth and destroying Sterling's digital dominance."
+            },
+            {
+              "beat_name": "Final Image",
+              "genre_variation_notes": "The aftermath proves the hero has survived the problem and fundamentally changed their world.",
+              "emotional_arc": "Profound peace, safety, and the release of all tension.",
+              "pacing_notes": "Calm, serene, and deeply quiet, contrasting the opening chaos.",
+              "detailed_action": "The unencrypted footage goes viral globally, leading to immediate riots and the authorities violently raiding Somnus headquarters. Elara sits quietly in a secure, sunlit room, her mother's future finally secured and the oppressive corporate debt entirely erased. She closes her eyes and, for the first time in her life, falls into a deep, completely dreamless, and peaceful sleep, signifying her ultimate freedom."
+            }
+          ]
+        }
+      ]
+    }
+  }
 }

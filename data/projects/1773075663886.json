@@ -13,9 +13,6 @@
       "notes": ""
     },
     "stage2_outline": {
-      "title": "Homeowners Association",
-      "genre": "Horror Comedy",
-      "logline": "A young couple moves into an idyllic suburban neighborhood in Salem, MA, only to discover the strict HOA is run by a coven of suburban witches who sacrifice rule-breakers to maintain their perfect lawns.",
       "outline": {
         "act_1": [
           {
@@ -144,6 +141,112 @@
           }
         ]
       }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Chloe",
+          "role": "Protagonist",
+          "brief_summary": "A formerly rebellious artist trying to play the role of a perfect suburban wife to save her struggling marriage. She serves as the audience surrogate who must shed her polite facade and embrace her inner wildness to survive the ultimate toxic neighborhood.",
+          "psychological_core": {
+            "wound": "Was ostracized in her youth for being 'too weird,' making her deeply insecure about fitting in and being accepted as an adult.",
+            "false_belief": "If I just follow the rules, swallow my opinions, and blend in, I will be safe and my marriage will thrive.",
+            "fear": "Being rejected by her community and realizing she has completely lost her true identity.",
+            "desire": "To have a peaceful, normal life where she is unconditionally accepted by her peers.",
+            "need": "To embrace her individuality and stop compromising her identity for the comfort of others."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Apologizes constantly and uses softening words like 'just' or 'maybe.' NEVER says 'No' directly until the third act.",
+            "deflection_tactic": "Nervous laughter followed by immediately changing the subject to something domestic, like complimenting a piece of furniture."
+          },
+          "subtlety_guidelines": "90% of the time she is genuinely trying to be helpful and pleasant; the 10% under stress reveals a biting, sarcastic edge and a clenched jaw she desperately tries to swallow down."
+        },
+        {
+          "name": "Barbara",
+          "role": "Antagonist",
+          "brief_summary": "The terrifyingly cheerful HOA President and secret coven leader who rules Oakwood with an iron fist and a clipboard. She embodies the suffocating, violent enforcement of suburban conformity.",
+          "psychological_core": {
+            "wound": "Grew up in a chaotic, impoverished, and abusive household, leading to a pathological need for absolute control over her environment.",
+            "false_belief": "Perfection and strict uniformity are the only ways to prevent chaos, ugliness, and pain.",
+            "fear": "Aging, losing her grip on the neighborhood's social hierarchy, and the return of chaos.",
+            "desire": "To maintain the ultimate, immortal, perfectly manicured suburban utopia at any cost.",
+            "need": "To realize that true life is messy and uncontrollable, though her refusal to accept this leads to her demise."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in a breathy, overly sweet customer-service voice. NEVER uses profanity or raises her volume, even when threatening someone's life.",
+            "deflection_tactic": "Offers a baked good or a backhanded compliment about a physical feature while entirely ignoring the question."
+          },
+          "subtlety_guidelines": "90% of the time she seems like a genuinely caring, if slightly overbearing, neighborhood mom. The 10% under stress reveals dead, unblinking eyes and a terrifyingly rigid posture."
+        },
+        {
+          "name": "Mark",
+          "role": "Supporting (B-Story Anchor)",
+          "brief_summary": "Chloe's complacent, conflict-avoidant husband who thinks installing a tacky birdbath is the height of rebellion. He represents the seductive comfort of suburban denial that Chloe must overcome.",
+          "psychological_core": {
+            "wound": "Grew up with overbearing parents who fought constantly, making him deeply passive-aggressive rather than directly confrontational.",
+            "false_belief": "If I ignore a problem long enough, it will fix itself or simply go away.",
+            "fear": "Genuine conflict and having to take active responsibility for his own life choices.",
+            "desire": "To relax, grill on the weekends, and not be bothered by anyone's drama.",
+            "need": "To learn how to actively fight for his wife and his life instead of taking the path of least resistance."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Uses corporate jargon like 'let's circle back' or 'bandwidth' mixed with defusing dad-jokes. NEVER takes a definitive stance on a controversial topic.",
+            "deflection_tactic": "Makes a mild, self-deprecating joke and physically walks away to 'check on the house' or 'tinker in the garage.'"
+          },
+          "subtlety_guidelines": "90% of the time he is a lovable, easy-going partner; the 10% under stress reveals a deeply frustrating cowardice and a refusal to validate Chloe's reality."
+        },
+        {
+          "name": "Gary",
+          "role": "Supporting (The Harbinger)",
+          "brief_summary": "The neighborhood pariah who refuses to mow his lawn and drinks beer on his porch at 10 AM. He acts as the canary in the coal mine, demonstrating the lethal consequences of defying the HOA.",
+          "psychological_core": {
+            "wound": "Lost his wife to a sudden illness, realizing life is too short to care about property values or keeping up appearances.",
+            "false_belief": "I can openly mock the system without any real consequences because it is all just harmless suburban posturing.",
+            "fear": "Being forgotten and having his profound grief paved over by fake neighborhood cheerfulness.",
+            "desire": "To be left entirely alone to wallow in his mess and his memories.",
+            "need": "To warn others of the danger lurking in the neighborhood, though his pride and apathy get in the way."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Blunt, cynical, and uses colorful, outdated slang. NEVER sugarcoats his opinions or uses polite neighborhood pleasantries.",
+            "deflection_tactic": "Takes a long, slow sip of his beer and stares the person down in dead silence until they get uncomfortable and leave."
+          },
+          "subtlety_guidelines": "90% of the time he just seems like a lazy, depressed guy who gave up on life; the 10% under stress reveals a sharp, paranoid intelligence and genuine terror."
+        },
+        {
+          "name": "Janet",
+          "role": "Supporting (The False Ally)",
+          "brief_summary": "Barbara's bubbly second-in-command who initially befriends Chloe with fresh-baked casseroles and gossip. She functions to lull Chloe into a false sense of security while reporting her every move to the coven.",
+          "psychological_core": {
+            "wound": "Deeply lonely and desperate for female friendship after being ruthlessly bullied by mean girls in high school.",
+            "false_belief": "Proximity to power makes me safe, loved, and immune to being bullied ever again.",
+            "fear": "Being cast out of the inner circle and becoming a target of the coven herself.",
+            "desire": "To be Barbara's undisputed favorite and the most popular woman in Oakwood.",
+            "need": "To find genuine human connection instead of relying on transactional, cult-like approval."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in a rapid-fire, gossipy whisper. NEVER says anything negative about Barbara or the HOA rules.",
+            "deflection_tactic": "Gaslights the person by acting deeply concerned for their mental health, saying things like 'Are you feeling okay, sweetie? You sound a little unhinged.'"
+          },
+          "subtlety_guidelines": "90% of the time she is the ultimate supportive bestie offering wine and advice; the 10% under stress reveals her frantically checking her phone or looking over her shoulder for Barbara's approval."
+        },
+        {
+          "name": "Chief Todd",
+          "role": "Supporting (The Systemic Enforcer)",
+          "brief_summary": "The local Chief of Police who also sits on the HOA board, embodying the corruption of local authority. He serves to block Chloe's escape routes, forcing her to take the law into her own hands.",
+          "psychological_core": {
+            "wound": "Peaked in high school as a star athlete and has felt fundamentally powerless and mediocre ever since.",
+            "false_belief": "Authority is absolute, and the rules of the HOA supersede the actual laws of the state.",
+            "fear": "Being exposed as a fraud and losing his badge, which is the only thing giving him status in the community.",
+            "desire": "To maintain the illusion of being the town's masculine protector while actually doing zero real police work.",
+            "need": "To uphold actual justice over petty neighborhood bylaws, a moral test he ultimately fails."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in slow, deliberate, patronizing cop-speak using words like 'Ma'am' and 'altercation.' NEVER admits he doesn't know what is going on.",
+            "deflection_tactic": "Cites an obscure, completely made-up local ordinance or penal code to confuse the person and shut down the conversation."
+          },
+          "subtlety_guidelines": "90% of the time he is the friendly neighborhood watchman waving from his cruiser; the 10% under stress reveals a menacing physical intimidation tactic, stepping way too close into personal space."
+        }
+      ]
     }
   }
 }
