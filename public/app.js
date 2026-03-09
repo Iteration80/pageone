@@ -864,6 +864,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function autoGenerateBeats() {
         if (!activeProjectId) return;
 
+        // Hide the workshop so no old buttons show
+        if (stage2Workshop) stage2Workshop.classList.add('hidden');
+
         loadingStateOutline.classList.remove('hidden');
         document.getElementById('act1Container').innerHTML = '';
         document.getElementById('act2Container').innerHTML = '';
@@ -1331,7 +1334,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadingStateCharacters.classList.remove('hidden');
         charactersContainer.classList.add('hidden');
+
+        // Ensure the feedback/revise bar is gone
         if (stage3Workshop) stage3Workshop.classList.add('hidden');
+
         if (generateCharactersBtn) generateCharactersBtn.disabled = true;
 
         try {
@@ -1685,12 +1691,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
-        if (treatmentActions) treatmentActions.classList.add('hidden');
+
+        // Kill the workshop bar during generation
+        if (stage4Workshop) stage4Workshop.classList.add('hidden');
+
         if (treatmentContainer) {
             treatmentContainer.innerHTML = '';
             treatmentContainer.classList.add('hidden');
         }
-        if (stage4Workshop) stage4Workshop.classList.add('hidden');
+        if (treatmentActions) treatmentActions.classList.add('hidden');
 
         try {
             const formData = new FormData();
