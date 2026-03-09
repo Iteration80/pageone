@@ -878,6 +878,7 @@ textarea.synopsis-input {
 .action-row-right .secondary-btn {
     margin-left: 0;
 }
+
 /* --- Stage 6: Scene Board --- */
 
 .stage6-board {
@@ -1000,7 +1001,7 @@ textarea.synopsis-input {
     border: none;
     resize: none;
     overflow: hidden;
-    color: #d1d5db;
+    color: #f9fafb;
     font-size: 0.88rem;
     line-height: 1.5;
     padding: 2px 0;
@@ -1036,50 +1037,83 @@ textarea.synopsis-input {
     align-items: center;
     gap: 4px;
     transition: transform 0.1s ease;
+    opacity: 0.7;
 }
 
 .ai-rewrite-btn:hover {
     transform: scale(1.05);
+    opacity: 1;
 }
 
-.add-scene-container {
-    margin-top: 8px;
-}
-
-.add-scene-btn {
+/* Ghost Card Styles */
+.ghost-card {
     background: transparent;
-    border: 1px dashed var(--card-border);
-    color: var(--text-secondary);
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
+    border: 2px dashed var(--card-border);
+    border-radius: 12px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
     transition: all 0.2s ease;
+    color: var(--text-secondary);
 }
 
-.add-scene-btn:hover {
-    background: rgba(255, 255, 255, 0.03);
+.ghost-card:hover {
     border-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.02);
     color: var(--text-primary);
 }
 
-.prompt-ai-scene-box {
-    background: var(--sidebar-bg);
-    border: 1px solid var(--accent-color);
-    border-radius: 8px;
-    padding: 12px;
+.ghost-card-content {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
 }
 
-.prompt-ai-scene-input {
+.ghost-card-plus {
+    font-size: 1.5rem;
+    font-weight: 300;
+}
+
+.ghost-card-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.ghost-card.active {
+    display: block;
+    padding: 24px;
+    cursor: default;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--accent-color);
+}
+
+.ghost-card.active .ghost-card-content {
+    display: none;
+}
+
+.ghost-card .prompt-ai-scene-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.ghost-card .prompt-ai-scene-input {
     background: transparent;
     border: none;
+    border-bottom: 1px solid #4b5563;
+    /* gray-600 */
     color: var(--text-primary);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     width: 100%;
     outline: none;
+    padding: 8px 0;
+}
+
+.ghost-card .prompt-ai-scene-input:focus {
+    border-color: var(--accent-color);
 }

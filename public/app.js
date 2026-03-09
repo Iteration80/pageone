@@ -2237,36 +2237,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 cardsContainer.appendChild(card);
             });
 
-            seqBlock.appendChild(cardsContainer);
-
-            // Add Scene Here button
-            const addSceneContainer = document.createElement('div');
-            addSceneContainer.className = 'add-scene-container';
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-scene-btn';
-            addBtn.textContent = '+ Add Scene Here';
-
-            const promptBox = document.createElement('div');
-            promptBox.className = 'prompt-ai-scene-box hidden';
-            promptBox.innerHTML = `
-                <input type="text" class="prompt-ai-scene-input" placeholder="Prompt the AI for this scene...">
-                <div class="flex justify-end">
-                    <button class="primary-btn text-xs py-1 px-3">Generate</button>
+            // Add Ghost Card at the end of the cards array
+            const ghostCard = document.createElement('div');
+            ghostCard.className = 'scene-card ghost-card';
+            ghostCard.innerHTML = `
+                <div class="ghost-card-content">
+                    <div class="ghost-card-plus">+</div>
+                    <div class="ghost-card-text">Add Scene</div>
+                </div>
+                <div class="prompt-ai-scene-box hidden">
+                    <input type="text" class="prompt-ai-scene-input" placeholder="Describe the new scene...">
+                    <div class="flex justify-end">
+                        <button class="primary-btn text-xs py-1 px-3">Generate</button>
+                    </div>
                 </div>
             `;
 
-            addBtn.addEventListener('click', () => {
-                addBtn.classList.add('hidden');
-                promptBox.classList.remove('hidden');
-                promptBox.querySelector('input').focus();
+            ghostCard.addEventListener('click', (e) => {
+                if (!ghostCard.classList.contains('active')) {
+                    ghostCard.classList.add('active');
+                    const promptBox = ghostCard.querySelector('.prompt-ai-scene-box');
+                    promptBox.classList.remove('hidden');
+                    const input = ghostCard.querySelector('.prompt-ai-scene-input');
+                    input.focus();
+                }
             });
 
-            addSceneContainer.appendChild(addBtn);
-            addSceneContainer.appendChild(promptBox);
-            seqBlock.appendChild(addSceneContainer);
+            // Prevent event bubbling for input/button clicks inside active ghost card
+            ghostCard.querySelector('.prompt-ai-scene-box').addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
 
+            cardsContainer.appendChild(ghostCard);
+            seqBlock.appendChild(cardsContainer);
             stage6Board.appendChild(seqBlock);
         });
+
 
         // Show workshop if data is rendered
         if (stage6Workshop) stage6Workshop.classList.remove('hidden');
