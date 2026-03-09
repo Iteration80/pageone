@@ -1,0 +1,409 @@
+{
+  "id": "1773025498278",
+  "title": "The Gravity Job",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "The Gravity Job",
+        "genre": "Sci-Fi Heist / Action",
+        "logline": "A crew of elite thieves plans a heist on a luxury space station casino by temporarily disabling its artificial gravity, requiring them to steal a billion-dollar diamond in zero-G.",
+        "core_theme": "Trust, betrayal, and adapting to unpredictable environments.",
+        "synopsis": "Act I: Jax, a retired master thief, is pulled back in for one last score: stealing the Star of Eden, a massive diamond held in a vault on the orbital casino The Olympus. He assembles a crew of zero-G specialists, hackers, and engineers to execute an impossible plan: shut off the station's gravity for exactly three minutes.\n\nAct II: The crew infiltrates The Olympus during its grand opening gala. Tensions run high as Jax's former partner, who betrayed him years ago, is revealed to be the head of station security. When the gravity is cut, the heist goes spectacularly wrong as the security team deploys magnetic boots, turning the vault into a chaotic, three-dimensional floating battlefield.\n\nAct III: Outgunned and floating in mid-air, Jax and his crew must improvise using the casino's floating debris as cover and weapons. They successfully secure the diamond and use the sudden restoration of gravity to incapacitate the guards, escaping in a stolen shuttle and finally putting their past grievances to rest."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Reluctant Return",
+            "beats": [
+              {
+                "beat_label": "Status Quo",
+                "description": "Jax lives a quiet, gravity-bound life on Earth, hiding from his past as a master thief."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "A mysterious broker tracks Jax down and offers him an astronomical sum to steal the Star of Eden from the orbital casino The Olympus."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "Jax realizes the payout is his only way to clear a deadly syndicate debt, therefore he accepts the job and begins planning the impossible."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: Assembling the Zero-G Crew",
+            "beats": [
+              {
+                "beat_label": "Preparation",
+                "description": "Jax recruits a specialized team including a master hacker, a structural engineer, and a zero-G acrobat."
+              },
+              {
+                "beat_label": "The Plan",
+                "description": "The crew outlines the heist mechanics, determining they must shut off the station's gravity for exactly three minutes to bypass the pressure-sensitive vault floor."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "The team boards a luxury transport under false identities and successfully crosses the threshold by docking with The Olympus."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: The Grand Opening Gala",
+            "beats": [
+              {
+                "beat_label": "Entering the Gala",
+                "description": "The crew dons high-society disguises and mingles with the elite, successfully bypassing the outer security checkpoints."
+              },
+              {
+                "beat_label": "The Complication",
+                "description": "Jax spots Silas, his treacherous ex-partner, directing the casino security forces from the mezzanine."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "Therefore, Jax must alter the infiltration route on the fly, narrowly avoiding detection and increasing the risk of the operation."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Approach and The Switch",
+            "beats": [
+              {
+                "beat_label": "The Setup",
+                "description": "The hacker breaches the casino mainframe from a utility closet while the vault team navigates the perilous ventilation shafts."
+              },
+              {
+                "beat_label": "The Vault Door",
+                "description": "Jax and the acrobat reach the vault exterior, planting the explosive charges and waiting for the blackout signal."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "The hacker cuts the gravity, but Silas anticipates the move, triggering a secondary lockdown that traps the crew inside the vault sector."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Three-Dimensional Battlefield",
+            "beats": [
+              {
+                "beat_label": "The Trap",
+                "description": "The crew floats into the vault to secure the diamond, but Silas's elite security forces ambush them from the ceiling."
+              },
+              {
+                "beat_label": "The Disadvantage",
+                "description": "The guards activate magnetic boots, giving them total tactical control and anchoring them in the zero-G environment."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "Outmaneuvered and floating helplessly, the crew is pinned down by suppressive laser fire as the three-minute timer rapidly ticks away."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Improvised Escape",
+            "beats": [
+              {
+                "beat_label": "The Pivot",
+                "description": "Realizing they cannot fight a conventional gunfight, Jax orders the engineer to blow the luxury display cases."
+              },
+              {
+                "beat_label": "The Chaos",
+                "description": "Millions of dollars in chips, glass, and jewels flood the room, creating a thick cloud of floating debris that blinds the guards."
+              },
+              {
+                "beat_label": "Act II Climax",
+                "description": "The acrobat uses the debris as stepping stones to snatch the Star of Eden, but the hacker frantically warns that gravity is returning in ten seconds."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Gravity Drop",
+            "beats": [
+              {
+                "beat_label": "The Counterattack",
+                "description": "The crew uses the massive floating debris as ballistic shields and projectiles against the mag-boot guards."
+              },
+              {
+                "beat_label": "The Drop",
+                "description": "Gravity suddenly restores to normal, slamming the heavy debris and the unprepared guards violently to the floor."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "The crew uses the resulting shockwave to incapacitate the remaining security, breaking out of the vault and sprinting for the hangar."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: Settling the Score",
+            "beats": [
+              {
+                "beat_label": "The Final Stand",
+                "description": "Silas intercepts Jax at the escape shuttle bay, holding the hacker hostage and demanding the Star of Eden."
+              },
+              {
+                "beat_label": "The Resolution",
+                "description": "Jax fakes a surrender, therefore luring Silas in close enough to detonate a hidden micro-gravity charge that sends Silas crashing into a bulkhead."
+              },
+              {
+                "beat_label": "The Escape",
+                "description": "The crew launches the stolen shuttle into the void, splitting the billion-dollar prize and sharing a hard-earned toast as they vanish into deep space."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Jax",
+          "role": "Protagonist",
+          "brief_summary": "A retired, world-weary master thief forced back into the game to clear a deadly syndicate debt. He is the mastermind of the Olympus heist, acting as the reluctant leader who must overcome his crippling trust issues to save his crew.",
+          "psychological_core": {
+            "wound": "Betrayed by his closest friend and partner on a job that cost him his reputation and freedom.",
+            "false_belief": "If I do not rely on anyone, I cannot be betrayed.",
+            "fear": "Being responsible for the deaths of his crew because he misplaced his trust again.",
+            "desire": "To steal the Star of Eden, pay off his syndicate debt, and disappear forever.",
+            "need": "To learn to trust others and forgive himself for past mistakes in order to build a real family."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Terse, authoritative, and strictly business. He never uses the word 'we' when talking about risk, always 'I'.",
+            "deflection_tactic": "Deflects emotional questions by redirecting focus to the logistics of the plan or obsessively checking his gear."
+          },
+          "subtlety_guidelines": "Jax appears as a cool, hyper-competent professional who has everything under control. His trauma only shows when someone improvises without his permission, causing him to briefly freeze or snap, masking his panic as tactical critique."
+        },
+        {
+          "name": "Silas",
+          "role": "Antagonist",
+          "brief_summary": "The ruthless, impeccably dressed Head of Security for The Olympus and Jax's former partner. He is the physical embodiment of Jax's past trauma and the ultimate obstacle to the crew's success.",
+          "psychological_core": {
+            "wound": "Always felt second-best to Jax's natural genius in their early thieving days.",
+            "false_belief": "Loyalty is a weakness that limits ambition and true potential.",
+            "fear": "Losing control and being exposed as a fraud who only succeeded by stealing Jax's glory.",
+            "desire": "To completely crush Jax and prove he is the superior mastermind.",
+            "need": "To realize that true power comes from mutual respect, not domination and betrayal."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Overly articulate, polite, and condescending. He never raises his voice, even in a firefight, and never admits to being surprised.",
+            "deflection_tactic": "Answers accusations with philosophical musings about human nature or the evolution of business."
+          },
+          "subtlety_guidelines": "Silas projects an aura of absolute control and sophistication. His deep-seated insecurity only leaks out in the form of micro-aggressions or an obsessive need to adjust his cuffs when Jax outsmarts him."
+        },
+        {
+          "name": "Lyra",
+          "role": "Supporting",
+          "brief_summary": "A fearless, adrenaline-junkie zero-G acrobat who serves as the B-Story Anchor. She forces Jax to confront his trust issues because her role requires him to literally put his life in her hands in mid-air.",
+          "psychological_core": {
+            "wound": "Grew up as a street orphan on a low-G mining colony, constantly abandoned by those who promised to take care of her.",
+            "false_belief": "I am only valuable as long as I am useful and entertaining to those around me.",
+            "fear": "Being left behind or deemed expendable when the job gets too dangerous.",
+            "desire": "To pull off the ultimate heist and earn enough money to buy her own ship and absolute freedom.",
+            "need": "To find a surrogate family that values her for who she is, not just her acrobatic skills."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Fast-paced, slang-heavy, and overly enthusiastic. She never talks about her past or uses the word 'family'.",
+            "deflection_tactic": "Uses dark humor or physically moves, doing a coin roll or stretching, to avoid serious emotional beats."
+          },
+          "subtlety_guidelines": "Lyra acts like she does not take anything seriously, treating the heist like a game. Her fear of abandonment only shows when communication feeds cut out, making her hyper-verbal to fill the terrifying silence."
+        },
+        {
+          "name": "Bastian",
+          "role": "Supporting",
+          "brief_summary": "A disgraced former orbital architect turned black-market engineer who serves as the crew's Skeptic. He is obsessed with predictability and physics, constantly challenging Jax's reliance on improvisation.",
+          "psychological_core": {
+            "wound": "Designed a space station that suffered a catastrophic decompression due to a minor miscalculation, ruining his career and costing lives.",
+            "false_belief": "If I account for every mathematical variable, tragedy can be entirely prevented.",
+            "fear": "Unpredictable chaos that leads to collateral damage and failure.",
+            "desire": "To execute a flawless, mathematically perfect operation to prove his genius is still intact.",
+            "need": "To accept that the universe is inherently chaotic and that adaptability is more important than perfection."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Pedantic, precise, and highly technical. He never says 'maybe' or 'I guess', as everything is stated in percentages and probabilities.",
+            "deflection_tactic": "Retreats into technical jargon or starts calculating odds aloud when confronted with a personal failure."
+          },
+          "subtlety_guidelines": "Bastian masks his deep anxiety with arrogance and intellectual superiority. Under extreme stress, like the gravity failing to restore on time, his confident facade cracks and he starts aggressively tapping his datapad."
+        },
+        {
+          "name": "Rook",
+          "role": "Supporting",
+          "brief_summary": "An agoraphobic, deeply paranoid cyber-warfare specialist who monitors the crew from a remote terminal. They are the Oracle of the heist, providing the crew's eyes and ears while struggling with the physical reality of danger.",
+          "psychological_core": {
+            "wound": "Was previously burned by a syndicate employer who left them to take the fall for a massive data breach.",
+            "false_belief": "The digital world is safe and controllable, while the physical world is a chaotic trap.",
+            "fear": "Physical confrontation and losing their connection to the network.",
+            "desire": "To humiliate the Olympus's state-of-the-art security AI and prove they are the best hacker in the system.",
+            "need": "To step out from behind the screen and take physical action to protect the people they care about."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Mumbles, speaks in fragmented sentences, and rarely makes eye contact. Never uses people's real names, only handles or roles.",
+            "deflection_tactic": "Complains about bandwidth, hardware latency, or the incompetence of the system architecture to avoid answering personal questions."
+          },
+          "subtlety_guidelines": "Rook seems aloof and completely detached from the physical danger the crew is in. Their underlying terror of the physical world only manifests when Silas breaches their safe room, causing them to hyperventilate while typing."
+        }
+      ]
+    },
+    "stage4_treatment": {
+      "stc_genre_category": "Golden Fleece",
+      "hybrid_beat_sheet": [
+        {
+          "sequence_number": 1,
+          "sequence_title": "The Reluctant Return",
+          "beats": [
+            {
+              "beat_name": "Opening Image",
+              "genre_variation_notes": "Establishes the mundane 'before' state and the heavy burden the protagonist carries before the heist quest begins.",
+              "emotional_arc": "Crushing isolation and denial of his own vulnerability.",
+              "pacing_notes": "Slow, methodical, and visually heavy to emphasize terrestrial gravity.",
+              "detailed_action": "Jax is on Earth, living a mundane, gravity-bound existence while meticulously organizing his tools to maintain a facade of control. The heavy terrestrial gravity physically symbolizes the crushing weight of his past trauma and his looming syndicate debt. He actively avoids calls from old associates, visually establishing his absolute isolation and his false belief that relying on no one keeps him safe."
+            },
+            {
+              "beat_name": "Theme Stated",
+              "genre_variation_notes": "The necessity of the 'team' is stated early, directly contrasting the hero's solo nature in a heist narrative.",
+              "emotional_arc": "Defensiveness, avoidance, and emotional deflection.",
+              "pacing_notes": "Tense, dialogue-driven, and sharply rhythmic.",
+              "detailed_action": "A shadowy broker tracks Jax down in his safehouse, delivering a cryptic message about the upcoming heist. The broker explicitly remarks that a man who trusts no one is a man who eventually makes a fatal mistake, laying out the core thematic argument of the story. Jax stubbornly deflects this observation by immediately demanding to know the logistical details and the exact payout, refusing to engage with the emotional truth."
+            },
+            {
+              "beat_name": "Setup",
+              "genre_variation_notes": "Shows exactly why the hero MUST go on the heist by revealing the underlying 'curse' or debt.",
+              "emotional_arc": "Rising anxiety and the terrifying realization of his own vulnerability.",
+              "pacing_notes": "Accelerating ticking clock that shatters the slow opening pace.",
+              "detailed_action": "Jax's quiet, hyper-controlled life is completely shattered when he realizes his syndicate debt is a ticking clock that will soon cost him his life. He reviews his meager solo earnings, understanding that small jobs will never clear the massive bounty on his head. He is forced to accept that his strict isolation is no longer a viable survival strategy, setting the stage for him to take on an impossible job."
+            }
+          ]
+        },
+        {
+          "sequence_number": 2,
+          "sequence_title": "Assembling the Zero-G Crew",
+          "beats": [
+            {
+              "beat_name": "Catalyst",
+              "genre_variation_notes": "The ultimate 'prize' (the Star of Eden) is revealed, officially initiating the quest.",
+              "emotional_arc": "Desperation masking as cold, tactical calculation.",
+              "pacing_notes": "Sharp, sudden momentum shift that propels the plot forward.",
+              "detailed_action": "The broker officially offers Jax the astronomical payout for stealing the Star of Eden from the orbital casino known as The Olympus. Jax calculates the immense odds and realizes this single, highly dangerous job is his only viable path to erasing his deadly debt. The sheer scale of the heist forces him out of his stagnant status quo, compelling him to accept the mission and begin planning the impossible."
+            },
+            {
+              "beat_name": "Debate",
+              "genre_variation_notes": "The classic heist recruitment montage, gathering the specific 'fleece' seekers needed for the impossible task.",
+              "emotional_arc": "Internal conflict, reluctance, and a deep fear of repeating past betrayals.",
+              "pacing_notes": "Deliberate, analytical, building tension as the pieces fall into place.",
+              "detailed_action": "Jax struggles intensely with the necessity of recruiting a specialized team, specifically reviewing the dossiers for Lyra, Bastian, and Rook. He wrestles with his paralyzing fear that relying on others will inevitably lead to another betrayal, echoing the trauma inflicted by Silas. Ultimately, the undeniable physics of the pressure-sensitive, zero-G vault force his hand, making him realize he cannot pull this off alone and prompting him to make the calls."
+            },
+            {
+              "beat_name": "Break into Two",
+              "genre_variation_notes": "Crossing the threshold into the 'road' (The Olympus), leaving the normal world behind.",
+              "emotional_arc": "Commitment mixed with lingering apprehension about losing control.",
+              "pacing_notes": "Propulsive, definitive, and visually expansive as they leave Earth.",
+              "detailed_action": "The newly formed, highly volatile crew boards a luxury transport under meticulously crafted false identities. As the ship breaches the atmosphere, they physically and metaphorically leave Earth's gravity behind, crossing the threshold into the upside-down world of The Olympus. Jax commits entirely to the plan, stepping into an unpredictable environment where his rigid need for control will be constantly tested."
+            }
+          ]
+        },
+        {
+          "sequence_number": 3,
+          "sequence_title": "The Grand Opening Gala",
+          "beats": [
+            {
+              "beat_name": "B Story",
+              "genre_variation_notes": "Introduces the companion (Lyra) who represents the thematic lesson of trust and reliance.",
+              "emotional_arc": "Reluctant vulnerability and the challenging of strict personal boundaries.",
+              "pacing_notes": "Breezy but emotionally sharp, providing character depth amidst the tension.",
+              "detailed_action": "While donning their high-society disguises for the gala, Jax and Lyra share a tense but revealing moment in the staging area. Lyra treats the impending danger as a thrilling game, directly challenging Jax's hyper-serious, isolated nature with her relentless optimism. Her absolute willingness to put her life in his hands forces Jax to confront his own crippling trust issues, establishing the emotional throughline of their partnership."
+            },
+            {
+              "beat_name": "Fun and Games",
+              "genre_variation_notes": "The initial execution of the heist plan, showcasing the team's unique skills in a glamorous setting.",
+              "emotional_arc": "Exhilaration, synergy, and a dangerous sense of false confidence.",
+              "pacing_notes": "Fast, slick, highly kinetic, and deeply entertaining.",
+              "detailed_action": "The crew successfully infiltrates the grand opening gala, mingling seamlessly with the wealthy elite while executing slick, coordinated maneuvers. Rook hacks the security cameras from a remote utility closet, Bastian analyzes structural weak points on the fly, and Lyra scouts the vault perimeter. They navigate the glamorous but deadly environment with style, showcasing their unique skills and providing a brief window of exhilarating success before the complications arise."
+            }
+          ]
+        },
+        {
+          "sequence_number": 4,
+          "sequence_title": "The Approach and The Switch",
+          "beats": [
+            {
+              "beat_name": "Midpoint",
+              "genre_variation_notes": "The false victory of securing the asset's vulnerability, immediately subverted by the antagonist's trap.",
+              "emotional_arc": "A triumphant peak crashing instantly into sudden, suffocating dread.",
+              "pacing_notes": "Peaking speed followed by an abrupt, shocking halt in momentum.",
+              "detailed_action": "Jax and Lyra reach the vault exterior, planting explosive charges while waiting for Rook's crucial blackout signal. Rook successfully cuts the station's gravity, achieving their primary goal and securing a massive false victory for the team. However, Silas immediately anticipates the tactic and triggers a secondary magnetic lockdown, trapping the crew inside the vault sector and instantly raising the stakes to life-or-death."
+            }
+          ]
+        },
+        {
+          "sequence_number": 5,
+          "sequence_title": "The Three-Dimensional Battlefield",
+          "beats": [
+            {
+              "beat_name": "Bad Guys Close In",
+              "genre_variation_notes": "The 'road' turns deadly as the antagonist's superior forces overwhelm the specialized team.",
+              "emotional_arc": "Disorientation, overwhelming panic, and the collapse of Jax's meticulously planned reality.",
+              "pacing_notes": "Frantic, chaotic, and deeply claustrophobic.",
+              "detailed_action": "The crew floats into the vault to secure the diamond, only to be ambushed from the ceiling by Silas's heavily armed security forces. The guards activate their magnetic boots, anchoring themselves and gaining total tactical superiority in the disorienting zero-G environment. Outmaneuvered and floating helplessly, Jax and his team are pinned down by brutal suppressive laser fire as their three-minute window rapidly evaporates."
+            }
+          ]
+        },
+        {
+          "sequence_number": 6,
+          "sequence_title": "The Improvised Escape",
+          "beats": [
+            {
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The heist plan completely falls apart; the 'prize' seems unreachable and survival looks impossible.",
+              "emotional_arc": "Utter helplessness, loss of control, and the death of the old ego.",
+              "pacing_notes": "Frenetic, desperate, with the ticking clock rapidly counting down to zero.",
+              "detailed_action": "Realizing a conventional gunfight is absolute suicide, Jax is forced to abandon his meticulous plan and orders Bastian to detonate the luxury display cases. Millions of dollars in chips, glass, and jewels flood the room in a blinding cloud of debris, creating total chaos and stripping away all of Jax's controlled variables. Lyra uses the debris to snatch the Star of Eden, but Rook frantically warns that gravity will return in ten seconds, leaving the crew completely exposed to impending doom."
+            },
+            {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The hero realizes the true 'prize' is the team's survival and unity, requiring a leap of faith.",
+              "emotional_arc": "Acceptance, profound surrender of ego, and the birth of absolute trust.",
+              "pacing_notes": "Slow-motion clarity amidst absolute chaos; a deep breath before the plunge.",
+              "detailed_action": "Time slows down for Jax as he floats amidst the glittering, deadly debris, realizing he must entirely trust his crew to survive the next few seconds. He confronts his deepest fear of being responsible for their deaths, finally letting go of his obsessive need for absolute control. He issues a final, unified command, acknowledging that their survival now depends entirely on their synchronized, improvised actions rather than his rigid planning."
+            }
+          ]
+        },
+        {
+          "sequence_number": 7,
+          "sequence_title": "The Gravity Drop",
+          "beats": [
+            {
+              "beat_name": "Break into Three",
+              "genre_variation_notes": "The team synthesizes their skills and the hero's new mindset to overcome the impossible odds.",
+              "emotional_arc": "Unified purpose, renewed determination, and the thrill of true collaboration.",
+              "pacing_notes": "Explosive, highly coordinated action that rockets toward the climax.",
+              "detailed_action": "Jax actively chooses to trust his team, directing them to use the massive floating debris as ballistic shields and projectiles against the mag-boot guards. He synthesizes his old planning skills with his newly found adaptability, leading the crew in a highly coordinated, improvised counterattack. This proactive shift marks his complete transformation, as he fully embraces the chaos and relies on his crew's unique talents to turn the tide."
+            }
+          ]
+        },
+        {
+          "sequence_number": 8,
+          "sequence_title": "Settling the Score",
+          "beats": [
+            {
+              "beat_name": "Finale",
+              "genre_variation_notes": "The final confrontation with the antagonist, proving the hero has fundamentally changed and outgrown their flaw.",
+              "emotional_arc": "Confronting past trauma head-on and achieving ultimate catharsis.",
+              "pacing_notes": "High-stakes standoff exploding into a rapid, satisfying resolution.",
+              "detailed_action": "Silas intercepts Jax at the escape shuttle bay, holding Rook hostage and demanding the Star of Eden in a tense final standoff. Jax fakes a surrender, playing perfectly on Silas's arrogant need for superiority, which successfully lures his former partner in close. Jax then detonates a hidden micro-gravity charge, sending Silas crashing violently into a bulkhead, thereby neutralizing the ultimate threat and rescuing his crewmate."
+            },
+            {
+              "beat_name": "Final Image",
+              "genre_variation_notes": "The successful escape, showing the hero fully integrated with their new family and free of the 'curse'.",
+              "emotional_arc": "Peace, belonging, and the realization of true freedom.",
+              "pacing_notes": "Smooth, relaxed, and expansive as the tension completely dissolves.",
+              "detailed_action": "The crew launches the stolen shuttle into the void, safely escaping The Olympus with the billion-dollar prize secured. Jax shares a hard-earned toast with the team, finally using the word 'we' instead of 'I' as he looks at his new surrogate family. The vast, open expanse of deep space now represents true freedom and connection, directly contrasting the heavy, isolated terrestrial gravity of his former life."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
