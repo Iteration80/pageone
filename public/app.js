@@ -1511,7 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // STC Genre Category label
         if (treatmentData.stc_genre_category) {
             const genreLabel = document.createElement('div');
-            genreLabel.style.cssText = 'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;';
+            genreLabel.style.cssText = 'background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;';
             genreLabel.textContent = `STC Genre: ${treatmentData.stc_genre_category}`;
             treatmentContainer.appendChild(genreLabel);
         }
@@ -1536,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Beat name header
                 const beatName = document.createElement('h4');
-                beatName.style.cssText = 'color: #a78bfa; font-weight: 700; font-size: 1rem; margin-bottom: 12px;';
+                beatName.style.cssText = 'color: #93c5fd; font-weight: 700; font-size: 1rem; margin-bottom: 12px;';
                 beatName.textContent = beat.beat_name || '';
                 card.appendChild(beatName);
 
