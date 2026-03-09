@@ -403,15 +403,45 @@
             </div>
         </main>
 
-        <!-- Placeholder Workspace (Stage 6) -->
+        <!-- Stage 6: Scenes (Scene Blueprint) -->
         <main id="stage-6-view" class="workspace hidden">
             <div class="workspace-scrollable">
                 <header class="workspace-header">
-                    <h1>Stage 6: Scenes</h1>
-                    <p>Break down your story into individual scenes.</p>
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h1>Stage 6: Scene Blueprint</h1>
+                            <p>Manage and refine individual scenes organized by sequence.</p>
+                        </div>
+                        <button id="btnGenerateStage6Blueprint" class="primary-btn">Generate Initial Scene
+                            Blueprint</button>
+                    </div>
                 </header>
+
+                <!-- Scene Board Container -->
+                <div id="stage6-board" class="stage6-board">
+                    <!-- Sequence Blocks and Scene Cards injected here -->
+                </div>
             </div>
+
+            <!-- Stage 6 Feedback Panel (Sticky) -->
+            <section id="stage6Workshop" class="feedback-panel hidden">
+                <label for="stage6-notes"
+                    class="feedback-label text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">FEEDBACK</label>
+                <textarea id="stage6-notes"
+                    class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
+                    placeholder="e.g. Make Sequence 2 more action-packed, or refine Scene 12..."></textarea>
+                <div class="action-row action-row-split">
+                    <div class="action-left">
+                        <button id="btn-stage6-edit" class="danger-btn hidden">Revise</button>
+                    </div>
+                    <div class="action-group-right">
+                        <button id="btn-stage6-revise" class="primary-btn">Chat / Global Revise</button>
+                        <button id="btn-stage6-approve" class="primary-btn">Approve Blueprint ✓</button>
+                    </div>
+                </div>
+            </section>
         </main>
+
 
         <!-- Placeholder Workspace (Stage 7) -->
         <main id="stage-7-view" class="workspace hidden">

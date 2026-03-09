@@ -85,8 +85,19 @@ document.addEventListener('DOMContentLoaded', () => {
         act_3: document.getElementById('stage5-act3')
     };
 
+    // Stage 6 Elements
+    const stage6Board = document.getElementById('stage6-board');
+    const stage6Workshop = document.getElementById('stage6Workshop');
+    const stage6Notes = document.getElementById('stage6-notes');
+    const btnStage6Revise = document.getElementById('btn-stage6-revise');
+    const btnStage6Approve = document.getElementById('btn-stage6-approve');
+    const btnStage6Edit = document.getElementById('btn-stage6-edit');
+    const btnGenerateStage6Blueprint = document.getElementById('btnGenerateStage6Blueprint');
+
+
     // Textarea/Notes auto-resize listeners
-    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, stage5Notes, promptInput].forEach(el => {
+    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, stage5Notes, stage6Notes, promptInput].forEach(el => {
+
         if (el) {
             el.addEventListener('input', () => autoResize(el));
             el.addEventListener('focus', () => { el.style.background = 'rgba(31,41,55,0.8)'; el.style.outline = '1px solid #374151'; });
@@ -847,8 +858,17 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
             }, 50);
+        } else if (stageNum === 6) {
+            // Visualize dummy data for Stage 6 if board is empty
+            if (stage6Board && !stage6Board.innerHTML.trim()) {
+                renderStage6();
+            }
+            setTimeout(() => {
+                document.querySelectorAll('.scene-textarea').forEach(ta => autoResize(ta));
+            }, 50);
         }
     }
+
 
     // Bind navigation clicks for all 10 stages
     for (let i = 1; i <= 10; i++) {
@@ -2119,5 +2139,145 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- Stage 6 Logic: Scene Blueprint ---
+
+    function renderStage6(data) {
+        if (!stage6Board) return;
+        stage6Board.innerHTML = '';
+
+        // Dummy Data implementation
+        const dummyData = data || {
+            sequences: [
+                {
+                    title: "Sequence 1: The Setup",
+                    scenes: [
+                        {
+                            scene_number: 1,
+                            scene_heading: "EXT. CITY STREET - DAY",
+                            narrative_action: "The protagonist walks through the crowded street, looking for something.",
+                            dramaturgical_function: "Establish the setting and the protagonist's initial goal.",
+                            estimated_page_count: "1.5 pgs"
+                        },
+                        {
+                            scene_number: 2,
+                            scene_heading: "INT. COFFEE SHOP - DAY",
+                            narrative_action: "He meets his contact, who looks nervous. They exchange a cryptic package.",
+                            dramaturgical_function: "Introduce the inciting incident and a secondary character.",
+                            estimated_page_count: "2 pgs"
+                        }
+                    ]
+                },
+                {
+                    title: "Sequence 2: The Complication",
+                    scenes: [
+                        {
+                            scene_number: 3,
+                            scene_heading: "INT. DARK ALLEY - NIGHT",
+                            narrative_action: "Shadowy figures pursue the protagonist. A tense chase ensues.",
+                            dramaturgical_function: "Increase the stakes and introduce the antagonists.",
+                            estimated_page_count: "1 pgs"
+                        },
+                        {
+                            scene_number: 4,
+                            scene_heading: "EXT. ROOFTOP - NIGHT",
+                            narrative_action: "The protagonist barely escapes, looking over the city with the package in hand.",
+                            dramaturgical_function: "Establish the protagonist's isolation and the importance of the package.",
+                            estimated_page_count: "1.5 pgs"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        dummyData.sequences.forEach((seq) => {
+            const seqBlock = document.createElement('div');
+            seqBlock.className = 'sequence-block';
+
+            const seqTitle = document.createElement('div');
+            seqTitle.className = 'sequence-title';
+            seqTitle.textContent = seq.title;
+            seqBlock.appendChild(seqTitle);
+
+            const cardsContainer = document.createElement('div');
+            cardsContainer.className = 'scene-cards-container';
+
+            seq.scenes.forEach((scene) => {
+                const card = document.createElement('div');
+                card.className = 'scene-card';
+                card.innerHTML = `
+                    <div class="scene-card-header">
+                        <span class="scene-number">Scene ${scene.scene_number}</span>
+                        <button class="delete-patch-btn">Delete & Patch</button>
+                    </div>
+                    <input type="text" class="scene-heading-input" value="${escapeHtml(scene.scene_heading)}" placeholder="SCENE HEADING">
+                    <div class="scene-field-group">
+                        <label class="scene-field-label">Narrative Action</label>
+                        <textarea class="scene-textarea" placeholder="Describe the action...">${escapeHtml(scene.narrative_action)}</textarea>
+                    </div>
+                    <div class="scene-field-group">
+                        <label class="scene-field-label">Dramaturgical Function</label>
+                        <textarea class="scene-textarea" placeholder="What is the purpose of this scene?">${escapeHtml(scene.dramaturgical_function)}</textarea>
+                    </div>
+                    <div class="scene-card-footer">
+                        <input type="text" class="page-count-input" value="${escapeHtml(scene.estimated_page_count)}" placeholder="0.5 pgs">
+                        <button class="ai-rewrite-btn">
+                            <span>✨ AI Rewrite Scene</span>
+                        </button>
+                    </div>
+                `;
+
+                // Add resize listeners to textareas
+                card.querySelectorAll('textarea').forEach(ta => {
+                    ta.addEventListener('input', () => autoResize(ta));
+                    // Initial resize
+                    setTimeout(() => autoResize(ta), 0);
+                });
+
+                cardsContainer.appendChild(card);
+            });
+
+            seqBlock.appendChild(cardsContainer);
+
+            // Add Scene Here button
+            const addSceneContainer = document.createElement('div');
+            addSceneContainer.className = 'add-scene-container';
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-scene-btn';
+            addBtn.textContent = '+ Add Scene Here';
+
+            const promptBox = document.createElement('div');
+            promptBox.className = 'prompt-ai-scene-box hidden';
+            promptBox.innerHTML = `
+                <input type="text" class="prompt-ai-scene-input" placeholder="Prompt the AI for this scene...">
+                <div class="flex justify-end">
+                    <button class="primary-btn text-xs py-1 px-3">Generate</button>
+                </div>
+            `;
+
+            addBtn.addEventListener('click', () => {
+                addBtn.classList.add('hidden');
+                promptBox.classList.remove('hidden');
+                promptBox.querySelector('input').focus();
+            });
+
+            addSceneContainer.appendChild(addBtn);
+            addSceneContainer.appendChild(promptBox);
+            seqBlock.appendChild(addSceneContainer);
+
+            stage6Board.appendChild(seqBlock);
+        });
+
+        // Show workshop if data is rendered
+        if (stage6Workshop) stage6Workshop.classList.remove('hidden');
+    }
+
+    if (btnGenerateStage6Blueprint) {
+        btnGenerateStage6Blueprint.addEventListener('click', () => {
+            renderStage6(); // Re-render with dummy data for now
+        });
+    }
+
 });
+
 

@@ -878,3 +878,208 @@ textarea.synopsis-input {
 .action-row-right .secondary-btn {
     margin-left: 0;
 }
+/* --- Stage 6: Scene Board --- */
+
+.stage6-board {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding-bottom: 60px;
+}
+
+.sequence-block {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sequence-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+}
+
+.scene-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.scene-card {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.scene-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.scene-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.scene-number {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.delete-patch-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.delete-patch-btn:hover {
+    opacity: 1;
+}
+
+.scene-heading-input {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+    padding: 4px 0;
+    border-bottom: 1px solid transparent;
+    transition: border-bottom 0.2s ease;
+}
+
+.scene-heading-input:focus {
+    border-bottom: 1px solid var(--accent-color);
+}
+
+.scene-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.scene-field-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.scene-textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    resize: none;
+    overflow: hidden;
+    color: #d1d5db;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    padding: 2px 0;
+    outline: none;
+}
+
+.scene-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.page-count-input {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    width: 60px;
+    outline: none;
+}
+
+.ai-rewrite-btn {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fcd34d;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.1s ease;
+}
+
+.ai-rewrite-btn:hover {
+    transform: scale(1.05);
+}
+
+.add-scene-container {
+    margin-top: 8px;
+}
+
+.add-scene-btn {
+    background: transparent;
+    border: 1px dashed var(--card-border);
+    color: var(--text-secondary);
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.add-scene-btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+}
+
+.prompt-ai-scene-box {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.prompt-ai-scene-input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    width: 100%;
+    outline: none;
+}
