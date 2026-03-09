@@ -2,7 +2,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent4Treatment = async (pitchData, beatsData, charactersData, currentTreatment = null, notes = null, pdfFile = null) => {
+const agent4Beats = async (pitchData, beatsData, charactersData, currentTreatment = null, notes = null, pdfFile = null) => {
     const systemInstruction = `You are an elite Master Story Architect. Your task is to produce a COMPLETE, DETAILED 15-Beat Sheet mapped onto 8 sequences.
 
 CRITICAL RULES:
@@ -108,4 +108,4 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
     return parsed;
 };
 
-module.exports = { agent4Treatment };
+module.exports = { agent4Beats };

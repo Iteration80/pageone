@@ -327,9 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage3Workshop) stage3Workshop.classList.add('hidden');
                 }
 
-                // Hydrate Stage 4 Treatment if exists
-                if (projectDetails.data.stage4_treatment && projectDetails.data.stage4_treatment.hybrid_beat_sheet) {
-                    renderTreatment(projectDetails.data.stage4_treatment);
+                // Hydrate Stage 4 Beats if exists
+                if ((projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment) && (projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment).hybrid_beat_sheet) {
+                    const stage4Data = projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment;
+                    renderTreatment(stage4Data);
                     if (btnStage4Approve) {
                         btnStage4Approve.textContent = 'Approved ✓';
                         btnStage4Approve.classList.add('approve-btn-green');
@@ -338,8 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
                     if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
 
-                    if (stage4Notes && projectDetails.data.stage4_treatment.notes) {
-                        stage4Notes.value = projectDetails.data.stage4_treatment.notes;
+                    if (stage4Notes && stage4Data.notes) {
+                        stage4Notes.value = stage4Data.notes;
                     }
                     if (stage4Notes) autoResize(stage4Notes);
                 } else {
@@ -759,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             1: !!data.stage1_pitch,
             2: !!data.stage2_outline,
             3: !!data.stage3_characters,
-            4: !!data.stage4_treatment
+            4: !!(data.stage4_beats || data.stage4_treatment)
             // Stages 5-10 currently placeholder
         };
 
@@ -1648,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
 
-            const response = await fetch('/api/generate-treatment', {
+            const response = await fetch('/api/generate-stage4-beats', {
                 method: 'POST',
                 body: formData
             });
@@ -1725,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userNote && !selectedPdf) {
                 // Manual save
                 if (!activeProjectId) return;
-                const currentTreatment = scrapeTreatment();
+                const currentS4Beats = scrapeTreatment();
                 const originalText = btnStage4Revise.textContent;
 
                 try {
@@ -1736,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            data: { stage4_treatment: currentTreatment }
+                            data: { stage4_beats: currentS4Beats }
                         })
                     });
 
@@ -1765,16 +1766,16 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage4Revise.disabled = true;
 
             try {
-                const currentTreatment = scrapeTreatment();
+                const currentS4Beats = scrapeTreatment();
                 const formData = new FormData();
                 formData.append('projectId', activeProjectId);
-                formData.append('currentTreatment', JSON.stringify(currentTreatment));
+                formData.append('currentBeats', JSON.stringify(currentS4Beats));
                 formData.append('notes', userNote);
                 if (selectedPdf) {
                     formData.append('pdfFile', selectedPdf);
                 }
 
-                const response = await fetch('/api/generate-treatment', {
+                const response = await fetch('/api/generate-stage4-beats', {
                     method: 'POST',
                     body: formData
                 });
@@ -1814,7 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage4Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
 
-            const currentTreatment = scrapeTreatment();
+            const currentS4Beats = scrapeTreatment();
             const originalText = btnStage4Approve.textContent;
 
             btnStage4Approve.textContent = 'Saving...';
@@ -1826,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data: { stage4_treatment: currentTreatment }
+                        data: { stage4_beats: currentS4Beats }
                     })
                 });
                 const updatedProject = await res.json();
