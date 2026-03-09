@@ -221,13 +221,16 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
         const charactersData = projectData.data?.stage3_characters?.characters;
         const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
 
+        const { notes, currentTreatment } = req.body;
+        const parsedTreatment = currentTreatment ? JSON.parse(currentTreatment) : null;
+
         if (!pitchData || !charactersData || !beatsData) {
             return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
         }
 
         console.log("Generating Stage 5 Chained Treatment...");
-        // This is a long process (4 sequential LLM calls)
-        const result = await agent5Treatment(pitchData, charactersData, beatsData);
+        // This is a long process (4 sequential LLM calls OR 1 surgical revision)
+        const result = await agent5Treatment(pitchData, charactersData, beatsData, parsedTreatment, notes);
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = result;

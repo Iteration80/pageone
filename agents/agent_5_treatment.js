@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * Transform pitch, characters, and 8-sequence beats into a granular 4-act treatment.
  * Uses 4 sequential ai.models.generateContent() calls to build the treatment piece by piece.
  */
-const agent5Treatment = async (pitchData, charactersData, beatsData) => {
+const agent5Treatment = async (pitchData, charactersData, beatsData, currentTreatment = null, notes = null) => {
 
     const systemInstruction = "ROLE: You are an elite Hollywood screenwriter and development executive. Transform the provided character profiles and beat sheets into a gripping feature film treatment. OUTPUT: Present tense, third-person. First character mention in ALL CAPS followed by (age). Cinematic prose. NO camera jargon. NO traditional dialogue blocks (summarize conflict, only quote thematic punchlines). Prioritize the A-Story, weave the B-Story seamlessly. End with a clear resolution, no cliffhangers. LENGTH MANDATE: You are expanding a beat sheet into a treatment. DO NOT SUMMARIZE. For every single beat provided in the input, you MUST write at least 2 to 3 robust paragraphs of scene-by-scene narrative. Describe the physical actions, the environment, and the emotional shifts in granular detail. Separate distinct scenes with paragraph breaks. If a sequence has 3 beats, you must output at least 6 to 9 paragraphs for that sequence. Use standard double newlines (\\n\\n) for paragraph breaks. NEVER use HTML tags like <br> or <p>.";
 
@@ -22,6 +22,34 @@ const agent5Treatment = async (pitchData, charactersData, beatsData) => {
         },
         required: ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3']
     };
+
+    // Revision Bypass Logic
+    if (notes && currentTreatment) {
+        console.log("  Surgical Revision Mode: Applying user notes...");
+        const revisionSystemInstruction = 'ROLE: You are an elite, surgical Script Editor. You have been provided an existing film treatment and a specific user note. YOUR MANDATE: Apply the user\'s note to the text, but DO NOT rewrite or alter ANY plot points, character names, or pacing outside the scope of the note. If the note only applies to Act 1, keep the rest of the text 100% identical to the provided current treatment. Maintain the exact same formatting.';
+
+        const revisionPrompt = `USER NOTE: ${notes}
+
+EXISTING TREATMENT:
+${JSON.stringify(currentTreatment, null, 2)}
+
+Please apply the note surgically and return the full updated treatment in JSON format. Ensure you do not change anything else.`;
+
+        const revisionConfig = {
+            systemInstruction: revisionSystemInstruction,
+            temperature: 0.3,
+            responseMimeType: "application/json",
+            responseSchema: treatmentSchema,
+        };
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: [revisionPrompt],
+            config: revisionConfig,
+        });
+
+        return JSON.parse(result.text);
+    }
 
     const baseConfig = {
         systemInstruction: systemInstruction,
