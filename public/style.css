@@ -901,9 +901,11 @@ textarea.synopsis-input {
 .sequence-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--accent-color);
+    color: #e5e7eb;
+    /* silver/gray */
     margin-bottom: 8px;
     letter-spacing: -0.01em;
+    text-transform: uppercase;
 }
 
 .scene-cards-container {
@@ -989,7 +991,8 @@ textarea.synopsis-input {
 .scene-field-label {
     font-size: 0.65rem;
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #9ca3af;
+    /* brighter gray-400 */
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 2px;
@@ -1027,17 +1030,31 @@ textarea.synopsis-input {
 }
 
 .ai-rewrite-btn {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 1rem;
     color: #fcd34d;
     background: transparent;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
     transition: transform 0.1s ease;
-    opacity: 0.7;
+    opacity: 0.6;
+    padding: 4px;
+}
+
+.card-grip {
+    cursor: grab;
+    color: var(--text-secondary);
+    opacity: 0.4;
+    font-size: 1.1rem;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.card-grip:hover {
+    opacity: 0.8;
 }
 
 .ai-rewrite-btn:hover {

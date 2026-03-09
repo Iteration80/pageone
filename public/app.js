@@ -2207,8 +2207,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.className = 'scene-card';
                 card.innerHTML = `
                     <div class="scene-card-header">
-                        <span class="scene-number">Scene ${scene.scene_number}</span>
-                        <button class="delete-patch-btn">Delete & Patch</button>
+                        <div class="flex items-center">
+                            <span class="card-grip">⋮⋮</span>
+                            <span class="scene-number">Scene ${scene.scene_number}</span>
+                        </div>
+                        <button class="delete-patch-btn" title="Delete & Patch">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                        </button>
                     </div>
                     <input type="text" class="scene-heading-input" value="${escapeHtml(scene.scene_heading)}" placeholder="SCENE HEADING">
                     <div class="scene-field-group">
@@ -2221,8 +2226,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="scene-card-footer">
                         <input type="text" class="page-count-input" value="${escapeHtml(scene.estimated_page_count)}" placeholder="0.5 pgs">
-                        <button class="ai-rewrite-btn">
-                            <span>✨ AI Rewrite Scene</span>
+                        <button class="ai-rewrite-btn" title="AI Rewrite Scene">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M3 5h4"></path><path d="M21 17v4"></path><path d="M19 19h4"></path></svg>
                         </button>
                     </div>
                 `;
