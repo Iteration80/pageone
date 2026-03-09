@@ -1,0 +1,149 @@
+{
+  "id": "1773075663886",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Homeowners Association",
+        "genre": "Horror Comedy",
+        "logline": "A young couple moves into an idyllic suburban neighborhood in Salem, MA, only to discover the strict HOA is run by a coven of suburban witches who sacrifice rule-breakers to maintain their perfect lawns.",
+        "core_theme": "The suffocating pressure of suburban conformity and the loss of individuality.",
+        "synopsis": "Act I: Mark and Chloe move into the pristine Salem, MA suburb of Oakwood. They quickly clash with the aggressive HOA president, Barbara, over minor infractions like the wrong shade of mailbox paint. \n\nAct II: After a neighbor who refused to mow his lawn mysteriously disappears, Chloe investigates. She uncovers that the HOA meetings are actually dark rituals. The perfect lawns are fertilized with the blood of non-conformists. Mark is kidnapped after installing an unapproved birdbath. \n\nAct III: Chloe arms herself with forbidden gardening tools and crashes the annual HOA block party/sacrifice. She defeats Barbara in a brutal, slapstick showdown using a gas-powered weed whacker, freeing Mark and burning the neighborhood's pristine covenant to the ground."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "title": "Homeowners Association",
+      "genre": "Horror Comedy",
+      "logline": "A young couple moves into an idyllic suburban neighborhood in Salem, MA, only to discover the strict HOA is run by a coven of suburban witches who sacrifice rule-breakers to maintain their perfect lawns.",
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Pristine Trap",
+            "beats": [
+              {
+                "beat_label": "Status Quo",
+                "description": "Mark and Chloe move into the flawless Salem suburb of Oakwood, marveling at the impossibly perfect lawns and friendly neighbors."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "They meet Barbara, the overly sweet but menacing HOA president, who immediately hands them a formal warning letter because their mailbox paint is one shade off from the approved color."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Cracks in the Cul-de-Sac",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "Mark and Chloe try to comply with the rules but find them increasingly bizarre, while a rebellious neighbor openly defies Barbara by refusing to mow his lawn."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "The rebellious neighbor vanishes overnight, leaving behind an unnaturally green patch of grass where he stood, locking Chloe into her suspicion that the HOA is hiding a deadly secret."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Neighborhood Watch",
+            "beats": [
+              {
+                "beat_label": "Investigation",
+                "description": "Chloe starts asking questions about the missing neighbor, but the other residents deflect her inquiries with terrifyingly fake smiles and fresh-baked casseroles."
+              },
+              {
+                "beat_label": "Discovery",
+                "description": "Chloe sneaks into the missing neighbor's abandoned house and uncovers a hidden journal detailing the dark, bloody history of the Oakwood HOA."
+              },
+              {
+                "beat_label": "Complication",
+                "description": "Mark dismisses Chloe's fears as paranoia and stubbornly installs a tacky, unapproved birdbath in the front yard to prove they cannot be bullied by a suburban committee."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Midpoint Meeting",
+            "beats": [
+              {
+                "beat_label": "Rising Tension",
+                "description": "Chloe attends her first HOA meeting to gather evidence, expecting boring bureaucracy but instead finding a strange, cult-like atmosphere in the community center."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "The meeting descends into a creepy chant about property values, and Chloe witnesses a minor blood ritual disguised as a gardening demonstration, officially realizing the HOA is a literal coven of witches."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Unapproved Birdbath",
+            "beats": [
+              {
+                "beat_label": "Fallout",
+                "description": "Chloe tries to warn Mark about the coven, but he is too distracted defending his new birdbath from Barbara's passive-aggressive cronies."
+              },
+              {
+                "beat_label": "Escalation",
+                "description": "The witches begin a campaign of suburban psychological warfare against the couple, leaving dead animals on the porch and issuing threatening citations written in blood."
+              },
+              {
+                "beat_label": "Attack",
+                "description": "Mark is ambushed in his own backyard by robed figures wielding hedge clippers and is dragged away into the night."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Violation",
+            "beats": [
+              {
+                "beat_label": "All Is Lost",
+                "description": "Chloe returns home to find the birdbath smashed, Mark missing, and an official HOA notice stating her husband is scheduled for permanent eviction at the annual block party."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "Chloe realizes she cannot call the police because the local chief is an HOA board member, forcing her to abandon the rules entirely and take matters into her own hands to save Mark."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Forbidden Shed",
+            "beats": [
+              {
+                "beat_label": "Preparation",
+                "description": "Chloe breaks into the neighborhood hardware store to steal unapproved, noise-polluting, gas-powered gardening equipment."
+              },
+              {
+                "beat_label": "Gathering the Arsenal",
+                "description": "She gears up, transforming from a mild-mannered homeowner into a suburban warrior armed with a heavy-duty weed whacker and a backpack leaf blower."
+              },
+              {
+                "beat_label": "The Infiltration",
+                "description": "Chloe crashes the annual HOA block party just as Barbara prepares to sacrifice a bound and gagged Mark on a perfectly manicured neighborhood altar."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Ultimate Violation",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "A brutal, slapstick battle erupts as Chloe fights off the coven using her gardening tools, ultimately defeating Barbara in a gory weed-whacker duel."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "Chloe destroys the source of the coven's power by burning the original pristine neighborhood covenant to ashes, causing the magical lawns to instantly wither and die."
+              },
+              {
+                "beat_label": "Final Image",
+                "description": "Mark and Chloe drive away from the ruined, weed-infested suburb, finally free from the suffocating pressure of conformity as the surviving neighbors stare in horror at their dying grass."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
