@@ -63,8 +63,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage4PdfUpload = document.getElementById('stage4PdfUpload');
     const stage4FileNameDisplay = document.getElementById('stage4FileNameDisplay');
 
+    // Stage 5 Elements
+    const stage5Notes = document.getElementById('stage5Notes');
+    const stage5PdfUpload = document.getElementById('stage5PdfUpload');
+    const stage5FileNameDisplay = document.getElementById('stage5FileNameDisplay');
+    const btnGenerateStage5 = document.getElementById('btnGenerateStage5');
+    const loadingStateStage5 = document.getElementById('loadingStateStage5');
+    const loadingTextStage5 = document.getElementById('loadingTextStage5');
+    const stage5Actions = document.getElementById('stage5Actions');
+    const stage5TreatmentContainer = document.getElementById('stage5TreatmentContainer');
+    const stage5Workshop = document.getElementById('stage5Workshop');
+    const btnStage5Revise = document.getElementById('btnStage5Revise');
+    const btnStage5Approve = document.getElementById('btnStage5Approve');
+    const btnStage5Edit = document.getElementById('btnStage5Edit');
+
+    const stage5TAs = {
+        title_logline_characters: document.getElementById('stage5-title-logline'),
+        act_1: document.getElementById('stage5-act1'),
+        act_2a: document.getElementById('stage5-act2a'),
+        act_2b: document.getElementById('stage5-act2b'),
+        act_3: document.getElementById('stage5-act3')
+    };
+
     // Textarea/Notes auto-resize listeners
-    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, promptInput].forEach(el => {
+    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, stage5Notes, promptInput].forEach(el => {
         if (el) {
             el.addEventListener('input', () => autoResize(el));
             el.addEventListener('focus', () => { el.style.background = 'rgba(31,41,55,0.8)'; el.style.outline = '1px solid #374151'; });
@@ -347,6 +369,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (treatmentContainer) treatmentContainer.innerHTML = '';
                     if (stage4Workshop) stage4Workshop.classList.add('hidden');
                     if (treatmentActions) treatmentActions.classList.remove('hidden');
+                }
+
+                // Hydrate Stage 5 Treatment if exists
+                if (projectDetails.data.stage5_treatment) {
+                    renderTreatmentStage5(projectDetails.data.stage5_treatment);
+                    if (btnStage5Approve) {
+                        btnStage5Approve.textContent = 'Approved ✓';
+                        btnStage5Approve.classList.add('approve-btn-green');
+                    }
+                    if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
+                    if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
+                    if (btnStage5Approve) btnStage5Approve.classList.add('hidden');
+
+                    if (stage5Notes && projectDetails.data.stage5_treatment.notes) {
+                        stage5Notes.value = projectDetails.data.stage5_treatment.notes;
+                    }
+                    if (stage5Notes) autoResize(stage5Notes);
+                } else {
+                    if (stage5TreatmentContainer) stage5TreatmentContainer.classList.add('hidden');
+                    if (stage5Workshop) stage5Workshop.classList.add('hidden');
+                    if (stage5Actions) stage5Actions.classList.remove('hidden');
                 }
             } else {
                 updateStageNav(projectDetails.data);
@@ -760,8 +803,9 @@ document.addEventListener('DOMContentLoaded', () => {
             1: !!data.stage1_pitch,
             2: !!data.stage2_outline,
             3: !!data.stage3_characters,
-            4: !!(data.stage4_beats || data.stage4_treatment)
-            // Stages 5-10 currently placeholder
+            4: !!(data.stage4_beats || data.stage4_treatment),
+            5: !!data.stage5_treatment
+            // Stages 6-10 currently placeholder
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -1849,4 +1893,219 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- Stage 5: Treatment Functions ---
+
+    function renderTreatmentStage5(data) {
+        if (!data) return;
+        if (stage5TreatmentContainer) stage5TreatmentContainer.classList.remove('hidden');
+        if (stage5Workshop) stage5Workshop.classList.remove('hidden');
+        if (stage5Actions) stage5Actions.classList.add('hidden');
+
+        Object.keys(stage5TAs).forEach(key => {
+            if (stage5TAs[key]) {
+                stage5TAs[key].value = data[key] || '';
+                autoResize(stage5TAs[key]);
+
+                // Add input listeners for user edits
+                if (!stage5TAs[key].dataset.listenerAdded) {
+                    stage5TAs[key].addEventListener('input', () => {
+                        autoResize(stage5TAs[key]);
+                        if (btnStage5Approve) {
+                            btnStage5Approve.textContent = 'Approve';
+                            btnStage5Approve.classList.remove('approve-btn-green');
+                        }
+                    });
+                    stage5TAs[key].dataset.listenerAdded = 'true';
+                }
+            }
+        });
+    }
+
+    function scrapeTreatmentStage5() {
+        const data = {};
+        Object.keys(stage5TAs).forEach(key => {
+            if (stage5TAs[key]) {
+                data[key] = stage5TAs[key].value.trim();
+            }
+        });
+        if (stage5Notes) data.notes = stage5Notes.value.trim();
+        return data;
+    }
+
+    async function autoGenerateTreatmentStage5() {
+        if (!activeProjectId) return;
+
+        if (loadingStateStage5) loadingStateStage5.classList.remove('hidden');
+        if (stage5Actions) stage5Actions.classList.add('hidden');
+        if (stage5TreatmentContainer) stage5TreatmentContainer.classList.add('hidden');
+        if (stage5Workshop) stage5Workshop.classList.add('hidden');
+
+        if (loadingTextStage5) loadingTextStage5.textContent = 'Writing Act I...';
+
+        try {
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+
+            const response = await fetch('/api/generate-stage5-treatment', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.result) {
+                renderTreatmentStage5(data.result);
+                // Fetch updated project for nav status
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                updateStageNav(projData.data);
+            }
+        } catch (err) {
+            console.error('Error generating stage 5 treatment:', err);
+            alert('An error occurred during Treatment generation.');
+            if (stage5Actions) stage5Actions.classList.remove('hidden');
+        } finally {
+            if (loadingStateStage5) loadingStateStage5.classList.add('hidden');
+        }
+    }
+
+    // Stage 5 Event Listeners
+    if (btnGenerateStage5) {
+        btnGenerateStage5.addEventListener('click', autoGenerateTreatmentStage5);
+    }
+
+    if (stage5PdfUpload) {
+        stage5PdfUpload.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = e.target.files[0].name;
+            }
+        });
+    }
+
+    if (btnStage5Edit) {
+        btnStage5Edit.addEventListener('click', () => {
+            if (btnStage5Revise) btnStage5Revise.classList.remove('hidden');
+            if (btnStage5Approve) btnStage5Approve.classList.remove('hidden');
+            btnStage5Edit.classList.add('hidden');
+        });
+    }
+
+    if (btnStage5Revise) {
+        btnStage5Revise.addEventListener('click', async () => {
+            const userNote = stage5Notes ? stage5Notes.value.trim() : '';
+            const selectedPdf = stage5PdfUpload && stage5PdfUpload.files[0];
+
+            if (!userNote && !selectedPdf) {
+                // Manual Save
+                if (!activeProjectId) return;
+                const currentData = scrapeTreatmentStage5();
+                const originalText = btnStage5Revise.textContent;
+
+                try {
+                    btnStage5Revise.textContent = 'Saving...';
+                    btnStage5Revise.disabled = true;
+
+                    await fetch(`/api/projects/${activeProjectId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            data: { stage5_treatment: currentData }
+                        })
+                    });
+
+                    btnStage5Revise.textContent = 'Saved!';
+                    setTimeout(() => {
+                        btnStage5Revise.textContent = originalText;
+                        btnStage5Revise.disabled = false;
+                    }, 1500);
+
+                    if (btnStage5Approve) {
+                        btnStage5Approve.textContent = 'Approve';
+                        btnStage5Approve.classList.remove('approve-btn-green');
+                    }
+                } catch (err) {
+                    console.error('Failed to manual save stage 5:', err);
+                    btnStage5Revise.textContent = originalText;
+                    btnStage5Revise.disabled = false;
+                }
+                return;
+            }
+
+            // AI Revision
+            const originalText = btnStage5Revise.textContent;
+            btnStage5Revise.textContent = 'Revising...';
+            btnStage5Revise.disabled = true;
+
+            try {
+                const currentData = scrapeTreatmentStage5();
+                const formData = new FormData();
+                formData.append('projectId', activeProjectId);
+                formData.append('currentTreatment', JSON.stringify(currentData)); // Reuse key for backend consistency if needed, but route handles it
+                formData.append('notes', userNote);
+                if (selectedPdf) formData.append('pdfFile', selectedPdf);
+
+                const response = await fetch('/api/generate-stage5-treatment', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
+                const data = await response.json();
+                if (data.result) {
+                    renderTreatmentStage5(data.result);
+                    if (stage5Notes) stage5Notes.value = '';
+                    if (stage5PdfUpload) stage5PdfUpload.value = '';
+                    if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
+                }
+            } catch (err) {
+                console.error('Error revising stage 5:', err);
+                alert('An error occurred while revising the treatment.');
+            } finally {
+                btnStage5Revise.textContent = originalText;
+                btnStage5Revise.disabled = false;
+            }
+        });
+    }
+
+    if (btnStage5Approve) {
+        btnStage5Approve.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            const currentData = scrapeTreatmentStage5();
+            const originalText = btnStage5Approve.textContent;
+
+            btnStage5Approve.textContent = 'Saving...';
+            btnStage5Approve.disabled = true;
+            btnStage5Approve.classList.remove('approve-btn-green');
+
+            try {
+                const res = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: { stage5_treatment: currentData }
+                    })
+                });
+                const updatedProject = await res.json();
+                updateStageNav(updatedProject.data);
+
+                btnStage5Approve.textContent = 'Approved ✓';
+                btnStage5Approve.classList.add('approve-btn-green');
+
+                if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
+                btnStage5Revise.classList.add('hidden');
+                btnStage5Approve.classList.add('hidden');
+            } catch (err) {
+                console.error(err);
+                btnStage5Approve.textContent = originalText;
+            } finally {
+                btnStage5Approve.disabled = false;
+            }
+        });
+    }
 });
+

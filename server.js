@@ -7,6 +7,7 @@ const { agent1Refine } = require('./agents/agent_1_refine');
 const { agent2Outline } = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent4Beats } = require('./agents/agent_4_beats');
+const { agent5Treatment } = require('./agents/agent_5_treatment');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -197,6 +198,46 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         console.error('Stage 4 Beats Gen Error:', error.message);
         console.error('Full error:', error);
         res.status(500).json({ error: error.message || "Failed to generate beats" });
+    }
+});
+
+app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req, res) => {
+    try {
+        const { projectId } = req.body || {};
+        if (!projectId) {
+            return res.status(400).json({ error: "Missing projectId" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const pitchData = projectData.data?.stage1_pitch?.pitch;
+        const charactersData = projectData.data?.stage3_characters?.characters;
+        const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
+
+        if (!pitchData || !charactersData || !beatsData) {
+            return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
+        }
+
+        console.log("Generating Stage 5 Chained Treatment...");
+        // This is a long process (4 sequential LLM calls)
+        const result = await agent5Treatment(pitchData, charactersData, beatsData);
+
+        projectData.data = projectData.data || {};
+        projectData.data.stage5_treatment = result;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result });
+    } catch (error) {
+        console.error('Stage 5 Treatment Gen Error:', error.message);
+        res.status(500).json({ error: error.message || "Failed to generate treatment" });
     }
 });
 
