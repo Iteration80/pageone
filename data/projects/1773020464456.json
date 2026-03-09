@@ -1,0 +1,377 @@
+{
+  "id": "1773020464456",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Open House",
+        "genre": "Horror Comedy",
+        "logline": "A ruthless real estate agent discovers her latest luxury listing is a sentient, malevolent entity that feeds on potential buyers, forcing her to market the deadly property to the worst people she knows to satisfy its hunger.",
+        "core_theme": "The moral bankruptcy of corporate greed and the modern housing crisis.",
+        "synopsis": "Act I: Valerie is a cutthroat realtor on the verge of bankruptcy. She lands the exclusive listing for a stunning, modernist mansion. During the first showing, the house literally consumes a wealthy, obnoxious client. Instead of calling the police, Valerie realizes the house produces pristine, blood-free diamonds after every meal.\n\nAct II: Valerie strikes a dark pact with the house. She begins hosting exclusive, invite-only open houses for corrupt politicians, rival cutthroat realtors, and toxic tech bros. The house gets fed, and Valerie gets rich. However, the house's appetite grows exponentially, and it begins demanding more innocent souls, trapping Valerie inside during a massive gala.\n\nAct III: Realizing she has become the ultimate monster, Valerie decides to destroy the property. She locks herself in with her most ruthless corporate boss and triggers a gas leak. In a chaotic, bloody finale, the house tries to digest them both, but Valerie ignites the gas, blowing the mansion to kingdom come and ending the cycle of greed."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: Desperate Measures",
+            "beats": [
+              {
+                "beat_label": "Opening Image",
+                "description": "Valerie, a sharply dressed, utterly ruthless real estate agent, aggressively evicts a struggling family to secure a minor commission, establishing her absolute moral bankruptcy."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "Valerie discovers her brokerage is about to fire her due to mounting secret debts. Therefore, she uses blackmail to steal the agency's crown jewel: an exclusive listing for a bizarre, stunning modernist mansion."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The First Meal",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "Valerie sets up a private showing at the mansion for an obnoxiously wealthy, abusive client. The client insults the property and threatens to ruin Valerie's career."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "The mansion's floorboards suddenly liquefy, swallowing the client whole in a gruesome, silent gulp. Valerie panics and prepares to call the police, but the house regurgitates a pristine, blood-free diamond. Therefore, Valerie makes a dark choice to keep quiet and profit."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Feeding the Beast",
+            "beats": [
+              {
+                "beat_label": "Fun and Games",
+                "description": "Valerie forms a symbiotic pact with the house. She curates a hit list of the city's worst elites, including corrupt politicians and toxic tech bros, inviting them to private showings."
+              },
+              {
+                "beat_label": "Rising Action",
+                "description": "The house devours the terrible clients one by one in creatively horrific ways. Therefore, Valerie collects a fortune in diamonds, solving her debt and ascending to the top of her brokerage."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Appetite Grows",
+            "beats": [
+              {
+                "beat_label": "Complications",
+                "description": "Valerie enjoys her new lavish lifestyle. But the house begins to rumble and crack, unsatisfied with the meager portions of single clients. It demands more sustenance."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "The house holds Valerie hostage during a routine cleaning, refusing to unlock the doors until she promises a massive feast. Therefore, Valerie is forced to organize an exclusive, invite-only gala at the property to feed it a buffet of corporate scumbags."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Gala of the Damned",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "The gala begins. Valerie packs the house with rival realtors, her awful boss, and wealthy criminals. At first, the house discreetly picks off guests in isolated rooms."
+              },
+              {
+                "beat_label": "Escalation",
+                "description": "The house loses its patience and drops the facade. It seals all the exits and begins a mass consumption, turning the modernist architecture into a shifting, deadly labyrinth of teeth and crushing walls."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: Trapped in the Belly",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "Valerie tries to navigate the chaos, assuming the house will spare her. But the entity turns its attention to the innocent catering staff and Valerie's overworked, underpaid assistant."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "The house corners Valerie and demands she push her innocent assistant into a gaping maw to save herself. Valerie realizes her own greed has made her the ultimate monster. Therefore, she refuses the house's demand, breaking the pact."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: Breaking the Lease",
+            "beats": [
+              {
+                "beat_label": "The Turn",
+                "description": "Valerie decides to destroy the property. She uses her intimate knowledge of the house's floor plan to guide her assistant and the innocent staff to a structural weak point to escape."
+              },
+              {
+                "beat_label": "Rising Action",
+                "description": "Her ruthless corporate boss realizes what is happening and tries to sacrifice Valerie to the house. Therefore, Valerie locks herself in the basement with her boss, engaging in a brutal fistfight while the house tries to digest them both."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: Final Demolition",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "Valerie overpowers her boss and uses a heavy wrench to smash the mansion's main gas line. As the house screams and the walls close in to crush her, she sparks a lighter and dives into a reinforced panic room."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The gas ignites, blowing the monstrous mansion to kingdom come. Valerie emerges from the smoldering crater, battered but alive. She finds a single diamond in the rubble, tosses it into the ashes, and walks away, finally ending the cycle of greed."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Valerie Vance",
+          "role": "Protagonist",
+          "brief_summary": "A razor-sharp, morally bankrupt real estate agent drowning in secret debt. She serves as the anti-hero whose journey from ruthless capitalist to self-sacrificing survivor anchors the film's critique of greed.",
+          "psychological_core": {
+            "wound": "Grew up in extreme poverty, watching her parents lose their home to predatory lenders.",
+            "false_belief": "Wealth is the only armor against victimization, and morality is a luxury for the rich.",
+            "fear": "Returning to poverty, powerlessness, and being discarded by society.",
+            "desire": "To be untouchably wealthy and sit at the absolute top of the food chain.",
+            "need": "To realize human life has inherent value beyond financial utility."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Fast, transactional, and heavily reliant on corporate buzzwords like 'pivot' and 'value add.' She NEVER says 'I'm sorry' or 'I can't afford it.'",
+            "deflection_tactic": "Immediately pivots to discussing property values, market comps, or aggressively pointing out the other person's professional shortcomings."
+          },
+          "subtlety_guidelines": "Appears highly polished, charming, and composed 90% of the time. Only when cornered or financially threatened does her veneer crack, revealing a feral, panicked desperation."
+        },
+        {
+          "name": "Richard Sterling",
+          "role": "Antagonist",
+          "brief_summary": "The sociopathic, impeccably tailored head of Valerie's brokerage who views human beings strictly as capital. He is the human embodiment of the house's insatiable greed and the final physical obstacle Valerie must overcome.",
+          "psychological_core": {
+            "wound": "Inherited his wealth but was constantly told by his self-made father that he lacked the 'killer instinct.'",
+            "false_belief": "Empathy is a market inefficiency that must be eradicated to achieve true greatness.",
+            "fear": "Being outsmarted, rendered obsolete by his subordinates, or exposed as a fraud.",
+            "desire": "Complete monopolization of the luxury real estate market at any human cost.",
+            "need": "To be consumed by the very predatory system he champions."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in calm, measured, patronizing metaphors about apex predators and market forces. He NEVER raises his voice or admits to being surprised.",
+            "deflection_tactic": "Answers direct questions with condescending philosophical inquiries about capitalism and 'the natural order.'"
+          },
+          "subtlety_guidelines": "Maintains a genial, fatherly facade in the office. His sociopathy only peeks through in dead-eyed stares and micro-aggressions when he feels his authority is questioned."
+        },
+        {
+          "name": "Toby Aris",
+          "role": "Supporting",
+          "brief_summary": "Valerie's chronically overworked, deeply empathetic assistant who dreams of building affordable housing. He acts as Valerie's B-Story Anchor and moral compass, constantly challenging her transactional view of humanity.",
+          "psychological_core": {
+            "wound": "Was evicted as a teenager and knows the trauma of housing insecurity firsthand.",
+            "false_belief": "If I work hard enough for bad people, I can change the system from the inside.",
+            "fear": "Being complicit in the harm of innocent people.",
+            "desire": "To earn enough capital and experience to start a non-profit housing trust.",
+            "need": "To stop enabling toxic abusers and stand up for his own worth."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Self-deprecating, speaks in run-on sentences, and constantly apologizes. He NEVER says 'No' directly to Valerie until the climax.",
+            "deflection_tactic": "Physically organizes things like shuffling papers or cleaning lint while changing the subject to minor logistical details."
+          },
+          "subtlety_guidelines": "Highly competent and professional in front of clients. His anxiety and moral discomfort only leak out in nervous tics, like adjusting his glasses or clearing his throat, when Valerie crosses an ethical line."
+        },
+        {
+          "name": "Julian Vance",
+          "role": "Supporting",
+          "brief_summary": "A sleazy, flash-in-the-pan rival realtor who relies on nepotism and social media followers rather than skill. He serves as the 'Skeptic' who investigates Valerie's sudden success, threatening to expose her dark secret.",
+          "psychological_core": {
+            "wound": "Deeply insecure about his lack of actual talent, knowing he is a fraud riding his family's coattails.",
+            "false_belief": "Perception is reality; if I look successful, I am successful.",
+            "fear": "Being exposed as a talentless hack and losing his social status.",
+            "desire": "To steal Valerie's listing and humiliate her publicly.",
+            "need": "To face the brutal reality of his own inadequacy."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Drops names constantly, uses internet slang like 'vibes' and 'crushing it,' and speaks with unearned bravado. He NEVER admits he doesn't know something.",
+            "deflection_tactic": "Laughs loudly and mocks the other person's outfit or social standing to deflect from his own ignorance."
+          },
+          "subtlety_guidelines": "Projects absolute confidence 90% of the time. When his competence is genuinely challenged, his smile tightens and he aggressively checks his phone to avoid eye contact."
+        },
+        {
+          "name": "Councilwoman Elena Rostova",
+          "role": "Supporting",
+          "brief_summary": "A corrupt, untouchable city politician who zones low-income neighborhoods for luxury development. She acts as the 'Harbinger' and catalyst for the House's escalating hunger, representing the systemic rot Valerie is feeding.",
+          "psychological_core": {
+            "wound": "Spent her early career as an idealistic public defender but was crushed by the corrupt system, deciding to join them rather than beat them.",
+            "false_belief": "Power is the only currency that matters in this city.",
+            "fear": "Losing her grip on the city's political machine and becoming irrelevant.",
+            "desire": "To acquire the mansion as a symbol of her absolute dominion over the city.",
+            "need": "To face the karmic consequences of the lives she has destroyed."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in legalistic, evasive political double-speak with very deliberate pacing. She NEVER makes a definitive promise or uses the word 'bribe.'",
+            "deflection_tactic": "Feigns moral outrage or invokes 'the good of the community' when accused of self-interest."
+          },
+          "subtlety_guidelines": "Impeccably polite and charming in public. Her true ruthlessness only shows in the cold, unblinking way she stares down opponents when the cameras are off."
+        }
+      ]
+    },
+    "stage4_treatment": {
+      "stc_genre_category": "Monster in the House",
+      "hybrid_beat_sheet": [
+        {
+          "sequence_number": 1,
+          "sequence_title": "Desperate Measures",
+          "beats": [
+            {
+              "beat_name": "Opening Image",
+              "genre_variation_notes": "Establishes the Sin (greed) that will eventually invite the wrath of the Monster.",
+              "emotional_arc": "Cold detachment and moral bankruptcy.",
+              "pacing_notes": "Sharp, aggressive, and highly transactional to establish the protagonist's ruthless baseline.",
+              "detailed_action": "Valerie Vance, impeccably dressed and devoid of empathy, oversees the eviction of a struggling family from a modest home to secure a meager commission. She ignores the tears of the former owners, aggressively pivoting the conversation to market comps and property values when confronted. This establishes her absolute moral bankruptcy and her deeply ingrained false belief that wealth is the only shield against victimization."
+            },
+            {
+              "beat_name": "Theme Stated",
+              "genre_variation_notes": "Highlights the moral failing and false belief that the Monster will exploit.",
+              "emotional_arc": "Annoyance masking a deep-seated fear of vulnerability.",
+              "pacing_notes": "A brief, dialogue-heavy pause that grounds the thematic argument of the film.",
+              "detailed_action": "Back at the luxury brokerage, Valerie's overworked and highly empathetic assistant, Toby Aris, timidly suggests that human beings have inherent value beyond their financial utility. Valerie immediately shuts him down with a barrage of corporate buzzwords, asserting that morality is a luxury only the ultra-rich can afford. This exchange plants the central thematic question of whether human life is worth more than capital, highlighting the systemic rot of corporate greed."
+            },
+            {
+              "beat_name": "Setup",
+              "genre_variation_notes": "The protagonist commits the Sin out of desperation, setting her on a collision course with the House.",
+              "emotional_arc": "Feral panic hidden beneath a polished, professional exterior.",
+              "pacing_notes": "Mounting tension as the protagonist's safe world threatens to collapse.",
+              "detailed_action": "Valerie is called into the glass-walled office of her sociopathic boss, Richard Sterling, who calmly informs her that her secret, mounting debts have become a liability and she is on the verge of termination. Desperate to maintain her armor of wealth, Valerie discovers a scandalous secret about a rival agent and ruthlessly blackmails them to steal the agency's crown jewel. She secures the exclusive listing for a bizarre, stunning modernist mansion, setting the stage for her descent into literal and figurative darkness."
+            }
+          ]
+        },
+        {
+          "sequence_number": 2,
+          "sequence_title": "The First Meal",
+          "beats": [
+            {
+              "beat_name": "Catalyst",
+              "genre_variation_notes": "The Monster reveals itself within the House, disrupting the protagonist's reality.",
+              "emotional_arc": "Absolute shock and primal terror.",
+              "pacing_notes": "Sudden, violent escalation that shatters the grounded corporate reality.",
+              "detailed_action": "Valerie hosts a private showing at the modernist mansion for an obnoxiously wealthy, emotionally abusive client who relentlessly insults the property and threatens to ruin Valerie's career. Without warning, the sleek hardwood floorboards liquefy into a fleshy maw, swallowing the screaming client whole in a gruesome, silent gulp. Valerie is thrown into a state of absolute shock, realizing her luxury listing is a sentient, malevolent entity."
+            },
+            {
+              "beat_name": "Debate",
+              "genre_variation_notes": "The protagonist rationalizes the Sin, debating whether to flee the House or feed the Monster.",
+              "emotional_arc": "Moral hesitation overridden by desperate greed.",
+              "pacing_notes": "Suspenseful, ticking-clock hesitation as a life-altering choice is weighed.",
+              "detailed_action": "Trembling with panic, Valerie pulls out her phone and prepares to dial the police to report the monstrous event. However, before she can make the call, the house shudders and regurgitates a pristine, blood-free diamond onto the floor. Valerie stares at the gemstone, mentally weighing her crushing financial ruin against the horrific murder she just witnessed, wrestling with the ultimate moral compromise."
+            },
+            {
+              "beat_name": "Break into Two",
+              "genre_variation_notes": "The protagonist fully commits to the Sin, actively choosing to co-exist with the Monster in the House.",
+              "emotional_arc": "Cold resolve and the crossing of a moral point of no return.",
+              "pacing_notes": "Deliberate, heavy, and final beat that locks the narrative into the second act.",
+              "detailed_action": "Valerie slowly lowers her phone, picks up the diamond, and wipes it clean, making a dark, unspoken pact with the entity. She chooses to keep quiet, actively stepping into the upside-down world of being a monster's caretaker to solve her financial woes. The sin of greed is fully embraced, locking her into the literal and figurative Monster in the House dynamic."
+            }
+          ]
+        },
+        {
+          "sequence_number": 3,
+          "sequence_title": "Feeding the Beast",
+          "beats": [
+            {
+              "beat_name": "B Story",
+              "genre_variation_notes": "Introduces the antithesis of the Sin (empathy) through a character who represents salvation.",
+              "emotional_arc": "Guilt masked by transactional generosity and false confidence.",
+              "pacing_notes": "Warm but fundamentally uneasy, providing a breather before the carnage.",
+              "detailed_action": "Flush with cash from her first diamond, Valerie pays off her debts and interacts with Toby, who is thrilled by her sudden success and hopes she will finally fund his dream of a non-profit affordable housing trust. Valerie uses Toby's deep knowledge of the city's corrupt elites to unwittingly curate a hit list of terrible clients, masking her predatory intentions as ambitious networking. Toby acts as her moral anchor, constantly reminding the audience of the humanity Valerie is sacrificing to feed her own ambition."
+            },
+            {
+              "beat_name": "Fun and Games",
+              "genre_variation_notes": "The Sin seems to pay off as the Monster consumes the wicked, fulfilling the promise of the premise.",
+              "emotional_arc": "Giddy, sociopathic triumph and intoxicating power.",
+              "pacing_notes": "Fast, rhythmic, darkly comedic montage of escalating horror and wealth.",
+              "detailed_action": "A darkly comedic montage unfolds as Valerie hosts a series of exclusive, invite-only open houses for the city's worst elites, including corrupt politicians like Councilwoman Rostova and toxic tech bros. The house devours these terrible clients one by one in creatively horrific ways, turning modernist architecture into deadly, shifting traps. Valerie collects a fortune in regurgitated diamonds, ascending to the very top of her brokerage while gleefully ignoring the mounting moral toll of her actions."
+            }
+          ]
+        },
+        {
+          "sequence_number": 4,
+          "sequence_title": "The Appetite Grows",
+          "beats": [
+            {
+              "beat_name": "Midpoint",
+              "genre_variation_notes": "The Monster grows too powerful to control; the Sin officially traps the protagonist inside the House.",
+              "emotional_arc": "Sudden shift from arrogant control to terrifying captivity.",
+              "pacing_notes": "An abrupt halt to the fun and games, spiking anxiety and raising the stakes.",
+              "detailed_action": "Valerie revels in her lavish new lifestyle, believing she has completely mastered the beast and achieved a false victory of ultimate wealth. However, during a routine cleaning, the house begins to rumble, crack, and bleed, unsatisfied with the meager portions of single clients. It violently seals the doors, holding Valerie hostage until she promises to organize a massive, invite-only gala to feed it a buffet of corporate scumbags, proving she is the pet, not the master."
+            }
+          ]
+        },
+        {
+          "sequence_number": 5,
+          "sequence_title": "The Gala of the Damned",
+          "beats": [
+            {
+              "beat_name": "Bad Guys Close In",
+              "genre_variation_notes": "The Monster turns on everyone; the House drops its disguise and becomes a literal death trap.",
+              "emotional_arc": "Claustrophobic dread and the total loss of control.",
+              "pacing_notes": "Accelerating chaos as multiple threats converge on the protagonist simultaneously.",
+              "detailed_action": "Valerie packs the mansion with rival realtors, wealthy criminals, and her awful boss, Richard Sterling, desperately trying to orchestrate a controlled feeding to appease the entity. The sleazy rival realtor, Julian Vance, becomes suspicious of Valerie's success and begins snooping around the property, threatening to expose her dark secret to the world. The house loses its patience with the slow drip of victims, dropping its architectural facade to reveal shifting, fleshy walls and sealing all the exits to begin a mass consumption."
+            }
+          ]
+        },
+        {
+          "sequence_number": 6,
+          "sequence_title": "Trapped in the Belly",
+          "beats": [
+            {
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The Monster threatens the innocent; the true, devastating cost of the Sin is revealed.",
+              "emotional_arc": "Crushing guilt and the death of the ego.",
+              "pacing_notes": "Frantic, breathless survival mode that culminates in a devastating realization.",
+              "detailed_action": "As the modernist mansion transforms into a deadly labyrinth of teeth and crushing walls, Valerie tries to navigate the chaos, arrogantly assuming the house will spare its provider. To her absolute horror, the entity ignores the corrupt elites and turns its insatiable hunger toward the innocent catering staff and her fiercely loyal assistant, Toby. Valerie experiences the whiff of death as she realizes her unmitigated greed has unleashed an unstoppable force that is about to slaughter the only decent person in her life."
+            },
+            {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The protagonist must choose between continuing the Sin or saving her soul by fighting the Monster.",
+              "emotional_arc": "Agonizing self-reflection and absolute despair.",
+              "pacing_notes": "Slow, heavy, and intensely intimate amidst the surrounding carnage.",
+              "detailed_action": "The house corners Valerie and Toby on a collapsing staircase, opening a gaping, acidic maw directly beneath them. The entity telepathically demands that Valerie push her innocent assistant into the pit to save herself and continue their lucrative partnership. Staring into Toby's terrified eyes, Valerie is forced to confront her deepest psychological wound, finally realizing that her pursuit of wealth has turned her into the exact same predatory monster as her boss, Richard."
+            }
+          ]
+        },
+        {
+          "sequence_number": 7,
+          "sequence_title": "Breaking the Lease",
+          "beats": [
+            {
+              "beat_name": "Break into Three",
+              "genre_variation_notes": "The protagonist repents of the Sin and decides to destroy the Monster and the House.",
+              "emotional_arc": "Righteous defiance and the spark of redemption.",
+              "pacing_notes": "Explosive burst of proactive energy as the protagonist finally takes a moral stand.",
+              "detailed_action": "Valerie violently rejects the house's demand, grabbing Toby by the collar and pulling him back from the edge of the maw. She loudly declares that she is breaking the lease, actively choosing human life over infinite wealth and severing her symbiotic pact with the monster. Armed with her intimate knowledge of the mansion's floor plan, she takes charge to lead Toby and the surviving innocent staff toward a structural weak point in the basement."
+            }
+          ]
+        },
+        {
+          "sequence_number": 8,
+          "sequence_title": "Final Demolition",
+          "beats": [
+            {
+              "beat_name": "Finale",
+              "genre_variation_notes": "The ultimate battle against the Monster and the physical embodiment of the Sin (Richard) within the House.",
+              "emotional_arc": "Cathartic release of rage against the corrupt system.",
+              "pacing_notes": "High-octane, brutal, and explosive climax.",
+              "detailed_action": "Valerie successfully guides the innocent staff to an escape vent, but Richard Sterling intervenes, realizing the house's nature and attempting to sacrifice Valerie to secure the diamond-producing property for himself. A brutal, bloody fistfight erupts between Valerie and her sociopathic boss in the mansion's mechanical room while the house's walls literally close in to crush them both. Valerie overpowers Richard, uses a heavy wrench to smash the main gas line, sparks a lighter, and dives into a reinforced panic room just as the entity lunges for her."
+            },
+            {
+              "beat_name": "Final Image",
+              "genre_variation_notes": "The Sin is permanently rejected; the Monster and House are destroyed, leaving a changed protagonist.",
+              "emotional_arc": "Peaceful liberation and spiritual rebirth.",
+              "pacing_notes": "Slow, quiet, and resolute, contrasting sharply with the opening image.",
+              "detailed_action": "The ignited gas causes a massive explosion, blowing the monstrous mansion and Richard Sterling to kingdom come in a spectacular shower of debris. Valerie emerges from the smoldering crater, battered, bloody, but entirely alive and free from her debts. She spots a single, massive diamond resting in the ashes, picks it up for a fleeting moment, and then intentionally tosses it back into the rubble before walking away with Toby, finally ending the cycle of greed."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage2Workspace = document.getElementById('stage2Workspace');
     const navStage3 = document.getElementById('navStage3');
     const stage3Workspace = document.getElementById('stage3Workspace');
+    const navStage4 = document.getElementById('navStage4');
+    const stage4Workspace = document.getElementById('stage4Workspace');
 
     // Stage 1 Elements
     const generateBtn = document.getElementById('generateBtn');
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage1Notes = document.getElementById('stage1-notes');
     const stage2Notes = document.getElementById('stage2-notes');
     const stage3Notes = document.getElementById('stage3-notes');
+    const stage4Notes = document.getElementById('stage4-notes');
 
     const stage1PdfUpload = document.getElementById('stage1PdfUpload');
     const stage1FileNameDisplay = document.getElementById('stage1FileNameDisplay');
@@ -41,9 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage2FileNameDisplay = document.getElementById('stage2FileNameDisplay');
     const stage3PdfUpload = document.getElementById('stage3PdfUpload');
     const stage3FileNameDisplay = document.getElementById('stage3FileNameDisplay');
+    const stage4PdfUpload = document.getElementById('stage4PdfUpload');
+    const stage4FileNameDisplay = document.getElementById('stage4FileNameDisplay');
 
     // Textarea/Notes auto-resize listeners
-    [stage1Notes, stage2Notes, stage3Notes, promptInput].forEach(el => {
+    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, promptInput].forEach(el => {
         if (el) {
             el.addEventListener('input', () => autoResize(el));
             el.addEventListener('focus', () => { el.style.background = 'rgba(31,41,55,0.8)'; el.style.outline = '1px solid #374151'; });
@@ -79,6 +84,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage3Revise = document.getElementById('btn-stage3-revise');
     const btnStage3Approve = document.getElementById('btn-stage3-approve');
     const btnStage3Edit = document.getElementById('btn-stage3-edit');
+
+    // Stage 4 Workshop Elements
+    const stage4Workshop = document.getElementById('stage4Workshop');
+    const loadingStateTreatment = document.getElementById('loadingStateTreatment');
+    const treatmentContainer = document.getElementById('treatmentContainer');
+    const btnStage4Revise = document.getElementById('btn-stage4-revise');
+    const btnStage4Approve = document.getElementById('btn-stage4-approve');
+    const btnStage4Edit = document.getElementById('btn-stage4-edit');
+    const generateTreatmentBtn = document.getElementById('generateTreatmentBtn');
+    const treatmentActions = document.getElementById('treatmentActions');
+
     const cancelRenameBtn = document.getElementById('cancelRenameBtn');
     const saveRenameBtn = document.getElementById('saveRenameBtn');
 
@@ -293,6 +309,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (charactersContainer) charactersContainer.innerHTML = '';
                     if (stage3Workshop) stage3Workshop.classList.add('hidden');
+                }
+
+                // Hydrate Stage 4 Treatment if exists
+                if (projectDetails.data.stage4_treatment && projectDetails.data.stage4_treatment.hybrid_beat_sheet) {
+                    renderTreatment(projectDetails.data.stage4_treatment);
+                    if (btnStage4Approve) {
+                        btnStage4Approve.textContent = 'Approved ✓';
+                        btnStage4Approve.classList.add('approve-btn-green');
+                    }
+                    if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
+                    if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
+                    if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
+
+                    if (stage4Notes && projectDetails.data.stage4_treatment.notes) {
+                        stage4Notes.value = projectDetails.data.stage4_treatment.notes;
+                    }
+                    if (stage4Notes) autoResize(stage4Notes);
+                } else {
+                    if (treatmentContainer) treatmentContainer.innerHTML = '';
+                    if (stage4Workshop) stage4Workshop.classList.add('hidden');
+                    if (treatmentActions) treatmentActions.classList.remove('hidden');
                 }
             } else {
                 updateStageNav(projectDetails.data);
@@ -691,6 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Navigation Logic ---
     function updateStageNav(data) {
         function toggle(navEl, isDone, num) {
+            if (!navEl) return;
             const b = navEl.querySelector('.badge');
             if (isDone) {
                 navEl.classList.add('completed');
@@ -704,10 +742,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const stage1Done = !!data.stage1_pitch;
         const stage2Done = !!data.stage2_outline;
         const stage3Done = !!data.stage3_characters;
+        const stage4Done = !!data.stage4_treatment;
 
         toggle(navStage1, stage1Done, '1');
         toggle(navStage2, stage2Done, '2');
         toggle(navStage3, stage3Done, '3');
+        toggle(navStage4, stage4Done, '4');
 
         if (stage1Done) {
             navStage2.classList.remove('disabled');
@@ -720,30 +760,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             navStage3.classList.add('disabled');
         }
+
+        if (stage3Done) {
+            if (navStage4) navStage4.classList.remove('disabled');
+        } else {
+            if (navStage4) navStage4.classList.add('disabled');
+        }
     }
 
     function switchStage(stageNum) {
+        // Deactivate all nav and hide all workspaces
+        [navStage1, navStage2, navStage3, navStage4].forEach(n => { if (n) n.classList.remove('active'); });
+        [stage1Workspace, stage2Workspace, stage3Workspace, stage4Workspace].forEach(w => { if (w) w.classList.add('hidden'); });
+
         if (stageNum === 1) {
             navStage1.classList.add('active');
-            navStage2.classList.remove('active');
-            if (navStage3) navStage3.classList.remove('active');
             stage1Workspace.classList.remove('hidden');
-            stage2Workspace.classList.add('hidden');
-            if (stage3Workspace) stage3Workspace.classList.add('hidden');
         } else if (stageNum === 2) {
             navStage2.classList.add('active');
-            navStage1.classList.remove('active');
-            if (navStage3) navStage3.classList.remove('active');
             stage2Workspace.classList.remove('hidden');
-            stage1Workspace.classList.add('hidden');
-            if (stage3Workspace) stage3Workspace.classList.add('hidden');
         } else if (stageNum === 3) {
             if (navStage3) navStage3.classList.add('active');
-            navStage1.classList.remove('active');
-            navStage2.classList.remove('active');
             if (stage3Workspace) stage3Workspace.classList.remove('hidden');
-            stage1Workspace.classList.add('hidden');
-            stage2Workspace.classList.add('hidden');
+        } else if (stageNum === 4) {
+            if (navStage4) navStage4.classList.add('active');
+            if (stage4Workspace) stage4Workspace.classList.remove('hidden');
         }
     }
 
@@ -764,6 +805,15 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             if (!navStage3.classList.contains('disabled')) {
                 switchStage(3);
+            }
+        });
+    }
+
+    if (navStage4) {
+        navStage4.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!navStage4.classList.contains('disabled')) {
+                switchStage(4);
             }
         });
     }
@@ -1413,6 +1463,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                 if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
                 if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
+
+                // Auto-transition to Stage 4: Treatment
+                switchStage(4);
+                autoGenerateTreatment();
             } catch (err) {
                 console.error(err);
                 alert("Error saving approved characters.");
@@ -1431,5 +1485,366 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+    // =============================================
+    // === Stage 4: Treatment Logic ===
+    // =============================================
+
+    // PDF Upload listener for Stage 4
+    if (stage4PdfUpload) {
+        stage4PdfUpload.addEventListener('change', () => {
+            if (stage4PdfUpload.files[0]) {
+                if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = stage4PdfUpload.files[0].name;
+            } else {
+                if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
+            }
+        });
+    }
+
+    // Renders the treatment data into the UI
+    function renderTreatment(treatmentData) {
+        if (!treatmentContainer) return;
+        treatmentContainer.innerHTML = '';
+
+        // STC Genre Category label
+        if (treatmentData.stc_genre_category) {
+            const genreLabel = document.createElement('div');
+            genreLabel.style.cssText = 'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;';
+            genreLabel.textContent = `STC Genre: ${treatmentData.stc_genre_category}`;
+            treatmentContainer.appendChild(genreLabel);
+        }
+
+        if (!treatmentData.hybrid_beat_sheet) return;
+
+        treatmentData.hybrid_beat_sheet.forEach(sequence => {
+            // Sequence header
+            const seqHeader = document.createElement('h3');
+            seqHeader.style.cssText = 'color: #e5e7eb; font-size: 1.1rem; font-weight: 700; margin-top: 16px; border-bottom: 1px solid #374151; padding-bottom: 8px;';
+            // Strip any accidental "Sequence N:" prefix from the title
+            const cleanTitle = (sequence.sequence_title || '').replace(/^Sequence\s*\d+\s*:\s*/i, '');
+            seqHeader.textContent = `Sequence ${sequence.sequence_number}: ${cleanTitle}`;
+            treatmentContainer.appendChild(seqHeader);
+
+            if (!sequence.beats) return;
+
+            sequence.beats.forEach(beat => {
+                const card = document.createElement('div');
+                card.className = 'treatment-beat-card';
+                card.style.cssText = 'background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-top: 12px;';
+
+                // Beat name header
+                const beatName = document.createElement('h4');
+                beatName.style.cssText = 'color: #a78bfa; font-weight: 700; font-size: 1rem; margin-bottom: 12px;';
+                beatName.textContent = beat.beat_name || '';
+                card.appendChild(beatName);
+
+                // Helper to create labeled textarea fields
+                const fields = [
+                    { label: 'GENRE VARIATION NOTES', key: 'genre_variation_notes', value: beat.genre_variation_notes },
+                    { label: 'EMOTIONAL ARC', key: 'emotional_arc', value: beat.emotional_arc },
+                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes },
+                    { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action }
+                ];
+
+                fields.forEach(f => {
+                    const label = document.createElement('label');
+                    label.className = 'text-gray-400 block mb-1 text-xs font-semibold tracking-wider uppercase';
+                    label.style.cssText = 'color: #9ca3af; display: block; margin-bottom: 4px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 12px;';
+                    label.textContent = f.label;
+                    card.appendChild(label);
+
+                    const ta = document.createElement('textarea');
+                    ta.className = 'w-full bg-transparent border-none resize-none overflow-hidden text-gray-300 editable-treatment-field';
+                    ta.setAttribute('data-field', f.key);
+                    ta.value = f.value || '';
+                    ta.style.cssText = 'width: 100%; background: transparent; border: none; resize: none; overflow: hidden; color: #d1d5db; font-family: inherit; font-size: 0.9rem; line-height: 1.6; padding: 4px 0; min-height: 24px;';
+                    ta.addEventListener('input', () => autoResize(ta));
+                    ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                    ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+                    card.appendChild(ta);
+                });
+
+                treatmentContainer.appendChild(card);
+            });
+        });
+
+        treatmentContainer.classList.remove('hidden');
+        if (treatmentActions) treatmentActions.classList.add('hidden');
+        if (stage4Workshop) stage4Workshop.classList.remove('hidden');
+
+        // Show Submit/Approve, hide Revise
+        if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
+        if (btnStage4Approve) {
+            btnStage4Approve.classList.remove('hidden');
+            btnStage4Approve.textContent = 'Approve';
+            btnStage4Approve.classList.remove('approve-btn-green');
+            btnStage4Approve.disabled = false;
+        }
+        if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
+
+        // Auto-resize all treatment textareas AFTER container is visible
+        // Use setTimeout to ensure the browser has painted and computed layout
+        setTimeout(() => {
+            treatmentContainer.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
+        }, 50);
+    }
+
+    // Scrape treatment from the DOM
+    function scrapeTreatment() {
+        if (!treatmentContainer) return null;
+
+        const genreLabel = treatmentContainer.querySelector('div');
+        const stcGenre = genreLabel ? genreLabel.textContent.replace('STC Genre: ', '') : '';
+
+        const sequenceHeaders = treatmentContainer.querySelectorAll('h3');
+        const beatCards = treatmentContainer.querySelectorAll('.treatment-beat-card');
+
+        // Group cards by their preceding sequence header
+        const sequences = [];
+        let currentSeqIdx = -1;
+
+        treatmentContainer.childNodes.forEach(child => {
+            if (child.tagName === 'H3') {
+                currentSeqIdx++;
+                const text = child.textContent;
+                const numMatch = text.match(/Sequence (\d+):\s*(.*)/);
+                sequences.push({
+                    sequence_number: numMatch ? parseInt(numMatch[1]) : currentSeqIdx + 1,
+                    sequence_title: numMatch ? numMatch[2] : text,
+                    beats: []
+                });
+            } else if (child.classList && child.classList.contains('treatment-beat-card') && currentSeqIdx >= 0) {
+                const beatName = child.querySelector('h4')?.textContent || '';
+                const fieldAreas = child.querySelectorAll('.editable-treatment-field');
+                const beat = { beat_name: beatName };
+                fieldAreas.forEach(ta => {
+                    beat[ta.getAttribute('data-field')] = ta.value;
+                });
+                sequences[currentSeqIdx].beats.push(beat);
+            }
+        });
+
+        return {
+            stc_genre_category: stcGenre,
+            hybrid_beat_sheet: sequences
+        };
+    }
+
+    // Auto-generate treatment from Stages 1-3
+    async function autoGenerateTreatment() {
+        if (!activeProjectId) return;
+
+        if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
+        if (treatmentActions) treatmentActions.classList.add('hidden');
+        if (treatmentContainer) {
+            treatmentContainer.innerHTML = '';
+            treatmentContainer.classList.add('hidden');
+        }
+        if (stage4Workshop) stage4Workshop.classList.add('hidden');
+
+        try {
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+
+            const response = await fetch('/api/generate-treatment', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.result) {
+                renderTreatment(data.result);
+
+                // Fetch updated project to refresh nav
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                updateStageNav(projData.data);
+            } else {
+                alert('Unexpected response format from server.');
+            }
+        } catch (err) {
+            console.error('Error generating treatment:', err);
+            alert('An error occurred while generating the treatment. You can retry with the Generate Treatment button.');
+            // Show the button again so the user can retry
+            if (treatmentActions) treatmentActions.classList.remove('hidden');
+        } finally {
+            if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
+        }
+    }
+
+    // Generate Treatment button click handler
+    if (generateTreatmentBtn) {
+        generateTreatmentBtn.addEventListener('click', () => {
+            autoGenerateTreatment();
+        });
+    }
+
+    // Toggle Stage 4 Edit Mode
+    function toggleStage4EditMode(locked) {
+        const fields = treatmentContainer ? treatmentContainer.querySelectorAll('.editable-treatment-field') : [];
+        fields.forEach(f => {
+            f.readOnly = locked;
+            f.style.opacity = locked ? '0.85' : '1';
+        });
+
+        if (locked) {
+            if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
+            if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
+            if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
+        } else {
+            if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
+            if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
+            if (btnStage4Approve) {
+                btnStage4Approve.classList.remove('hidden');
+                btnStage4Approve.textContent = 'Approve';
+                btnStage4Approve.classList.remove('approve-btn-green');
+                btnStage4Approve.disabled = false;
+            }
+        }
+    }
+
+    // Stage 4 Edit button
+    if (btnStage4Edit) {
+        btnStage4Edit.addEventListener('click', () => {
+            toggleStage4EditMode(false);
+        });
+    }
+
+    // Stage 4 Revise (Submit) button
+    if (btnStage4Revise) {
+        btnStage4Revise.addEventListener('click', async () => {
+            const userNote = stage4Notes ? stage4Notes.value.trim() : '';
+            const selectedPdf = stage4PdfUpload && stage4PdfUpload.files[0];
+
+            if (!userNote && !selectedPdf) {
+                // Manual save
+                if (!activeProjectId) return;
+                const currentTreatment = scrapeTreatment();
+                const originalText = btnStage4Revise.textContent;
+
+                try {
+                    btnStage4Revise.textContent = 'Saving...';
+                    btnStage4Revise.disabled = true;
+
+                    await fetch(`/api/projects/${activeProjectId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            data: { stage4_treatment: currentTreatment }
+                        })
+                    });
+
+                    btnStage4Revise.textContent = 'Saved!';
+                    setTimeout(() => {
+                        btnStage4Revise.textContent = originalText;
+                        btnStage4Revise.disabled = false;
+                    }, 1500);
+
+                    if (btnStage4Approve) {
+                        btnStage4Approve.textContent = 'Approve';
+                        btnStage4Approve.classList.remove('approve-btn-green');
+                    }
+                } catch (err) {
+                    console.error('Failed to manual save treatment:', err);
+                    alert('An error occurred while saving.');
+                    btnStage4Revise.textContent = originalText;
+                    btnStage4Revise.disabled = false;
+                }
+                return;
+            }
+
+            // AI Revision
+            const originalText = btnStage4Revise.textContent;
+            btnStage4Revise.textContent = 'Revising...';
+            btnStage4Revise.disabled = true;
+
+            try {
+                const currentTreatment = scrapeTreatment();
+                const formData = new FormData();
+                formData.append('projectId', activeProjectId);
+                formData.append('currentTreatment', JSON.stringify(currentTreatment));
+                formData.append('notes', userNote);
+                if (selectedPdf) {
+                    formData.append('pdfFile', selectedPdf);
+                }
+
+                const response = await fetch('/api/generate-treatment', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.result) {
+                    renderTreatment(data.result);
+
+                    // Clear notes and PDF
+                    if (stage4Notes) stage4Notes.value = '';
+                    if (stage4PdfUpload) stage4PdfUpload.value = '';
+                    if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
+
+                    if (btnStage4Approve) {
+                        btnStage4Approve.textContent = 'Approve';
+                        btnStage4Approve.classList.remove('approve-btn-green');
+                    }
+                } else {
+                    alert('Unexpected response format from server.');
+                }
+            } catch (err) {
+                console.error('Error revising treatment:', err);
+                alert('An error occurred while revising the treatment.');
+            } finally {
+                btnStage4Revise.textContent = originalText;
+                btnStage4Revise.disabled = false;
+            }
+        });
+    }
+
+    // Stage 4 Approve button
+    if (btnStage4Approve) {
+        btnStage4Approve.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+
+            const currentTreatment = scrapeTreatment();
+            const originalText = btnStage4Approve.textContent;
+
+            btnStage4Approve.textContent = 'Saving...';
+            btnStage4Approve.disabled = true;
+            btnStage4Approve.classList.remove('approve-btn-green');
+
+            try {
+                const res = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: { stage4_treatment: currentTreatment }
+                    })
+                });
+                const updatedProject = await res.json();
+                updateStageNav(updatedProject.data);
+
+                btnStage4Approve.textContent = 'Approved ✓';
+                btnStage4Approve.classList.add('approve-btn-green');
+
+                // Toggle back to edit mode
+                if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
+                if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
+                if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
+            } catch (err) {
+                console.error(err);
+                alert('Error saving approved treatment.');
+                btnStage4Approve.textContent = originalText;
+            } finally {
+                btnStage4Approve.disabled = false;
+            }
+        });
     }
 });

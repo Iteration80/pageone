@@ -6,6 +6,7 @@ const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
 const { agent2Outline } = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
+const { agent4Treatment } = require('./agents/agent_4_treatment');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -148,6 +149,54 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
     } catch (error) {
         console.error('Character Gen Error:', error);
         res.status(500).json({ error: error.message || "Failed to generate characters" });
+    }
+});
+
+app.post('/api/generate-treatment', upload.single('pdfFile'), async (req, res) => {
+    try {
+        const { projectId, currentTreatment, notes } = req.body || {};
+        const pdfFile = req.file;
+
+        if (!projectId) {
+            return res.status(400).json({ error: "Missing projectId" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const pitchData = projectData.data?.stage1_pitch?.pitch;
+        const beatsData = projectData.data?.stage2_outline?.outline;
+        const charsData = projectData.data?.stage3_characters?.characters;
+
+        if (!pitchData || !beatsData || !charsData) {
+            return res.status(400).json({ error: "Project requires Stages 1-3 to generate Treatment" });
+        }
+
+        const parsedTreatment = currentTreatment ? (typeof currentTreatment === 'string' ? JSON.parse(currentTreatment) : currentTreatment) : null;
+
+        console.log("Generating Stage 4 Treatment...");
+        console.log("Input sizes - pitch:", JSON.stringify(pitchData).length, "beats:", JSON.stringify(beatsData).length, "chars:", JSON.stringify(charsData).length);
+        const treatmentData = await agent4Treatment(pitchData, beatsData, charsData, parsedTreatment, notes, pdfFile);
+
+        console.log("Treatment generated successfully. Beat sheet length:", treatmentData.hybrid_beat_sheet?.length || 0);
+        console.log("STC Genre:", treatmentData.stc_genre_category?.substring(0, 80));
+
+        projectData.data = projectData.data || {};
+        projectData.data.stage4_treatment = treatmentData;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: treatmentData });
+    } catch (error) {
+        console.error('Treatment Gen Error:', error.message);
+        console.error('Full error:', error);
+        res.status(500).json({ error: error.message || "Failed to generate treatment" });
     }
 });
 
