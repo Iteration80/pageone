@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  */
 const agent5Treatment = async (pitchData, charactersData, beatsData) => {
 
-    const systemInstruction = "ROLE: You are an elite Hollywood screenwriter and development executive. Transform the provided character profiles and beat sheets into a gripping feature film treatment. OUTPUT: Present tense, third-person. First character mention in ALL CAPS followed by (age). Cinematic prose. NO camera jargon. NO traditional dialogue blocks (summarize conflict, only quote thematic punchlines). Prioritize the A-Story, weave the B-Story seamlessly. End with a clear resolution, no cliffhangers.";
+    const systemInstruction = "ROLE: You are an elite Hollywood screenwriter and development executive. Transform the provided character profiles and beat sheets into a gripping feature film treatment. OUTPUT: Present tense, third-person. First character mention in ALL CAPS followed by (age). Cinematic prose. NO camera jargon. NO traditional dialogue blocks (summarize conflict, only quote thematic punchlines). Prioritize the A-Story, weave the B-Story seamlessly. End with a clear resolution, no cliffhangers. LENGTH MANDATE: You are expanding a beat sheet into a treatment. DO NOT SUMMARIZE. For every single beat provided in the input, you MUST write at least 2 to 3 robust paragraphs of scene-by-scene narrative. Describe the physical actions, the environment, and the emotional shifts in granular detail. Separate distinct scenes with paragraph breaks. If a sequence has 3 beats, you must output at least 6 to 9 paragraphs for that sequence.";
 
     const treatmentSchema = {
         type: Type.OBJECT,
@@ -32,8 +32,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData) => {
 
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)
     console.log("  Chain Step 1/4: Writing Title, Logline, Characters & Act I...");
-    const step1Prompt = `Generate the Title/Logline, Brief Character Breakdown, and Act I ONLY.
-Strictly follow Sequences 1 & 2 of the provided beats.
+    const step1Prompt = `Read Sequences 1 & 2. You must systematically expand EVERY SINGLE BEAT (Opening Image, Theme Stated, Setup, Catalyst, Debate) into full, multi-paragraph narrative prose. Do not skip any beats. Do not compress the timeline.
 
 PITCH: ${JSON.stringify(pitchData)}
 CHARACTERS: ${JSON.stringify(charactersData)}
@@ -50,8 +49,7 @@ Return JSON with only 'title_logline_characters' and 'act_1' fields populated fo
 
     // Step 2: Act IIA (Sequences 3 & 4)
     console.log("  Chain Step 2/4: Writing Act II (Part 1)...");
-    const step2Prompt = `Continue the treatment. Generate Act II (Part 1).
-Strictly follow Sequences 3 & 4 of the provided beats.
+    const step2Prompt = `Read Sequences 3 & 4. You must systematically expand EVERY SINGLE BEAT (Break into Two, B-Story, Fun and Games) into full, multi-paragraph narrative prose. Describe the micro-actions.
 
 PRIOR CONTEXT (Act I):
 ${parsed1.title_logline_characters}
@@ -70,8 +68,7 @@ Return JSON with the 'act_2a' field populated. Include previous fields.`;
 
     // Step 3: Act IIB (Sequences 5 & 6)
     console.log("  Chain Step 3/4: Writing Act II (Part 2)...");
-    const step3Prompt = `Continue the treatment. Generate Act II (Part 2).
-Strictly follow Sequences 5 & 6 of the provided beats.
+    const step3Prompt = `Read Sequences 5 & 6. You must systematically expand EVERY SINGLE BEAT (Bad Guys Close In, All is Lost, Dark Night of the Soul) into full, multi-paragraph narrative prose. Maximize the emotional toll and physical stakes.
 
 PRIOR CONTEXT (Act I - IIA):
 ${parsed2.act_2a}
@@ -89,8 +86,7 @@ Return JSON with the 'act_2b' field populated. Include previous fields.`;
 
     // Step 4: Act III (Sequences 7 & 8)
     console.log("  Chain Step 4/4: Writing Act III...");
-    const step4Prompt = `Complete the treatment. Generate Act III.
-Strictly follow Sequences 7 & 8 of the provided beats.
+    const step4Prompt = `Read Sequences 7 & 8. You must systematically expand EVERY SINGLE BEAT (Break into Three, Finale, Final Image) into full, multi-paragraph narrative prose. Describe the climax beat-by-beat.
 
 PRIOR CONTEXT:
 ${parsed3.act_2b}
