@@ -48,7 +48,7 @@ app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
 
 app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
     try {
-        const { currentPitch, userNote } = req.body;
+        const { currentPitch, userNote } = req.body || {};
         const pdfFile = req.file;
 
         if (!currentPitch || !userNote) {

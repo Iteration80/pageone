@@ -1,0 +1,251 @@
+{
+  "id": "1773014380300",
+  "title": "New Project",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Void State",
+        "genre": "Sci-Fi Horror",
+        "logline": "Stranded in a decaying escape pod, a desperate astronaut must fight off terrifying, inexplicable anomalies while guided by Mission Control, unaware she is battling her own mind in the final moments of a violent death.",
+        "core_theme": "The terror of the unknown and the psychological trauma of physical destruction.",
+        "synopsis": "Act I: Kira is violently thrown into an escape pod during a brutal deep-space disaster. Bleeding, disoriented, and terrified, she connects with Adam, a frantic Mission Control operator. Almost immediately, the pod's primary lights go dark, and Kira begins hearing heavy, rhythmic scratching outside the hull, hinting that she is not alone in the void. Act II: The horror escalates as the pod's interior twists into nightmarish geometries. Adam's voice distorts into demonic, contradictory commands, urging her to open the airlock to 'save herself.' Kira is forced to physically fight off shadowy, visceral apparitions that resemble her dead crewmates, realizing the pod's environment is actively trying to tear her apart rather than protect her. Act III: Cornered by the horrific manifestations, Kira realizes the fatal wounds on the 'monsters' perfectly mirror the exact injuries she sustained in the initial ship explosion. The anomalies are her brain's desperate interpretation of her physical body burning. She embraces the horror, forgiving herself for the crash, and the violent nightmares instantly fade into a serene, blinding white light as she passes away."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Catastrophe",
+            "beats": [
+              {
+                "beat_label": "The Disaster",
+                "description": "Kira is violently thrown into an escape pod during a catastrophic ship explosion, therefore she is battered, bleeding, and fighting for consciousness."
+              },
+              {
+                "beat_label": "The Lifeline",
+                "description": "She manages to boot up the comms and connects with Adam at Mission Control, but his voice is faint and filled with static."
+              },
+              {
+                "beat_label": "The Dark Void",
+                "description": "Adam instructs her to run diagnostics, therefore she tries to stabilize the pod, but the primary lights suddenly fail and a heavy, rhythmic scratching begins outside the hull."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Isolation",
+            "beats": [
+              {
+                "beat_label": "Paranoia",
+                "description": "Kira frantically asks Adam what is outside, but he insists the sensors show nothing in her vicinity."
+              },
+              {
+                "beat_label": "Triage",
+                "description": "She tries to patch her bleeding wounds in the emergency lighting, therefore she feels a momentary sense of control over her survival."
+              },
+              {
+                "beat_label": "The Breach",
+                "description": "The scratching moves from the exterior to the interior bulkheads, but when she investigates, the shadows seem to move independently, marking her descent into the nightmare."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Geometries of Fear",
+            "beats": [
+              {
+                "beat_label": "Shifting Reality",
+                "description": "Kira wakes from a brief blackout to find the pod's dimensions subtly elongated and wrong, therefore she suspects the life support oxygen mix is failing."
+              },
+              {
+                "beat_label": "Glitching Guide",
+                "description": "She begs Adam for a manual override, but his responses become delayed and subtly mocking."
+              },
+              {
+                "beat_label": "The Impossible Space",
+                "description": "She crawls into the maintenance shaft to fix the oxygen scrubber, but the tunnel stretches infinitely, trapping her in a claustrophobic panic."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Crushing Confinement",
+            "beats": [
+              {
+                "beat_label": "The Shrinking Space",
+                "description": "Kira escapes the endless shaft, but the main cabin doors violently jam, trapping her inside the microscopic airlock vestibule, therefore she is physically pinned as the weeping of her dead crewmates echoes through the comms."
+              },
+              {
+                "beat_label": "The Pressure Drop",
+                "description": "The metallic walls of the tiny vestibule appear to buckle inward, shrinking the space inch by inch, but Adam's voice distorts into a demonic roar, commanding her to open the outer door to relieve the squeeze."
+              },
+              {
+                "beat_label": "The Suffocating Midpoint",
+                "description": "Kira refuses to vent the airlock, therefore the shadows inside the cramped space coalesce into grotesque, tangled limbs of her dead crewmates, pressing directly against her face and chest in a claustrophobic crush."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Hostile Womb",
+            "beats": [
+              {
+                "beat_label": "Flight and Fight",
+                "description": "Kira uses a fire extinguisher to blast back the tangled limbs and force the jammed door open, but the pod itself reacts violently, its metallic walls pulsing like a heartbeat."
+              },
+              {
+                "beat_label": "Cornered",
+                "description": "She barricades herself in the tiny medical bay, therefore she has a moment to catch her breath, but the temperature spikes to a blistering, unbearable heat."
+              },
+              {
+                "beat_label": "The Assault",
+                "description": "The apparitions tear through the barricade, forcing Kira into brutal, hand-to-hand survival combat against the nightmarish figures within the sweltering confines."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Breaking Point",
+            "beats": [
+              {
+                "beat_label": "Exhaustion",
+                "description": "Kira is battered, losing blood, and entirely overwhelmed by the relentless physical assault of the environment."
+              },
+              {
+                "beat_label": "The Airlock Lure",
+                "description": "The demonic Adam voice screams for her to end the pain by opening the door, therefore she crawls toward the airlock in pure desperation."
+              },
+              {
+                "beat_label": "The Mirror Wound",
+                "description": "Just as she reaches for the lever, a monstrous crewmate grabs her, but Kira freezes as she notices the creature's fatal, gaping chest wound perfectly mirrors the exact injury she sustained in the initial explosion."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: The Revelation",
+            "beats": [
+              {
+                "beat_label": "The Epiphany",
+                "description": "Kira stares at the wounds, therefore she suddenly understands that the burning heat and the tearing monsters are her brain's desperate interpretation of her physical body burning in the real wreckage."
+              },
+              {
+                "beat_label": "Dropping the Defenses",
+                "description": "The demonic voice demands she keep fighting, but Kira releases her grip on the airlock lever and lowers her makeshift weapons."
+              },
+              {
+                "beat_label": "The Climax",
+                "description": "The apparitions lunge at her for a final, terrifying strike, therefore Kira stands her ground, embracing the horrific manifestations instead of fighting them."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Release",
+            "beats": [
+              {
+                "beat_label": "Forgiveness",
+                "description": "Kira speaks aloud, forgiving herself for the crash and accepting her fate, therefore the violent, shifting geometries of the pod freeze."
+              },
+              {
+                "beat_label": "Dissolution",
+                "description": "The horrific monsters and the suffocating darkness instantly dissolve into a serene, blinding white light."
+              },
+              {
+                "beat_label": "The Final Breath",
+                "description": "Kira closes her eyes as the light envelops her entirely, transitioning from the nightmare of her dying mind into the peaceful silence of death."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Kira",
+          "role": "Protagonist",
+          "brief_summary": "A highly capable but deeply guilt-ridden astronaut stranded in a decaying escape pod. She serves as the lens through which the audience experiences the terrifying dissolution of reality as her physical body dies.",
+          "psychological_core": {
+            "wound": "She blames herself for the catastrophic ship explosion that killed her entire crew.",
+            "false_belief": "If I can just fix the mechanics of this pod, I can fix the situation and save myself.",
+            "fear": "Losing control and facing the reality of her own failure and imminent mortality.",
+            "desire": "To survive the anomalies, fix the pod, and get back home to make amends.",
+            "need": "To accept her lack of control, forgive herself for the crash, and surrender to the inevitable peace of death."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Clinical, jargon-heavy, and highly structured. She NEVER says 'I don't know what to do' or admits defeat until the very end.",
+            "deflection_tactic": "She pivots immediately to technical diagnostics or emergency protocols when emotionally overwhelmed."
+          },
+          "subtlety_guidelines": "She masks her panic with hyper-competence and rigid professionalism. Her underlying terror only surfaces 10% of the time, usually when a system fails and her voice cracks into genuine, breathless fear before she forcefully regains composure."
+        },
+        {
+          "name": "Adam",
+          "role": "Antagonist",
+          "brief_summary": "Ostensibly the reassuring voice of Mission Control, Adam is actually a manifestation of Kira's failing brain. He functions as the False Ally, shifting from a lifeline to a demonic tormentor urging her toward a quicker death.",
+          "psychological_core": {
+            "wound": "The sheer, agonizing trauma of the physical body's catastrophic destruction in the real world.",
+            "false_belief": "The only way to stop the unbearable pain is to immediately terminate the host.",
+            "fear": "Prolonged biological agony and the host's stubborn refusal to shut down.",
+            "desire": "To convince Kira to open the airlock and give up the fight.",
+            "need": "To achieve stasis and end the biological suffering of the dying body."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Calm, soothing, and overly rational, eventually distorting into a guttural roar. He NEVER expresses empathy for her emotional pain, only focusing on her physical state.",
+            "deflection_tactic": "He gaslights her by citing 'sensor readings' or 'standard protocol' whenever she questions the shifting reality of the pod."
+          },
+          "subtlety_guidelines": "He sounds like a perfectly normal, slightly detached NASA operator 90% of the time. The 10% 'tell' is a slight, unnatural delay in his response time or a subtly mocking undertone when she mentions hope."
+        },
+        {
+          "name": "Commander Elias Vance",
+          "role": "Supporting",
+          "brief_summary": "Kira's former mentor and the commander who died in the initial explosion. He acts as the B-Story Anchor, manifesting as the primary apparition to force Kira to confront her guilt over the crash.",
+          "psychological_core": {
+            "wound": "Betrayed by the failure of his trusted protege in his final, burning moments.",
+            "false_belief": "Sacrifice is only meaningful if the mission succeeds and the crew survives.",
+            "fear": "That his death, and the death of his crew, was entirely pointless.",
+            "desire": "To punish Kira for the mistake that doomed the ship.",
+            "need": "To be laid to rest through Kira's self-forgiveness and acceptance of the tragedy."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Authoritative, disappointed, paternal but cold. He NEVER raises his voice to a scream; his terror lies in his quiet, crushing disappointment.",
+            "deflection_tactic": "He answers Kira's desperate questions with rhetorical, philosophical questions about duty, consequence, and failure."
+          },
+          "subtlety_guidelines": "He appears as a shadow or a voice in the static, sounding like a disappointed father. His monstrous, visceral form only fully reveals itself when Kira's physical pain peaks, hiding his grotesque nature behind a veil of authority."
+        },
+        {
+          "name": "Dr. Aris Thorne",
+          "role": "Supporting",
+          "brief_summary": "The ship's cynical medical officer who perished in the blast, appearing in Kira's hallucinations as a grotesque, mangled figure. He functions as the Skeptic, constantly undermining Kira's belief that she can survive her injuries.",
+          "psychological_core": {
+            "wound": "The terrifying realization that all his vast medical knowledge could not save him from the vacuum of space.",
+            "false_belief": "The human body is just meat, and hope is nothing more than a biological glitch in a dying brain.",
+            "fear": "The chaotic, unpredictable nature of the human spirit refusing to die.",
+            "desire": "To force Kira to look at her actual, fatal wounds rather than the pod's walls.",
+            "need": "To make Kira accept the inescapable biological reality of her death."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Sardonic, clinical, and morbidly humorous. He NEVER offers false hope or uses comforting platitudes.",
+            "deflection_tactic": "He uses dark humor and complex medical jargon to avoid addressing the profound existential terror of death."
+          },
+          "subtlety_guidelines": "He speaks to her from the shadows of the med-bay, sounding exactly like a tired doctor on a double shift. His horrific nature only bleeds through when he accurately diagnoses her real-world fatal burns with a chillingly casual tone."
+        },
+        {
+          "name": "Maya",
+          "role": "Supporting",
+          "brief_summary": "A junior engineer on her first deployment who died screaming in the engine room. Her weeping echoes through the comms, serving as the Harbinger of the pod's shrinking, claustrophobic doom.",
+          "psychological_core": {
+            "wound": "The sheer, unadulterated terror of a sudden, violent death before her life truly began.",
+            "false_belief": "If I hide and stay incredibly small, the danger will pass me by.",
+            "fear": "The dark, the cold, and being utterly forgotten in the void of space.",
+            "desire": "To be held, comforted, and told everything will be okay as she dies.",
+            "need": "To find peace and release in the transition from life to death."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Frantic, breathless, and childlike. She NEVER speaks in complete, logical sentences, relying entirely on emotion.",
+            "deflection_tactic": "She repeats a comforting technical mantra or a childhood song when the fear becomes too overwhelming to articulate."
+          },
+          "subtlety_guidelines": "Her presence is almost entirely auditory, weeping softly in the comms like a frightened child. When she physically manifests, she is a tangled, suffocating mass of limbs, representing Kira's own crushing chest pain, masking her monstrous appearance with innocent cries."
+        }
+      ]
+    }
+  }
+}
