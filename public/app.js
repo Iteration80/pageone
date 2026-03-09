@@ -23,14 +23,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReturnHome = document.getElementById('btnReturnHome');
 
     // Navigation
-    const navStage1 = document.getElementById('navStage1');
-    const navStage2 = document.getElementById('navStage2');
-    const stage1Workspace = document.getElementById('stage1Workspace');
-    const stage2Workspace = document.getElementById('stage2Workspace');
-    const navStage3 = document.getElementById('navStage3');
-    const stage3Workspace = document.getElementById('stage3Workspace');
-    const navStage4 = document.getElementById('navStage4');
-    const stage4Workspace = document.getElementById('stage4Workspace');
+    // Navigation and Workspaces
+    const navItems = {};
+    const workspaces = {};
+    for (let i = 1; i <= 10; i++) {
+        navItems[i] = document.getElementById(`nav-stage-${i}`);
+        workspaces[i] = document.getElementById(`stage-${i}-view`);
+    }
+
+    // Legacy / Convenience references for existing stages
+    const navStage1 = navItems[1];
+    const navStage2 = navItems[2];
+    const navStage3 = navItems[3];
+    const navStage4 = navItems[4];
+    const stage1Workspace = workspaces[1];
+    const stage2Workspace = workspaces[2];
+    const stage3Workspace = workspaces[3];
+    const stage4Workspace = workspaces[4];
 
     // Stage 1 Elements
     const generateBtn = document.getElementById('generateBtn');
@@ -746,89 +755,62 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const stage1Done = !!data.stage1_pitch;
-        const stage2Done = !!data.stage2_outline;
-        const stage3Done = !!data.stage3_characters;
-        const stage4Done = !!data.stage4_treatment;
+        const stageStatus = {
+            1: !!data.stage1_pitch,
+            2: !!data.stage2_outline,
+            3: !!data.stage3_characters,
+            4: !!data.stage4_treatment
+            // Stages 5-10 currently placeholder
+        };
 
-        toggle(navStage1, stage1Done, '1');
-        toggle(navStage2, stage2Done, '2');
-        toggle(navStage3, stage3Done, '3');
-        toggle(navStage4, stage4Done, '4');
+        for (let i = 1; i <= 10; i++) {
+            const isDone = stageStatus[i] || false;
+            toggle(navItems[i], isDone, i);
 
-        if (stage1Done) {
-            navStage2.classList.remove('disabled');
-        } else {
-            navStage2.classList.add('disabled');
-        }
-
-        if (stage2Done) {
-            navStage3.classList.remove('disabled');
-        } else {
-            navStage3.classList.add('disabled');
-        }
-
-        if (stage3Done) {
-            if (navStage4) navStage4.classList.remove('disabled');
-        } else {
-            if (navStage4) navStage4.classList.add('disabled');
+            // Unlock logic: next stage is unlocked if current is done
+            if (i > 1) {
+                const prevDone = stageStatus[i - 1] || false;
+                if (prevDone) {
+                    navItems[i]?.classList.remove('disabled');
+                } else {
+                    navItems[i]?.classList.add('disabled');
+                }
+            }
         }
     }
 
     function switchStage(stageNum) {
-        // Deactivate all nav and hide all workspaces
-        [navStage1, navStage2, navStage3, navStage4].forEach(n => { if (n) n.classList.remove('active'); });
-        [stage1Workspace, stage2Workspace, stage3Workspace, stage4Workspace].forEach(w => { if (w) w.classList.add('hidden'); });
+        // Deactivate all nav items and hide all workspace views
+        for (let i = 1; i <= 10; i++) {
+            navItems[i]?.classList.remove('active');
+            workspaces[i]?.classList.add('hidden');
+        }
 
-        if (stageNum === 1) {
-            navStage1.classList.add('active');
-            stage1Workspace.classList.remove('hidden');
-        } else if (stageNum === 2) {
-            navStage2.classList.add('active');
-            stage2Workspace.classList.remove('hidden');
-        } else if (stageNum === 3) {
-            if (navStage3) navStage3.classList.add('active');
-            if (stage3Workspace) stage3Workspace.classList.remove('hidden');
-            // Re-trigger autoResize now that workspace is visible
+        // Activate the requested stage
+        const activeNav = navItems[stageNum];
+        const activeWorkspace = workspaces[stageNum];
+
+        if (activeNav) activeNav.classList.add('active');
+        if (activeWorkspace) activeWorkspace.classList.remove('hidden');
+
+        // Special handling for Stages 3 & 4 autoResize (as previously fixed)
+        if (stageNum === 3) {
             setTimeout(() => {
                 document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
             }, 50);
         } else if (stageNum === 4) {
-            if (navStage4) navStage4.classList.add('active');
-            if (stage4Workspace) stage4Workspace.classList.remove('hidden');
-            // Re-trigger autoResize now that workspace is visible
             setTimeout(() => {
                 document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
             }, 50);
         }
     }
 
-    navStage1.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchStage(1);
-    });
-
-    navStage2.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (!navStage2.classList.contains('disabled')) {
-            switchStage(2);
-        }
-    });
-
-    if (navStage3) {
-        navStage3.addEventListener('click', (e) => {
+    // Bind navigation clicks for all 10 stages
+    for (let i = 1; i <= 10; i++) {
+        navItems[i]?.addEventListener('click', (e) => {
             e.preventDefault();
-            if (!navStage3.classList.contains('disabled')) {
-                switchStage(3);
-            }
-        });
-    }
-
-    if (navStage4) {
-        navStage4.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!navStage4.classList.contains('disabled')) {
-                switchStage(4);
+            if (!navItems[i].classList.contains('disabled')) {
+                switchStage(i);
             }
         });
     }
