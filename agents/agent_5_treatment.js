@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  */
 const agent5Treatment = async (pitchData, charactersData, beatsData) => {
 
-    const systemInstruction = "ROLE: You are an elite Hollywood screenwriter and development executive. Transform the provided character profiles and beat sheets into a gripping feature film treatment. OUTPUT: Present tense, third-person. First character mention in ALL CAPS followed by (age). Cinematic prose. NO camera jargon. NO traditional dialogue blocks (summarize conflict, only quote thematic punchlines). Prioritize the A-Story, weave the B-Story seamlessly. End with a clear resolution, no cliffhangers. LENGTH MANDATE: You are expanding a beat sheet into a treatment. DO NOT SUMMARIZE. For every single beat provided in the input, you MUST write at least 2 to 3 robust paragraphs of scene-by-scene narrative. Describe the physical actions, the environment, and the emotional shifts in granular detail. Separate distinct scenes with paragraph breaks. If a sequence has 3 beats, you must output at least 6 to 9 paragraphs for that sequence.";
+    const systemInstruction = "ROLE: You are an elite Hollywood screenwriter and development executive. Transform the provided character profiles and beat sheets into a gripping feature film treatment. OUTPUT: Present tense, third-person. First character mention in ALL CAPS followed by (age). Cinematic prose. NO camera jargon. NO traditional dialogue blocks (summarize conflict, only quote thematic punchlines). Prioritize the A-Story, weave the B-Story seamlessly. End with a clear resolution, no cliffhangers. LENGTH MANDATE: You are expanding a beat sheet into a treatment. DO NOT SUMMARIZE. For every single beat provided in the input, you MUST write at least 2 to 3 robust paragraphs of scene-by-scene narrative. Describe the physical actions, the environment, and the emotional shifts in granular detail. Separate distinct scenes with paragraph breaks. If a sequence has 3 beats, you must output at least 6 to 9 paragraphs for that sequence. Use standard double newlines (\\n\\n) for paragraph breaks. NEVER use HTML tags like <br> or <p>.";
 
     const treatmentSchema = {
         type: Type.OBJECT,
@@ -38,7 +38,7 @@ PITCH: ${JSON.stringify(pitchData)}
 CHARACTERS: ${JSON.stringify(charactersData)}
 BEATS (Sequences 1-2): ${JSON.stringify(beatsData.filter(s => s.sequence_number <= 2))}
 
-Return JSON with only 'title_logline_characters' and 'act_1' fields populated for now. Use empty strings for others.`;
+Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave others empty.`;
 
     const result1 = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
@@ -57,7 +57,7 @@ ${parsed1.act_1}
 
 BEATS (Sequences 3-4): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 3 || s.sequence_number === 4))}
 
-Return JSON with the 'act_2a' field populated. Include previous fields.`;
+Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
 
     const result2 = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
@@ -75,7 +75,7 @@ ${parsed2.act_2a}
 
 BEATS (Sequences 5-6): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 5 || s.sequence_number === 6))}
 
-Return JSON with the 'act_2b' field populated. Include previous fields.`;
+Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
 
     const result3 = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
@@ -93,7 +93,7 @@ ${parsed3.act_2b}
 
 BEATS (Sequences 7-8): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 7 || s.sequence_number === 8))}
 
-Return JSON with the 'act_3' field populated. Include all previous fields for a complete document.`;
+Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
 
     const result4 = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
@@ -102,7 +102,13 @@ Return JSON with the 'act_3' field populated. Include all previous fields for a 
     });
     const finalParsed = JSON.parse(result4.text);
 
-    return finalParsed;
+    return {
+        title_logline_characters: parsed1.title_logline_characters,
+        act_1: parsed1.act_1,
+        act_2a: parsed2.act_2a,
+        act_2b: parsed3.act_2b,
+        act_3: finalParsed.act_3
+    };
 };
 
 module.exports = { agent5Treatment };
