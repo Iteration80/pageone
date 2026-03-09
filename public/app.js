@@ -4,8 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function autoResize(textarea) {
         if (!textarea) return;
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
+        // Lock width to prevent CSS Grid reflow when height collapses
+        const w = textarea.offsetWidth;
+        textarea.style.width = w + 'px';
+        textarea.style.overflow = 'auto';
+        textarea.style.height = '0px';
+        const h = Math.max(textarea.scrollHeight, 24);
+        textarea.style.height = h + 'px';
+        textarea.style.overflow = 'hidden';
+        textarea.style.width = '100%';
     }
 
     // --- DOM Elements ---
@@ -782,9 +789,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (stageNum === 3) {
             if (navStage3) navStage3.classList.add('active');
             if (stage3Workspace) stage3Workspace.classList.remove('hidden');
+            // Re-trigger autoResize now that workspace is visible
+            setTimeout(() => {
+                document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
+            }, 50);
         } else if (stageNum === 4) {
             if (navStage4) navStage4.classList.add('active');
             if (stage4Workspace) stage4Workspace.classList.remove('hidden');
+            // Re-trigger autoResize now that workspace is visible
+            setTimeout(() => {
+                document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
+            }, 50);
         }
     }
 
@@ -1149,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 outline: none;
                 font-family: inherit;
                 transition: background 0.15s;
+                min-height: 24px;
             `;
 
             const card = document.createElement('div');
@@ -1170,6 +1186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="margin-bottom: 12px;">
                     <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 2px;">${label}</div>
                     <textarea
+                        rows="1"
                         class="char-input char-ta"
                         data-index="${index}"
                         data-field="${dataField}"
@@ -1186,6 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                         <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Bio</div>
                         <textarea
+                            rows="1"
                             class="char-input char-ta"
                             data-index="${index}"
                             data-field="brief_summary"
@@ -1215,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
                     <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (90/10 Rule)</div>
                     <textarea
+                        rows="1"
                         class="char-input char-ta"
                         data-index="${index}"
                         data-field="subtlety_guidelines"
@@ -1233,13 +1252,13 @@ document.addEventListener('DOMContentLoaded', () => {
             charactersContainer.appendChild(card);
         });
 
-        // Auto-resize all textareas after DOM is populated
-        requestAnimationFrame(() => {
-            document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
-        });
-
         charactersContainer.classList.remove('hidden');
         if (stage3Workshop) stage3Workshop.classList.remove('hidden');
+
+        // Auto-resize all textareas AFTER container is visible
+        setTimeout(() => {
+            document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
+        }, 100);
     }
 
     function scrapeCharacters() {
