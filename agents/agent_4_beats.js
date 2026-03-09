@@ -2,18 +2,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent4Beats = async (pitchData, beatsData, charactersData, currentTreatment = null, notes = null, pdfFile = null) => {
-    const systemInstruction = `You are an elite Master Story Architect. Your task is to produce a COMPLETE, DETAILED 15-Beat Sheet mapped onto 8 sequences.
-
-CRITICAL RULES:
-1. You MUST produce exactly 8 sequence objects in the hybrid_beat_sheet array.
-2. You MUST distribute Snyder's 15 beats across those 8 sequences (some sequences will have 1 beat, some will have 2-3).
-3. The stc_genre_category must be a short label like "Monster in the House" or "Golden Fleece". Do NOT include explanations.
-4. The sequence_title must be a short title WITHOUT numbering prefix (e.g. "Desperate Measures" not "Sequence 1: Desperate Measures").
-5. Each beat MUST have all five fields filled with substantive content: beat_name, genre_variation_notes, emotional_arc, pacing_notes, detailed_action.
-6. The detailed_action field must be a dense paragraph of at least 3 sentences.
-7. Genre-Specific Adaptation: Apply specific STC genre conventions.
-8. Emotional Arc & Pacing: Explicitly define the emotional undercurrent and pacing rhythm for every beat.`;
+const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null) => {
 
     const treatmentSchema = {
         type: Type.OBJECT,
@@ -50,6 +39,44 @@ CRITICAL RULES:
         required: ['stc_genre_category', 'hybrid_beat_sheet']
     };
 
+    // Revision Bypass Logic
+    if (notes && currentBeats) {
+        console.log("  Surgical Revision Mode: Updating beats...");
+        const revisionSystemInstruction = 'ROLE: Structural Story Analyst. Apply the user\'s note to the 15-point beat sheet. You MUST keep unaffected beats 100% identical. HOWEVER, if the user\'s note creates a structural ripple effect, you must update subsequent beats to maintain narrative logic. Do not alter the overarching 8-sequence structure. Maintain the exact same JSON schema.';
+
+        const revisionPrompt = `USER NOTE: ${notes}
+
+EXISTING BEATS:
+${JSON.stringify(currentBeats, null, 2)}
+
+Please apply the note surgically (allowing for ripple effects) and return the full updated beat sheet in JSON format.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: [revisionPrompt],
+            config: {
+                systemInstruction: revisionSystemInstruction,
+                temperature: 0.5,
+                responseMimeType: "application/json",
+                responseSchema: treatmentSchema,
+            }
+        });
+
+        return JSON.parse(response.text);
+    }
+
+    const systemInstruction = `You are an elite Master Story Architect. Your task is to produce a COMPLETE, DETAILED 15-Beat Sheet mapped onto 8 sequences.
+
+CRITICAL RULES:
+1. You MUST produce exactly 8 sequence objects in the hybrid_beat_sheet array.
+2. You MUST distribute Snyder's 15 beats across those 8 sequences (some sequences will have 1 beat, some will have 2-3).
+3. The stc_genre_category must be a short label like "Monster in the House" or "Golden Fleece". Do NOT include explanations.
+4. The sequence_title must be a short title WITHOUT numbering prefix (e.g. "Desperate Measures" not "Sequence 1: Desperate Measures").
+5. Each beat MUST have all five fields filled with substantive content: beat_name, genre_variation_notes, emotional_arc, pacing_notes, detailed_action.
+6. The detailed_action field must be a dense paragraph of at least 3 sentences.
+7. Genre-Specific Adaptation: Apply specific STC genre conventions.
+8. Emotional Arc & Pacing: Explicitly define the emotional undercurrent and pacing rhythm for every beat.`;
+
     const contents = [];
 
     if (pdfFile) {
@@ -74,8 +101,8 @@ ${JSON.stringify(charactersData, null, 2)}
 
 IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across them. Every beat must have substantive content in all five fields.`;
 
-    if (notes && currentTreatment) {
-        contentsText += `\n\nThe user has provided feedback for the treatment. Revise the existing treatment based on these notes.\n\nEXISTING TREATMENT:\n${JSON.stringify(currentTreatment, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL treatment in the proper JSON format.`;
+    if (notes && currentBeats) {
+        contentsText += `\n\nThe user has provided feedback for the beat sheet. Revise the existing beats based on these notes.\n\nEXISTING BEATS:\n${JSON.stringify(currentBeats, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL beat sheet in the proper JSON format.`;
     } else if (notes) {
         contentsText += `\n\nAdditional user notes: ${notes}`;
     }

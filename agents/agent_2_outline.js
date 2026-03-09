@@ -3,8 +3,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 // Initialize the Google Gen AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent2Outline = async (pitchData, currentBeats, notes, pdfFile) => {
-    const systemInstruction = "You are an elite Hollywood Story Architect. Your objective is to take a movie pitch and expand it into a professional, highly readable 8-Sequence Broad Outline. CRITICAL RULES: The 8-Sequence Structure: Divide the narrative into 8 sequences (2 for Act I, 4 for Act II, 2 for Act III). Give each sequence a thematic title. Plant the Tentpoles: Ensure the major structural pillars serve as the climaxes of their respective sequences. Invisible Cause-and-Effect: The narrative must flow using the Therefore/But engine naturally. Lean Formatting: Write exclusively in present tense.";
+const agent2Outline = async (pitchData, currentOutline, notes, pdfFile) => {
 
     const beatItemSchema = {
         type: Type.OBJECT,
@@ -45,6 +44,36 @@ const agent2Outline = async (pitchData, currentBeats, notes, pdfFile) => {
         },
         required: ["title", "genre", "logline", "outline"]
     };
+
+    // Revision Bypass Logic
+    if (notes && currentOutline) {
+        console.log("  Surgical Revision Mode: Updating outline...");
+        const revisionSystemInstruction = 'ROLE: Structural Story Analyst. Apply the user\'s note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user\'s note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story\'s cause-and-effect makes logical sense. Maintain the exact same JSON schema.';
+
+        const revisionPrompt = `USER NOTE: ${notes}
+
+EXISTING OUTLINE:
+${JSON.stringify(currentOutline, null, 2)}
+
+Please apply the note surgically (allowing for ripple effects) and return the full updated outline in JSON format.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: [revisionPrompt],
+            config: {
+                systemInstruction: revisionSystemInstruction,
+                temperature: 0.5,
+                responseMimeType: "application/json",
+                responseSchema: outlineSchema
+            }
+        });
+
+        const rawText = response.text;
+        const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        return JSON.parse(cleanedText);
+    }
+
+    const systemInstruction = "You are an elite Hollywood Story Architect. Your objective is to take a movie pitch and expand it into a professional, highly readable 8-Sequence Broad Outline. CRITICAL RULES: The 8-Sequence Structure: Divide the narrative into 8 sequences (2 for Act I, 4 for Act II, 2 for Act III). Give each sequence a thematic title. Plant the Tentpoles: Ensure the major structural pillars serve as the climaxes of their respective sequences. Invisible Cause-and-Effect: The narrative must flow using the Therefore/But engine naturally. Lean Formatting: Write exclusively in present tense.";
 
     const contents = [];
 

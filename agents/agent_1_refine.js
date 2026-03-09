@@ -4,24 +4,46 @@ const { GoogleGenAI, Type } = require('@google/genai');
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const agent1Refine = async (currentPitch, userNote, pdfFile) => {
-    const contents = [];
 
-    if (pdfFile) {
-        contents.push({
-            inlineData: {
-                data: pdfFile.buffer.toString("base64"),
-                mimeType: pdfFile.mimetype || "application/pdf"
+    // Revision Bypass Logic
+    if (userNote && currentPitch) {
+        console.log("  Surgical Revision Mode: Refining pitch...");
+        const revisionSystemInstruction = 'ROLE: Expert Pitch Doctor. Refine the provided pitch based strictly on the user\'s notes. Do not alter the core concept, genre, or title unless explicitly requested by the note. Maintain the exact same JSON schema.';
+
+        const revisionPrompt = `USER NOTE: ${userNote}
+
+EXISTING PITCH:
+${JSON.stringify(currentPitch, null, 2)}
+
+Please apply the note surgically and return the full updated pitch in JSON format. Ensure you do not change anything else.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: [revisionPrompt],
+            config: {
+                systemInstruction: revisionSystemInstruction,
+                temperature: 0.4,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        logline: { type: Type.STRING },
+                        genre: { type: Type.STRING },
+                        core_theme: { type: Type.STRING },
+                        synopsis: { type: Type.STRING }
+                    },
+                    required: ["title", "logline", "genre", "core_theme", "synopsis"]
+                }
             }
         });
+
+        const rawText = response.text;
+        const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        return JSON.parse(cleanedText);
     }
 
-    const prompt = `CURRENT PITCH:
-${currentPitch}
-
-USER NOTE:
-${userNote}`;
-
-    contents.push(prompt);
+    const contents = [];
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
