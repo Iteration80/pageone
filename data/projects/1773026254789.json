@@ -1,6 +1,6 @@
 {
   "id": "1773026254789",
-  "title": "New Project",
+  "title": "Scratch",
   "data": {
     "stage1_pitch": {
       "pitch": {
@@ -372,6 +372,171 @@
           ]
         }
       ]
+    },
+    "stage4_beats": {
+      "stc_genre_category": "Out of the Bottle",
+      "hybrid_beat_sheet": [
+        {
+          "sequence_number": 1,
+          "sequence_title": "The Brink of Ruin",
+          "beats": [
+            {
+              "beat_name": "Opening Image",
+              "genre_variation_notes": "Establishes the 'ordinary world' deficit that makes the protagonist vulnerable to the 'magic' of the mathematical flaw.",
+              "emotional_arc": "Overwhelming exhaustion and deep maternal inadequacy.",
+              "pacing_notes": "Slow, grinding, and claustrophobic to emphasize the crushing weight of poverty.",
+              "detailed_action": "Sarah scrubs the linoleum floor of a late-night diner, her mind racing through a complex calculus of unpaid bills and overdue rent. She returns to her cramped apartment to find a bright pink eviction notice taped to the door. Inside, her sixteen-year-old son Leo is stretching a single box of macaroni to feed his six younger siblings, highlighting her profound failure to provide."
+            },
+            {
+              "beat_name": "Theme Stated",
+              "genre_variation_notes": "Foreshadows the central lesson that the 'magic' of sudden wealth cannot replace genuine human connection and safety.",
+              "emotional_arc": "A painful prick of truth that Sarah defensively ignores.",
+              "pacing_notes": "A brief, quiet moment of intimacy amidst the chaotic household.",
+              "detailed_action": "As Sarah desperately tries to reassure her children that everything will be fine, Leo pulls her aside with a harsh dose of reality. He quietly tells her that she cannot simply out-work or out-calculate systemic poverty, challenging her belief that money is the only measure of a good mother. This brief exchange plants the thematic seed regarding the true nature of maternal protection and the limits of financial salvation."
+            },
+            {
+              "beat_name": "Set-up",
+              "genre_variation_notes": "Demonstrates the protagonist's hidden 'magic wand' (her math genius) long before she figures out how to use it.",
+              "emotional_arc": "Frustration mixed with a simmering, dormant pride.",
+              "pacing_notes": "Methodical and repetitive, building tension through the sheer unsustainability of her lifestyle.",
+              "detailed_action": "The crushing weight of Sarah's daily existence is put on full display as she shuttles between three minimum-wage jobs while running on fumes. Flashes of her past brilliance are shown when she effortlessly corrects a complex accounting error at her day job, only to be reprimanded for overstepping. She is completely invisible to the world, a dormant MIT prodigy trapped in a cycle of poverty, terrified that the state will soon intervene and separate her children."
+            }
+          ]
+        },
+        {
+          "sequence_number": 2,
+          "sequence_title": "Cracking the Code",
+          "beats": [
+            {
+              "beat_name": "Catalyst",
+              "genre_variation_notes": "The discovery of the 'spell'—the mathematical flaw that promises to solve all her problems.",
+              "emotional_arc": "A sudden jolt of adrenaline and dangerous curiosity.",
+              "pacing_notes": "A sharp pivot from slow drudgery to rapid, hyper-focused intellectual energy.",
+              "detailed_action": "Driven to absolute desperation by the looming eviction, Sarah breaks her own strict rules and buys a single scratch-off ticket at Mateo's bodega. She loses the game, but as she stares at the seemingly random serial numbers on the back of the ticket, her dormant mathematical genius suddenly flares to life. She recognizes a distinct, repeating sequence within the state's printing algorithm, presenting a dangerous but irresistible glimmer of hope."
+            },
+            {
+              "beat_name": "Debate",
+              "genre_variation_notes": "The protagonist questions if she should use the 'magic', knowing it borders on illicit behavior.",
+              "emotional_arc": "Intense internal conflict between moral rectitude and desperate survival.",
+              "pacing_notes": "Tense and obsessive, characterized by sleepless nights and frantic calculations.",
+              "detailed_action": "Unwilling to trust her initial instinct, Sarah spends the night digging through the bodega's dumpster to collect hundreds of discarded, losing tickets. She covers her kitchen table in complex mathematical proofs, desperately testing her hypothesis against the physical evidence. The agonizing question arises of whether she should pawn her deceased mother's wedding ring, her absolute last asset, to buy the specific batch of tickets required to prove her theory."
+            }
+          ]
+        },
+        {
+          "sequence_number": 3,
+          "sequence_title": "The First Win",
+          "beats": [
+            {
+              "beat_name": "Break into Two",
+              "genre_variation_notes": "The protagonist actively uses the 'magic' to cross into the upside-down world of sudden wealth.",
+              "emotional_arc": "Terrifying commitment yielding explosive, euphoric relief.",
+              "pacing_notes": "A fast, decisive sequence of actions culminating in a high-energy victory.",
+              "detailed_action": "Making a definitive choice to leave her passive life behind, Sarah pawns the heirloom ring and returns to Mateo's bodega with a singular focus. She purchases a highly specific, mathematically verified batch of scratch-off tickets and immediately scratches them to reveal a massive, life-altering payout. This decisive action secures her family's immediate survival but permanently crosses her into a treacherous new world of sudden wealth and hidden dangers."
+            },
+            {
+              "beat_name": "B-Story",
+              "genre_variation_notes": "Introduces the moral counterweight to the 'magic'—Leo's suspicion grounds the fantasy in harsh reality.",
+              "emotional_arc": "Defensive guilt clashing with teenage betrayal.",
+              "pacing_notes": "A dramatic slowdown to focus on character dynamics and emotional fallout.",
+              "detailed_action": "Returning home with bags of fresh groceries and new clothes, Sarah is met not with pure joy, but with Leo's deep, protective suspicion. He discovers the thick stacks of cash hidden in her bedroom and confronts her, terrified that she has resorted to drug running or theft. This escalating tension between mother and son anchors the emotional core of the narrative, serving as a constant moral compass as Sarah wades deeper into illicit waters."
+            }
+          ]
+        },
+        {
+          "sequence_number": 4,
+          "sequence_title": "The Extortion",
+          "beats": [
+            {
+              "beat_name": "Fun and Games",
+              "genre_variation_notes": "The 'promise of the premise' where the magic works perfectly, right before the curse of the bottle takes effect.",
+              "emotional_arc": "Exhilarating triumph that slowly rots into mounting paranoia.",
+              "pacing_notes": "Upbeat, rhythmic montage of success that abruptly grinds to a halt.",
+              "detailed_action": "Sarah begins a systematic, highly calculated tour of the city's bodegas, hitting different locations to avoid suspicion while raking in consistent winnings. She experiences a brief, euphoric period of wish-fulfillment as she pays off debts, buys her kids whatever they want, and finally breathes easily. However, her frequent cash-ins unwittingly disrupt a massive money-laundering route controlled by local mob boss Carmine Falcone, drawing the worst kind of attention."
+            },
+            {
+              "beat_name": "Midpoint",
+              "genre_variation_notes": "A false victory/defeat where the 'magic' attracts the monster; the wish fulfillment becomes a deadly curse.",
+              "emotional_arc": "Absolute terror masked by cold, calculated compliance.",
+              "pacing_notes": "A massive spike in tension, shifting the genre from a caper to a life-or-death thriller.",
+              "detailed_action": "The illusion of safety shatters when Falcone's enforcers track Sarah's movements and corner her in a dark alley behind a bodega. Falcone himself pays a terrifying, polite visit to her apartment, subtly threatening her seven children if she refuses to generate winning numbers for his syndicate. Sarah feigns complete submission and agrees to work for the mob, but secretly uses her winnings to hire a disgraced private investigator, Marcus Vance, to map the syndicate's vulnerabilities."
+            }
+          ]
+        },
+        {
+          "sequence_number": 5,
+          "sequence_title": "Playing Both Sides",
+          "beats": [
+            {
+              "beat_name": "Bad Guys Close In",
+              "genre_variation_notes": "The complications of using the 'magic' for evil multiply as both the mob and the law become threats.",
+              "emotional_arc": "Suffocating pressure and the exhausting strain of living a double life.",
+              "pacing_notes": "Relentless, tightening rhythm with no room to breathe.",
+              "detailed_action": "A deadly game of cat-and-mouse ensues as Sarah provides just enough winning tickets to satisfy Falcone while Marcus Vance digs into the mob's financial architecture. The pressure mounts from all sides as a paranoid mob lieutenant begins tailing Sarah, catching her buying off-book tickets for her own escape fund. She is forced to constantly manipulate the numbers and her own schedule, living in a state of hyper-vigilance as the syndicate's grip tightens around her family."
+            }
+          ]
+        },
+        {
+          "sequence_number": 6,
+          "sequence_title": "The Noose Tightens",
+          "beats": [
+            {
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The 'magic' forces the protagonist to cross an unforgivable moral line, resulting in a whiff of death.",
+              "emotional_arc": "Horror, profound guilt, and the realization of impending doom.",
+              "pacing_notes": "A shocking, violent burst of action followed by a stunned, hollow silence.",
+              "detailed_action": "Backed into a lethal corner by the suspicious lieutenant, Sarah uses her intimate knowledge of the mob's ledger to frame him for stealing syndicate funds. Falcone ruthlessly executes the framed man as a warning, then demands Sarah produce an unprecedented, multi-million dollar score by the end of the week. The visceral shock of being complicit in a murder strips away Sarah's remaining illusions, leaving her with the horrifying realization that Falcone will kill her the moment she delivers the final payout."
+            },
+            {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The protagonist realizes the 'magic' is a curse and she must rely on her own innate strength to survive.",
+              "emotional_arc": "Total emotional collapse followed by a serene, chilling acceptance.",
+              "pacing_notes": "Slow, introspective, and deeply emotional.",
+              "detailed_action": "Sarah collapses on her kitchen floor in the dead of night, overwhelmed by the monstrous compromises she has made in the name of motherhood. Leo finds her weeping and, instead of judging her, offers a moment of profound grace and solidarity, reminding her of the brilliant, resilient woman she truly is. This emotional catharsis allows Sarah to shed her false belief that money alone equals safety, realizing she must weaponize her intellect to destroy the threat completely."
+            }
+          ]
+        },
+        {
+          "sequence_number": 7,
+          "sequence_title": "The Setup",
+          "beats": [
+            {
+              "beat_name": "Break into Three",
+              "genre_variation_notes": "The protagonist decides to use the 'magic' one last time, not for personal gain, but to destroy the monster.",
+              "emotional_arc": "Fierce resolve and razor-sharp clarity.",
+              "pacing_notes": "Energetic, precise, and highly structured as the trap is laid.",
+              "detailed_action": "Armed with a renewed sense of purpose and moral clarity, Sarah meets with Marcus Vance to finalize a daring, mathematically perfect trap. She stops playing defense and actively synthesizes her algorithm to identify a highly specific sequence of tickets guaranteed to flag the FBI and Lottery Commission for systemic fraud. She fully commits to a high-stakes offensive strategy, ready to risk everything to sever the mob's control over her family once and for all."
+            }
+          ]
+        },
+        {
+          "sequence_number": 8,
+          "sequence_title": "The Payout",
+          "beats": [
+            {
+              "beat_name": "Finale",
+              "genre_variation_notes": "The ultimate test where the protagonist outsmarts the monster by turning the 'magic' against them.",
+              "emotional_arc": "Nerve-wracking tension resolving into triumphant vindication.",
+              "pacing_notes": "Explosive, ticking-clock pacing that culminates in a massive set-piece.",
+              "detailed_action": "Sarah calmly delivers the rigged, multi-million dollar batch of winning tickets to Falcone, looking the ruthless mob boss dead in the eye without flinching. When Falcone's crew attempts to cash the massive fraudulent payout, the flagged serial numbers instantly trigger a catastrophic system alert. A massive, pre-coordinated FBI raid descends upon the syndicate's headquarters, capturing Falcone and his entire crew while Sarah slips away in the ensuing chaos."
+            },
+            {
+              "beat_name": "Final Image",
+              "genre_variation_notes": "Proof that the protagonist has survived the 'bottle' and emerged transformed, no longer reliant on the magic.",
+              "emotional_arc": "Deep, enduring peace and maternal fulfillment.",
+              "pacing_notes": "Calm, steady, and expansive.",
+              "detailed_action": "Months later, Sarah stands on the porch of a quiet, safe suburban home, watching her seven children play freely in a spacious backyard. She has successfully laundered enough clean money to secure their future, but more importantly, she is finally present and at peace. The exhausted, invisible woman from the opening is gone, replaced by a formidable matriarch who outsmarted the underworld and reclaimed her family's destiny."
+            }
+          ]
+        }
+      ]
+    },
+    "stage5_treatment": {
+      "title_logline_characters": "TITLE: THE WINNING TICKET. LOGLINE: A desperate single mother and mathematical genius cracks the state lottery algorithm to feed her seven children, only to be forced into laundering money for a ruthless mob boss, leading her to weaponize her intellect to dismantle his empire. CHARACTERS: SARAH (40), an exhausted but brilliant matriarch. FALCONE (55), a cold, calculating syndicate boss. MARCUS VANCE (45), a shadowy financial investigator. SALVATORE (40), Falcone's paranoid enforcer. LEO (16), Sarah's eldest son and emotional anchor.",
+      "act_1": "SARAH (40) navigates the crushing poverty of a cramped apartment, desperately trying to provide for her seven children. Beneath her exhausted exterior lies a dormant mathematical genius. Late at night, surrounded by past-due bills, Sarah identifies a structural flaw in the state lottery scratch-off algorithm. She tests her theory, buying specific tickets and winning small, untraceable amounts to keep the lights on. However, her unnatural winning streak alerts the local underworld. FALCONE (55), a ruthless mob boss desperate for an invisible money-laundering mechanism, has his men abduct her. In a dimly lit backroom, Falcone issues a terrifying ultimatum: Sarah will use her algorithm to clean his syndicate's dirty cash, or her children will pay the price. Trapped, Sarah agrees, stepping into a dangerous world to protect her family.",
+      "act_2a": "Sarah begins a grueling double life, operating as a human supercomputer for the mob while struggling to maintain the facade of a normal mother for her eldest son, LEO (16). She crisscrosses the city, buying specific batches of tickets to launder Falcone's illicit funds. The stress mounts as she realizes the sheer scale of the criminal enterprise she is now fueling. From the shadows, MARCUS VANCE (45), a relentless financial investigator, tracks the sudden, anomalous spikes in lottery payouts. Marcus corners Sarah, revealing he knows her secret. Instead of arresting her, he proposes a dangerous alliance: he will help her protect her family if she helps him map Falcone's financial architecture from the inside. Sarah reluctantly agrees, playing a deadly game of espionage right under the mob boss's nose.",
+      "act_2b": "Sarah operates in a suffocating state of hyper-vigilance. She feeds Falcone just enough winning scratch-offs to keep his laundering operation afloat, while Marcus Vance systematically maps the syndicate's financial architecture from the shadows. The dual life drains her. The tension snaps when Falcone's paranoid lieutenant, SALVATORE (40), begins tailing her. He catches her buying off-book tickets at a bodega outside her designated route, building a secret escape fund. The walls close in. Sarah is forced into a relentless, exhausting dance of manipulating the algorithm and her own daily routine to stay one step ahead of Salvatore's gaze. Backed into a lethal corner by Salvatore, who threatens to expose her escape fund to Falcone, Sarah makes a chilling, unforgivable choice. Leveraging the intimate knowledge Vance gathered of the mob's ledger, she manipulates the numbers to frame Salvatore for skimming syndicate funds. The trap springs with brutal efficiency. Falcone ruthlessly executes Salvatore in a shadowy warehouse, forcing Sarah to watch as a bloody warning. Wiping a speck of blood from his tailored suit, Falcone delivers a devastating ultimatum: produce an unprecedented, multi-million dollar score by the end of the week. The visceral shock of being complicit in a murder strips away Sarah's remaining illusions. She is hit with the horrifying realization that the moment she delivers the final massive payout, Falcone will sever his loose ends and bury her. The suffocating weight of her monstrous compromises finally breaks her. In the dead of night, Sarah collapses onto the cold linoleum of her kitchen floor, weeping uncontrollably. The illusion of the protective mother shatters against the reality of the blood on her hands. Leo emerges from the shadows, finding his mother completely undone. Instead of the judgment she expects, he kneels beside her. He offers a moment of profound grace, reminding her that she is not a criminal, but the brilliant, resilient woman who kept them alive when the world left them to starve. This quiet solidarity sparks a profound emotional catharsis. Sarah sheds the false belief that money alone equates to safety. Drying her tears, a serene, chilling acceptance washes over her. She realizes she can no longer buy her way out; she must weaponize her intellect to dismantle Falcone's empire entirely.",
+      "act_3": "Armed with razor-sharp clarity, Sarah meets with Marcus Vance in the dead of night to finalize a mathematically perfect trap. She is no longer playing defense. Sarah actively synthesizes her algorithm, not to find winning numbers, but to identify a highly specific, anomalous sequence of tickets guaranteed to trigger massive systemic fraud alerts with the FBI and the Lottery Commission. She fully commits to this high-stakes offensive, ready to risk her life to sever the mob's control over her family. The ticking clock deafens as the deadline arrives. Sarah calmly walks into the syndicate's heavily guarded headquarters and delivers the rigged, multi-million dollar batch of winning tickets directly to Falcone, looking the ruthless mob boss dead in the eye without a single flinch. Blinded by greed, Falcone dispatches his crew to cash the massive payout. The moment the flagged serial numbers hit the lottery terminals, a catastrophic system alert flashes across federal databases. Sirens wail as a pre-coordinated, massive FBI raid descends upon the syndicate's headquarters. Doors are breached, and heavily armed agents swarm the building, capturing Falcone and his entire crew in a sweeping takedown. In the deafening chaos of flashbangs and shouting agents, Sarah slips away into the shadows, a ghost once more. Months later, the dust has settled. Sarah stands on the porch of a quiet, sunlit suburban home, watching her seven children play freely in a sprawling backyard. She has successfully laundered just enough clean money to secure their future, but the true victory lies in her posture. She is finally present, breathing easily. The exhausted, invisible woman from the opening is gone. In her place stands a formidable matriarch who stared down the underworld, weaponized her own genius, and reclaimed her family's destiny."
     }
   }
 }
