@@ -2212,13 +2212,16 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         };
 
-        dummyData.sequences.forEach((seq) => {
+        // Use sequences array from data if it's an array, otherwise try .sequences property, fallback to dummy
+        const sequences = Array.isArray(data) ? data : (data?.sequences || dummyData.sequences);
+
+        sequences.forEach((seq) => {
             const seqBlock = document.createElement('div');
             seqBlock.className = 'sequence-block';
 
             const seqTitle = document.createElement('div');
             seqTitle.className = 'sequence-title';
-            seqTitle.textContent = seq.title;
+            seqTitle.textContent = seq.sequence_title || seq.title || "Untitled Sequence";
             seqBlock.appendChild(seqTitle);
 
             const cardsContainer = document.createElement('div');
@@ -2306,8 +2309,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnGenerateStage6Blueprint) {
-        btnGenerateStage6Blueprint.addEventListener('click', () => {
-            renderStage6(); // Re-render with dummy data for now
+        btnGenerateStage6Blueprint.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            
+            // UI Feedback
+            btnGenerateStage6Blueprint.disabled = true;
+            btnGenerateStage6Blueprint.textContent = 'Generating... (8 sequences)';
+
+            try {
+                const response = await fetch('/api/generate-stage6-scenes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: activeProjectId })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate scene blueprint');
+                }
+
+                const data = await response.json();
+                
+                // Update local storage/project data
+                const projectResponse = await fetch(`/api/projects/${activeProjectId}`);
+                const updatedProject = await projectResponse.json();
+                
+                // Assuming we have a global way to sync or just re-loadProject for Stage 6
+                // For now, if we match how Stage 5 works:
+                renderStage6(data.result);
+                
+                // Success feedback
+                btnGenerateStage6Blueprint.textContent = 'Blueprint Generated ✓';
+                btnGenerateStage6Blueprint.classList.add('approve-btn-green');
+            } catch (error) {
+                console.error('Stage 6 generation failed:', error);
+                alert('An error occurred during scene generation.');
+                btnGenerateStage6Blueprint.textContent = 'Generate Initial Scene Blueprint';
+            } finally {
+                btnGenerateStage6Blueprint.disabled = false;
+            }
         });
     }
 
