@@ -101,7 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) {
             el.addEventListener('input', () => autoResize(el));
             el.addEventListener('focus', () => { el.style.background = 'rgba(31,41,55,0.8)'; el.style.outline = '1px solid #374151'; });
-            el.addEventListener('blur', () => { el.style.background = 'transparent'; el.style.outline = 'none'; });
+            el.addEventListener('blur', () => { 
+                // Special case for stage5Notes which should match the premium card background if it has it
+                // Actually, stage5Notes is a different element than the treatment fields.
+                // Let's just reset to transparent as before unless it's explicitly styled.
+                el.style.background = 'transparent'; 
+                el.style.outline = 'none'; 
+            });
 
             // Initial call for promptInput if it has content (e.g. after refresh)
             if (el.id === 'promptInput') requestAnimationFrame(() => autoResize(el));
@@ -1936,19 +1942,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Object.keys(stage5TAs).forEach(key => {
             if (stage5TAs[key]) {
-                stage5TAs[key].value = data[key] || '';
-                autoResize(stage5TAs[key]);
+                const ta = stage5TAs[key];
+                ta.value = data[key] || '';
+                
+                // Force Apply the Card Aesthetic Classes just in case
+                ta.className = "editable-field w-full bg-[#1e293b] rounded-xl border border-gray-800/60 p-6 text-gray-300 leading-relaxed max-h-96 overflow-y-auto resize-y treatment-stage5-ta text-sm";
+                
+                // For Stage 5 treatment fields, we skip autoResize because we want fixed max-height + scrollbar
+                // However, if the text is short, we still want it to fit normally.
+                // Let's call autoResize but then immediately ensure overflow-y-auto is set
+                autoResize(ta);
+                ta.style.overflowY = 'auto'; // Re-enable scrollbars specifically for Treatment
 
                 // Add input listeners for user edits
-                if (!stage5TAs[key].dataset.listenerAdded) {
-                    stage5TAs[key].addEventListener('input', () => {
-                        autoResize(stage5TAs[key]);
+                if (!ta.dataset.listenerAdded) {
+                    ta.addEventListener('input', () => {
+                        autoResize(ta);
+                        ta.style.overflowY = 'auto'; // Keep scrollbars enabled
                         if (btnStage5Approve) {
                             btnStage5Approve.textContent = 'Approve';
                             btnStage5Approve.classList.remove('approve-btn-green');
                         }
                     });
-                    stage5TAs[key].dataset.listenerAdded = 'true';
+                    ta.addEventListener('focus', () => {
+                        ta.style.background = 'rgba(30, 41, 59, 0.9)'; // Slightly lighter on focus
+                        ta.style.outline = '1px solid #374151';
+                    });
+                    ta.addEventListener('blur', () => {
+                        ta.style.background = '#1e293b'; // Reset to explicitly set dark card background
+                        ta.style.outline = 'none';
+                    });
+                    ta.dataset.listenerAdded = 'true';
                 }
             }
         });
