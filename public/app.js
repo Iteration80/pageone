@@ -408,6 +408,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage5Workshop) stage5Workshop.classList.add('hidden');
                     if (stage5Actions) stage5Actions.classList.remove('hidden');
                 }
+
+                // Hydrate Stage 6 Scenes if exists
+                if (projectDetails.data.stage6_scenes) {
+                    renderStage6(projectDetails.data.stage6_scenes);
+                    if (btnStage6Approve) {
+                        btnStage6Approve.textContent = 'Approved ✓';
+                        btnStage6Approve.classList.add('approve-btn-green');
+                    }
+                    if (btnStage6Edit) btnStage6Edit.classList.remove('hidden');
+                    if (btnStage6Revise) btnStage6Revise.classList.add('hidden');
+                    if (btnStage6Approve) btnStage6Approve.classList.add('hidden');
+
+                    if (stage6Notes && projectDetails.data.stage6_scenes.notes) {
+                        stage6Notes.value = projectDetails.data.stage6_scenes.notes;
+                    }
+                    if (stage6Notes) autoResize(stage6Notes);
+                } else {
+                    if (stage6Board) stage6Board.innerHTML = '';
+                    if (stage6Workshop) stage6Workshop.classList.add('hidden');
+                }
             } else {
                 updateStageNav(projectDetails.data);
             }
@@ -2259,9 +2279,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="card-grip">⋮⋮</span>
                             <span class="scene-number">Scene ${globalSceneCounter}</span>
                         </div>
-                        <button class="delete-patch-btn" title="Delete & Patch">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                        </button>
                     </div>
                     <input type="text" class="scene-heading-input" value="${escapeHtml(scene.scene_heading)}" placeholder="SCENE HEADING">
                     <div class="scene-field-group">
@@ -2274,9 +2291,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="scene-card-footer">
                         <input type="text" class="page-count-input" value="${escapeHtml(scene.estimated_page_count)}" placeholder="0.5 pgs">
-                        <button class="ai-rewrite-btn" title="AI Rewrite Scene">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M3 5h4"></path><path d="M21 17v4"></path><path d="M19 19h4"></path></svg>
-                        </button>
                     </div>
                 `;
 
