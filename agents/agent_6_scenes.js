@@ -17,6 +17,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
             total_estimated_pages: { type: Type.NUMBER },
             scenes: {
                 type: Type.ARRAY,
+                description: 'An array of scenes. You MUST provide strictly between 7 and 11 scenes to hit the required pacing.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
@@ -83,7 +84,7 @@ ${currentTreatmentText}
 
 ${previousContext}
 
-OBJECTIVE: Break down Sequence ${i} into individual scenes. Return a JSON object for this sequence.`;
+OBJECTIVE: Break down Sequence ${i} into exactly 7 to 11 individual scenes. This is a hard requirement for pacing. Do not generate fewer than 7 scenes. Return a JSON object for this sequence.`;
 
         try {
             const result = await ai.models.generateContent({

@@ -2215,7 +2215,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use sequences array from data if it's an array, otherwise try .sequences property, fallback to dummy
         const sequences = Array.isArray(data) ? data : (data?.sequences || dummyData.sequences);
 
-        sequences.forEach((seq) => {
+        sequences.forEach((seq, index) => {
+            // Inject Act Headers
+            let actHeader = null;
+            if (index === 0) actHeader = "ACT I";
+            else if (index === 2) actHeader = "ACT II (PART 1)";
+            else if (index === 4) actHeader = "ACT II (PART 2)";
+            else if (index === 6) actHeader = "ACT III";
+
+            if (actHeader) {
+                const header = document.createElement('h2');
+                header.className = 'text-xl font-bold text-white mb-4 mt-8 uppercase tracking-widest border-b border-gray-800 pb-2';
+                header.textContent = actHeader;
+                stage6Board.appendChild(header);
+            }
+
             const seqBlock = document.createElement('div');
             seqBlock.className = 'sequence-block';
 
