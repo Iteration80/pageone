@@ -2304,6 +2304,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
+        // Re-initialize SortableJS on every sequence container
+        document.querySelectorAll('.scene-cards-container').forEach(container => {
+            new Sortable(container, {
+                group: 'shared',
+                animation: 150,
+                handle: '.card-grip'
+            });
+        });
+
         // Show workshop if data is rendered
         if (stage6Workshop) stage6Workshop.classList.remove('hidden');
     }
