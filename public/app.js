@@ -2215,6 +2215,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use sequences array from data if it's an array, otherwise try .sequences property, fallback to dummy
         const sequences = Array.isArray(data) ? data : (data?.sequences || dummyData.sequences);
 
+        let globalSceneCounter = 1;
+
+        // Helper to update all scene numbers in the DOM
+        const updateSceneNumbers = () => {
+            document.querySelectorAll('.scene-card:not(.ghost-card) .scene-number').forEach((span, i) => {
+                span.textContent = `Scene ${i + 1}`;
+            });
+        };
+
         sequences.forEach((seq, index) => {
             // Inject Act Headers
             let actHeader = null;
@@ -2248,7 +2257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="scene-card-header">
                         <div class="flex items-center">
                             <span class="card-grip">⋮⋮</span>
-                            <span class="scene-number">Scene ${scene.scene_number}</span>
+                            <span class="scene-number">Scene ${globalSceneCounter}</span>
                         </div>
                         <button class="delete-patch-btn" title="Delete & Patch">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
@@ -2279,6 +2288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 cardsContainer.appendChild(card);
+                globalSceneCounter++;
             });
 
             // Add Ghost Card at the end of the cards array
@@ -2323,7 +2333,8 @@ document.addEventListener('DOMContentLoaded', () => {
             new Sortable(container, {
                 group: 'shared',
                 animation: 150,
-                handle: '.card-grip'
+                handle: '.card-grip',
+                onEnd: updateSceneNumbers
             });
         });
 

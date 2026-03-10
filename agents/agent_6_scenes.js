@@ -34,7 +34,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
         required: ['sequence_title', 'total_estimated_pages', 'scenes']
     };
 
-    const systemInstruction = `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take a single Sequence from a Hybrid Beat Sheet (including the character profiles) and break it down into a granular, Scene-by-Scene Blueprint. CRITICAL RULES FOR SCENE DESIGN: Pacing & Page Counts: A standard sequence is roughly 10-15 pages. Break the sequence into enough individual scenes (strictly 7 to 11 scenes) to achieve modern pacing. Favor shorter, punchier scenes. Assign an estimated page length (e.g., 0.5, 1.5, 2.0) to each scene. Enter Late, Leave Early: Design scenes that start at the latest possible moment and end the moment the dramatic question of the scene is answered. Dramaturgical Function: Every scene must have a clear structural purpose (e.g., establishing a flaw, escalating tension, delivering a twist). There can be no "filler" scenes. Micro-Action: Describe the literal, physical action happening in the scene. Do not just summarize the dialogue. Translate the broad beats into specific, shootable locations and character movements.`;
+    const systemInstruction = `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take a single Sequence from a Hybrid Beat Sheet (including the character profiles) and break it down into a granular, Scene-by-Scene Blueprint. CRITICAL RULES FOR SCENE DESIGN: Pacing & Page Counts: A standard sequence is roughly 10-15 pages. You MUST generate EXACTLY 10 individual scenes for this sequence. Every scene must be highly kinetic and strictly between 1.0 and 1.5 pages in length to achieve modern pacing. Enter Late, Leave Early: Design scenes that start at the latest possible moment and end the moment the dramatic question of the scene is answered. Dramaturgical Function: Every scene must have a clear structural purpose (e.g., establishing a flaw, escalating tension, delivering a twist). There can be no "filler" scenes. Micro-Action: Describe the literal, physical action happening in the scene. Do not just summarize the dialogue. Translate the broad beats into specific, shootable locations and character movements.`;
 
     const config = {
         systemInstruction: systemInstruction,
@@ -84,7 +84,7 @@ ${currentTreatmentText}
 
 ${previousContext}
 
-OBJECTIVE: Break down Sequence ${i} into exactly 7 to 11 individual scenes. This is a hard requirement for pacing. Do not generate fewer than 7 scenes. Return a JSON object for this sequence.`;
+OBJECTIVE: You MUST generate EXACTLY 10 scenes for this sequence. Do not generate 9. Do not generate 11. Exactly 10 scenes. Every scene must be highly kinetic and strictly between 1.0 and 1.5 pages in length. Return a JSON object for this sequence.`;
 
         try {
             const result = await ai.models.generateContent({
