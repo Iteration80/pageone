@@ -17,7 +17,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
             total_estimated_pages: { type: Type.NUMBER },
             scenes: {
                 type: Type.ARRAY,
-                description: 'An array of scenes. You MUST provide strictly between 7 and 11 scenes to hit the required pacing.',
+                description: 'An array of scenes. Provide 8 to 12 scenes based on the natural narrative breaks of the sequence.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
@@ -34,11 +34,11 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
         required: ['sequence_title', 'total_estimated_pages', 'scenes']
     };
 
-    const systemInstruction = `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take a single Sequence from a Hybrid Beat Sheet (including the character profiles) and break it down into a granular, Scene-by-Scene Blueprint. CRITICAL RULES FOR SCENE DESIGN: Pacing & Page Counts: A standard sequence is roughly 10-15 pages. You MUST generate EXACTLY 10 individual scenes for this sequence. Every scene must be highly kinetic and strictly between 1.0 and 1.5 pages in length to achieve modern pacing. Enter Late, Leave Early: Design scenes that start at the latest possible moment and end the moment the dramatic question of the scene is answered. Dramaturgical Function: Every scene must have a clear structural purpose (e.g., establishing a flaw, escalating tension, delivering a twist). There can be no "filler" scenes. Micro-Action: Describe the literal, physical action happening in the scene. Do not just summarize the dialogue. Translate the broad beats into specific, shootable locations and character movements.`;
+    const systemInstruction = `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take a single Sequence from a Hybrid Beat Sheet (including the character profiles) and break it down into a granular, Scene-by-Scene Blueprint. CRITICAL RULES FOR SCENE DESIGN: Pacing & Page Counts: Break the sequence into 8 to 12 individual scenes. Let the story dictate the exact number, but maintain a kinetic, modern pace (roughly 1.0 to 2.5 pages per scene). Enter Late, Leave Early: Design scenes that start at the latest possible moment and end the moment the dramatic question of the scene is answered. Dramaturgical Function: Every scene must have a clear structural purpose (e.g., establishing a flaw, escalating tension, delivering a twist). There can be no "filler" scenes. Micro-Action: Describe the literal, physical action happening in the scene. Do not just summarize the dialogue. Translate the broad beats into specific, shootable locations and character movements.`;
 
     const config = {
         systemInstruction: systemInstruction,
-        temperature: 0.5,
+        temperature: 0.7,
         thinkingConfig: { thinkingLevel: 'HIGH' },
         tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
@@ -84,7 +84,7 @@ ${currentTreatmentText}
 
 ${previousContext}
 
-OBJECTIVE: You MUST generate EXACTLY 10 scenes for this sequence. Do not generate 9. Do not generate 11. Exactly 10 scenes. Every scene must be highly kinetic and strictly between 1.0 and 1.5 pages in length. Return a JSON object for this sequence.`;
+OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Focus on detailed, physical Narrative Action. Let the story dictate the exact scene count. Return a JSON object for this sequence.`;
 
         try {
             const result = await ai.models.generateContent({
