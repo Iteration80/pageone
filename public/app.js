@@ -1945,8 +1945,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ta = stage5TAs[key];
                 ta.value = data[key] || '';
                 
-                // Force Apply the Card Aesthetic Classes just in case
-                ta.className = "editable-field w-full bg-[#1e293b] rounded-xl border border-gray-800/60 p-6 text-gray-300 leading-relaxed max-h-96 overflow-y-auto resize-y treatment-stage5-ta text-sm";
+                // Force Apply the Card Aesthetic Classes to match Stage 4 exactly
+                ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto max-h-96 treatment-stage5-ta";
                 
                 // For Stage 5 treatment fields, we skip autoResize because we want fixed max-height + scrollbar
                 // However, if the text is short, we still want it to fit normally.
@@ -1965,12 +1965,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                     ta.addEventListener('focus', () => {
-                        ta.style.background = 'rgba(30, 41, 59, 0.9)'; // Slightly lighter on focus
-                        ta.style.outline = '1px solid #374151';
+                        ta.style.background = '#374151'; // Slightly lighter on focus (gray-700)
                     });
                     ta.addEventListener('blur', () => {
-                        ta.style.background = '#1e293b'; // Reset to explicitly set dark card background
-                        ta.style.outline = 'none';
+                        ta.style.background = '#1f2937'; // Reset to explicitly set dark card background (gray-800)
                     });
                     ta.dataset.listenerAdded = 'true';
                 }
