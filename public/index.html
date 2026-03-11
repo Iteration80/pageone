@@ -459,21 +459,58 @@
                 </div>
 
                 <!-- Right Pane (Blueprint TOC Sidebar) -->
-                <aside class="w-80 bg-gray-950 border-l border-white/10 overflow-y-auto stage7-blueprint-sidebar scrollbar-hide">
+                <aside class="w-96 max-w-md bg-gray-950 border-l border-white/10 overflow-y-auto stage7-blueprint-sidebar scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                     <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase p-4 mb-2">Blueprint TOC</h3>
-                    <div id="stage7-toc" class="space-y-2">
-                        <!-- Dummy Cards -->
-                        <div class="toc-card p-3 rounded bg-white/5 border border-white/5 hover:border-blue-500/50 cursor-pointer transition-colors">
-                            <div class="text-[10px] font-bold text-blue-400 mb-1">SCENE 1</div>
-                            <div class="text-xs font-semibold uppercase text-gray-300 truncate">INT. COFFEE SHOP - DAY</div>
+                    <div id="stage7-toc" class="space-y-2 px-4 pb-8">
+                        <!-- Accordion Card 1 -->
+                        <div class="scene-accordion-card bg-gray-800 rounded-md mb-2 border border-gray-700 overflow-hidden">
+                            <div class="accordion-header p-3 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition-colors" onclick="toggleSceneDetails(this)">
+                                <div>
+                                    <div class="text-xs text-blue-400 font-bold">SCENE 1</div>
+                                    <div class="text-sm text-gray-200 font-semibold truncate">INT. COFFEE SHOP - DAY</div>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div class="accordion-body hidden p-3 bg-gray-900 border-t border-gray-700">
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
+                                <p class="text-sm text-gray-300 mb-3">The morning light filters through the dusty windows. Johnny sips his espresso with trembling hands...</p>
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
+                                <p class="text-sm text-gray-300 text-opacity-80">Establishes the protagonist's fragile state and ticking clock.</p>
+                            </div>
                         </div>
-                        <div class="toc-card p-3 rounded bg-white/5 border border-white/5 hover:border-blue-500/50 cursor-pointer transition-colors">
-                            <div class="text-[10px] font-bold text-blue-400 mb-1">SCENE 2</div>
-                            <div class="text-xs font-semibold uppercase text-gray-300 truncate">EXT. BUSY STREET - CONTINUOUS</div>
+
+                        <!-- Accordion Card 2 -->
+                        <div class="scene-accordion-card bg-gray-800 rounded-md mb-2 border border-gray-700 overflow-hidden">
+                            <div class="accordion-header p-3 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition-colors" onclick="toggleSceneDetails(this)">
+                                <div>
+                                    <div class="text-xs text-blue-400 font-bold">SCENE 2</div>
+                                    <div class="text-sm text-gray-200 font-semibold truncate">EXT. BUSY STREET - CONTINUOUS</div>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div class="accordion-body hidden p-3 bg-gray-900 border-t border-gray-700">
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
+                                <p class="text-sm text-gray-300 mb-3">Johnny stumbles out into the crowd. The city is a blur of noise and motion.</p>
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
+                                <p class="text-sm text-gray-300 text-opacity-80">Increases the sensory overwhelm and emphasizes isolation.</p>
+                            </div>
                         </div>
-                        <div class="toc-card p-3 rounded bg-white/5 border border-white/5 hover:border-blue-500/50 cursor-pointer transition-colors">
-                            <div class="text-[10px] font-bold text-blue-400 mb-1">SCENE 3</div>
-                            <div class="text-xs font-semibold uppercase text-gray-300 truncate">INT. OFFICE - LATER</div>
+
+                        <!-- Accordion Card 3 -->
+                        <div class="scene-accordion-card bg-gray-800 rounded-md mb-2 border border-gray-700 overflow-hidden">
+                            <div class="accordion-header p-3 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition-colors" onclick="toggleSceneDetails(this)">
+                                <div>
+                                    <div class="text-xs text-blue-400 font-bold">SCENE 3</div>
+                                    <div class="text-sm text-gray-200 font-semibold truncate">INT. OFFICE - LATER</div>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div class="accordion-body hidden p-3 bg-gray-900 border-t border-gray-700">
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
+                                <p class="text-sm text-gray-300 mb-3">Johnny arrives at his cubicle. His boss is already waiting.</p>
+                                <div class="text-xs text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
+                                <p class="text-sm text-gray-300 text-opacity-80">Introduces the primary antagonist and the stakes of the day.</p>
+                            </div>
                         </div>
                     </div>
                 </aside>

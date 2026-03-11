@@ -2549,4 +2549,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+// --- Stage 7 Helpers ---
+window.toggleSceneDetails = function(element) {
+    const card = element.closest('.scene-accordion-card');
+    const body = card.querySelector('.accordion-body');
+    const chevron = card.querySelector('.chevron-icon');
+
+    // Toggle hidden class
+    body.classList.toggle('hidden');
+
+    // Rotate chevron
+    if (body.classList.contains('hidden')) {
+        chevron.classList.remove('rotate-180');
+    } else {
+        chevron.classList.add('rotate-180');
+    }
+};
+
 
