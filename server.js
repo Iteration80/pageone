@@ -9,6 +9,7 @@ const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent4Beats } = require('./agents/agent_4_beats');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
+const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -282,6 +283,42 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to generate scene blueprint" });
+    }
+});
+
+app.post('/api/revise-stage6', async (req, res) => {
+    try {
+        const { projectId, feedback } = req.body;
+        if (!projectId || !feedback) {
+            return res.status(400).json({ error: "Missing projectId or feedback" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const currentBlueprint = projectData.data?.stage6_scenes;
+        if (!currentBlueprint) {
+            return res.status(400).json({ error: "No current Stage 6 blueprint found to revise" });
+        }
+
+        console.log("Revising Stage 6 Scene Blueprint...");
+        const updatedBlueprint = await reviseStage6Scenes(currentBlueprint, feedback);
+
+        projectData.data = projectData.data || {};
+        projectData.data.stage6_scenes = updatedBlueprint;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: updatedBlueprint });
+    } catch (error) {
+        console.error('Stage 6 Revision Error:', error.message);
+        res.status(500).json({ error: error.message || "Failed to revise scene blueprint" });
     }
 });
 

@@ -2403,6 +2403,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (btnStage6Revise) {
+        btnStage6Revise.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            const feedback = stage6Notes ? stage6Notes.value.trim() : "";
+            if (!feedback) {
+                alert("Please enter revision notes in the feedback box.");
+                return;
+            }
+
+            const originalText = btnStage6Revise.textContent;
+            btnStage6Revise.disabled = true;
+            btnStage6Revise.textContent = 'Revising...';
+
+            try {
+                const response = await fetch('/api/revise-stage6', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        projectId: activeProjectId,
+                        feedback: feedback
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to revise Stage 6');
+                }
+
+                const data = await response.json();
+                
+                // Clear feedback box
+                if (stage6Notes) {
+                    stage6Notes.value = "";
+                    stage6Notes.style.height = 'auto'; // Reset auto-resize
+                }
+
+                // Render updated blueprint
+                renderStage6(data.result);
+                
+                // Success feedback
+                btnStage6Revise.textContent = 'Revised ✓';
+                setTimeout(() => {
+                    btnStage6Revise.textContent = originalText;
+                    btnStage6Revise.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Stage 6 revision failed:', error);
+                alert('An error occurred during scene revision.');
+                btnStage6Revise.textContent = originalText;
+                btnStage6Revise.disabled = false;
+            }
+        });
+    }
+
 });
 
 
