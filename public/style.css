@@ -1212,6 +1212,29 @@ textarea.synopsis-input {
 }
 
 /* Ensure Stage 7 Feedback Panel is visible when needed */
-#stage7-view .feedback-panel {
+#stage-7-view .feedback-panel {
     z-index: 50;
+    pointer-events: auto;
+}
+
+/* Stage 7 Refinements */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+#stage-7-view .draft-editor-container {
+    background-color: #0b0e14; /* Slightly darker than gray-900 for depth */
+}
+
+#stage-7-view .draft-editor {
+    background-color: #1a1d27; /* Page color */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#stage-7-view .stage7-blueprint-sidebar {
+    padding: 0 !important; /* Reset padding to handle header padding separately */
 }

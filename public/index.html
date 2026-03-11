@@ -439,13 +439,13 @@
         <main id="stage-7-view" class="workspace hidden">
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
-                <div class="flex-1 bg-gray-900 overflow-y-auto draft-editor-container">
+                <div class="flex-1 bg-gray-900 overflow-y-auto draft-editor-container scrollbar-hide">
                     <header class="workspace-header p-10 pb-0">
                         <h1>Stage 7: Draft</h1>
                         <p>Write the first draft of your screenplay using standard formatting.</p>
                     </header>
-                    <div class="px-10 py-10">
-                        <div id="draft-editor" class="draft-editor bg-white/5 p-12 min-h-screen shadow-2xl rounded-sm focus:outline-none" contenteditable="true">
+                    <div class="px-10 py-10 flex-1">
+                        <div id="draft-editor" class="draft-editor max-w-4xl mx-auto shadow-2xl rounded-sm p-12 min-h-screen focus:outline-none" contenteditable="true">
                             <div class="f-slugline">INT. COFFEE SHOP - DAY</div>
                             <div class="f-action">The morning light filters through the dusty windows. JOHNNY (30s, tired) sips his espresso with trembling hands.</div>
                             <div class="f-character">JOHNNY</div>
@@ -459,8 +459,8 @@
                 </div>
 
                 <!-- Right Pane (Blueprint TOC Sidebar) -->
-                <aside class="w-80 bg-gray-950 border-l border-white/10 overflow-y-auto p-4 stage7-blueprint-sidebar">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 px-2">Blueprint TOC</h3>
+                <aside class="w-80 bg-gray-950 border-l border-white/10 overflow-y-auto stage7-blueprint-sidebar scrollbar-hide">
+                    <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase p-4 mb-2">Blueprint TOC</h3>
                     <div id="stage7-toc" class="space-y-2">
                         <!-- Dummy Cards -->
                         <div class="toc-card p-3 rounded bg-white/5 border border-white/5 hover:border-blue-500/50 cursor-pointer transition-colors">
@@ -480,7 +480,7 @@
             </div>
 
             <!-- Stage 7 Feedback Panel (Sticky) -->
-            <section id="stage7Workshop" class="feedback-panel">
+            <section id="stage7Workshop" class="feedback-panel hidden">
                 <label for="stage7-notes"
                     class="feedback-label text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">FEEDBACK</label>
                 <textarea id="stage7-notes"
@@ -488,10 +488,21 @@
                     placeholder="e.g. Make the dialogue snappier, or shorten Scene 2..."></textarea>
                 <div class="action-row action-row-split">
                     <div class="action-left">
+                        <button id="btnStage7Edit" class="danger-btn hidden">Revise</button>
                     </div>
                     <div class="action-group-right">
-                        <button id="btnStage7Submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition-colors">Submit</button>
-                        <button id="btnStage7Approve" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition-colors ml-4">Approve</button>
+                        <label for="stage7PdfUpload" class="icon-btn" title="Attach additional story material">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-paperclip">
+                                <path
+                                    d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                            </svg>
+                        </label>
+                        <input type="file" id="stage7PdfUpload" accept="application/pdf" class="hidden">
+                        <span id="stage7FileNameDisplay" class="file-name"></span>
+                        <button id="btnStage7Submit" class="primary-btn">Submit</button>
+                        <button id="btnStage7Approve" class="primary-btn">Approve</button>
                     </div>
                 </div>
             </section>
