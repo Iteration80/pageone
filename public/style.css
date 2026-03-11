@@ -1134,3 +1134,84 @@ textarea.synopsis-input {
 .ghost-card .prompt-ai-scene-input:focus {
     border-color: var(--accent-color);
 }
+/* --- Stage 7: Draft Specific Styles --- */
+
+#stage-7-view {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.draft-editor-container {
+    padding-bottom: 200px; /* Space for sticky footer */
+}
+
+.draft-editor {
+    font-family: 'Courier Prime', monospace;
+    line-height: 1.5;
+    max-width: 800px;
+    margin: 0 auto;
+    color: #e5e7eb; /* Subtle off-white */
+}
+
+/* Fountain Indentation Rules */
+.f-slugline {
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: #f3f4f6;
+}
+
+.f-action {
+    margin-bottom: 1rem;
+}
+
+.f-character {
+    text-align: center;
+    text-transform: uppercase;
+    margin-top: 1.5rem;
+    margin-bottom: 0.25rem;
+    width: 50%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.f-parenthetical {
+    width: 30%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.f-parenthetical::before { content: "("; }
+.f-parenthetical::after { content: ")"; }
+
+.f-dialogue {
+    width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 1rem;
+}
+
+/* Blueprint TOC Sidebar */
+.stage7-blueprint-sidebar {
+    height: calc(100vh - 160px); /* Adjust based on footer */
+}
+
+.toc-card {
+    transition: all 0.2s ease;
+}
+
+.toc-card:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    transform: translateX(4px);
+}
+
+/* Ensure Stage 7 Feedback Panel is visible when needed */
+#stage7-view .feedback-panel {
+    z-index: 50;
+}
