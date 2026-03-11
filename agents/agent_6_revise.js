@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  */
 const reviseStage6Scenes = async (currentBlueprint, feedback) => {
     
-    // Exact same schema as agent_6_scenes.js for consistency
+    // Strict JSON Schema matching agent_6_scenes.js
     const sequenceSchema = {
         type: Type.OBJECT,
         properties: {
@@ -40,16 +40,10 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
     };
 
     const config = {
-        systemInstruction: `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take an existing Scene-by-Scene Blueprint and modify it based on the director's feedback.
+        systemInstruction: `You are an elite Script Coordinator modifying a Scene Blueprint based on the director's feedback. Apply the feedback (e.g., rewrite, merge, or insert scenes). 
 
-CRITICAL RULES FOR REVISION:
-1. ONLY modify the specific scenes required by the feedback (e.g., rewrite, merge, insert, or delete).
-2. You MUST return the rest of the JSON structure exactly as it was provided. Do not alter a single word of the scenes that were not mentioned in the feedback.
-3. Maintain the detailed, physical Narrative Action style for any new or rewritten scenes.
-4. Ensure the structural integrity of the sequences is preserved.
-5. Return the entire updated blueprint as a valid JSON array of sequences.`,
+CRITICAL: ONLY modify the specific scenes required by the feedback. You MUST return the entire JSON structure, keeping all unaffected sequences and scenes absolutely verbatim.`,
         temperature: 0.5,
-        thinkingConfig: { thinkingLevel: 'HIGH' },
         responseMimeType: 'application/json',
         responseSchema: rootSchema
     };
@@ -59,7 +53,7 @@ CRITICAL RULES FOR REVISION:
     });
 
     const prompt = `CURRENT SCENE BLUEPRINT (JSON):
-${JSON.stringify(currentBlueprint, null, 2)}
+${JSON.stringify(currentBlueprint)}
 
 DIRECTOR'S FEEDBACK:
 ${feedback}
@@ -74,13 +68,12 @@ OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON arr
 
         let updatedData = JSON.parse(result.response.text());
 
-        // POST-PROCESSING: Mathematical Renumbering
-        // This forces scene_number to be sequential 1..N across all sequences
-        let globalCounter = 1;
+        // POST-PROCESSING: Math Fix (Renumber scenes sequentially across all sequences)
+        let count = 1;
         updatedData.forEach(sequence => {
             if (sequence.scenes && Array.isArray(sequence.scenes)) {
                 sequence.scenes.forEach(scene => {
-                    scene.scene_number = globalCounter++;
+                    scene.scene_number = count++;
                 });
             }
         });

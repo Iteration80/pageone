@@ -89,9 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage6Board = document.getElementById('stage6-board');
     const stage6Workshop = document.getElementById('stage6Workshop');
     const stage6Notes = document.getElementById('stage6-notes');
-    const btnStage6Revise = document.getElementById('btn-stage6-revise');
-    const btnStage6Approve = document.getElementById('btn-stage6-approve');
-    const btnStage6Edit = document.getElementById('btn-stage6-edit');
+    const btnStage6Submit = document.getElementById('btnStage6Submit');
+    const btnStage6Approve = document.getElementById('btnStage6Approve');
     const btnGenerateStage6Blueprint = document.getElementById('btnGenerateStage6Blueprint');
 
 
@@ -415,10 +414,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage6Approve) {
                         btnStage6Approve.textContent = 'Approved ✓';
                         btnStage6Approve.classList.add('approve-btn-green');
+                        btnStage6Approve.classList.add('hidden');
                     }
-                    if (btnStage6Edit) btnStage6Edit.classList.remove('hidden');
-                    if (btnStage6Revise) btnStage6Revise.classList.add('hidden');
-                    if (btnStage6Approve) btnStage6Approve.classList.add('hidden');
+                    if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
 
                     if (stage6Notes && projectDetails.data.stage6_scenes.notes) {
                         stage6Notes.value = projectDetails.data.stage6_scenes.notes;
@@ -648,7 +646,8 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleStage1EditMode(false);
         });
     }
-    btnStage1Revise.addEventListener('click', async () => {
+    if (btnStage1Revise) {
+        btnStage1Revise.addEventListener('click', async () => {
         const userNote = stage1Notes.value.trim();
 
         // Grab current pitch data from expanded card
@@ -763,10 +762,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage1Revise.textContent = originalText;
             btnStage1Revise.disabled = false;
         }
-    });
+        });
+    }
 
     // Event listener for Final Approve Stage 1
-    btnStage1Approve.addEventListener('click', async () => {
+    if (btnStage1Approve) {
+        btnStage1Approve.addEventListener('click', async () => {
         const expandedCard = document.querySelector('.pitch-card.expanded');
         if (!expandedCard) return;
 
@@ -820,7 +821,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage1Approve.classList.remove('approve-btn-green');
             btnStage1Approve.disabled = false;
         }
-    });
+        });
+    }
 
     // --- Navigation Logic ---
     function updateStageNav(data) {
@@ -1092,7 +1094,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
+    if (btnStage2Approve) {
+        btnStage2Approve.addEventListener('click', () => saveOutlineEdits(btnStage2Approve));
+    }
 
     if (btnStage2Edit) {
         btnStage2Edit.addEventListener('click', () => {
@@ -1100,7 +1104,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    btnStage2Revise.addEventListener('click', async () => {
+    if (btnStage2Revise) {
+        btnStage2Revise.addEventListener('click', async () => {
         if (!activeProjectId) return;
         const notes = stage2Notes.value.trim();
 
@@ -1189,7 +1194,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage2Revise.disabled = false;
             btnStage2Revise.textContent = originalText;
         }
-    });
+        });
+    }
 
     // --- Stage 3 Logic: Characters ---
 
@@ -2356,8 +2362,19 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn('SortableJS library not found. Drag and drop disabled.');
         }
 
-        // Show workshop if data is rendered
-        if (stage6Workshop) stage6Workshop.classList.remove('hidden');
+        if (stage6Workshop) {
+            stage6Workshop.classList.remove('hidden');
+            // Ensure correct button states in renderStage6
+            if (btnStage6Approve) {
+                btnStage6Approve.textContent = 'Approve';
+                btnStage6Approve.classList.remove('approve-btn-green');
+                btnStage6Approve.classList.remove('hidden');
+            }
+            if (btnStage6Submit) {
+                btnStage6Submit.textContent = 'Submit';
+                btnStage6Submit.classList.remove('hidden');
+            }
+        }
     }
 
     if (btnGenerateStage6Blueprint) {
@@ -2403,8 +2420,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (btnStage6Revise) {
-        btnStage6Revise.addEventListener('click', async () => {
+    if (btnStage6Submit) {
+        btnStage6Submit.addEventListener('click', async () => {
             if (!activeProjectId) return;
             const feedback = stage6Notes ? stage6Notes.value.trim() : "";
             if (!feedback) {
@@ -2412,9 +2429,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const originalText = btnStage6Revise.textContent;
-            btnStage6Revise.disabled = true;
-            btnStage6Revise.textContent = 'Revising...';
+            const originalText = btnStage6Submit.textContent;
+            btnStage6Submit.disabled = true;
+            btnStage6Submit.textContent = 'Revising...';
 
             try {
                 const response = await fetch('/api/revise-stage6', {
@@ -2443,17 +2460,91 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderStage6(data.result);
                 
                 // Success feedback
-                btnStage6Revise.textContent = 'Revised ✓';
+                btnStage6Submit.textContent = 'Revised ✓';
                 setTimeout(() => {
-                    btnStage6Revise.textContent = originalText;
-                    btnStage6Revise.disabled = false;
+                    btnStage6Submit.textContent = originalText;
+                    btnStage6Submit.disabled = false;
                 }, 2000);
 
             } catch (error) {
                 console.error('Stage 6 revision failed:', error);
                 alert('An error occurred during scene revision.');
-                btnStage6Revise.textContent = originalText;
-                btnStage6Revise.disabled = false;
+                btnStage6Submit.textContent = originalText;
+                btnStage6Submit.disabled = false;
+            }
+        });
+    }
+
+    function scrapeStage6() {
+        const sequences = [];
+        const seqBlocks = document.querySelectorAll('.sequence-block');
+        
+        seqBlocks.forEach(block => {
+            const title = block.querySelector('.sequence-title')?.textContent || "";
+            const scenes = [];
+            const sceneCards = block.querySelectorAll('.scene-card:not(.ghost-card)');
+            
+            sceneCards.forEach(card => {
+                const sceneNumberText = card.querySelector('.scene-number')?.textContent || "";
+                const sceneNumber = parseInt(sceneNumberText.replace('Scene ', '')) || 0;
+                
+                const heading = card.querySelector('.scene-heading-input')?.value || "";
+                const textareas = card.querySelectorAll('.scene-textarea');
+                const action = textareas[0]?.value || "";
+                const functionText = textareas[1]?.value || "";
+                const pageCount = card.querySelector('.page-count-input')?.value || "";
+                
+                scenes.push({
+                    scene_number: sceneNumber,
+                    scene_heading: heading,
+                    narrative_action: action,
+                    dramaturgical_function: functionText,
+                    estimated_page_count: pageCount
+                });
+            });
+            
+            sequences.push({
+                sequence_title: title,
+                scenes: scenes
+            });
+        });
+        
+        return sequences;
+    }
+
+    if (btnStage6Approve) {
+        btnStage6Approve.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            const currentBlueprint = scrapeStage6();
+            const originalText = btnStage6Approve.textContent;
+
+            btnStage6Approve.disabled = true;
+            btnStage6Approve.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: { stage6_scenes: currentBlueprint }
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to save project');
+
+                btnStage6Approve.textContent = 'Approved ✓';
+                btnStage6Approve.classList.add('approve-btn-green');
+                
+                // Fetch updated project for nav status
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                updateStageNav(projData.data);
+
+            } catch (error) {
+                console.error('Stage 6 approval failed:', error);
+                alert('An error occurred while saving the approved blueprint.');
+                btnStage6Approve.textContent = originalText;
+                btnStage6Approve.disabled = false;
             }
         });
     }
