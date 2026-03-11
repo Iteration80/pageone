@@ -1,0 +1,133 @@
+{
+  "id": "1773198172760",
+  "title": "Gills & Guitars",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Axel's Amphibious Anarchy",
+        "genre": "Animated Musical Comedy",
+        "logline": "In a pristine underwater utopia where every amphibian is expected to blend in, a rebellious teenage axolotl forms a loud, chaotic punk band to save his town from losing its soul.",
+        "core_theme": "Embracing your true, messy self versus conforming to sterile societal expectations.",
+        "synopsis": "Act I: Axel lives in Aqua-Ville, a perfectly synchronized coral community where regeneration and blending in are highly prized. His parents want him to join the classical kelp-orchestra and be a 'normal' upstanding citizen. Instead, Axel discovers a sunken electric guitar from the surface world and becomes obsessed with the loud, chaotic sounds of punk rock.\\n\\nAct II: Axel secretly forms a punk band with other misfit sea creatures, including a tone-deaf pufferfish and a hyperactive shrimp. They practice in a dangerous, forbidden underwater trench. When his parents discover his secret, they are horrified by the 'noise' and forbid him from playing in the town's prestigious Harmony Festival, locking away his guitar.\\n\\nAct III: Axel realizes the town's obsession with harmony is actually putting the reef to sleep, making it vulnerable to a predatory moray eel. He sneaks out, retrieves his guitar, and crashes the festival. His band plays a blistering punk anthem that literally shakes the restrictive algae off the town and scares the eel away. His parents realize that being 'normal' is overrated, and Axel's unique identity is celebrated."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "title": "Axel's Amphibious Anarchy",
+      "genre": "Animated Musical Comedy",
+      "logline": "In a pristine underwater utopia where every amphibian is expected to blend in, a rebellious teenage axolotl forms a loud, chaotic punk band to save his town from losing its soul.",
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Perfect Utopian Chord",
+            "beats": [
+              {
+                "beat_label": "Status Quo",
+                "description": "Axel lives in Aqua-Ville where every creature moves and sounds in perfect synchronized harmony. His parents pressure him to join the prestigious classical kelp-orchestra but he feels stifled by the sterile perfection."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "While reluctantly practicing his classical scales near the town border Axel discovers a strange sunken object from the surface world which turns out to be a brightly colored electric guitar."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The First Riff",
+            "beats": [
+              {
+                "beat_label": "Investigation",
+                "description": "Axel plucks the strings of the electric guitar and is captivated by the loud chaotic sound it produces. He realizes this messy noise matches his internal feelings therefore he begins to experiment with punk rock riffs."
+              },
+              {
+                "beat_label": "Act I Climax",
+                "description": "During a formal audition for the kelp-orchestra Axel accidentally lets out a distorted power chord. The judges are horrified but Axel feels completely alive therefore he decides to reject the orchestra entirely and form his own punk band."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Gathering the Misfits",
+            "beats": [
+              {
+                "beat_label": "Rising Action",
+                "description": "Axel needs bandmates but the perfectly synchronized town offers few options. He searches the fringes of Aqua-Ville and recruits a tone-deaf pufferfish on drums and a hyperactive shrimp on bass."
+              },
+              {
+                "beat_label": "Obstacle",
+                "description": "The newly formed band tries to practice in Axel's garage but the loud disruptive noise immediately draws complaints from the harmonious neighbors therefore they are forced to find a secret location."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Forbidden Trench",
+            "beats": [
+              {
+                "beat_label": "Development",
+                "description": "Axel leads the band to the dangerous forbidden underwater trench on the edge of town. They set up their makeshift instruments and begin the grueling process of learning to play together."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "The band finally clicks and plays their first full chaotic punk song. They experience a profound sense of freedom and true identity but the massive sound waves echo out of the trench and attract the attention of the strict town authorities."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: The Harmony Festival Approaches",
+            "beats": [
+              {
+                "beat_label": "Complication",
+                "description": "Aqua-Ville prepares for the annual Harmony Festival a highly synchronized event meant to showcase their perfection. However the town's forced harmony and lack of vibrant energy is causing a lethargic algae to grow making the reef slowly fall asleep."
+              },
+              {
+                "beat_label": "Subplot",
+                "description": "Axel plans to crash the festival with his band to wake everyone up. He works tirelessly on writing the ultimate punk anthem but his secretive behavior raises his parents' suspicions."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Silencing",
+            "beats": [
+              {
+                "beat_label": "Low Point",
+                "description": "Axel's parents follow him to the trench and discover the punk band. Horrified by the chaotic noise they drag Axel home confiscate the electric guitar and forbid him from attending the Harmony Festival."
+              },
+              {
+                "beat_label": "Act II Climax",
+                "description": "With the band broken up and Axel grounded the town gathers for the sleepy Harmony Festival. The lethargic music lulls the guards to sleep therefore leaving the reef completely vulnerable as a massive predatory moray eel approaches the town."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: Breaking the Silence",
+            "beats": [
+              {
+                "beat_label": "Epiphany",
+                "description": "From his bedroom window Axel sees the shadow of the moray eel creeping toward the sleeping town. He realizes that only the loud chaotic energy of punk rock can break the algae's spell and save his family."
+              },
+              {
+                "beat_label": "Act III Opening",
+                "description": "Axel breaks out of his room stages a daring heist to retrieve his locked-up electric guitar and races across town to reunite his misfit bandmates just as the eel prepares to strike."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: The Amphibious Anarchy",
+            "beats": [
+              {
+                "beat_label": "Climax",
+                "description": "Axel and his band crash the Harmony Festival stage and launch into a blistering punk anthem. The chaotic massive sound waves literally shake the restrictive algae off the townspeople waking them up and terrifying the moray eel into fleeing the reef."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The townspeople experience the joy of letting go and embrace the messy chaotic music. Axel's parents realize that being normal is dangerous and overrated therefore they proudly celebrate Axel's unique identity as Aqua-Ville transforms into a vibrant diverse community."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

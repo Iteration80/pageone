@@ -412,11 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (projectDetails.data.stage6_scenes) {
                     renderStage6(projectDetails.data.stage6_scenes);
                     if (btnStage6Approve) {
-                        btnStage6Approve.textContent = 'Approved ✓';
-                        btnStage6Approve.classList.add('approve-btn-green');
-                        btnStage6Approve.classList.add('hidden');
+                        btnStage6Approve.textContent = 'Approve';
+                        btnStage6Approve.classList.remove('approve-btn-green');
                     }
-                    if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
 
                     if (stage6Notes && projectDetails.data.stage6_scenes.notes) {
                         stage6Notes.value = projectDetails.data.stage6_scenes.notes;
