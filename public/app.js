@@ -2215,10 +2215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         stage6Board.innerHTML = '';
 
         // Dummy Data implementation
-        const dummyData = data || {
+        const dummyData = {
             sequences: [
                 {
-                    title: "Sequence 1: The Setup",
+                    sequence_title: "Sequence 1: The Setup",
                     scenes: [
                         {
                             scene_number: 1,
@@ -2235,31 +2235,26 @@ document.addEventListener('DOMContentLoaded', () => {
                             estimated_page_count: "2 pgs"
                         }
                     ]
-                },
-                {
-                    title: "Sequence 2: The Complication",
-                    scenes: [
-                        {
-                            scene_number: 3,
-                            scene_heading: "INT. DARK ALLEY - NIGHT",
-                            narrative_action: "Shadowy figures pursue the protagonist. A tense chase ensues.",
-                            dramaturgical_function: "Increase the stakes and introduce the antagonists.",
-                            estimated_page_count: "1 pgs"
-                        },
-                        {
-                            scene_number: 4,
-                            scene_heading: "EXT. ROOFTOP - NIGHT",
-                            narrative_action: "The protagonist barely escapes, looking over the city with the package in hand.",
-                            dramaturgical_function: "Establish the protagonist's isolation and the importance of the package.",
-                            estimated_page_count: "1.5 pgs"
-                        }
-                    ]
                 }
             ]
         };
 
-        // Use sequences array from data if it's an array, otherwise try .sequences property, fallback to dummy
-        const sequences = Array.isArray(data) ? data : (data?.sequences || dummyData.sequences);
+        // Determine data structure
+        let sequences = [];
+        if (Array.isArray(data)) {
+            sequences = data;
+        } else if (data && data.sequences) {
+            sequences = data.sequences;
+        } else if (data && data.scenes && data.scenes.length > 0) {
+            // Support flat scenes array (Stage 7 fallback)
+            sequences = [{
+                sequence_title: "Screenplay Blueprint",
+                scenes: data.scenes
+            }];
+        } else if (!data || (data.scenes && data.scenes.length === 0)) {
+            // Default to dummy only for empty projects
+            sequences = dummyData.sequences;
+        }
 
         let globalSceneCounter = 1;
 
@@ -2296,7 +2291,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const cardsContainer = document.createElement('div');
             cardsContainer.className = 'scene-cards-container';
 
-            seq.scenes.forEach((scene) => {
+            const scenes = seq.scenes || [];
+            scenes.forEach((scene) => {
                 const card = document.createElement('div');
                 card.className = 'scene-card';
                 card.innerHTML = `

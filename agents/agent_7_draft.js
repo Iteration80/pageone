@@ -13,14 +13,6 @@ const generateSceneDraft = async (sceneData, projectContext) => {
     const rulesPath = path.join(__dirname, '../skills/screenwriting_rules.md');
     const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
 
-    const model = ai.getGenerativeModel({ 
-        model: 'gemini-3.1-pro-preview'
-    });
-
-    const generationConfig = {
-        temperature: 0.7,
-    };
-
     const prompt = `
 ${screenwritingRules}
 
@@ -46,12 +38,15 @@ Do not include any introductory or concluding text.
     `;
 
     try {
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: generationConfig
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: prompt,
+            config: {
+                temperature: 0.7,
+            }
         });
 
-        return result.response.text();
+        return response.text;
     } catch (error) {
         console.error('Error in agent_7_draft:', error);
         throw error;
