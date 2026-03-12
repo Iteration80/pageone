@@ -1,0 +1,61 @@
+const { GoogleGenAI } = require('@google/genai');
+const fs = require('fs');
+const path = require('path');
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+/**
+ * Stage 7: The Draft Agent
+ * Generates one scene at a time based on the blueprint and project context.
+ */
+const generateSceneDraft = async (sceneData, projectContext) => {
+    // Read the Screenwriting SOP rules
+    const rulesPath = path.join(__dirname, '../skills/screenwriting_rules.md');
+    const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
+
+    const model = ai.getGenerativeModel({ 
+        model: 'gemini-3.1-pro-preview'
+    });
+
+    const generationConfig = {
+        temperature: 0.7,
+    };
+
+    const prompt = `
+${screenwritingRules}
+
+## PROJECT CONTEXT
+SYNOPSIS:
+${projectContext.synopsis || 'Not provided'}
+
+CHARACTER PROFILES:
+${JSON.stringify(projectContext.characters, null, 2)}
+
+## SPECIFIC SCENE BLUEPRINT (SCENE TO WRITE NOW)
+SCENE NUMBER: ${sceneData.scene_number}
+SLUGLINE: ${sceneData.scene_heading}
+NARRATIVE ACTION: ${sceneData.narrative_action}
+DRAMATURGICAL FUNCTION: ${sceneData.dramaturgical_function}
+ESTIMATED PAGE COUNT: ${sceneData.estimated_page_count}
+
+## INSTRUCTIONS
+Write the screenplay pages for this specific scene using the provided rules. 
+Output ONLY the raw Fountain-formatted text. 
+Do not wrap it in markdown code blocks. 
+Do not include any introductory or concluding text.
+    `;
+
+    try {
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: generationConfig
+        });
+
+        return result.response.text();
+    } catch (error) {
+        console.error('Error in agent_7_draft:', error);
+        throw error;
+    }
+};
+
+module.exports = { generateSceneDraft };

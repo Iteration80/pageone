@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
+    let currentDraftSceneNumber = 1;
 
     function autoResize(textarea) {
         if (!textarea) return;
@@ -92,7 +93,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage6Notes = document.getElementById('stage6-notes');
     const btnStage6Submit = document.getElementById('btnStage6Submit');
     const btnStage6Approve = document.getElementById('btnStage6Approve');
+    const btnStage6Revise = document.getElementById('btnStage6Revise');
     const btnGenerateStage6Blueprint = document.getElementById('btnGenerateStage6Blueprint');
+
+    // Stage 7 Elements
+    const stage7View = document.getElementById('stage7-view');
+    const draftEditor = document.getElementById('draft-editor');
+    const btnStage7Submit = document.getElementById('btnStage7Submit');
+    const btnStage7Approve = document.getElementById('btnStage7Approve');
+    const btnGenerateScene = document.getElementById('btnGenerateScene');
+    const btnNextScene = document.getElementById('btnNextScene');
+    const stage7Notes = document.getElementById('stage7-notes');
 
 
     // Textarea/Notes auto-resize listeners
@@ -2549,12 +2560,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projData = await projRes.json();
                 updateStageNav(projData.data);
 
+                // Apply completion UI to Stage 6
+                if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
+                if (btnStage6Approve) btnStage6Approve.classList.add('hidden');
+                if (btnStage6Revise) btnStage6Revise.classList.remove('hidden');
+
+                // Apply completed styling to sidebar (already handled by updateStageNav, but being explicit about the active transition)
+                const stage6NavItem = navItems[6];
+                if (stage6NavItem) {
+                    stage6NavItem.classList.add('completed');
+                }
+
+                // Programmatically switch to Stage 7
+                switchStage(7);
+                initStage7();
+
             } catch (error) {
                 console.error('Stage 6 approval failed:', error);
                 alert('An error occurred while saving the approved blueprint.');
                 btnStage6Approve.textContent = originalText;
                 btnStage6Approve.disabled = false;
             }
+        });
+    }
+
+    // --- Stage 7 Logic: Draft ---
+
+    function initStage7() {
+        if (!btnGenerateScene || !btnNextScene || !draftEditor) return;
+
+        btnGenerateScene.textContent = `Generate Scene ${currentDraftSceneNumber}`;
+        btnGenerateScene.disabled = false;
+        btnNextScene.classList.add('hidden'); // Hide "Next" until a draft exists
+        
+        // Clear the editor for the new scene
+        draftEditor.innerText = '';
+    }
+
+    if (btnGenerateScene) {
+        btnGenerateScene.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+
+            const originalText = btnGenerateScene.textContent;
+            btnGenerateScene.textContent = 'Generating...';
+            btnGenerateScene.disabled = true;
+
+            try {
+                const response = await fetch('/api/generate-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        projectId: activeProjectId,
+                        sceneNumber: currentDraftSceneNumber 
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+                    throw new Error(error.error || 'Failed to generate draft');
+                }
+
+                const data = await response.json().catch(() => ({ result: '' }));
+                const draftText = data.result;
+
+                if (draftEditor) {
+                    draftEditor.innerText = draftText;
+                }
+
+                // Show "Next" button after generation
+                if (btnNextScene) btnNextScene.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Stage 7 draft generation failed:', error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                btnGenerateScene.textContent = originalText;
+                btnGenerateScene.disabled = false;
+            }
+        });
+    }
+
+    if (btnNextScene) {
+        btnNextScene.addEventListener('click', () => {
+            currentDraftSceneNumber++;
+            initStage7();
         });
     }
 

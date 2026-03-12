@@ -10,6 +10,7 @@ const { agent4Beats } = require('./agents/agent_4_beats');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
+const { generateSceneDraft } = require('./agents/agent_7_draft');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -319,6 +320,60 @@ app.post('/api/revise-stage6', async (req, res) => {
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to revise scene blueprint" });
+    }
+});
+
+app.post('/api/generate-draft', async (req, res) => {
+    try {
+        const { projectId, sceneNumber } = req.body;
+        if (!projectId || sceneNumber === undefined) {
+            return res.status(400).json({ error: "Missing projectId or sceneNumber" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        if (!projectData.data || !projectData.data.stage6_scenes) {
+            return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
+        }
+
+        // Find the scene in the sequences
+        let targetedScene = null;
+        for (const sequence of projectData.data.stage6_scenes) {
+            const scene = sequence.scenes.find(s => s.scene_number === parseInt(sceneNumber));
+            if (scene) {
+                targetedScene = scene;
+                break;
+            }
+        }
+
+        if (!targetedScene) {
+            return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
+        }
+
+        const projectContext = {
+            synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || "",
+            characters: projectData.data.stage3_characters?.characters || []
+        };
+
+        console.log(`Generating draft for Scene ${sceneNumber}...`);
+        const draftText = await generateSceneDraft(targetedScene, projectContext);
+
+        // Save the draft text back to the project data
+        targetedScene.draft_text = draftText;
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: draftText });
+    } catch (error) {
+        console.error('Stage 7 Draft Generation Error:', error.message);
+        res.status(500).json({ error: error.message || "Failed to generate scene draft" });
     }
 });
 

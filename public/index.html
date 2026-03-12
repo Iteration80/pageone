@@ -424,7 +424,7 @@
                     placeholder="e.g. Make Sequence 2 more action-packed, or refine Scene 12..."></textarea>
                 <div class="action-row action-row-split">
                     <div class="action-left">
-                        <!-- Red Revise button removed/hidden by default -->
+                        <button id="btnStage6Revise" class="danger-btn hidden">Revise</button>
                     </div>
                     <div class="action-group-right">
                         <button id="btnStage6Submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition-colors">Submit</button>
@@ -445,6 +445,19 @@
                         <p>Write the first draft of your screenplay using standard formatting.</p>
                     </header>
                     <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto">
+                        <!-- Generation Control Bar -->
+                        <div class="max-w-4xl mx-auto flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <button id="btnGenerateScene" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+                                    Generate Scene 1
+                                </button>
+                                <button id="btnNextScene" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors hidden">
+                                    Lock Scene & Next
+                                </button>
+                            </div>
+                            <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Drafting Mode</div>
+                        </div>
                         <div id="draft-editor" class="draft-editor max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm p-12 mt-8 mb-24 min-h-[1100px] focus:outline-none" contenteditable="true">
                             <div class="f-slugline">INT. COFFEE SHOP - DAY</div>
                             <div class="f-action">The morning light filters through the dusty windows. JOHNNY (30s, tired) sips his espresso with trembling hands.</div>
