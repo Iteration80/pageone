@@ -888,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
             3: !!data.stage3_characters,
             4: !!(data.stage4_beats || data.stage4_treatment),
             5: !!data.stage5_treatment,
-            6: !!data.stage6_scenes && data.stage6_scenes.length > 0 && data.stage6_scenes[0].scenes.length > 0
+            6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0))
             // Stages 7-10 currently placeholder
         };
 
@@ -2247,7 +2247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStage6(data) {
         const container = document.getElementById('stage6-blueprint-container');
         if (!container) return;
-        container.innerHTML = '';
+        container.innerHTML = ''; // Wipe clean before drawing
 
         // Dummy Data implementation
         const dummyData = {
@@ -2276,24 +2276,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Determine data structure
         let sequences = [];
-        if (Array.isArray(data)) {
-            sequences = data;
-        } else if (data && data.sequences) {
-            sequences = data.sequences;
-        } else if (data && data.scenes && data.scenes.length > 0) {
-            // Support flat scenes array (Stage 7 fallback)
-            sequences = [{
-                sequence_title: "Screenplay Blueprint",
-                scenes: data.scenes
-            }];
-        } else if (!data || (data.scenes && data.scenes.length === 0)) {
-            // Default to dummy only for empty projects
+        if (!data) {
+            sequences = dummyData.sequences; 
+        } else if (Array.isArray(data)) {
+            sequences = data; // Flat array of sequences
+        } else if (data.sequences && Array.isArray(data.sequences)) {
+            sequences = data.sequences; // Nested sequences
+        } else if (data.scenes && Array.isArray(data.scenes)) {
+            // Flat array of scenes: wrap them so they render in a single block
+            sequences = [{ sequence_title: "Draft Blueprint", scenes: data.scenes }];
+        } else {
             sequences = dummyData.sequences;
         }
 
-        if (sequences.length === 0) {
-            container.innerHTML = '<div class="p-10 text-gray-500 italic">No scenes generated yet. Click "Generate" to begin.</div>';
-            return;
+        if (sequences === dummyData.sequences || sequences.length === 0) {
+            // If we are forcing dummy data, clear the container but allow it to draw the empty blocks so the user can hit 'Generate'
+            container.innerHTML = '';
         }
 
         let globalSceneCounter = 1;
@@ -2323,10 +2321,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const seqBlock = document.createElement('div');
             seqBlock.className = 'sequence-block';
 
-            const seqTitle = document.createElement('div');
-            seqTitle.className = 'sequence-title';
-            seqTitle.textContent = seq.sequence_title || seq.title || "Untitled Sequence";
-            seqBlock.appendChild(seqTitle);
+            const seqTitleElement = document.createElement('div');
+            seqTitleElement.className = 'sequence-title';
+            seqTitleElement.textContent = seq.sequence_title || seq.title || seq.name || "SEQUENCE " + (index + 1);
+            seqBlock.appendChild(seqTitleElement);
 
             const cardsContainer = document.createElement('div');
             cardsContainer.className = 'scene-cards-container';
