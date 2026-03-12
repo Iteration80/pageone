@@ -16,6 +16,40 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.width = '100%';
     }
 
+    function formatFountainToHTML(rawText) {
+        const lines = rawText.split('\n');
+        let html = '';
+        let inDialogueBlock = false;
+
+        lines.forEach((line) => {
+            const tLine = line.trim();
+            
+            if (tLine === '') {
+                html += '<div class="h-3"></div>'; // Spacing for empty lines
+                inDialogueBlock = false;
+            } else if (/^(INT\.|EXT\.|I\/E\.|EST\.)/i.test(tLine) && tLine === tLine.toUpperCase()) {
+                // Scene Heading
+                html += `<div class="font-bold uppercase mt-6 mb-2 text-left">${tLine}</div>`;
+                inDialogueBlock = false;
+            } else if (tLine === tLine.toUpperCase() && !inDialogueBlock && !/^(INT\.|EXT\.)/i.test(tLine)) {
+                // Character Name
+                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide">${tLine}</div>`;
+                inDialogueBlock = true;
+            } else if (inDialogueBlock && tLine.startsWith('(') && tLine.endsWith(')')) {
+                // Parenthetical
+                html += `<div class="ml-[25%] mb-0 italic">${tLine}</div>`;
+            } else if (inDialogueBlock) {
+                // Dialogue
+                html += `<div class="ml-[15%] w-[70%] mb-0">${tLine}</div>`;
+            } else {
+                // Action Line
+                html += `<div class="text-left mb-2 w-full">${tLine}</div>`;
+            }
+        });
+
+        return html;
+    }
+
     // --- DOM Elements ---
     const projectsHub = document.getElementById('projectsHub');
     const appContainer = document.getElementById('appContainer');
@@ -2595,8 +2629,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGenerateScene.disabled = false;
         btnNextScene.classList.add('hidden'); // Hide "Next" until a draft exists
         
-        // Clear the editor for the new scene
-        draftEditor.innerText = '';
+        // Ensure monospace font and clear editor
+        draftEditor.classList.add('font-mono');
+        draftEditor.innerHTML = '';
     }
 
     if (btnGenerateScene) {
@@ -2626,7 +2661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const draftText = data.result;
 
                 if (draftEditor) {
-                    draftEditor.innerText = draftText;
+                    draftEditor.innerHTML = formatFountainToHTML(draftText);
                 }
 
                 // Show "Next" button after generation
