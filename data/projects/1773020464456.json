@@ -540,668 +540,676 @@
     },
     "stage6_scenes": [
       {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
-        "sequence_title": "Untitled Sequence",
-        "scenes": []
-      },
-      {
         "sequence_title": "Desperate Measures",
+        "total_estimated_pages": 15,
         "scenes": [
           {
             "scene_number": 1,
             "scene_heading": "EXT. MODEST SUBURBAN HOME - DAY",
-            "narrative_action": "Movers lug a heavy, worn sofa out the front door, dumping it unceremoniously onto the curb. Valerie Vance (34) stands rigidly on the manicured lawn, aggressively tapping her luxury watch. A tearful mother clutching a toddler steps into Valerie's personal space, begging for just one more day. Valerie physically steps around the weeping woman, pulling out a laser measuring tape to calculate the porch dimensions. She jots down flip costs on a clipboard, her face a mask of cold detachment, completely ignoring the crying child at her feet.",
-            "dramaturgical_function": "Establishes Valerie's absolute moral bankruptcy and transactional worldview (Opening Image).",
-            "estimated_page_count": "1.2"
+            "narrative_action": "Movers ruthlessly haul worn furniture onto the curb. Valerie Vance stands perfectly still on the manicured lawn, impeccably dressed. A tearful mother clutching a toddler approaches, pleading for more time. Valerie does not flinch. She checks her luxury watch, turns her back on the crying woman, and visually inspects the property's facade. She cuts off the mother's pleas with a rapid-fire lecture about market comps and neighborhood value adds, physically blocking the woman from re-entering the house.",
+            "dramaturgical_function": "Opening Image: Establishes Valerie's profound moral bankruptcy, her transactional view of humanity, and her deeply ingrained false belief that wealth is the only shield against victimization.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 2,
-            "scene_heading": "INT. VALERIE'S CAR - DAY",
-            "narrative_action": "Valerie speeds down the highway in her sleek Mercedes, aggressively cutting off a minivan. Her dashboard screen flashes bright red: 'CREDIT DECLINED - ACCOUNT OVERDRAWN.' Her polished veneer cracks. She punches the steering wheel hard, her breathing turning ragged and panicked. As she pulls into the underground parking garage of her luxury brokerage, she stares into the rearview mirror, forcibly smoothing her feral features into a dead-eyed, confident glare. She applies a sharp, perfect coat of red lipstick and marches out of the vehicle.",
-            "dramaturgical_function": "Reveals Valerie's hidden financial desperation and the fragile, panicked reality beneath her armor of wealth.",
-            "estimated_page_count": "1.1"
+            "scene_heading": "INT. LUXURY BROKERAGE - BULLPEN - DAY",
+            "narrative_action": "Valerie strides aggressively through the sterile, glass-and-steel bullpen. Toby Aris, her anxious assistant, scurries behind her, nervously adjusting his glasses and shuffling a messy stack of listing agreements. Toby stops in the middle of the aisle, forcing Valerie to halt, and timidly suggests the evicted family deserved basic empathy. Valerie steps directly into Toby's personal space, unleashes a barrage of corporate buzzwords, and drops her voice to a venomous whisper to declare that morality is a luxury only the ultra-rich can afford. She turns on her heel, leaving Toby stunned.",
+            "dramaturgical_function": "Theme Stated: Explicitly contrasts Toby's fragile idealism against Valerie's ruthless capitalism, posing the central thematic question of human value versus financial utility.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 3,
-            "scene_heading": "INT. LUXURY BROKERAGE (BULLPEN) - DAY",
-            "narrative_action": "Valerie strides through the glass-and-steel bullpen like a shark. Toby Aris (26) scurries behind her, fumbling a massive stack of listing agreements. Toby physically blocks her path near the copy machine, nervously adjusting his glasses, stammering out a plea about the evicted family's inherent human value. Valerie snatches the papers directly from his hands, slams them onto the copier, and leans in inches from his face. She delivers a venomous whisper about morality being a luxury, leaving Toby standing frozen as she marches away.",
-            "dramaturgical_function": "States the central theme (Theme Stated) and highlights the ideological clash between Valerie's greed and Toby's empathy.",
-            "estimated_page_count": "1.3"
+            "scene_heading": "INT. RICHARD STERLING'S OFFICE - DAY",
+            "narrative_action": "Valerie stands rigidly inside a cavernous, glass-walled office. Richard Sterling stands by the window with his back to her, calmly pouring a glass of scotch. He speaks in measured, patronizing tones, detailing his full awareness of Valerie's secret, mounting debts. Valerie's polished veneer cracks; her breathing quickens and her knuckles turn white as she grips the back of a leather guest chair. Richard turns, locking her in a dead-eyed stare, and delivers a quiet ultimatum: she is a liability on the verge of termination. Valerie swallows hard, her eyes darting in feral panic, and exits without a word.",
+            "dramaturgical_function": "Inciting Incident / Setup: Strips away Valerie's armor of success, exposing her deepest fear of poverty and forcing her into a desperate corner where she must take drastic action.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 4,
-            "scene_heading": "INT. RICHARD STERLING'S OFFICE - DAY",
-            "narrative_action": "Valerie enters the cavernous, glass-walled office. Richard Sterling (55) stands by the window, calmly pouring a scotch without looking at her. He slides a thick, red-stamped financial dossier across his mahogany desk. Valerie's eyes lock onto it; her knuckles turn white as she grips the back of a leather guest chair, fighting off a panic attack. Richard turns, takes a slow sip, and softly delivers his ultimatum of termination. Valerie's jaw clenches, her breathing shallow, but she forces a sharp, obedient nod.",
-            "dramaturgical_function": "The Inciting Incident of the sequence; Richard corners Valerie, forcing her to take desperate measures to survive.",
-            "estimated_page_count": "1.4"
+            "scene_heading": "INT. LUXURY BROKERAGE - BREAKROOM - DAY",
+            "narrative_action": "Valerie bursts into the breakroom, moving with the frantic energy of a cornered animal. She spots Julian Vance loudly bragging into his phone. Valerie marches over, snatches the phone from his hand, and slams the door shut. She slaps a manila folder onto the counter, exposing printouts of Julian's fraudulent escrow accounts. Julian's arrogant smile vanishes; he aggressively grabs for his phone to avoid eye contact. Valerie blocks his reach, demanding the physical keys to his exclusive modernist mansion listing. Defeated, Julian trembling drops the heavy brass keys into her open palm.",
+            "dramaturgical_function": "Takes Action: Demonstrates Valerie's cutthroat resourcefulness under pressure and actively secures the specific location where the supernatural elements will emerge.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 5,
-            "scene_heading": "INT. BROKERAGE BREAKROOM - DAY",
-            "narrative_action": "Julian Vance (32) is laughing loudly at his own reflection in the espresso machine. Valerie marches in and slams a manila folder of Julian's fraudulent escrow accounts onto the marble counter, knocking over his espresso cup. Julian's smile vanishes; he aggressively grabs his phone to avoid eye contact. Valerie physically yanks the phone from his grip, tossing it into the sink. She demands the keys to his exclusive new listing. Defeated and shaking, Julian digs into his tailored pockets and drops a heavy, iron key onto the wet counter.",
-            "dramaturgical_function": "Valerie crosses an ethical line, ruthlessly blackmailing a rival to secure the cursed listing.",
-            "estimated_page_count": "1.2"
+            "scene_heading": "EXT. MODERNIST MANSION - DAY",
+            "narrative_action": "A sleek, cold glass-and-steel mansion sits unnaturally perfect against a backdrop of dense, shadowy woods. Valerie's luxury sedan parks on the sweeping driveway. A loud, obnoxious sports car aggressively pulls up right behind her. A wealthy Tech Bro steps out, immediately shouting into his phone about the lack of cell service. Valerie takes a deep breath, pastes on a plastic, professional smile, and unlocks the massive front door, gesturing for the hostile client to step inside.",
+            "dramaturgical_function": "Atmosphere & Transition: Establishes the isolation and eerie perfection of the mansion, physically cutting the protagonist and her prey off from the outside world.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 6,
-            "scene_heading": "EXT. MODERNIST MANSION - DAY",
-            "narrative_action": "Valerie's Mercedes crunches up a long, shadowy gravel driveway, stopping before a stark, glass-and-concrete modernist mansion surrounded by dense woods. She steps out, unlocking the heavy glass front door with Julian's iron key. A screeching neon-green sports car drifts into the driveway. A wealthy, obnoxious Tech Bro kicks his door open, immediately waving his phone in the air and shouting about the lack of cell service, kicking gravel onto Valerie's polished shoes as he storms past her.",
-            "dramaturgical_function": "Introduces the Monster (the house) and the first victim, setting up the physical isolation of the property.",
-            "estimated_page_count": "1.1"
+            "scene_heading": "INT. MODERNIST MANSION - FOYER / HALLWAYS - DAY",
+            "narrative_action": "Valerie leads the Tech Bro through pristine, echoing hallways. The Tech Bro struts arrogantly, trailing his fingers along the walls and relentlessly mocking the minimalist architecture. Valerie absorbs the toxic vitriol, her eyes tracking his movements while she mentally calculates her commission. The Tech Bro stops, jabbing a finger inches from Valerie's face, threatening to ruin her career over the lack of smart-home integration. Valerie physically steps back, hands clasped tightly in front of her, maintaining her forced smile despite the escalating abuse.",
+            "dramaturgical_function": "Escalation: Builds tension through the client's obnoxious behavior, making the audience resent him while highlighting Valerie's desperate need to close the deal at any cost.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 7,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - DAY",
-            "narrative_action": "The Tech Bro stomps his heavy designer boots across the pristine hardwood floors, the sound echoing in the cavernous, empty room. Valerie trails him, her smile tight and plastic. He violently slaps the concrete walls, mocking the architecture, then aggressively stomps on the floorboards directly in the center of the room to test their hollowness. Valerie mentally tallies her commission, biting the inside of her cheek to keep from snapping at his toxic insults.",
-            "dramaturgical_function": "Escalates tension through the client's obnoxious behavior, positioning him perfectly for the house's trap.",
-            "estimated_page_count": "1.3"
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - DAY",
+            "narrative_action": "They enter a cavernous living room. The Tech Bro loudly declares the house a hollow piece of garbage and aggressively stomps his designer shoes against the sleek hardwood floor. Without warning, the floorboards beneath him liquefy, peeling back to reveal a massive, fleshy maw lined with jagged teeth. The house swallows the screaming billionaire whole in a single, silent gulp. The wooden floor snaps shut, instantly returning to a pristine state. The shockwave of the floor snapping shut throws Valerie backward. She slams against a glass wall and slides to the floor, paralyzed.",
+            "dramaturgical_function": "The Turn / Supernatural Reveal: Shatters the grounded reality of the film, introducing the Monster and delivering the first major genre thrill of the narrative.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 8,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "The hardwood floor beneath the Tech Bro's boots suddenly liquefies. He drops waist-deep into the floorboards as they peel back, revealing a massive, fleshy maw lined with jagged teeth. He screams, clawing at the wood. In one violent, silent gulp, the house pulls him under. The wooden jaws snap shut. The floor instantly returns to a pristine state. The shockwave throws Valerie backward; she crashes into a glass partition, shattering a decorative vase and collapsing to the floor in absolute terror.",
-            "dramaturgical_function": "The supernatural twist; reveals the house as a sentient, malevolent entity that consumes humans.",
-            "estimated_page_count": "1.4"
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - MOMENTS LATER",
+            "narrative_action": "Deafening silence fills the room. Valerie cowers against the glass, hyperventilating. She scrambles backward on her hands and knees, terrified the floor will open beneath her. Fumbling frantically in her designer blazer, she yanks out her cell phone. Her trembling thumb hovers over the emergency dial pad. She punches in 9-1-1. Her finger rests a millimeter above the call button, her entire body shaking as she fights the instinct to flee.",
+            "dramaturgical_function": "Reaction: Grounds the horror in a realistic, panicked human response, setting up the immediate moral crossroads Valerie is about to face.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 9,
-            "scene_heading": "INT. MODERNIST MANSION (FOYER) - CONTINUOUS",
-            "narrative_action": "Deafening silence. Valerie scrambles backward on her hands and knees, cutting her palms on the shattered vase. She yanks her cell phone from her blazer pocket. Her trembling thumb hovers over the 9-1-1 dial pad. Before she can press it, the entire house emits a deep, guttural shudder. The floorboards in the center of the living room ripple like water. With a wet, sickening squelch, the house regurgitates a massive, glowing object. It rolls across the floor, stopping with a heavy, crystalline clink inches from Valerie's bleeding knees.",
-            "dramaturgical_function": "Introduces the complication and the temptation; the house produces a diamond after feeding.",
-            "estimated_page_count": "1.2"
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "A deep, guttural shudder vibrates through the floorboards, knocking Valerie off balance. The center of the room ripples like water. With a sickening, wet squelch, the house regurgitates a single, heavy object. It hits the pristine wood with a crystalline clink and rolls to a stop near Valerie's feet. She creeps forward, breath hitched, and stares down at a massive, flawless diamond, completely free of blood or biological residue.",
+            "dramaturgical_function": "The Complication: Introduces the supernatural reward mechanism, instantly complicating Valerie's decision to call the authorities and weaponizing her deepest desires.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 10,
-            "scene_heading": "INT. MODERNIST MANSION (FOYER) - CONTINUOUS",
-            "narrative_action": "Valerie stares at the flawless, blood-free diamond resting on the floor. She looks down at the glaring 9-1-1 on her phone screen. Her breathing slows. The feral panic in her eyes hardens into cold calculation. She lowers the phone, her thumb deliberately hitting 'Cancel.' She crawls forward, picks up the heavy gemstone, and uses the sleeve of her expensive designer blazer to wipe away a faint streak of ethereal saliva. She stands up slowly, clutching the diamond like a weapon, and surveys the hungry room with a dark, resolved smirk.",
-            "dramaturgical_function": "The climax of the sequence; Valerie makes a conscious, morally bankrupt choice to ally with the monster to save herself.",
-            "estimated_page_count": "1.3"
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "The harsh glow of the 9-1-1 screen illuminates Valerie's conflicted face. She looks from the phone to the sparkling diamond. The feral panic in her eyes slowly hardens into a cold, calculating resolve. She lowers the phone, her thumb deleting the numbers until the screen goes black. Dropping to her knees, she grabs the cold gemstone, using the sleeve of her expensive blazer to wipe off a faint trace of ethereal saliva. Valerie stands tall in the center of the hungry room, clutching the diamond like a weapon, her posture entirely composed.",
+            "dramaturgical_function": "Sequence Climax / The Choice: Valerie actively crosses the moral point of no return. She chooses wealth over humanity, sealing her dark pact with the entity and launching Act II.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 1
       },
       {
         "sequence_title": "The First Meal",
+        "total_estimated_pages": 16.5,
         "scenes": [
           {
+            "scene_number": 1,
+            "scene_heading": "EXT. MODERNIST MANSION - DAY",
+            "narrative_action": "Valerie's luxury sedan winds up a deeply shadowed, forested driveway, breaking through the tree line to reveal a brutalist, glass-and-steel mansion. The isolation is absolute; not even birds are chirping. Valerie steps out, her heels clicking sharply against the concrete. She retrieves a heavy brass key from her designer bag, marches to the oversized front door, and shoves the key into the lock with forceful, desperate precision.",
+            "dramaturgical_function": "Atmosphere & Setting: Establishes the extreme isolation of the property, physically cutting Valerie and her future prey off from the outside world.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. MODERNIST MANSION - FOYER / KITCHEN - DAY",
+            "narrative_action": "Valerie moves through the cavernous, echoing house, aggressively turning on smart-lights and adjusting staging furniture. The air inside is unnaturally cold. As she straightens a stack of architectural magazines on the marble kitchen island, a heavy mahogany door down the hall slowly swings shut on its own with a soft click. Valerie pauses, her eyes darting toward the sound, but she shakes her head, dismisses the creepiness, and checks her luxury watch.",
+            "dramaturgical_function": "Tension Building: Introduces subtle, supernatural 'wrongness' to the house, highlighting Valerie's willingness to ignore red flags in pursuit of a paycheck.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "EXT. MODERNIST MANSION - DRIVEWAY - DAY",
+            "narrative_action": "A violently loud, neon-green sports car screeches to a halt right behind Valerie's sedan. A wealthy TECH BRO (30s, wearing a tech-fleece vest and designer sunglasses) steps out, screaming into his cell phone about firing a subordinate. He casually tosses a half-empty plastic green juice bottle onto the pristine manicured lawn. Valerie takes a deep breath, pastes on a flawless, plastic smile, and walks out to greet him, completely ignoring the litter.",
+            "dramaturgical_function": "Character Introduction: Introduces the victim, establishing him as instantly abhorrent and morally bankrupt, making the audience subconsciously root for his demise.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - KITCHEN / HALLWAY - DAY",
+            "narrative_action": "Valerie leads the Tech Bro through the kitchen. He immediately taps his knuckles aggressively against the countertops, mocking the minimalist aesthetic as 'sterile garbage.' Valerie absorbs the insult, her eyes briefly dropping to his $100,000 wristwatch. She smoothly deflects, physically maneuvering herself between him and a minor scuff on the wall, rapid-firing market comps to justify the asking price.",
+            "dramaturgical_function": "Escalation: The client's toxic behavior tests Valerie's polished veneer, visually demonstrating the emotional abuse she endures to survive financially.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. MODERNIST MANSION - MASTER BEDROOM - DAY",
+            "narrative_action": "The Tech Bro realizes he has no cell service. He snaps. He steps aggressively into Valerie's personal space, jabbing a finger inches from her nose, threatening to blacklist her across the entire city if the house isn't wired with fiber optics. Valerie's fake smile strains; her knuckles turn white as she grips her clipboard. A low, barely audible hum vibrates through the floorboards beneath them, as if the house is reacting to his raised voice.",
+            "dramaturgical_function": "Rising Action: Pushes Valerie to her breaking point while subtly hinting that the house is 'listening' and reacting to the hostility in the room.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - DAY",
+            "narrative_action": "They enter the massive, glass-walled living room. The Tech Bro spins around in the center of the room, loudly declaring the property a hollow, overpriced joke. To emphasize his disgust, he violently stomps his heavy designer boots against the sleek hardwood floor. Valerie physically recoils from the noise, her patience finally snapping as she opens her mouth to snap back at him.",
+            "dramaturgical_function": "The Trigger: The client's physical abuse of the property serves as the final catalyst, pushing the tension to its absolute peak right before the supernatural reveal.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Without warning, the floorboards beneath the Tech Bro liquefy. The wood peels back like flesh, revealing a massive, cavernous maw lined with jagged, impossible teeth. In a single, silent, hyper-violent gulp, the house swallows the screaming billionaire whole. The wooden jaws snap shut with a deafening CRACK, instantly returning to a pristine, polished state. The shockwave blasts Valerie off her feet. She slams hard against the glass wall and slides to the floor, eyes wide in absolute terror.",
+            "dramaturgical_function": "Catalyst / Supernatural Reveal: Shatters the grounded corporate reality of the film. The Monster is revealed, completely upending Valerie's world.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - MOMENTS LATER",
+            "narrative_action": "Deafening silence. Valerie hyperventilates, her chest heaving. She scrambles backward on her hands and knees, treating the hardwood floor like thin ice. Fumbling frantically inside her designer blazer, she yanks out her cell phone. Her trembling thumb punches in 9-1-1. She hovers her finger a millimeter above the green call button, her entire body shaking as she prepares to report the impossible murder.",
+            "dramaturgical_function": "Reaction: Grounds the horror in a realistic, primal human response. Valerie's instinct is to flee and seek help, setting up the impending moral dilemma.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Before she can press call, a deep, guttural shudder vibrates through the room, knocking her phone sideways. The center floorboards ripple like water. With a sickening, wet squelch, the house regurgitates a heavy object. It hits the wood with a crystalline clink and rolls directly to Valerie's knees. She stops breathing. She leans in, staring down at a massive, flawless diamond, completely devoid of blood.",
+            "dramaturgical_function": "The Complication: Introduces the supernatural reward mechanism. The house weaponizes Valerie's deepest desire (wealth) to stop her from calling the authorities.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "The harsh glow of the 9-1-1 screen illuminates Valerie's terrified face. She looks from the phone to the sparkling diamond. She squeezes her eyes shut, and her hand moves instinctively to her empty, maxed-out designer wallet in her pocket. The feral panic in her eyes slowly drains away, replaced by a cold, calculating stillness. She stares at the spot where the man was eaten, her breathing slowing to a calm, steady rhythm.",
+            "dramaturgical_function": "The Debate: The internal moral crossroads. Valerie actively weighs her crushing financial ruin against the horrific reality of becoming an accomplice to murder.",
+            "estimated_page_count": 1.5
+          },
+          {
             "scene_number": 11,
-            "scene_heading": "EXT. MODEST SUBURBAN HOME - DAY",
-            "narrative_action": "Movers lug a heavy worn sofa out the front door dumping it unceremoniously onto the curb. Valerie Vance stands rigidly on the manicured lawn aggressively tapping her luxury watch. A tearful mother clutching a toddler steps into Valerie's personal space begging for just one more day. Valerie physically steps around the weeping woman pulling out a laser measuring tape to calculate the porch dimensions. She jots down flip costs on a clipboard her face a mask of cold detachment completely ignoring the crying child at her feet.",
-            "dramaturgical_function": "Establishes Valerie's absolute moral bankruptcy and transactional worldview.",
-            "estimated_page_count": "1.2"
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Valerie lowers the phone. Her thumb deliberately deletes the numbers 9-1-1, and the screen goes black. She drops to her knees, reaches out, and grabs the cold gemstone. Without hesitating, she uses the sleeve of her $2,000 blazer to wipe a faint trace of ethereal saliva from the diamond's facets. She stands up tall in the center of the hungry room, slipping the diamond into her pocket. She nods once to the empty room.",
+            "dramaturgical_function": "Break into Two: Valerie crosses the moral point of no return. She chooses the sin of greed over her humanity, sealing her dark pact with the entity.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 12,
-            "scene_heading": "INT. VALERIE'S CAR - DAY",
-            "narrative_action": "Valerie speeds down the highway in her sleek Mercedes aggressively cutting off a minivan. Her dashboard screen flashes bright red: CREDIT DECLINED - ACCOUNT OVERDRAWN. Her polished veneer cracks. She punches the steering wheel hard her breathing turning ragged and panicked. As she pulls into the underground parking garage of her luxury brokerage she stares into the rearview mirror forcibly smoothing her feral features into a dead-eyed confident glare. She applies a sharp perfect coat of red lipstick and marches out of the vehicle.",
-            "dramaturgical_function": "Reveals Valerie's hidden financial desperation and the fragile panicked reality beneath her armor of wealth.",
-            "estimated_page_count": "1.1"
-          },
-          {
-            "scene_number": 13,
-            "scene_heading": "INT. LUXURY BROKERAGE (BULLPEN) - DAY",
-            "narrative_action": "Valerie strides through the glass-and-steel bullpen like a shark. Toby Aris scurries behind her fumbling a massive stack of listing agreements. Toby physically blocks her path near the copy machine nervously adjusting his glasses stammering out a plea about the evicted family's inherent human value. Valerie snatches the papers directly from his hands slams them onto the copier and leans in inches from his face. She delivers a venomous whisper about morality being a luxury leaving Toby standing frozen as she marches away.",
-            "dramaturgical_function": "States the central theme and highlights the ideological clash between Valerie's greed and Toby's empathy.",
-            "estimated_page_count": "1.3"
-          },
-          {
-            "scene_number": 14,
-            "scene_heading": "INT. RICHARD STERLING'S OFFICE - DAY",
-            "narrative_action": "Valerie enters the cavernous glass-walled office. Richard Sterling stands by the window calmly pouring a scotch without looking at her. He slides a thick red-stamped financial dossier across his mahogany desk. Valerie's eyes lock onto it; her knuckles turn white as she grips the back of a leather guest chair fighting off a panic attack. Richard turns takes a slow sip and softly delivers his ultimatum of termination. Valerie's jaw clenches her breathing shallow but she forces a sharp obedient nod.",
-            "dramaturgical_function": "The Inciting Incident of the sequence; Richard corners Valerie forcing her to take desperate measures to survive.",
-            "estimated_page_count": "1.4"
-          },
-          {
-            "scene_number": 15,
-            "scene_heading": "INT. BROKERAGE BREAKROOM - DAY",
-            "narrative_action": "Julian Vance is laughing loudly at his own reflection in the espresso machine. Valerie marches in and slams a manila folder of Julian's fraudulent escrow accounts onto the marble counter knocking over his espresso cup. Julian's smile vanishes; he aggressively grabs his phone to avoid eye contact. Valerie physically yanks the phone from his grip tossing it into the sink. She demands the keys to his exclusive new listing. Defeated and shaking Julian digs into his tailored pockets and drops a heavy iron key onto the wet counter.",
-            "dramaturgical_function": "Valerie crosses an ethical line ruthlessly blackmailing a rival to secure the cursed listing.",
-            "estimated_page_count": "1.2"
-          },
-          {
-            "scene_number": 16,
             "scene_heading": "EXT. MODERNIST MANSION - DAY",
-            "narrative_action": "Valerie's Mercedes crunches up a long shadowy gravel driveway stopping before a stark glass-and-concrete modernist mansion surrounded by dense woods. She steps out unlocking the heavy glass front door with Julian's iron key. A screeching neon-green sports car drifts into the driveway. A wealthy obnoxious Tech Bro kicks his door open immediately waving his phone in the air and shouting about the lack of cell service kicking gravel onto Valerie's polished shoes as he storms past her.",
-            "dramaturgical_function": "Introduces the isolated setting and the first victim.",
-            "estimated_page_count": "1.1"
-          },
-          {
-            "scene_number": 17,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - DAY",
-            "narrative_action": "The Tech Bro stomps his heavy designer boots across the pristine hardwood floors the sound echoing in the cavernous empty room. Valerie trails him her smile tight and plastic. He violently slaps the concrete walls mocking the architecture then aggressively stomps on the floorboards directly in the center of the room to test their hollowness. Valerie mentally tallies her commission biting the inside of her cheek to keep from snapping at his toxic insults.",
-            "dramaturgical_function": "Escalates tension through the client's obnoxious behavior positioning him perfectly for the house's trap.",
-            "estimated_page_count": "1.3"
-          },
-          {
-            "scene_number": 18,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "The hardwood floor beneath the Tech Bro's boots suddenly liquefies. He drops waist-deep into the floorboards as they peel back revealing a massive fleshy maw lined with jagged teeth. He screams clawing at the wood. In one violent silent gulp the house pulls him under. The wooden jaws snap shut. The floor instantly returns to a pristine state. The shockwave throws Valerie backward; she crashes into a glass partition shattering a decorative vase and collapsing to the floor in absolute terror.",
-            "dramaturgical_function": "The supernatural twist; reveals the house as a sentient malevolent entity that consumes humans.",
-            "estimated_page_count": "1.4"
-          },
-          {
-            "scene_number": 19,
-            "scene_heading": "INT. MODERNIST MANSION (FOYER) - CONTINUOUS",
-            "narrative_action": "Deafening silence. Valerie scrambles backward on her hands and knees cutting her palms on the shattered vase. She yanks her cell phone from her blazer pocket. Her trembling thumb hovers over the 9-1-1 dial pad. Before she can press it the entire house emits a deep guttural shudder. The floorboards in the center of the living room ripple like water. With a wet sickening squelch the house regurgitates a massive glowing object. It rolls across the floor stopping with a heavy crystalline clink inches from Valerie's bleeding knees.",
-            "dramaturgical_function": "Introduces the complication and the temptation; the house produces a diamond after feeding.",
-            "estimated_page_count": "1.2"
-          },
-          {
-            "scene_number": 20,
-            "scene_heading": "INT. MODERNIST MANSION (FOYER) - CONTINUOUS",
-            "narrative_action": "Valerie stares at the flawless blood-free diamond resting on the floor. She looks down at the glaring 9-1-1 on her phone screen. Her breathing slows. The feral panic in her eyes hardens into cold calculation. She lowers the phone her thumb deliberately hitting Cancel. She crawls forward picks up the heavy gemstone and uses the sleeve of her expensive designer blazer to wipe away a faint streak of ethereal saliva. She stands up slowly clutching the diamond like a weapon and surveys the hungry room with a dark resolved smirk.",
-            "dramaturgical_function": "The climax of the sequence; Valerie makes a conscious morally bankrupt choice to ally with the monster to save herself.",
-            "estimated_page_count": "1.3"
+            "narrative_action": "Valerie exits the front door, her posture impeccably straight and composed. She locks the heavy deadbolt with a definitive click. She turns and looks at the Tech Bro's neon-green sports car still idling in the driveway. Without a shred of emotion, she steps around the litter on the lawn, gets into her sedan, and drives away down the shadowed forest road, leaving the car and the victim behind.",
+            "dramaturgical_function": "Resolution of the Sequence: Visual confirmation of her complicity. She leaves the scene of the crime, fully locked into her new role as the monster's caretaker.",
+            "estimated_page_count": 0.5
           }
-        ]
+        ],
+        "sequence_number": 2
       },
       {
         "sequence_title": "Feeding the Beast",
+        "total_estimated_pages": 17,
         "scenes": [
           {
-            "scene_number": 21,
-            "scene_heading": "INT. BROKERAGE (VALERIE'S DESK) - DAY",
-            "narrative_action": "Valerie furiously types on her laptop, her eyes locked on a banking portal. She hits 'EXECUTE.' The screen flashes 'ZERO BALANCE' across her massive, red-lined debt accounts. She exhales a long, shaky breath, physically deflating into her chair. A second later, she snaps her posture into a rigid, arrogant spine. She stands, grabs her cheap, off-the-rack blazer from the back of her chair, and casually drops it into the wastebasket before strutting into the bullpen.",
-            "dramaturgical_function": "Establishes Valerie's immediate psychological shift from desperate survival to arrogant power after liquidating the first diamond.",
-            "estimated_page_count": "1.1"
+            "scene_number": 1,
+            "scene_heading": "INT. BROKERAGE FIRM - BULLPEN - DAY",
+            "narrative_action": "Valerie strides through the glass-walled brokerage in a razor-sharp, impossibly expensive new designer suit. She stares at her phone screen, where a banking app displays a suffocating red balance of '-$842,500.' Her thumb hovers, then aggressively taps 'TRANSFER.' The screen flashes green: '$0.00.' Valerie exhales a breath she's been holding for years, her posture instantly shifting from rigid survival to predatory arrogance. She tosses her empty coffee cup into a bin without breaking stride.",
+            "dramaturgical_function": "The B-Story Catalyst: Establishes Valerie's newfound financial invincibility and sets her up to interact with Toby from a position of absolute power.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 22,
-            "scene_heading": "INT. BROKERAGE (TOBY'S DESK) - DAY",
-            "narrative_action": "Valerie drops a heavy velvet box onto Toby's cluttered desk. He opens it, staring wide-eyed at a gleaming designer watch. Toby nervously adjusts his glasses and excitedly unrolls architectural blueprints for an affordable housing complex. Valerie physically pushes the blueprints aside. She taps his monitor, demanding dossiers on the city's corrupt elites. Toby hesitates, clearing his throat, but obediently scrolls through mugshots and financial profiles of slumlords and embezzlers while Valerie takes notes.",
-            "dramaturgical_function": "Initiates the B-Story manipulation; Valerie weaponizes Toby's empathy and research skills to source high-value victims for the house.",
-            "estimated_page_count": "1.3"
+            "scene_number": 2,
+            "scene_heading": "INT. BROKERAGE FIRM - TOBY'S DESK - CONTINUOUS",
+            "narrative_action": "Valerie drops a heavy velvet box onto Toby's cluttered desk. He opens it to find a $20,000 Rolex. Toby stammers, nervously adjusting his glasses and shuffling his affordable housing proposals. Valerie leans in, tapping a manicured nail on his meticulously researched 'Corrupt Landlords & Officials' dossier. Toby eagerly flips the binder open, pointing to Councilwoman Rostova's profile. Valerie's eyes lock onto Rostova's photo, a predatory smile stretching across her face as she slides the file toward herself.",
+            "dramaturgical_function": "Preparation / Manipulation: Valerie weaponizes Toby's empathy, securing her hit list of victims while masking her murderous intent as ambitious corporate disruption.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 23,
-            "scene_heading": "INT. MODERNIST MANSION (KITCHEN) - DAY",
-            "narrative_action": "Councilwoman Elena Rostova taps her long acrylic nails against the pristine marble island, sneering at the fixtures. Valerie stands safely by the doorway, checking her luxury watch with calculated indifference. The marble island suddenly splits down the middle with a sickening crunch, revealing a churning vortex of jagged drywall and rebar. Rostova is violently yanked forward by her designer scarf, screaming as she is dragged headfirst into the mechanical, fleshy disposal.",
-            "dramaturgical_function": "Kicks off the 'Fun and Games' montage with the first targeted kill, establishing the house's creative and brutal consumption methods.",
-            "estimated_page_count": "1.4"
+            "scene_number": 3,
+            "scene_heading": "INT. MODERNIST MANSION - KITCHEN - DAY",
+            "narrative_action": "Councilwoman Rostova, dripping in gold jewelry, aggressively taps her designer heels against the floor while sneering at the kitchen's minimalist aesthetic. Valerie stands safely by the doorway, hands clasped behind her back. Rostova leans her weight against the pristine marble island. The marble suddenly softens like warm wax. With a wet tear, the island splits down the middle, revealing a churning vortex of jagged rebar and drywall. Rostova is violently yanked waist-deep into the architectural garbage disposal.",
+            "dramaturgical_function": "Escalation (Fun & Games): The first targeted feeding. Delivers on the premise by showing the house creatively devouring a specifically chosen, morally bankrupt victim.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 24,
-            "scene_heading": "INT. MODERNIST MANSION (KITCHEN) - CONTINUOUS",
-            "narrative_action": "The marble island snaps shut, perfectly seamless. A soft *ding* echoes from the built-in espresso machine. The drip tray slides open on its own, presenting a flawless, fist-sized diamond. Valerie casually strolls over, plucks the diamond from the tray, and pulls a manila folder from her designer bag. She uses a red Sharpie to violently cross Rostova's name off Toby's curated list.",
-            "dramaturgical_function": "Reinforces the transactional nature of the murders and Valerie's complete, sociopathic desensitization to the violence.",
-            "estimated_page_count": "1.1"
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - KITCHEN - MOMENTS LATER",
+            "narrative_action": "The island snaps shut, returning to flawless marble. A sickening gulp echoes through the plumbing. From the gleaming chrome sink faucet, a fist-sized, blood-free diamond drops with a heavy CLINK into the stainless steel basin. Valerie casually walks over, plucks the diamond from the sink, and uses a thick black marker to violently cross Rostova's name off Toby's dossier.",
+            "dramaturgical_function": "Reward Mechanism: Cements the transactional nature of Valerie's pact with the house. Murder equals immediate, pristine wealth.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 25,
-            "scene_heading": "EXT. MODERNIST MANSION (POOL DECK) - DAY",
-            "narrative_action": "A toxic Crypto-Billionaire does aggressive, splashing butterfly strokes in the glass-walled infinity pool. Valerie sits safely on a distant lounge chair, sipping a mimosa. The glass walls of the pool suddenly begin to slide inward. The water thickens into a gelatinous, suffocating membrane. The Bro thrashes, his face pressing against the shrinking glass until he is completely engulfed. The pool filter gurgles loudly, spitting a massive diamond into the plastic skimmer basket.",
-            "dramaturgical_function": "Escalates the horror-comedy kills and demonstrates the house's control over its entire exterior footprint.",
-            "estimated_page_count": "1.3"
+            "scene_number": 5,
+            "scene_heading": "EXT. MODERNIST MANSION - INFINITY POOL - DAY",
+            "narrative_action": "A toxic Crypto-Billionaire swims aggressive laps in the glass-edged infinity pool. Valerie sits on a distant lounger, scrolling on her phone. Slowly, the concrete edges of the pool begin to slide inward. The billionaire stops, treading water in confusion as the pool rapidly shrinks. He thrashes, screaming for help as the glass walls close in, compressing the water into a violent, churning geyser. The pool seals shut into a solid concrete patio, leaving only a sparkling diamond resting in the center drain.",
+            "dramaturgical_function": "Montage Beat 1: Accelerates the pacing and body count, showcasing the house's shifting, deadly architecture and Valerie's growing desensitization.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 26,
-            "scene_heading": "INT. MODERNIST MANSION (MASTER SUITE) - DAY",
-            "narrative_action": "A predatory Hedge Fund Manager paces furiously under a massive vaulted ceiling, screaming into his Bluetooth earpiece. Valerie quietly steps backward out of the room, pulling the heavy oak doors shut. Inside, the twenty-foot ceiling plummets at lightning speed. A muffled, bone-crunching *THUD* shakes the floorboards. The ceiling slowly rises back to the top, leaving the room completely empty save for a gleaming diamond resting precisely in the center of the rug.",
-            "dramaturgical_function": "Concludes the montage of kills, showing Valerie's perfected, hands-off routine and the house's ruthless efficiency.",
-            "estimated_page_count": "1.2"
+            "scene_number": 6,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - DAY",
+            "narrative_action": "A predatory Hedge Fund Manager paces the living room, loudly complaining on his cell phone. Valerie checks her watch, takes a deliberate step backward out of the center of the room, and sips a glass of champagne. Above the manager, the massive vaulted ceiling silently detaches. It plummets like a hydraulic press, flattening the man instantly against the floorboards. The ceiling seamlessly retracts. Valerie calmly walks over and catches the regurgitated diamond before it hits the ground.",
+            "dramaturgical_function": "Montage Beat 2: Completes the 'Fun and Games' sequence, demonstrating Valerie's absolute comfort and sociopathic mastery over the slaughter process.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 27,
-            "scene_heading": "INT. RICHARD STERLING'S OFFICE - DAY",
-            "narrative_action": "Valerie sits confidently in the leather guest chair. Richard Sterling, previously condescending, now silently pours two glasses of vintage scotch. He slides one across the mahogany desk to her. Valerie takes it, maintaining unbroken, dead-eyed contact as she drinks. Outside the glass walls, Toby watches them. His hands tremble as he drops a thick stack of 'Missing Persons' newspaper clippings into the office shredder, physically turning his back on the machine.",
-            "dramaturgical_function": "Marks Valerie's ascension to the top of the food chain and Toby's horrific realization of his complicity in her crimes.",
-            "estimated_page_count": "1.4"
+            "scene_number": 7,
+            "scene_heading": "INT. BROKERAGE FIRM - VALERIE'S CORNER OFFICE - DAY",
+            "narrative_action": "Valerie sits behind a massive mahogany desk in a sprawling corner office overflowing with lavish floral arrangements. Richard Sterling enters, his dead-eyed sociopathic stare replaced by a rare, approving nod. He silently places a bottle of vintage Dom Pérignon on her desk—an acknowledgment of her apex status. Outside the glass walls, Toby watches nervously, clutching a massive donation check Valerie just signed, his moral compass visibly spinning.",
+            "dramaturgical_function": "False Victory: Valerie achieves her external goal (wealth and status at the top of the food chain), creating a peak of arrogance right before the fall.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 28,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - DAY",
-            "narrative_action": "Valerie, wearing a silk robe, casually wipes a speck of dust from a floating glass banister with a microfiber cloth. She sips from a crystal champagne flute. A deep, unnatural groan vibrates through the soles of her bare feet. The pristine white drywall cracks like dry skin. Thick, black, tar-like blood seeps from the fissures, dripping onto the imported Persian rugs. Valerie drops her glass, shattering it against the floor.",
-            "dramaturgical_function": "The midpoint reversal of the sequence; shatters Valerie's illusion of control as the house physically demands more food.",
-            "estimated_page_count": "1.2"
+            "scene_number": 8,
+            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE / LIVING ROOM - DAY",
+            "narrative_action": "Valerie, dressed in casual cashmere, hums a cheerful tune while running a microfiber cloth over the floating glass banister. She treats the house with the affectionate arrogance of a wealthy dog owner grooming a prize-winning pitbull. As she wipes away a single speck of dust, a deep, bass-heavy groan vibrates through the soles of her shoes, rattling the glass in her hand.",
+            "dramaturgical_function": "The Turn: Shifts the power dynamic. Valerie's illusion of control is challenged by the house's physical unrest.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 29,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "Every heavy oak door and reinforced window in the mansion slams shut simultaneously with a deafening *CRACK*. Heavy iron deadbolts slide into place on their own. The room plunges into claustrophobic shadows. The hardwood floorboards physically buckle and tilt, creating a steep funnel. Valerie scrambles on her hands and knees, sliding downward as a gaping, fleshy maw opens in the center of the floor, snapping its jagged wooden teeth at her toes.",
-            "dramaturgical_function": "Forces Valerie into a life-or-death physical confrontation with the monster she arrogantly thought she had tamed.",
-            "estimated_page_count": "1.5"
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Valerie freezes. Hairline fractures begin to spiderweb across the pristine white drywall of the living room. With a sickening squelch, the cracks widen, and thick, black, viscous blood begins to seep from the walls, dripping heavily onto the imported Persian rugs. Valerie drops her microfiber cloth, her polished demeanor cracking as she takes a slow, terrified step backward.",
+            "dramaturgical_function": "Escalation of Threat: The house physically corrupts its own pristine aesthetic to communicate its insatiable, growing hunger.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 30,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "Valerie's fingernails splinter as she desperately grips the edge of the glass banister, her legs dangling over the snapping maw. She screams upward at the ceiling, her throat raw, promising a massive, invite-only gala with dozens of corporate victims. The snapping jaws freeze inches from her foot. The floorboards slowly level out, dropping her onto the solid wood. The heavy deadbolts unlock with a synchronized *click*. Valerie lies panting in the center of the room, staring at the ceiling in absolute terror.",
-            "dramaturgical_function": "The sequence climax; Valerie barely survives by making a catastrophic bargain, setting up the massive gala for Act II.",
-            "estimated_page_count": "1.4"
+            "scene_number": 10,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "BAM. Every heavy oak door in the hallway slams shut simultaneously. The reinforced glass windows lock with deafening, synchronized metallic CLACKS. The smart-lights flicker and die, plunging the cavernous room into deep shadows. Valerie lunges for the front door, grabbing the brass handle and yanking with all her body weight, but the mechanism is fused solid.",
+            "dramaturgical_function": "The Trap: Physically isolates Valerie, stripping away her escape routes and forcing a direct confrontation with the monster.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "The floorboards groan and violently buckle, tilting upward at a steep forty-five-degree angle. Valerie loses her footing and slides down the slick hardwood. At the center of the room, the floor peels back to reveal the massive, fleshy maw, its jagged wooden teeth gnashing eagerly. Valerie claws frantically at the floorboards, her expensive manicured nails breaking and bleeding as she fights gravity, her polished veneer entirely replaced by feral, screaming panic.",
+            "dramaturgical_function": "Climax of the Sequence: The physical manifestation of Valerie's worst fear—being powerless and consumed by the very system she thought she mastered.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 12,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Dangling inches above the snapping jaws, Valerie screams out a desperate, breathless bargain to the empty room. She promises a gala—a massive, invite-only buffet of the city's worst elites. The gnashing teeth freeze. The floorboards slowly, mechanically lower back to a perfectly level, pristine state. The front door unlocks with a soft click. Valerie collapses onto her back, chest heaving, staring up at the ceiling as she realizes she is merely the monster's captive pet.",
+            "dramaturgical_function": "Sequence Resolution / New Goal: Valerie survives by making a massive, impossible promise, setting up the ticking clock and the high-stakes gala for Act II's climax.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 3
       },
       {
         "sequence_title": "The Appetite Grows",
+        "total_estimated_pages": 18,
         "scenes": [
           {
-            "scene_number": 31,
-            "scene_heading": "INT. BROKERAGE (VALERIE'S DESK) - DAY",
-            "narrative_action": "Valerie's manicured finger slams the 'EXECUTE' key on her laptop. On the screen, a massive, red-lined debt balance instantly zeroes out via an untraceable wire transfer. She exhales a long, shaky breath, her shoulders dropping. A second later, her spine snaps rigid. She stands, peels off her cheap, off-the-rack blazer, and casually drops it into the wastebasket. Grabbing her designer bag, she struts into the bustling bullpen with the posture of an apex predator.",
-            "dramaturgical_function": "Establishes Valerie's immediate psychological shift from desperate survival to arrogant power after liquidating the first blood-diamond.",
-            "estimated_page_count": "1.1"
+            "scene_number": 1,
+            "scene_heading": "INT. BROKERAGE FIRM - BULLPEN - DAY",
+            "narrative_action": "Valerie strides into the sterile brokerage wearing a razor-sharp, impossibly expensive new designer suit. She moves with bulletproof arrogance. Julian Vance steps into her path, smirking and dropping internet slang about her 'lucky vibes' with the mansion. Valerie doesn't blink. She loudly lists Julian's declining market comps to the entire bullpen and casually threatens to absorb his desk space. Julian's smile tightens; he aggressively checks his phone to avoid eye contact and steps aside.",
+            "dramaturgical_function": "Establishes Valerie's false victory and unchecked arrogance at the top of the food chain, highlighting her dominance over her rivals.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 32,
-            "scene_heading": "INT. BROKERAGE (TOBY'S DESK) - CONTINUOUS",
-            "narrative_action": "Valerie drops a heavy velvet box onto Toby's cluttered desk. He opens it, staring wide-eyed at a gleaming designer watch. Toby nervously adjusts his glasses and excitedly unrolls architectural blueprints for an affordable housing complex. Valerie physically pushes the blueprints aside, tapping his monitor. She demands dossiers on the city's corrupt elites. Toby hesitates, clearing his throat, but obediently scrolls through mugshots and financial profiles of slumlords while Valerie takes meticulous notes.",
-            "dramaturgical_function": "Initiates the B-Story manipulation; Valerie weaponizes Toby's empathy and research skills to source high-value victims for the house.",
-            "estimated_page_count": "1.3"
+            "scene_number": 2,
+            "scene_heading": "INT. BROKERAGE FIRM - RICHARD'S OFFICE - CONTINUOUS",
+            "narrative_action": "Richard Sterling, impeccably tailored, watches Valerie enter. He doesn't speak, simply pouring two glasses of vintage Macallan. He hands her one, delivering a calm, patronizing metaphor about apex predators and the natural order of the market. He clinks his glass against hers, officially welcoming her to the inner circle. Valerie drinks it in, her desire for absolute wealth fully realized.",
+            "dramaturgical_function": "Cements Valerie's alliance with the primary antagonist and reinforces the core theme of corporate greed being rewarded.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 33,
-            "scene_heading": "INT. MODERNIST MANSION (KITCHEN) - DAY",
-            "narrative_action": "Councilwoman Elena Rostova taps her long acrylic nails against the pristine marble island, sneering at the fixtures. Valerie stands safely by the doorway, checking her luxury watch with calculated indifference. The marble island suddenly splits down the middle with a sickening crunch, revealing a churning vortex of jagged drywall and rebar. Rostova is violently yanked forward by her designer scarf, screaming as she is dragged headfirst into the mechanical, fleshy disposal.",
-            "dramaturgical_function": "Kicks off the 'Fun and Games' montage with the first targeted kill, establishing the house's creative and brutal consumption methods.",
-            "estimated_page_count": "1.4"
+            "scene_number": 3,
+            "scene_heading": "INT. BROKERAGE FIRM - TOBY'S DESK - DAY",
+            "narrative_action": "Valerie drops a massive stack of signed closing documents on Toby's desk. Toby nervously adjusts his glasses, whispering that the police are looking into the sudden disappearances of Councilwoman Rostova and the hedge fund manager. Valerie deflects instantly, pointing to Toby's affordable housing blueprints and telling him to focus on 'the value add.' She announces she's going to the property for a routine walkthrough and leaves Toby stewing in moral discomfort.",
+            "dramaturgical_function": "Introduces the ticking clock of the police investigation and isolates Valerie from her moral anchor before she heads to the house.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 34,
-            "scene_heading": "INT. MODERNIST MANSION (KITCHEN) - CONTINUOUS",
-            "narrative_action": "The marble island snaps shut, perfectly seamless. A soft *ding* echoes from the built-in espresso machine. The drip tray slides open on its own, presenting a flawless, fist-sized diamond. Valerie casually strolls over, plucks the diamond from the tray, and pulls a manila folder from her designer bag. She uses a red Sharpie to violently cross Rostova's name off Toby's curated list.",
-            "dramaturgical_function": "Reinforces the transactional nature of the murders and Valerie's complete, sociopathic desensitization to the violence.",
-            "estimated_page_count": "1.1"
+            "scene_number": 4,
+            "scene_heading": "EXT. MODERNIST MANSION - DAY",
+            "narrative_action": "Valerie's brand-new matte-black Porsche pulls up the sweeping driveway. She steps out, inhaling the crisp air, and looks up at the towering, geometric facade of the mansion. She smirks, patting the exterior concrete wall affectionately as if praising a loyal guard dog, completely blind to the slight, unnatural tremor in the stone beneath her hand.",
+            "dramaturgical_function": "Transitions Valerie into the belly of the beast, emphasizing her delusion of control over the malevolent entity.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 35,
-            "scene_heading": "EXT. MODERNIST MANSION (POOL DECK) - DAY",
-            "narrative_action": "A toxic Crypto-Billionaire does aggressive, splashing butterfly strokes in the glass-walled infinity pool. Valerie sits safely on a distant lounge chair, sipping a mimosa. The glass walls of the pool suddenly begin to slide inward. The water thickens into a gelatinous, suffocating membrane. The Bro thrashes, his face pressing against the shrinking glass until he is completely engulfed. The pool filter gurgles loudly, spitting a massive diamond into the plastic skimmer basket.",
-            "dramaturgical_function": "Escalates the horror-comedy kills and demonstrates the house's control over its entire exterior footprint.",
-            "estimated_page_count": "1.3"
+            "scene_number": 5,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - DAY",
+            "narrative_action": "Valerie kicks off her designer heels and wanders the cavernous, sunlit living room with a glass of champagne. She spots a single smudge on the floating glass banister. Setting her glass down, she pulls a microfiber cloth from a drawer and casually wipes the glass, humming to herself. She speaks aloud to the empty room, promising it a 'light snack' next week.",
+            "dramaturgical_function": "The calm before the storm. Lowers the tension to make the impending attack more jarring, showcasing her hubris.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 36,
-            "scene_heading": "INT. MODERNIST MANSION (MASTER SUITE) - DAY",
-            "narrative_action": "A predatory Hedge Fund Manager paces furiously under a massive vaulted ceiling, screaming into his Bluetooth earpiece. Valerie quietly steps backward out of the room, pulling the heavy oak doors shut. Inside, the twenty-foot ceiling plummets at lightning speed. A muffled, bone-crunching *THUD* shakes the floorboards. The ceiling slowly rises back to the top, leaving the room completely empty save for a gleaming diamond resting precisely in the center of the rug.",
-            "dramaturgical_function": "Concludes the montage of kills, showing Valerie's perfected, hands-off routine and the house's ruthless efficiency.",
-            "estimated_page_count": "1.2"
+            "scene_number": 6,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "A deep, bass-heavy groan vibrates through the soles of Valerie's bare feet. The champagne in her glass ripples violently. She freezes. Hairline fractures suddenly spiderweb across the pristine white drywall. With a sickening squelch, the cracks widen, and thick, black, viscous blood begins to seep from the walls, dripping heavily onto the imported Persian rugs.",
+            "dramaturgical_function": "The Turn / Midpoint Catalyst: The house physically corrupts its own aesthetic, shattering Valerie's illusion of mastery.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 37,
-            "scene_heading": "INT. RICHARD STERLING'S OFFICE - DAY",
-            "narrative_action": "Valerie sits confidently in the leather guest chair. Richard Sterling, previously condescending, now silently pours two glasses of vintage scotch. He slides one across the mahogany desk to her. Valerie takes it, maintaining unbroken, dead-eyed contact as she drinks. Outside the glass walls, Toby watches them. His hands tremble as he drops a thick stack of 'Missing Persons' newspaper clippings into the office shredder, physically turning his back on the machine.",
-            "dramaturgical_function": "Marks Valerie's ascension to the top of the food chain and Toby's horrific realization of his complicity in her crimes.",
-            "estimated_page_count": "1.4"
+            "scene_number": 7,
+            "scene_heading": "INT. MODERNIST MANSION - FOYER - CONTINUOUS",
+            "narrative_action": "Valerie drops the cloth, her polished veneer cracking. She speed-walks toward the heavy oak front door, trying to maintain her composure. Just as her hand grazes the brass handle, BAM. Every door in the hallway slams shut simultaneously. The deadbolts slide into place on their own. Valerie yanks the handle with all her body weight, but the mechanism is fused solid.",
+            "dramaturgical_function": "Escalation: Physically traps the protagonist, stripping away her escape routes and spiking the primal fear.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 38,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - DAY",
-            "narrative_action": "Valerie, wearing a silk robe, casually wipes a speck of dust from a floating glass banister with a microfiber cloth. She sips from a crystal champagne flute. A deep, unnatural groan vibrates through the soles of her bare feet. The pristine white drywall cracks like dry skin. Thick, black, tar-like blood seeps from the fissures, dripping onto the imported Persian rugs. Valerie drops her glass, shattering it against the floor.",
-            "dramaturgical_function": "The midpoint reversal of the sequence; shatters Valerie's illusion of control as the house physically demands more food.",
-            "estimated_page_count": "1.2"
+            "scene_number": 8,
+            "scene_heading": "INT. MODERNIST MANSION - KITCHEN - CONTINUOUS",
+            "narrative_action": "Valerie sprints into the kitchen, aiming for the glass patio doors. The smart-blinds violently snap shut. The marble island in the center of the room begins to rumble, softening and tearing open. The garbage disposal roars to life like a jet turbine, creating a localized vacuum that pulls violently at Valerie's clothes. She screams, scrambling backward out of the kitchen.",
+            "dramaturgical_function": "Denies the secondary exit and reminds Valerie (and the audience) of the brutal fate that awaits her.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 39,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "Every heavy oak door and reinforced window in the mansion slams shut simultaneously with a deafening *CRACK*. Heavy iron deadbolts slide into place on their own. The room plunges into claustrophobic shadows. The hardwood floorboards physically buckle and tilt, creating a steep funnel. Valerie scrambles on her hands and knees, sliding downward as a gaping, fleshy maw opens in the center of the floor, snapping its jagged wooden teeth at her toes.",
-            "dramaturgical_function": "Forces Valerie into a life-or-death physical confrontation with the monster she arrogantly thought she had tamed.",
-            "estimated_page_count": "1.5"
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Valerie retreats to the center of the living room. The smart-lights flicker red and die, plunging the space into terrifying, claustrophobic shadows. The reinforced glass windows lock with deafening, synchronized metallic CLACKS. The architecture literally groans, the walls seemingly pressing inward as the house flexes its muscles.",
+            "dramaturgical_function": "Sensory deprivation and claustrophobia. The house exerts its absolute power over the environment, isolating Valerie entirely.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 40,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "Valerie's fingernails splinter as she desperately grips the edge of the glass banister, her legs dangling over the snapping maw. She screams upward at the ceiling, her throat raw, promising a massive, invite-only gala with dozens of corporate victims. The snapping jaws freeze inches from her foot. The floorboards slowly level out, dropping her onto the solid wood. The heavy deadbolts unlock with a synchronized *click*. Valerie lies panting in the center of the room, staring at the ceiling in absolute terror.",
-            "dramaturgical_function": "The sequence climax; Valerie barely survives by making a catastrophic bargain, setting up the massive gala for Act II.",
-            "estimated_page_count": "1.4"
+            "scene_number": 10,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "The hardwood floorboards groan and violently buckle, tilting upward at a steep forty-five-degree angle. Valerie loses her footing, sliding down the slick wood. The center of the floor peels back like rotten skin, revealing a massive, fleshy maw lined with jagged wooden teeth. It is twice the size it was before, gnashing eagerly.",
+            "dramaturgical_function": "The Climax of the Sequence: The physical manifestation of the monster's insatiable hunger, putting Valerie in imminent, lethal danger.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Valerie claws frantically at the floorboards, her expensive manicured nails breaking and bleeding as she fights gravity. Her corporate facade is entirely gone, replaced by feral, screaming panic. Dangling inches above the snapping jaws, she screams out a desperate bargain: She promises a gala. A massive, invite-only buffet of the city's absolute worst elites. A feast.",
+            "dramaturgical_function": "Character break: Valerie abandons all pretense and trades mass murder for her own survival, fully committing to her moral bankruptcy.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 12,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - LATER",
+            "narrative_action": "The gnashing teeth freeze. The floorboards slowly, mechanically lower back to a perfectly level, pristine state. The bloody walls clear. The front door unlocks with a soft, polite click. Valerie collapses onto her back, chest heaving, staring up at the vaulted ceiling. She realizes with chilling certainty: she is merely the monster's captive pet.",
+            "dramaturgical_function": "Resolution & Pivot: Establishes the new status quo and sets the narrative engine for Act II's second half (planning the deadly gala).",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 4
       },
       {
         "sequence_title": "The Gala of the Damned",
+        "total_estimated_pages": 18.5,
         "scenes": [
           {
-            "scene_number": 41,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - NIGHT",
-            "narrative_action": "Valerie, poured into a blood-red gown, physically herds Richard Sterling and a pack of hedge fund managers toward the east wing. She taps her earpiece, aggressively directing a terrified catering server to carry a tray of oysters into the billiard room. Beneath her designer stilettos, the polished hardwood floor subtly vibrates, emitting a low, hungry hum. Valerie tightens her smile, subtly stomping her heel against the floorboard to quiet the entity.",
-            "dramaturgical_function": "Establishes the high-stakes environment and Valerie's arrogant, false sense of control over the ticking time bomb beneath her feet.",
-            "estimated_page_count": "1.2"
+            "scene_number": 1,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - NIGHT",
+            "narrative_action": "Valerie, wearing a stunning, blood-red crimson gown, glides through a packed, glittering gala. She orchestrates the room like a battlefield commander, physically guiding corrupt politicians and white-collar criminals toward the darkest, most cavernous rooms. Richard Sterling stands by the fireplace, sipping scotch and nodding approvingly at her ruthless efficiency. Valerie's smile is razor-sharp, but her eyes dart nervously to the floorboards, which vibrate faintly beneath her designer stilettos.",
+            "dramaturgical_function": "Establishes Valerie's false sense of control and sets the stage for the mass feeding, placing all major players inside the trap.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 42,
-            "scene_heading": "INT. MODERNIST MANSION (MASTER SUITE) - CONTINUOUS",
-            "narrative_action": "Julian Vance snorts a bump of cocaine directly off the pristine marble vanity. He jams a silver letter opener into the lock of Valerie's hidden desk drawer, snapping it open. He pulls out a thick stack of bloody architectural blueprints and a ledger matching missing persons to diamond deposits. Sweating profusely, he whips out his phone and snaps rapid-fire photos of the evidence, his thumb slipping on the screen.",
-            "dramaturgical_function": "The Skeptic uncovers tangible proof of the protagonist's crimes, escalating the immediate human threat to Valerie's empire.",
-            "estimated_page_count": "1.1"
+            "scene_number": 2,
+            "scene_heading": "INT. MODERNIST MANSION - MASTER SUITE - NIGHT",
+            "narrative_action": "Julian Vance slips into the restricted master bedroom, locking the door behind him. Sweating and twitchy, he snorts a bump of cocaine off a pristine glass nightstand. He rips open Valerie's locked desk drawers with a letter opener, frantically digging until he pulls out a thick folder. He flips through missing persons reports and property anomalies, his unearned bravado morphing into a malicious, triumphant grin.",
+            "dramaturgical_function": "Introduces the immediate external threat to Valerie's empire. Julian discovers the truth, arming the ticking time bomb of exposure.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 43,
-            "scene_heading": "INT. MODERNIST MANSION (DIMLY LIT HALLWAY) - CONTINUOUS",
-            "narrative_action": "Julian physically corners Valerie, violently shoving the stolen ledger into her chest. He grabs her bare arm, his gin-soaked breath in her face, demanding a fifty-percent cut of the diamond operation. Valerie doesn't flinch; she physically pivots, trying to steer him toward a guest bedroom door. Her eyes dart nervously to the hallway wallpaper, which has begun to subtly pulse and sweat a clear, viscous fluid.",
-            "dramaturgical_function": "Forces the protagonist into a claustrophobic corner where the human blackmail threat directly collides with the impatient supernatural threat.",
-            "estimated_page_count": "1.3"
+            "scene_number": 3,
+            "scene_heading": "INT. MODERNIST MANSION - DIM HALLWAY - CONTINUOUS",
+            "narrative_action": "Valerie marches down a secluded corridor, carrying a tray of champagne. Julian steps out of the shadows, blocking her path. He shoves the stolen folder into her chest, his breath reeking of gin. He aggressively mocks her 'lucky vibes' and demands a fifty-percent cut of her illicit operation, threatening to livestream the documents to his followers right now. Valerie's polished veneer finally cracks; she steps back, her eyes wide with feral panic.",
+            "dramaturgical_function": "The confrontation. Julian corners the protagonist, stripping away her transactional defenses and forcing her into a desperate corner.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 44,
-            "scene_heading": "INT. MODERNIST MANSION (DIMLY LIT HALLWAY) - CONTINUOUS",
-            "narrative_action": "The pulsing wallpaper violently peels back, revealing raw, bruised muscle tissue. Julian is mid-threat when the hardwood floorboards snap open like a bear trap. He drops waist-deep, screaming as the wood splinters and grinds against his ribs. Valerie steps back, her face completely cold, watching the house physically chew him up and drag him under. At the end of the hall, the heavy mahogany doors slam shut, thick bone-like deadbolts sliding into place.",
-            "dramaturgical_function": "The House breaks the rules, initiating the massacre by eliminating the human antagonist and sealing the trap.",
-            "estimated_page_count": "1.4"
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - DIM HALLWAY / LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Before Valerie can answer, the ambient recessed lighting flickers and violently shifts to a sickly, pulsating crimson. Julian looks up, confused. The pristine white drywall behind him suddenly ripples and softens like bruised flesh. A synchronized, ear-splitting barrage of metallic SLAMS echoes through the estate. Every single exit—the mahogany front doors, the patio glass, the windows—seals shut with thick, bone-like deadbolts. Julian drops his phone in terror.",
+            "dramaturgical_function": "The midpoint of the sequence. The House loses patience with Valerie's timeline, dropping its disguise and trapping everyone inside.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 45,
-            "scene_heading": "INT. MODERNIST MANSION (LIVING ROOM) - CONTINUOUS",
-            "narrative_action": "Absolute carnage. A group of tech billionaires scramble toward the floor-to-ceiling patio glass, but thick, calcified shutters slam down, shattering their champagne flutes. The massive leather sectional sofa liquefies into a tar-like stomach, swallowing three executives whole as they thrash against the cushions. Valerie casually steps over a severed, diamond-encrusted Rolex, adjusting her gown, projecting absolute, sociopathic immunity as she navigates the slaughter.",
-            "dramaturgical_function": "Delivers the horror-comedy spectacle of the mass consumption while highlighting Valerie's peak moral bankruptcy and delusion of safety.",
-            "estimated_page_count": "1.5"
+            "scene_number": 5,
+            "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Absolute chaos erupts. The modernist masterpiece devolves into a fleshy labyrinth. Screaming guests stampede toward the sealed doors. A massive, white-leather sectional sofa abruptly liquefies into a gaping, toothy sinkhole, swallowing a group of embezzling tech billionaires whole. Valerie strides through the blood-soaked carnage, dodging snapping floorboards with a terrifying, bulletproof arrogance. She ignores the screams, assuming her status as the 'provider' grants her absolute immunity.",
+            "dramaturgical_function": "Showcases the sheer scale of the monster's power while highlighting Valerie's sociopathic hubris as she watches her enemies die.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 46,
-            "scene_heading": "INT. MODERNIST MANSION (KITCHEN) - CONTINUOUS",
-            "narrative_action": "Valerie watches from the doorway as Richard Sterling cowers pathetically behind the marble island. But the house ignores the corrupt boss. Fleshy, muscular tendrils whip out from the recessed lighting, wrapping around the necks of three terrified, teenage catering staff. They are violently yanked upward into the ceiling vents, their silver trays clattering against the blood-stained marble. Valerie physically recoils, her polished veneer shattering as she gasps for air.",
-            "dramaturgical_function": "The Midpoint of the sequence; the monster changes its dietary rules to include the innocent, destroying Valerie's illusion of a 'victimless' crime.",
-            "estimated_page_count": "1.4"
+            "scene_number": 6,
+            "scene_heading": "INT. MODERNIST MANSION - DINING AREA - CONTINUOUS",
+            "narrative_action": "Valerie rounds the corner and freezes. Richard Sterling stands perfectly still, calmly observing the slaughter. The house's fleshy tendrils whip right past him, completely ignoring the apex predator. Instead, the tendrils snatch up the terrified, underpaid catering staff. The innocent servers are dragged screaming into the ceiling vents, their silver trays of hors d'oeuvres clattering against the blood-stained marble. Valerie's arrogant smirk drops into absolute horror.",
+            "dramaturgical_function": "The horrific pivot. The monster breaks its own rules, proving its hunger is indiscriminate and shattering Valerie's moral justification.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 47,
-            "scene_heading": "INT. MODERNIST MANSION (DINING ROOM) - CONTINUOUS",
-            "narrative_action": "Toby drops his affordable housing pamphlets as the pristine drywall calcifies into jagged, overlapping teeth. The walls physically slide inward, grinding against the dining table and snapping it in half. Toby presses his back against the shrinking space, hyperventilating, trapped in a narrowing corridor of bone. Valerie bursts through the swinging kitchen doors, freezing in her tracks as she sees the house actively hunting her assistant.",
-            "dramaturgical_function": "Personalizes the horror; forces Valerie to confront the direct, collateral damage of her greed on the only decent person in her life.",
-            "estimated_page_count": "1.3"
+            "scene_number": 7,
+            "scene_heading": "INT. MODERNIST MANSION - EAST CORRIDOR - CONTINUOUS",
+            "narrative_action": "Toby, clutching his affordable housing pitch deck to his chest, scrambles backward down a rapidly narrowing hallway. The drywall has calcified into jagged, grinding plates that are pressing inward. He nervously adjusts his glasses, hyperventilating as the walls physically crush the blueprints in his hands. He hits a dead end, the fleshy walls closing in to crush him flat.",
+            "dramaturgical_function": "Raises the stakes to their absolute peak by putting Valerie's only moral anchor in imminent, lethal danger.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 48,
-            "scene_heading": "INT. MODERNIST MANSION (DINING ROOM) - CONTINUOUS",
-            "narrative_action": "Valerie kicks off her designer stilettos and sprints barefoot across the snapping, uneven floorboards. She dives headfirst into the narrowing gap of the walls, grabbing Toby by his collar. Planting her bare feet against the grinding bone-wall, she violently yanks him forward. They tumble out onto the carpet just as the jagged walls slam completely together behind them, shredding the entire back half of Valerie's crimson gown.",
-            "dramaturgical_function": "Valerie takes her first selfless, physically dangerous action, transitioning from a passive predator to an active protector.",
-            "estimated_page_count": "1.2"
+            "scene_number": 8,
+            "scene_heading": "INT. MODERNIST MANSION - EAST CORRIDOR - CONTINUOUS",
+            "narrative_action": "Valerie abandons all pretense of composure. She kicks off her stilettos and dives into the shifting, fleshy corridor. She reaches into the grinding gap, grabbing Toby by the collar of his cheap suit. With a guttural scream of exertion, she yanks him backward just as the calcified walls slam together with a deafening crack, obliterating Toby's pitch deck.",
+            "dramaturgical_function": "Action-driven character growth. Valerie risks her own physical safety to save someone else, taking her first true selfless action.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 49,
-            "scene_heading": "INT. MODERNIST MANSION (GRAND FOYER) - CONTINUOUS",
-            "narrative_action": "Valerie drags a coughing Toby toward the floating glass staircase. As they step onto the middle landing, the glass steps above and below them violently buckle and shatter into razor-sharp dust. The polished hardwood floor beneath the landing splits wide open, revealing a massive, glowing acidic maw lined with translucent teeth. Sulfuric smoke billows up, choking them as the landing trembles violently over the pit.",
-            "dramaturgical_function": "Traps the protagonist and the B-story character in an inescapable physical space, setting the stage for the final moral ultimatum.",
-            "estimated_page_count": "1.4"
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - GRAND STAIRCASE - CONTINUOUS",
+            "narrative_action": "Valerie drags a coughing, terrified Toby out of the corridor and shoves him toward the grand floating glass staircase. They scramble upward, but the house violently reacts. The glass steps buckle and shatter under their feet. Valerie and Toby are thrown forward, barely catching themselves on a narrow, trembling mid-stair landing. The staircase below them collapses entirely into the foundation.",
+            "dramaturgical_function": "Cuts off the escape route, physically isolating the protagonist and her B-story anchor for the final confrontation of the sequence.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 50,
-            "scene_heading": "INT. MODERNIST MANSION (STAIRCASE LANDING) - CONTINUOUS",
-            "narrative_action": "The house vibrates, emitting a deep, guttural hum that rattles Valerie's teeth. A fleshy tendril slithers up the remaining glass banister, violently nudging Toby toward the edge of the acid pit. Toby weeps, his hands clinging to Valerie's torn dress. Valerie stares down into the churning acid, then looks at Toby. She physically rips the tendril off him, pulls Toby away from the edge, and wraps her body entirely around his, shielding him and bracing for the fall.",
-            "dramaturgical_function": "The sequence climax; Valerie definitively rejects the house's ultimatum, completing her arc by choosing human life over her own survival and wealth.",
-            "estimated_page_count": "1.5"
+            "scene_number": 10,
+            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - CONTINUOUS",
+            "narrative_action": "Beneath the landing, the polished hardwood floor splits wide open. A massive, acidic maw lined with rows of translucent, jagged teeth breaches the surface. A suffocating stench of sulfur and digested gore billows up. A deep, guttural vibration rattles through Valerie's skull—a telepathic demand from the entity. The house pulses with dark energy, the landing tilting slightly, silently commanding Valerie to push Toby into the pit to secure her own survival and wealth.",
+            "dramaturgical_function": "The ultimate test of the protagonist's flaw. The antagonist (the house) offers Valerie exactly what she wants, for the price of her soul.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - CONTINUOUS",
+            "narrative_action": "Valerie grips the trembling railing. She looks down at the churning acid, then over to Toby. Toby is weeping, his hands trembling as he grips the fabric of her crimson gown like a frightened child. Valerie stares into his terrified eyes and sees her own reflection. She looks across the cavernous room and locks eyes with Richard Sterling, who is watching her with a cold, approving nod. Valerie's breath catches. She grabs Toby's hand tightly, anchoring him to her, and glares down into the maw, refusing the house's deal.",
+            "dramaturgical_function": "The emotional climax of the sequence. Valerie recognizes her own monstrous reflection, rejects her false belief, and chooses humanity over capitalism.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 5
       },
       {
         "sequence_title": "Trapped in the Belly",
+        "total_estimated_pages": 18.5,
         "scenes": [
           {
-            "scene_number": 51,
+            "scene_number": 1,
             "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - NIGHT",
-            "narrative_action": "Valerie, poured into a blood-red gown, physically herds Richard Sterling and a pack of hedge fund managers toward the east wing. She taps her earpiece, aggressively directing a terrified catering server to carry a tray of oysters into the billiard room. Beneath her designer stilettos, the polished hardwood floor subtly vibrates, emitting a low, hungry hum. Valerie tightens her smile, subtly stomping her heel against the floorboard to quiet the entity.",
-            "dramaturgical_function": "Establishes the high-stakes environment and Valerie's arrogant, false sense of control over the ticking time bomb beneath her feet.",
-            "estimated_page_count": "1.2"
+            "narrative_action": "Valerie, wearing a stunning crimson gown, glides through a packed, glittering gala. She orchestrates the room like a battlefield commander, physically guiding corrupt politicians and white-collar criminals toward the darkest, most cavernous rooms. Richard Sterling stands by the fireplace, sipping scotch and nodding approvingly at her ruthless efficiency. Valerie's smile is razor-sharp, but her eyes dart nervously to the floorboards, which vibrate faintly beneath her designer stilettos.",
+            "dramaturgical_function": "Establishes Valerie's false sense of control and sets the stage for the mass feeding, placing all major players inside the trap.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 52,
-            "scene_heading": "INT. MODERNIST MANSION - MASTER SUITE - CONTINUOUS",
-            "narrative_action": "Julian Vance snorts a bump of cocaine directly off the pristine marble vanity. He jams a silver letter opener into the lock of Valerie's hidden desk drawer, snapping it open. He pulls out a thick stack of bloody architectural blueprints and a ledger matching missing persons to diamond deposits. Sweating profusely, he whips out his phone and snaps rapid-fire photos of the evidence, his thumb slipping on the screen.",
-            "dramaturgical_function": "The Skeptic uncovers tangible proof of the protagonist's crimes, escalating the immediate human threat to Valerie's empire.",
-            "estimated_page_count": "1.1"
+            "scene_number": 2,
+            "scene_heading": "INT. MODERNIST MANSION - MASTER SUITE - NIGHT",
+            "narrative_action": "Julian Vance slips into the restricted master bedroom, locking the door behind him. Sweating and twitchy, he snorts a bump of cocaine off a pristine glass nightstand. He rips open Valerie's locked desk drawers with a letter opener, frantically digging until he pulls out a thick folder. He flips through missing persons reports and property anomalies, his unearned bravado morphing into a malicious, triumphant grin.",
+            "dramaturgical_function": "Introduces the immediate external threat to Valerie's empire. Julian discovers the truth, arming the ticking time bomb of exposure.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 53,
-            "scene_heading": "INT. MODERNIST MANSION - DIMLY LIT HALLWAY - CONTINUOUS",
-            "narrative_action": "Julian physically corners Valerie, violently shoving the stolen ledger into her chest. He grabs her bare arm, his gin-soaked breath in her face, demanding a fifty-percent cut of the diamond operation. Valerie does not flinch; she physically pivots, trying to steer him toward a guest bedroom door. Her eyes dart nervously to the hallway wallpaper, which has begun to subtly pulse and sweat a clear, viscous fluid.",
-            "dramaturgical_function": "Forces the protagonist into a claustrophobic corner where the human blackmail threat directly collides with the impatient supernatural threat.",
-            "estimated_page_count": "1.3"
+            "scene_number": 3,
+            "scene_heading": "INT. MODERNIST MANSION - DIM HALLWAY - CONTINUOUS",
+            "narrative_action": "Valerie marches down a secluded corridor, carrying a tray of champagne. Julian steps out of the shadows, blocking her path. He shoves the stolen folder into her chest, his breath reeking of gin. He aggressively mocks her 'lucky vibes' and demands a fifty-percent cut of her illicit operation, threatening to livestream the documents to his followers right now. Valerie's polished veneer finally cracks; she steps back, her eyes wide with feral panic.",
+            "dramaturgical_function": "The confrontation. Julian corners the protagonist, stripping away her transactional defenses and forcing her into a desperate corner.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 54,
-            "scene_heading": "INT. MODERNIST MANSION - DIMLY LIT HALLWAY - CONTINUOUS",
-            "narrative_action": "The pulsing wallpaper violently peels back, revealing raw, bruised muscle tissue. Julian is mid-threat when the hardwood floorboards snap open like a bear trap. He drops waist-deep, screaming as the wood splinters and grinds against his ribs. Valerie steps back, her face completely cold, watching the house physically chew him up and drag him under. At the end of the hall, the heavy mahogany doors slam shut, thick bone-like deadbolts sliding into place.",
-            "dramaturgical_function": "The House breaks the rules, initiating the massacre by eliminating the human antagonist and sealing the trap.",
-            "estimated_page_count": "1.4"
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - DIM HALLWAY / LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Before Valerie can answer, the ambient recessed lighting flickers and violently shifts to a sickly, pulsating crimson. Julian looks up, confused. The pristine white drywall behind him suddenly ripples and softens like bruised flesh. A synchronized, ear-splitting barrage of metallic SLAMS echoes through the estate. Every single exit—the mahogany front doors, the patio glass, the windows—seals shut with thick, bone-like deadbolts. Julian drops his phone in terror.",
+            "dramaturgical_function": "The midpoint of the sequence. The House loses patience with Valerie's timeline, dropping its disguise and trapping everyone inside.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 55,
+            "scene_number": 5,
             "scene_heading": "INT. MODERNIST MANSION - LIVING ROOM - CONTINUOUS",
-            "narrative_action": "Absolute carnage. A group of tech billionaires scramble toward the floor-to-ceiling patio glass, but thick, calcified shutters slam down, shattering their champagne flutes. The massive leather sectional sofa liquefies into a tar-like stomach, swallowing three executives whole as they thrash against the cushions. Valerie casually steps over a severed, diamond-encrusted arm, adjusting her gown, projecting absolute, sociopathic immunity as she navigates the slaughter.",
-            "dramaturgical_function": "Delivers the horror-comedy spectacle of the mass consumption while highlighting Valerie's peak moral bankruptcy and delusion of safety.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Absolute chaos erupts. The modernist masterpiece devolves into a fleshy labyrinth. Screaming guests stampede toward the sealed doors. A massive, white-leather sectional sofa abruptly liquefies into a gaping, toothy sinkhole, swallowing a group of embezzling tech billionaires whole. Valerie strides through the blood-soaked carnage, dodging snapping floorboards with a terrifying, bulletproof arrogance. She ignores the screams, assuming her status as the 'provider' grants her absolute immunity.",
+            "dramaturgical_function": "Showcases the sheer scale of the monster's power while highlighting Valerie's sociopathic hubris as she watches her enemies die.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 56,
-            "scene_heading": "INT. MODERNIST MANSION - KITCHEN - CONTINUOUS",
-            "narrative_action": "Valerie watches from the doorway as Richard Sterling cowers pathetically behind the marble island. But the house ignores the corrupt boss. Fleshy, muscular tendrils whip out from the recessed lighting, wrapping around the necks of three terrified, teenage catering staff. They are violently yanked upward into the ceiling vents, their silver trays clattering against the blood-stained marble. Valerie physically recoils, her polished veneer shattering as she gasps for air.",
-            "dramaturgical_function": "The Midpoint of the sequence; the monster changes its dietary rules to include the innocent, destroying Valerie's illusion of a victimless crime.",
-            "estimated_page_count": "1.4"
+            "scene_number": 6,
+            "scene_heading": "INT. MODERNIST MANSION - DINING AREA - CONTINUOUS",
+            "narrative_action": "Valerie rounds the corner and freezes. Richard Sterling stands perfectly still, calmly observing the slaughter. The house's fleshy tendrils whip right past him, completely ignoring the apex predator. Instead, the tendrils snatch up the terrified, underpaid catering staff. The innocent servers are dragged screaming into the ceiling vents, their silver trays of hors d'oeuvres clattering against the blood-stained marble. Valerie's arrogant smirk drops into absolute horror.",
+            "dramaturgical_function": "The horrific pivot. The monster breaks its own rules, proving its hunger is indiscriminate and shattering Valerie's moral justification.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 57,
-            "scene_heading": "INT. MODERNIST MANSION - DINING ROOM - CONTINUOUS",
-            "narrative_action": "Toby drops his affordable housing pamphlets as the pristine drywall calcifies into jagged, overlapping teeth. The walls physically slide inward, grinding against the dining table and snapping it in half. Toby presses his back against the shrinking space, hyperventilating, trapped in a narrowing corridor of bone. Valerie bursts through the swinging kitchen doors, freezing in her tracks as she sees the house actively hunting her assistant.",
-            "dramaturgical_function": "Personalizes the horror; forces Valerie to confront the direct, collateral damage of her greed on the only decent person in her life.",
-            "estimated_page_count": "1.3"
+            "scene_number": 7,
+            "scene_heading": "INT. MODERNIST MANSION - EAST CORRIDOR - CONTINUOUS",
+            "narrative_action": "Toby, clutching his affordable housing pitch deck to his chest, scrambles backward down a rapidly narrowing hallway. The drywall has calcified into jagged, grinding plates that are pressing inward. He nervously adjusts his glasses, hyperventilating as the walls physically crush the blueprints in his hands. He hits a dead end, the fleshy walls closing in to crush him flat.",
+            "dramaturgical_function": "Raises the stakes to their absolute peak by putting Valerie's only moral anchor in imminent, lethal danger.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 58,
-            "scene_heading": "INT. MODERNIST MANSION - DINING ROOM - CONTINUOUS",
-            "narrative_action": "Valerie kicks off her designer stilettos and sprints barefoot across the snapping, uneven floorboards. She dives headfirst into the narrowing gap of the walls, grabbing Toby by his collar. Planting her bare feet against the grinding bone-wall, she violently yanks him forward. They tumble out onto the carpet just as the jagged walls slam completely together behind them, shredding the entire back half of Valerie's crimson gown.",
-            "dramaturgical_function": "Valerie takes her first selfless, physically dangerous action, transitioning from a passive predator to an active protector.",
-            "estimated_page_count": "1.2"
+            "scene_number": 8,
+            "scene_heading": "INT. MODERNIST MANSION - EAST CORRIDOR - CONTINUOUS",
+            "narrative_action": "Valerie abandons all pretense of composure. She kicks off her stilettos and dives into the shifting, fleshy corridor. She reaches into the grinding gap, grabbing Toby by the collar of his cheap suit. With a guttural scream of exertion, she yanks him backward just as the calcified walls slam together with a deafening crack, obliterating Toby's pitch deck.",
+            "dramaturgical_function": "Action-driven character growth. Valerie risks her own physical safety to save someone else, taking her first true selfless action.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 59,
-            "scene_heading": "INT. MODERNIST MANSION - GRAND FOYER - CONTINUOUS",
-            "narrative_action": "Valerie drags a coughing Toby toward the floating glass staircase. As they step onto the middle landing, the glass steps above and below them violently buckle and shatter into razor-sharp dust. The polished hardwood floor beneath the landing splits wide open, revealing a massive, glowing acidic maw lined with translucent teeth. Sulfuric smoke billows up, choking them as the landing trembles violently over the pit.",
-            "dramaturgical_function": "Traps the protagonist and the B-story character in an inescapable physical space, setting the stage for the final moral ultimatum.",
-            "estimated_page_count": "1.4"
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - GRAND STAIRCASE - CONTINUOUS",
+            "narrative_action": "Valerie drags a coughing, terrified Toby out of the corridor and shoves him toward the grand floating glass staircase. They scramble upward, but the house violently reacts. The glass steps buckle and shatter under their feet. Valerie and Toby are thrown forward, barely catching themselves on a narrow, trembling mid-stair landing. The staircase below them collapses entirely into the foundation.",
+            "dramaturgical_function": "Cuts off the escape route, physically isolating the protagonist and her B-story anchor for the final confrontation of the sequence.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 60,
+            "scene_number": 10,
             "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - CONTINUOUS",
-            "narrative_action": "The house vibrates, emitting a deep, guttural hum that rattles Valerie's teeth. A fleshy tendril slithers up the remaining glass banister, violently nudging Toby toward the edge of the acid pit. Toby weeps, his hands clinging to Valerie's torn dress. Valerie stares down into the churning acid, then looks at Toby. She physically rips the tendril off him, pulls Toby away from the edge, and wraps her body entirely around his, shielding him and bracing for the fall.",
-            "dramaturgical_function": "The sequence climax; Valerie definitively rejects the house's ultimatum, completing her arc by choosing human life over her own survival and wealth.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Beneath the landing, the polished hardwood floor splits wide open. A massive, acidic maw lined with rows of translucent, jagged teeth breaches the surface. A suffocating stench of sulfur and digested gore billows up. A deep, guttural vibration rattles through Valerie's skull—a telepathic demand from the entity. The house pulses with dark energy, the landing tilting slightly, silently commanding Valerie to push Toby into the pit to secure her own survival and wealth.",
+            "dramaturgical_function": "The ultimate test of the protagonist's flaw. The antagonist (the house) offers Valerie exactly what she wants, for the price of her soul.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - CONTINUOUS",
+            "narrative_action": "Valerie grips the trembling railing. She looks down at the churning acid, then over to Toby. Toby is weeping, his hands trembling as he grips the fabric of her crimson gown like a frightened child. Valerie stares into his terrified eyes and sees her own reflection. She looks across the cavernous room and locks eyes with Richard Sterling, who is watching her with a cold, approving nod. Valerie's breath catches. She grabs Toby's hand tightly, anchoring him to her, and glares down into the maw, refusing the house's deal.",
+            "dramaturgical_function": "The emotional climax of the sequence. Valerie recognizes her own monstrous reflection, rejects her false belief, and chooses humanity over capitalism.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 6
       },
       {
         "sequence_title": "Breaking the Lease",
+        "total_estimated_pages": 19.5,
         "scenes": [
           {
-            "scene_number": 61,
+            "scene_number": 1,
             "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - CONTINUOUS",
-            "narrative_action": "Valerie violently yanks Toby back from the glowing acid pit, screaming her absolute rejection of the house's terms into the cavernous maw. The house shrieks in response, a deafening wail of tearing drywall. The grand staircase violently collapses. Valerie grabs Toby's belt and they surf a wave of splintering mahogany and shattered glass down into the lower foyer, desperately dodging snapping floorboards that try to bite their ankles.",
-            "dramaturgical_function": "The Break into Three; Valerie makes her definitive moral choice, transitioning from passive survivor to active combatant against the entity.",
-            "estimated_page_count": "1.2"
+            "narrative_action": "Valerie physically violently yanks Toby backward by the lapels of his cheap suit, hauling him away from the snapping, translucent teeth of the acid-filled maw. She stands tall on the trembling glass landing, glaring into the chasm, and screams that she is breaking the lease. The house responds with a deafening, metallic shriek. The remaining glass steps shatter completely, and the surrounding drywall begins to tear itself apart in a rage.",
+            "dramaturgical_function": "The definitive break into Act III. Valerie verbally and physically severs her pact with the entity, choosing human life over wealth.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 62,
-            "scene_heading": "INT. MODERNIST MANSION - SERVANT'S CORRIDORS - CONTINUOUS",
-            "narrative_action": "Valerie drags Toby through the shifting, groaning architecture. She visualizes the original blueprints, physically shoving Toby into a narrow, unglamorous servant's corridor just as a massive crystal chandelier crashes exactly where they stood. She navigates the labyrinth, ripping open a concealed maintenance hatch to bypass a dead-end wall that has mutated into pulsating flesh.",
-            "dramaturgical_function": "Demonstrates Valerie weaponizing her previously corrupt real estate knowledge (the blueprints) to save a life rather than exploit it.",
-            "estimated_page_count": "1.1"
+            "scene_number": 2,
+            "scene_heading": "INT. MODERNIST MANSION - COLLAPSING FOYER - CONTINUOUS",
+            "narrative_action": "Valerie grabs Toby's hand and pulls him through a shower of splintered wood and raining chandelier crystals. The mansion's architecture shifts wildly, attempting to crush them. Valerie visualizes the original blueprints, dragging Toby in zig-zags to exploit the structural dead-zones she previously used to hide the house's digestion cycles. They dive under a buckling archway, barely making it into the narrow servant's corridors.",
+            "dramaturgical_function": "Turns Valerie's obsessive, capitalistic knowledge of the property into a tool for survival, demonstrating her mastery of the environment.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 63,
+            "scene_number": 3,
             "scene_heading": "INT. MODERNIST MANSION - KITCHEN - CONTINUOUS",
-            "narrative_action": "Valerie and Toby drop into the kitchen. The room is a bio-hazard; the walls secrete corrosive acid, actively melting the stainless steel refrigerators. Valerie spots the surviving catering staff cowering behind the marble island. She physically hauls a paralyzed waiter to his feet, barking authoritative orders and herding the terrified group toward the pantry as the floor beneath them turns to acidic mush.",
-            "dramaturgical_function": "Expands Valerie's redemption arc; she actively takes on the role of protector for the innocent, lower-class workers she previously ignored.",
-            "estimated_page_count": "1.3"
+            "narrative_action": "Valerie and Toby stumble into the kitchen to find a cluster of terrified, blood-spattered catering staff huddled behind a shattered marble island. The pristine walls are weeping a corrosive, yellow digestive acid that melts the stainless steel refrigerators. Valerie drops her transactional persona completely. She barks authoritative orders, physically hauling a frozen server to his feet and herding the group toward the back pantry.",
+            "dramaturgical_function": "Completes Valerie's transformation from a selfish predator to a selfless protector, actively risking her life for the lowest-paid people in the house.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 64,
-            "scene_heading": "INT. MODERNIST MANSION - PANTRY - CONTINUOUS",
-            "narrative_action": "The group sprints through the melting pantry. Fleshy, muscular tendrils whip down from the ceiling vents, snapping at their heels. Valerie kicks down the heavy, reinforced steel door leading to the basement. She shoves Toby and the staff through the frame, then violently slams the steel door shut, severing a pursuing tendril in the jamb and throwing the heavy deadbolt.",
-            "dramaturgical_function": "Escalates the physical threat of the house while securing a temporary, claustrophobic sanctuary for the final confrontation.",
-            "estimated_page_count": "1.2"
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - MELTING PANTRY / STAIRWELL - CONTINUOUS",
+            "narrative_action": "The ceiling above the pantry splits, dropping thick, fleshy tendrils that whip toward the catering staff. Valerie kicks down the reinforced wooden door leading to the subterranean mechanical room. She shoves Toby and the weeping servers down the concrete stairs. A tendril wraps around Valerie's ankle, dragging her backward. She kicks wildly with her bare foot, breaking the grip, and throws her entire body weight against the heavy steel door, slamming and deadbolting it shut.",
+            "dramaturgical_function": "Escalates the physical threat of the house while isolating the survivors in the basement for the final confrontation.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 65,
+            "scene_number": 5,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "In the dim, vibrating mechanical room, Valerie hoists the weeping staff and Toby up into a rusted ventilation shaft leading to the exterior hillside. Toby reaches back to pull her up. Before Valerie can grab his hand, a heavy iron pipe swings out of the shadows, brutally smashing into her ribs. She collapses to the concrete as a blood-soaked, manic Richard Sterling steps into the flickering light.",
-            "dramaturgical_function": "Reintroduces the human antagonist at the worst possible moment, forcing Valerie to confront the physical embodiment of her own corporate greed.",
-            "estimated_page_count": "1.4"
+            "narrative_action": "In the dim, damp light of the vibrating basement, Valerie spots an old, rusted ventilation shaft leading to the exterior hillside. She points it out, and Toby immediately begins hoisting the panicked catering staff up into the narrow metal chute. The concrete ceiling above them groans and bows inward as the house tries to crush its way down. Toby climbs into the vent and reaches a hand back down for Valerie.",
+            "dramaturgical_function": "Secures the safety of the innocents and Toby, clearing the stage so Valerie can face her final, personal demons alone.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 66,
+            "scene_number": 6,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "Richard grabs Valerie by her torn gown, dragging her across the concrete toward the steel door, gleefully declaring he will feed her to the house to keep his diamond mine alive. Valerie kicks his knee, breaking his grip. Sensing the conflict, the concrete walls of the mechanical room begin to physically groan and slide inward, threatening to crush them both into paste.",
-            "dramaturgical_function": "Merges the human and supernatural threats; the house uses their conflict to trap them both in a literal shrinking room.",
-            "estimated_page_count": "1.3"
+            "narrative_action": "Before Valerie can take Toby's hand, a heavy iron pipe swings from the shadows, brutally cracking across her ribs. She collapses to the concrete floor, gasping. Richard Sterling steps into the flickering light, his expensive tuxedo torn and soaked in his colleagues' blood. His eyes are wide with manic greed. He yells at Toby to run, then turns to Valerie, declaring the property too valuable to abandon and grabbing her by the hair to drag her back upstairs.",
+            "dramaturgical_function": "Reintroduces the human antagonist. Richard represents the ultimate embodiment of corporate greed, forcing Valerie to literally fight her old worldview.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 67,
+            "scene_number": 7,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "A claustrophobic, brutal brawl erupts in the shrinking room. Richard tackles Valerie against a vibrating water heater, his hands wrapping around her throat, crushing her windpipe. Valerie flails wildly, her fingers grazing a heavy cast-iron wrench abandoned on the floor. She grips the steel handle and brings it crashing down onto Richard's temple, shattering his grip.",
-            "dramaturgical_function": "The physical climax of Valerie's character arc; she violently overpowers her abuser and the toxic corporate hierarchy he represents.",
-            "estimated_page_count": "1.4"
+            "narrative_action": "Valerie drives her knee upward into Richard's stomach, breaking his grip. A feral, bloody fistfight breaks out. Richard swings the iron pipe wildly; Valerie ducks, tackling him into a vibrating water heater. The house senses the bloodshed. The mechanical room begins to literally shrink, the massive concrete walls grinding together and pressing inward to crush them both into a fine paste.",
+            "dramaturgical_function": "A kinetic, dual-threat climax. Valerie must battle the physical embodiment of her greedy past while the environment itself tries to consume them.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 68,
+            "scene_number": 8,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "Valerie scrambles away from a dazed Richard. She swings the bloody wrench with all her might, obliterating the main gas line valve. Thick, volatile fumes blast into the shrinking room. Fleshy, tooth-lined walls burst through the concrete, lunging for them. Valerie pulls her silver lighter, sparks the flint, tosses it into the gas geyser, and dives headfirst into the titanium panic room.",
-            "dramaturgical_function": "The ultimate sacrifice play; Valerie destroys the source of her wealth and power to end the cycle of consumption.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "The space grows claustrophobically tight. Richard tackles Valerie to the floor, his manicured hands wrapping like vices around her throat. He screams that the market belongs to the ruthless. Valerie's vision spots, her hands desperately slapping the concrete until her fingers wrap around a heavy, cast-iron wrench. With a primal scream, she swings the wrench upward, cracking it hard against Richard's skull. He slumps sideways, dazed and bleeding.",
+            "dramaturgical_function": "Valerie physically overpowers her oppressor, definitively rejecting his philosophy that empathy is a weakness.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 69,
-            "scene_heading": "INT. PANIC ROOM / EXT. HOLLYWOOD HILLS - CONTINUOUS",
-            "narrative_action": "Valerie slams the heavy vault door shut just as the gas ignites. A catastrophic, earth-shattering explosion rips through the subterranean levels. The blast wave incinerates Richard and the fleshy labyrinth, blowing the roof clean off the foundation in a spectacular firestorm. Inside the panic room, Valerie is violently hurled against the titanium walls, gasping in the pitch black.",
-            "dramaturgical_function": "Delivers the explosive, cathartic spectacle of the monster's destruction, cleansing the corruption with fire.",
-            "estimated_page_count": "1.2"
+            "scene_number": 9,
+            "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
+            "narrative_action": "Valerie scrambles away from Richard and spots the mansion's massive industrial gas main. She swings the wrench, shattering the main valve. Thick, volatile fumes violently hiss into the shrinking room. Fleshy, tooth-lined walls burst through the concrete, lunging for them. Valerie pulls a silver lighter from her torn gown, sparks it, and tosses it into the gas geyser. She dives headfirst into the titanium-lined panic room, slamming the vault door shut just as the entity's maw snaps down on a screaming Richard.",
+            "dramaturgical_function": "The ultimate sacrifice of the asset. Valerie destroys the source of her wealth to kill the monster, utilizing her environment for a fatal blow.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 70,
-            "scene_heading": "EXT. SMOLDERING CRATER - DAWN",
-            "narrative_action": "Hours later. The heavy vault door groans open. Valerie climbs out of the smoldering, blackened crater into the dawn light, battered but alive. She spots a massive, pristine diamond resting in the ash. She picks it up, feels its heavy promise, then intentionally hurls it back into the ruins. She turns her back on the fortune, walking away to join Toby on the distant hillside.",
-            "dramaturgical_function": "The Denouement; proves Valerie's internal change is permanent by having her actively reject the ultimate physical temptation.",
-            "estimated_page_count": "1.4"
+            "scene_number": 10,
+            "scene_heading": "EXT. MODERNIST MANSION - NIGHT",
+            "narrative_action": "A catastrophic, earth-shattering explosion rips through the Hollywood Hills. The blast wave detonates from the subterranean levels, obliterating the fleshy labyrinth and incinerating the grinding teeth. The roof of the modernist masterpiece is blown clean off the foundation. A spectacular, cleansing firestorm sends burning debris, shattered glass, and pulverized drywall raining down across the pristine landscape.",
+            "dramaturgical_function": "Visual spectacle and cathartic release. The physical destruction of the house mirrors the destruction of Valerie's corrupt empire.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "EXT. BURNED CRATER (FORMERLY MANSION) - DAWN",
+            "narrative_action": "Hours later. Smoke drifts over a smoldering, blackened crater. The heavy, scorched vault door of the panic room groans and kicks open from the inside. Valerie crawls out into the cool morning air. She is battered, covered in thick gray soot, and her crimson gown is reduced to rags. She stands up slowly, taking a deep, shuddering breath of clean air, looking over the absolute ruin of her listing with a profound sense of peace.",
+            "dramaturgical_function": "The aftermath and rebirth. Valerie emerges from the wreckage stripped of her wealth and armor, but entirely alive and free.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 12,
+            "scene_heading": "EXT. BURNED CRATER - MOMENTS LATER",
+            "narrative_action": "Navigating the charred rubble, Valerie stops. Resting perfectly intact in the gray ashes is a massive, pristine diamond. She bends down and picks it up. She rolls the cold, heavy stone between her soot-stained fingers, staring at its blinding facets. She looks up toward the distant hillside, where Toby is waving to her. Valerie closes her hand around the diamond, then intentionally pitches it backward into the smoldering ruins. Without looking back, she walks away to join Toby.",
+            "dramaturgical_function": "The final moral test. Valerie is offered a chance to take a piece of the corrupt wealth with her, but she actively discards it, completing her arc.",
+            "estimated_page_count": 2.5
           }
-        ]
+        ],
+        "sequence_number": 7
       },
       {
         "sequence_title": "Final Demolition",
+        "total_estimated_pages": 15,
         "scenes": [
           {
-            "scene_number": 71,
-            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING - NIGHT",
-            "narrative_action": "Valerie violently yanks Toby by his cheap suit lapels, pulling him back from the glowing, tooth-lined chasm. The house shrieks, a deafening wail of tearing drywall. The grand mahogany staircase physically collapses beneath them. Valerie grabs Toby's belt and they surf a wave of splintering wood and shattered glass down into the lower foyer, desperately dodging snapping, animated floorboards that try to bite their ankles.",
-            "dramaturgical_function": "The Break into Three; Valerie makes her definitive moral choice, transitioning from passive survivor to active combatant against the entity.",
-            "estimated_page_count": "1.2"
+            "scene_number": 1,
+            "scene_heading": "INT. MODERNIST MANSION - STAIRCASE LANDING / FOYER - CONTINUOUS",
+            "narrative_action": "Valerie violently yanks Toby backward by the lapels of his cheap suit, hauling him away from the snapping, translucent teeth of the acid-filled maw. She screams her lease termination directly into the chasm. The house responds with a deafening, metallic shriek, shattering the glass landing. Valerie grabs Toby's hand, sprinting through the collapsing foyer. Visualizing the blueprints, she drags Toby through structural dead-zones to dodge raining chandeliers, diving under a buckling archway into the narrow servant's corridors.",
+            "dramaturgical_function": "The definitive break into Act III. Valerie verbally and physically severs her pact with the entity, weaponizing her capitalistic knowledge of the property for survival.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 72,
-            "scene_heading": "INT. MODERNIST MANSION - SERVANT'S CORRIDORS - CONTINUOUS",
-            "narrative_action": "Valerie drags Toby through the groaning, shifting architecture. She visualizes the original blueprints, physically shoving Toby into a narrow, unglamorous servant's corridor just as a massive crystal chandelier crashes exactly where they stood. She navigates the labyrinth, ripping open a concealed maintenance hatch and kicking through the drywall to bypass a dead-end wall that has mutated into pulsating, warm flesh.",
-            "dramaturgical_function": "Demonstrates Valerie weaponizing her previously corrupt real estate knowledge to save a life rather than exploit it.",
-            "estimated_page_count": "1.1"
+            "scene_number": 2,
+            "scene_heading": "INT. MODERNIST MANSION - KITCHEN / PANTRY - CONTINUOUS",
+            "narrative_action": "Valerie and Toby stumble into the kitchen, finding terrified catering staff huddled behind a shattered marble island. The pristine walls weep corrosive, yellow digestive acid, melting the stainless steel appliances. Dropping her transactional persona, Valerie barks orders, physically hauling a frozen server to his feet and herding the group to the pantry. Thick, fleshy tendrils drop from the splitting ceiling. Valerie kicks down the reinforced mechanical room door, shoves the group inside, kicks a whipping tendril off her ankle, and deadbolts the heavy steel door shut.",
+            "dramaturgical_function": "Completes Valerie's transformation from predator to protector, actively risking her life for the lowest-paid people in the house while escalating the physical threat.",
+            "estimated_page_count": 2.5
           },
           {
-            "scene_number": 73,
-            "scene_heading": "INT. MODERNIST MANSION - KITCHEN - CONTINUOUS",
-            "narrative_action": "Valerie and Toby drop into the kitchen. The room is a bio-hazard; the walls secrete corrosive digestive acid, actively melting the stainless steel Sub-Zero refrigerators. Valerie spots the surviving catering staff cowering behind the marble island. She physically hauls a paralyzed waiter to his feet, barking authoritative orders and herding the terrified group toward the pantry as the floor beneath them turns to acidic mush.",
-            "dramaturgical_function": "Expands Valerie's redemption arc; she actively takes on the role of protector for the innocent, lower-class workers she previously ignored.",
-            "estimated_page_count": "1.3"
-          },
-          {
-            "scene_number": 74,
-            "scene_heading": "INT. MODERNIST MANSION - PANTRY - CONTINUOUS",
-            "narrative_action": "The group sprints through the melting pantry. Fleshy, muscular tendrils whip down from the ceiling vents, snapping at their heels. Valerie kicks down the heavy, reinforced steel door leading to the basement. She shoves Toby and the staff through the frame, then violently slams the steel door shut, severing a pursuing tendril in the jamb and throwing the heavy deadbolt to lock the beast out.",
-            "dramaturgical_function": "Escalates the physical threat of the house while securing a temporary, claustrophobic sanctuary for the final confrontation.",
-            "estimated_page_count": "1.2"
-          },
-          {
-            "scene_number": 75,
+            "scene_number": 3,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "In the dim, vibrating mechanical room, Valerie hoists the weeping staff and Toby up into a rusted ventilation shaft leading to the exterior hillside. Toby reaches back to pull her up. Before Valerie can grab his hand, a heavy iron pipe swings out of the shadows, brutally smashing into her ribs. She collapses to the concrete as a blood-soaked, manic Richard Sterling steps into the flickering light, wielding the pipe.",
-            "dramaturgical_function": "Reintroduces the human antagonist at the worst possible moment, forcing Valerie to confront the physical embodiment of her own corporate greed.",
-            "estimated_page_count": "1.4"
+            "narrative_action": "In the dim, vibrating basement, Valerie spots an old, rusted ventilation shaft leading to the exterior hillside. She points it out; Toby immediately begins hoisting the panicked catering staff up into the narrow metal chute. The concrete ceiling above them groans and bows inward as the house tries to crush its way down. Toby climbs into the vent and reaches a hand back down for Valerie.",
+            "dramaturgical_function": "Secures the safety of the innocents and Toby, clearing the stage so Valerie can face her final, personal demons alone.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 76,
+            "scene_number": 4,
+            "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - MOMENTS LATER",
+            "narrative_action": "Before Valerie can take Toby's hand, a heavy iron pipe swings from the shadows, brutally cracking across her ribs. She collapses to the concrete floor, gasping. Richard Sterling steps into the flickering light, his expensive tuxedo torn and soaked in his colleagues' blood. His eyes are wide with manic greed. He yells at Toby to run, then grabs Valerie by the hair, declaring the property too valuable to abandon as he tries to drag her back upstairs.",
+            "dramaturgical_function": "Reintroduces the human antagonist. Richard represents the ultimate embodiment of corporate greed, forcing Valerie to literally fight her old worldview.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "Richard grabs Valerie by her torn crimson gown, dragging her across the concrete toward the steel door, gleefully declaring he will feed her to the house to keep his diamond mine alive. Valerie twists, driving her knee into his stomach and breaking his grip. Sensing the conflict, the concrete walls of the mechanical room begin to physically groan and slide inward, threatening to crush them both into paste.",
-            "dramaturgical_function": "Merges the human and supernatural threats; the house uses their conflict to trap them both in a literal shrinking room.",
-            "estimated_page_count": "1.3"
+            "narrative_action": "Valerie drives her knee upward into Richard's stomach, breaking his grip. A feral, bloody fistfight breaks out. Richard swings the iron pipe wildly; Valerie ducks, tackling him into a vibrating water heater. The house senses the bloodshed. The mechanical room begins to literally shrink, the massive concrete walls grinding together and pressing inward. Richard tackles Valerie to the floor, his manicured hands wrapping like vices around her throat. Valerie's vision spots, her hands desperately slapping the concrete until her fingers wrap around a heavy, cast-iron wrench. With a primal scream, she swings the wrench upward, cracking it hard against Richard's skull. He slumps sideways.",
+            "dramaturgical_function": "A kinetic, dual-threat climax. Valerie physically overpowers her oppressor, definitively rejecting his philosophy while the environment itself tries to consume them.",
+            "estimated_page_count": 2.5
           },
           {
-            "scene_number": 77,
+            "scene_number": 6,
             "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "A claustrophobic, brutal brawl erupts in the shrinking room. Richard tackles Valerie against a vibrating water heater, his hands wrapping around her throat, crushing her windpipe. Valerie flails wildly, her fingers grazing a heavy cast-iron wrench abandoned on the floor. She grips the steel handle and brings it crashing down onto Richard's temple, shattering his grip and leaving him dazed.",
-            "dramaturgical_function": "The physical climax of Valerie's character arc; she violently overpowers her abuser and the toxic corporate hierarchy he represents.",
-            "estimated_page_count": "1.4"
+            "narrative_action": "Valerie scrambles away from Richard and spots the mansion's massive industrial gas main. She swings the wrench, shattering the main valve. Thick, volatile fumes violently hiss into the shrinking room. Fleshy, tooth-lined walls burst through the concrete, lunging for them. Valerie pulls a silver lighter from her torn gown, sparks it, and tosses it into the gas geyser. She dives headfirst into the titanium-lined panic room, slamming the vault door shut just as the entity's maw snaps down on a screaming Richard.",
+            "dramaturgical_function": "The ultimate sacrifice of the asset. Valerie destroys the source of her wealth to kill the monster, utilizing her environment for a fatal blow.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 78,
-            "scene_heading": "INT. MODERNIST MANSION - MECHANICAL ROOM - CONTINUOUS",
-            "narrative_action": "Valerie scrambles away from Richard. She swings the bloody wrench with all her might, obliterating the main gas line valve. Thick, volatile fumes blast into the shrinking room. Fleshy, tooth-lined walls burst through the concrete, lunging for them. Valerie pulls her silver lighter, sparks the flint, tosses it into the gas geyser, and dives headfirst into the titanium panic room, slamming the door.",
-            "dramaturgical_function": "The ultimate sacrifice play; Valerie destroys the source of her wealth and power to end the cycle of consumption.",
-            "estimated_page_count": "1.5"
+            "scene_number": 7,
+            "scene_heading": "EXT. MODERNIST MANSION - NIGHT",
+            "narrative_action": "A catastrophic, earth-shattering explosion rips through the Hollywood Hills. The blast wave detonates from the subterranean levels, obliterating the fleshy labyrinth and incinerating the grinding teeth. The roof of the modernist masterpiece is blown clean off the foundation. A spectacular, cleansing firestorm sends burning debris, shattered glass, and pulverized drywall raining down across the pristine landscape.",
+            "dramaturgical_function": "Visual spectacle and cathartic release. The physical destruction of the house perfectly mirrors the destruction of Valerie's corrupt empire.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 79,
-            "scene_heading": "INT. PANIC ROOM / EXT. HOLLYWOOD HILLS - CONTINUOUS",
-            "narrative_action": "Valerie throws the heavy vault deadbolt just as the gas ignites. A catastrophic, earth-shattering explosion rips through the subterranean levels. The blast wave incinerates Richard and the fleshy labyrinth, blowing the roof clean off the foundation in a spectacular firestorm of shattered glass and burning debris. Inside the panic room, Valerie is violently hurled against the titanium walls, gasping in the pitch black.",
-            "dramaturgical_function": "Delivers the explosive, cathartic spectacle of the monster's destruction, cleansing the corruption with fire.",
-            "estimated_page_count": "1.2"
-          },
-          {
-            "scene_number": 80,
-            "scene_heading": "EXT. SMOLDERING CRATER - DAWN",
-            "narrative_action": "Hours later. The heavy vault door groans open. Valerie climbs out of the smoldering, blackened crater into the dawn light, battered but alive. She spots a massive, pristine diamond resting in the ash. She picks it up, feels its heavy promise, then intentionally hurls it back into the ruins. She turns her back on the fortune, walking away to join Toby on the distant hillside.",
-            "dramaturgical_function": "The Denouement; proves Valerie's internal change is permanent by having her actively reject the ultimate physical temptation.",
-            "estimated_page_count": "1.4"
+            "scene_number": 8,
+            "scene_heading": "EXT. BURNED CRATER (FORMERLY MANSION) - DAWN",
+            "narrative_action": "Hours later. Smoke drifts over a smoldering, blackened crater. The heavy, scorched vault door of the panic room groans and kicks open from the inside. Valerie crawls out into the cool morning air, battered and covered in thick gray soot. Navigating the charred rubble, she stops. Resting perfectly intact in the gray ashes is a massive, pristine diamond. She bends down, picks it up, and rolls the cold, heavy stone between her soot-stained fingers. She looks up toward the distant hillside, where Toby is waving to her. Valerie closes her hand around the diamond, intentionally pitches it backward into the smoldering ruins, and walks away.",
+            "dramaturgical_function": "The aftermath, rebirth, and final moral test. Valerie is offered a chance to take a piece of the corrupt wealth, but actively discards it, completing her arc.",
+            "estimated_page_count": 2.5
           }
-        ]
+        ],
+        "sequence_number": 8
       }
     ]
   }
