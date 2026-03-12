@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Stage 6 Elements
-    const stage6Board = document.getElementById('stage6-board');
+    const stage6Board = document.getElementById('stage6-blueprint-container');
     const stage6Workshop = document.getElementById('stage6Workshop');
     const stage6Notes = document.getElementById('stage6-notes');
     const btnStage6Submit = document.getElementById('btnStage6Submit');
@@ -2211,8 +2211,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stage 6 Logic: Scene Blueprint ---
 
     function renderStage6(data) {
-        if (!stage6Board) return;
-        stage6Board.innerHTML = '';
+        const container = document.getElementById('stage6-blueprint-container');
+        if (!container) return;
+        container.innerHTML = '';
 
         // Dummy Data implementation
         const dummyData = {
@@ -2256,6 +2257,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sequences = dummyData.sequences;
         }
 
+        if (sequences.length === 0) {
+            container.innerHTML = '<div class="p-10 text-gray-500 italic">No scenes generated yet. Click "Generate" to begin.</div>';
+            return;
+        }
+
         let globalSceneCounter = 1;
 
         // Helper to update all scene numbers in the DOM
@@ -2274,10 +2280,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (index === 6) actHeader = "ACT III";
 
             if (actHeader) {
-                const header = document.createElement('h2');
-                header.className = 'text-xl font-bold text-white mb-4 mt-8 uppercase tracking-widest border-b border-gray-800 pb-2';
+                const header = document.createElement('h3');
+                header.className = 'text-sm font-bold text-white tracking-widest uppercase mt-8';
                 header.textContent = actHeader;
-                stage6Board.appendChild(header);
+                container.appendChild(header);
             }
 
             const seqBlock = document.createElement('div');
@@ -2360,14 +2366,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cardsContainer.appendChild(ghostCard);
             seqBlock.appendChild(cardsContainer);
-            stage6Board.appendChild(seqBlock);
+            container.appendChild(seqBlock);
         });
 
 
         // Re-initialize SortableJS on every sequence container
         if (typeof Sortable !== 'undefined') {
-            document.querySelectorAll('.scene-cards-container').forEach(container => {
-                new Sortable(container, {
+            document.querySelectorAll('.scene-cards-container').forEach(containerEL => {
+                new Sortable(containerEL, {
                     group: 'shared',
                     animation: 150,
                     handle: '.card-grip',
