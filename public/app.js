@@ -27,8 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItems = {};
     const workspaces = {};
     for (let i = 1; i <= 10; i++) {
-        navItems[i] = document.getElementById(`nav-stage-${i}`);
-        workspaces[i] = document.getElementById(`stage-${i}-view`);
+        // Handle inconsistent ID patterns (nav-stage-X vs nav-stageX)
+        navItems[i] = document.getElementById(`nav-stage-${i}`) || document.getElementById(`nav-stage${i}`);
+        workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
 
     // Legacy / Convenience references for existing stages
@@ -841,8 +842,9 @@ document.addEventListener('DOMContentLoaded', () => {
             2: !!data.stage2_outline,
             3: !!data.stage3_characters,
             4: !!(data.stage4_beats || data.stage4_treatment),
-            5: !!data.stage5_treatment
-            // Stages 6-10 currently placeholder
+            5: !!data.stage5_treatment,
+            6: !!data.stage6_scenes && data.stage6_scenes.length > 0 && data.stage6_scenes[0].scenes.length > 0
+            // Stages 7-10 currently placeholder
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -903,6 +905,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!navItems[i].classList.contains('disabled')) {
                 switchStage(i);
             }
+        });
+    }
+
+    // Surgical fix for Stage 7 Navigation
+    if (navItems[7]) {
+        navItems[7].addEventListener('click', (e) => {
+            e.preventDefault();
+            // Force switching to Stage 7 even if it's currently "disabled" in the UI
+            switchStage(7);
         });
     }
 

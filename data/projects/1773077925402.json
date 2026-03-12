@@ -414,664 +414,620 @@
     },
     "stage6_scenes": [
       {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
-        "sequence_title": "",
-        "scenes": []
-      },
-      {
         "sequence_title": "The Desperate Hustle",
+        "total_estimated_pages": 12,
         "scenes": [
           {
             "scene_number": 1,
-            "scene_heading": "EXT. LOWER SECTORS - NIGHT",
-            "narrative_action": "Elara pedals her rusted hover-bike through torrential, acid-tinged rain. She delivers a synthetic protein pack to a gleaming upper spire drop-off. Her eyes are bloodshot, her hands trembling. She constantly checks her pulse, a physical grounding technique to fight off severe sleep deprivation.",
-            "dramaturgical_function": "Establishes Elara's grueling daily reality, physical exhaustion, and the stark, oppressive contrast between her gig-worker world and the wealthy upper spires.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "EXT. UPPER SPIRES / LOWER SECTORS - NIGHT",
+            "narrative_action": "Elara pedals her rusted hover-bike through torrential, acid-tinged rain. She drops off a pristine synthetic protein pack at a glittering, heavily guarded upper spire, then immediately descends into the smog-choked, neon-lit lower sectors. As she rides, she repeatedly presses two fingers to her neck, checking her pulse in a mechanical, grounded rhythm to fight off severe sleep deprivation.",
+            "dramaturgical_function": "Establishes the protagonist's extreme physical exhaustion, her transactional numbness, and the stark class divide of the cyberpunk world.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 2,
-            "scene_heading": "INT. ELARA'S APARTMENT - KITCHEN - CONTINUOUS",
-            "narrative_action": "Elara pushes through a rusted security door into her cramped apartment. She ignores the smell of ozone and cheap broth, walking straight to the scarred kitchen table. She picks up a glowing red final notice. It illuminates her face as she stares out the cracked window at the corporate skyline, calculating the exact minute she must wake up for her next shift.",
-            "dramaturgical_function": "Introduces the central ticking clock (the impending cessation of her mother's medical treatments) and grounds Elara's desperate motivation.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. APARTMENT COMPLEX - HALLWAY - CONTINUOUS",
+            "narrative_action": "Elara pushes through a heavy, rusted security door. She trudges down a cramped corridor illuminated by flickering, buzzing fluorescent lights that cast long, oppressive shadows. She drags her feet, her shoulders slumped, barely able to keep her bloodshot eyes open as she approaches her unit.",
+            "dramaturgical_function": "Builds atmospheric tension and emphasizes the inescapable, suffocating daily grind before she reaches her supposed sanctuary.",
+            "estimated_page_count": 0.5
           },
           {
             "scene_number": 3,
-            "scene_heading": "INT. ELARA'S APARTMENT - LIVING ROOM - CONTINUOUS",
-            "narrative_action": "Silvia sits in a frayed armchair, knitting rapidly to hide her violent neurological tremors. She stops, reaches out, and touches Elara's sunken face. Silvia warns her not to 'rent the space behind your eyes.' Elara stiffens, steps back, and deflects the emotional intimacy by rapidly rattling off her upcoming delivery routes and the exact credit cost of the next medical tier.",
-            "dramaturgical_function": "States the core theme of mental sanctuary versus corporate exploitation, and establishes Elara's psychological flaw of deflecting emotion with logistical obsession.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. ELARA'S APARTMENT - KITCHEN - CONTINUOUS",
+            "narrative_action": "Elara drops her gear. On the scarred kitchen table, a glowing red final notice illuminates the dark room with a sinister hue. She picks it up, reading the immediate cessation order for her mother's neurological treatments. She steps to the cracked window, staring out at the mocking, pristine corporate skyline, rubbing her temples as she calculates her waking hours.",
+            "dramaturgical_function": "Introduces the ticking clock and the inciting financial pressure that will drive the plot forward.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 4,
-            "scene_heading": "INT. ELARA'S APARTMENT - KITCHEN - LATER",
-            "narrative_action": "Hunched over a cracked datapad in the dark, Elara frantically shifts meager credits between digital envelopes. The math fails. A slick, unprompted holographic ad for 'Somnus' bursts from the device, bathing her in a serene glow. It promises life-changing payouts for renting idle REM sleep. Elara stares at the massive payout numbers, her finger hovering over the screen.",
-            "dramaturgical_function": "Presents the 'solution' to the ticking clock, introducing the Somnus program as a tempting but ominous way out of her impossible situation.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S APARTMENT - LIVING ROOM - CONTINUOUS",
+            "narrative_action": "Elara enters to find Silvia sitting in a frayed armchair, knitting rapidly to mask her violent neurological tremors. Silvia stops, gently touching Elara's sunken face, and softly warns her not to let the corporations 'rent the space behind your eyes.' Elara physically stiffens, pulling away. She deflects the emotional plea by loudly rattling off her upcoming delivery routes and the exact credit cost of the next medical tier.",
+            "dramaturgical_function": "States the core theme of mental sanctuary versus corporate exploitation, while establishing Elara's fatal flaw of emotional deflection and transactional sacrifice.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 5,
-            "scene_heading": "INT. ELARA'S APARTMENT - LIVING ROOM - CONTINUOUS",
-            "narrative_action": "Before Elara can click away from the ad, a sickening thud echoes from the other room. Silvia suffers a severe, agonizing tremor, her body seizing in the armchair as she gasps for air. Elara drops the datapad, sprinting in to stabilize her mother. As she holds Silvia's shaking body, the hesitation completely vanishes from Elara's eyes.",
-            "dramaturgical_function": "Forces Elara's hand. The physical escalation of Silvia's illness removes any remaining choice Elara had about taking the dangerous Somnus gig.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S BEDROOM - LATER",
+            "narrative_action": "Huddled in the dark, Elara frantically taps at a cracked datapad. The blue light illuminates her face as she moves meager digital credits between empty accounts. She punches the console in frustration as the math repeatedly fails; working twenty hours a day will not cover the medical debt.",
+            "dramaturgical_function": "Escalates Elara's desperation, proving that her current strategy of relentless physical sacrifice is mathematically impossible.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 6,
-            "scene_heading": "INT. SOMNUS CLINIC - WAITING ROOM - DAY",
-            "narrative_action": "Elara sits in a blindingly white, sterile waiting room. Her worn courier jacket looks entirely out of place. A holographic interface floats in front of her, displaying a dense, labyrinthine digital contract. She scrolls to the bottom and signs her name with a trembling finger, the interface flashing green to confirm her submission.",
-            "dramaturgical_function": "The point of no return. Elara legally surrenders her subconscious and bodily autonomy to the corporate machine.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S BEDROOM - CONTINUOUS",
+            "narrative_action": "A slick, unprompted holographic advertisement for 'Somnus' bursts from the datapad, bathing the dingy room in a serene, artificial glow. Elara watches the soothing pitch offering massive payouts for renting REM sleep. She stares at the glowing numbers, her finger hovering over the 'ACCEPT' button, but she pulls back, rubbing her skull as she recalls whispered street rumors.",
+            "dramaturgical_function": "Presents the sci-fi solution to her grounded problem, tempting the protagonist and planting the seed of the Catalyst.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 7,
-            "scene_heading": "INT. SOMNUS CLINIC - SURGICAL THEATER - DAY",
-            "narrative_action": "Elara lies back in a stark white medical chair. The air is freezing. A massive robotic arm descends from the ceiling, its precision lasers locking onto the base of her skull. Elara grips the armrests, her knuckles turning white. The machine strikes, drilling the neural port directly into her flesh. She gasps as electric agony spikes through her, immediately followed by a heavy, unnatural numbness.",
-            "dramaturgical_function": "The physical catalyst. A visceral, bodily intrusion that finalizes her transition from a human being into corporate server space.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. ELARA'S APARTMENT - LIVING ROOM - NIGHT",
+            "narrative_action": "A sudden gasp and the shatter of a ceramic mug echo from the living room. Elara sprints in to find Silvia collapsed on the floor, her body seizing in a severe, agonizing neurological tremor. Elara drops to her knees, desperately holding her mother's convulsing frame, her eyes wide with terror as she realizes they are out of time.",
+            "dramaturgical_function": "Forces the protagonist's hand, removing any choice or delay in accepting the dangerous Somnus deal.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 8,
-            "scene_heading": "INT. ELARA'S APARTMENT - BEDROOM - NIGHT",
-            "narrative_action": "Elara sleeps, the new neural port humming with a faint blue light. Internally, she experiences soothing, abstract geometric shapes in pastel colors. She wakes up, grabs her datapad, and sees massive direct deposits pinging into her account. With a few swift keystrokes, she clears Silvia's immediate medical debts, exhaling a deep breath of relief.",
-            "dramaturgical_function": "Provides a false sense of victory and security, contrasting the impending psychological horror with immediate, intoxicating financial relief.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "EXT. SOMNUS CLINIC - DAY",
+            "narrative_action": "Elara parks her rusted hover-bike outside the Somnus clinic. The building is a towering fortress of sterile, intimidating white architecture. She stands on the acid-stained sidewalk, her worn, grimy courier jacket sharply contrasting with the pristine, seamless glass doors sliding open to welcome her.",
+            "dramaturgical_function": "Visually represents the crossing of worlds from the impoverished analog slums to the ruthless, sanitized corporate tech sphere.",
+            "estimated_page_count": 0.5
           },
           {
             "scene_number": 9,
-            "scene_heading": "EXT. UPPER SPIRES - DAY",
-            "narrative_action": "Elara pedals her hover-bike but suddenly stops in the middle of a busy intersection, staring blankly at a towering glass monolith. A blaring horn snaps her back to reality. She checks her datapad timer and realizes she has lost several minutes. She rubs her temples, a heavy, unnatural lethargy dragging at her limbs as she forces herself to keep pedaling.",
-            "dramaturgical_function": "Complicates the narrative by introducing the physical and mental toll of the Somnus drive, escalating the tension as her waking life begins to fracture.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. SOMNUS CLINIC - WAITING ROOM - CONTINUOUS",
+            "narrative_action": "Sitting in a blindingly white, perfectly silent waiting room, Elara is presented with a dense, labyrinthine digital contract on a floating holographic interface. She traces the glowing, impenetrable legal text. She takes a deep, shaky breath, raises a trembling finger, and presses her biometric signature onto the glowing pad.",
+            "dramaturgical_function": "The psychological point of no return; she officially surrenders her bodily autonomy and subconscious to the antagonist's corporation.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 10,
-            "scene_heading": "INT. ELARA'S APARTMENT - BEDROOM - NIGHT",
-            "narrative_action": "Elara is asleep, the neural port glowing. In her mind, the peaceful pastel geometric shapes suddenly violently glitch. The colors tear away like burning paper, replaced by a torrent of jagged, corrupted static. Her physical heart rate spikes, the bedside medical monitor blaring a shrill warning as she is pulled into a suffocating nightmare.",
-            "dramaturgical_function": "Transitions the sequence from setup to thriller. The safe digital space is violently breached, signaling that the corporate data is corrupting her mind.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 11,
-            "scene_heading": "INT. CORPORATE BOARDROOM (DREAMSCAPE) / ELARA'S BEDROOM - CONTINUOUS",
-            "narrative_action": "Through a hyper-realistic, first-person POV that is not hers, Elara watches a shadowy figure raise a suppressed weapon at a terrified executive. The gun fires. Blood splatters across a pristine glass table. Elara wakes up screaming, her body thrashing against the tangled bedsheets. She claws frantically at the neural port in her skull, realizing with cold terror that she just witnessed an unencrypted video file of a real murder.",
-            "dramaturgical_function": "The sequence climax. Shatters the illusion of safety, answers the dramatic question of what the data actually is, and propels Elara into the central danger of Act II.",
-            "estimated_page_count": "2.5"
+            "scene_heading": "INT. SOMNUS CLINIC - SURGICAL THEATER - LATER",
+            "narrative_action": "Elara is ushered into a freezing room smelling of ozone and strapped into a stark white medical chair. A massive, cold robotic arm descends from the ceiling, its targeting lasers locking onto the base of her skull. Elara grips the armrests, her knuckles white. The machine whirs to life and violently drills the neural port directly into her flesh and bone. She gasps as her body goes entirely numb.",
+            "dramaturgical_function": "The physical Catalyst; an irreversible physical intrusion that officially turns her brain into corporate property and propels her into the nightmare of Act II.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 1
       },
       {
         "sequence_title": "The Upload",
+        "total_estimated_pages": 14.5,
         "scenes": [
           {
+            "scene_number": 11,
+            "scene_heading": "INT. ELARA'S BEDROOM - NIGHT",
+            "narrative_action": "Elara sits on the edge of her mattress, holding a sleek, corporate-issued Somnus connection cable. She hesitates, her fingers trembling, then clicks the metallic tip into the raw, inflamed neural port at the base of her skull. Her eyes roll back as the dingy room fades. In her mind's eye, soothing pastel geometric shapes and floating spheres begin to drift in a dark, silent void. Her tense, exhausted muscles finally go entirely slack.",
+            "dramaturgical_function": "Establishes the new status quo and the deceptive, painless beginning of the Somnus data-storage process.",
+            "estimated_page_count": 1.5
+          },
+          {
             "scene_number": 12,
-            "scene_heading": "INT. SOMNUS CLINIC - RECOVERY ROOM - DAY",
-            "narrative_action": "Elara sits on the edge of a sterile examination table, wincing as she touches the raw, metallic port newly embedded at the base of her skull. A Somnus technician hands her a thick, braided sync cable and a datapad with upload protocols. Elara doesn't ask questions about the pain; she just verifies the payout schedule on the screen, pockets the cable, and walks out.",
-            "dramaturgical_function": "Establishes the immediate physical aftermath of the procedure and highlights Elara's transactional approach to her own bodily violation.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S APARTMENT - KITCHEN - MORNING",
+            "narrative_action": "Elara snaps awake, the cable automatically detaching from her neck with a soft hiss. She grabs her datapad. The screen flashes green with a massive direct deposit. Her hands fly across the cracked screen, furiously routing the digital credits to the medical syndicate. The glowing red 'FINAL NOTICE' on the table flickers and turns a reassuring, steady blue 'CLEARED'. She drops her head into her hands, letting out a long, shuddering breath of relief.",
+            "dramaturgical_function": "Delivers the false victory; the immediate financial pressure is relieved, seemingly validating her dangerous choice.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 13,
-            "scene_heading": "INT. ELARA'S APARTMENT - BEDROOM - NIGHT",
-            "narrative_action": "Elara sits on her cramped bed. She examines the heavy braided cable, plugs one end into a Somnus wall-relay unit, and hesitates before slotting the other end into her skull port. A soft blue LED pulses to life. Her eyes roll back slightly. We push into her POV: a serene, floating void filled with slow-moving, pastel geometric fractals.",
-            "dramaturgical_function": "The first experience of the 'new normal.' Introduces the visual language of the Somnus data storage and its initial, deceptive peacefulness.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "EXT. LOWER SECTORS - DAY",
+            "narrative_action": "Elara weaves her hover-bike through crowded, rain-slicked streets, a stack of delivery parcels strapped to the back. Mid-turn, her eyes glaze over. The ambient roar of the street abruptly cuts to dead silence. When the sound violently rushes back, she is stopped three blocks away, idling at a red neon intersection with no memory of the drive. She looks around, panicked, checking the timestamp on her datapad—twenty minutes have simply vanished.",
+            "dramaturgical_function": "Introduces the first discordant element—memory gaps—showing the invisible, insidious toll the data storage is taking on her waking mind.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 14,
-            "scene_heading": "INT. ELARA'S APARTMENT - KITCHEN - MORNING",
-            "narrative_action": "Elara yanks the cable from her neck, gasping slightly as she wakes. She immediately grabs her datapad. The screen flashes with a massive direct deposit. Her hands shaking, she rapidly types, transferring the credits to the medical syndicate. The glowing red 'FINAL NOTICE' on the table changes to a green 'CLEARED'. She lets out a long, shuddering breath of relief.",
-            "dramaturgical_function": "Delivers the false victory. The immediate financial reward justifies the physical intrusion, temporarily ending her internal debate.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S BEDROOM - NIGHT",
+            "narrative_action": "Elara plugs the Somnus cable back into her neck. The pastel spheres return to her mind's eye, but they spin faster now, their edges sharpening into jagged, aggressive fractals. In the physical world, Elara's body twitches restlessly in the bed. Her breathing is shallow and rapid. The neural port at the base of her skull emits a faint, steady blue glow that pulses out of sync with her erratic heartbeat.",
+            "dramaturgical_function": "Escalates the physical toll and visualizes the increasing density and weight of the corporate data being uploaded into her brain.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 15,
-            "scene_heading": "EXT. LOWER SECTORS - DAY",
-            "narrative_action": "Elara pedals her hover-bike through heavy rain. She rubs her temples, her eyes drooping with unnatural exhaustion. She blinks. When her eyes open, the rain has stopped, the lighting has changed, and she is three blocks away, nearly sideswiping a pedestrian. She slams the brakes, disoriented, quickly checking her pulse to ground herself.",
-            "dramaturgical_function": "Introduces the first complication: the physical and cognitive toll of the data storage bleeding into her waking life via a terrifying memory gap.",
-            "estimated_page_count": "2"
+            "scene_heading": "EXT. UPPER SPIRES - DAY",
+            "narrative_action": "Elara trudges up a pristine marble staircase to deliver a package. A heavy, unnatural lethargy drags at her limbs, making her boots scrape against the stone. She stumbles, dropping a synthetic protein pack. As she kneels to pick it up, her hands shake violently. She aggressively rubs her temples and presses two fingers to her neck to check her pulse, desperate to ground herself against the crushing, impenetrable brain-fog.",
+            "dramaturgical_function": "Demonstrates that the physical symptoms are worsening, directly mirroring the severe exhaustion she originally tried to escape.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 16,
             "scene_heading": "INT. ELARA'S APARTMENT - LIVING ROOM - EVENING",
-            "narrative_action": "Silvia sits in her armchair, breathing easier, a line of new, expensive medical vials on the table. Elara walks in, pale and swaying slightly. Silvia notices the glowing port on Elara's neck and reaches out in concern. Elara dodges the touch, deflecting the intimacy by aggressively organizing the medical vials and reciting the dosage schedule.",
-            "dramaturgical_function": "Highlights the emotional distance Elara creates to protect her mother, showing that the financial fix hasn't solved her underlying psychological wound.",
-            "estimated_page_count": "2"
+            "narrative_action": "Silvia sits in her armchair, her neurological tremors noticeably reduced. She watches Elara stumble through the front door, looking pale and hollowed out. Silvia stands up and tries to gently inspect the glowing port on Elara's neck. Elara physically swats her mother's hand away. She deflects the intimacy by shoving her datapad into Silvia's hands, pointing at the fully funded medical account, insisting in short, clipped sentences that everything is perfectly fine.",
+            "dramaturgical_function": "Highlights Elara's fatal flaw; she uses transactional success to justify her self-destruction and pushes away her mother's emotional support.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 17,
-            "scene_heading": "INT. ELARA'S APARTMENT - BEDROOM - NIGHT",
-            "narrative_action": "Elara slots the cable into her neck. The blue LED pulses faster than the previous night. In her mind's eye, the pastel fractals are no longer slow; they spin rapidly, multiplying and crowding the void, humming with a heavy, oppressive digital vibration that makes her physical body twitch in bed.",
-            "dramaturgical_function": "Escalates the tension within the dreamscape, visually representing the increasing, unstable burden of the corporate data.",
-            "estimated_page_count": "1"
+            "scene_heading": "INT. ELARA'S BATHROOM - MOMENTS LATER",
+            "narrative_action": "Elara stands before a cracked, rusted mirror. She turns her back, using a handheld reflective shard to inspect the neural port. The skin around the metal is angry, red, and swollen with infection. She grips the edges of the sink, staring at her bloodshot, sunken eyes in the glass. Her fingers hover over the metal port, debating whether to rip it out, but she slowly drops her hands, defeated by the weight of her financial responsibilities.",
+            "dramaturgical_function": "The core of the 'Debate' beat; she actively weighs the physical horror of the port against the financial security it provides, ultimately choosing to endure.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 18,
-            "scene_heading": "INT. UPPER SPIRES - CORPORATE LOBBY - DAY",
-            "narrative_action": "Elara stands motionless in the lobby of a gleaming corporate spire, holding a protein pack. A wealthy executive snaps his fingers in front of her face, annoyed. Elara snaps out of a deep fugue state, realizing she has been staring blankly at the marble wall for several minutes. She thrusts the package forward, her hands trembling violently.",
-            "dramaturgical_function": "Worsens the waking-life complications. The memory gaps are becoming severe, threatening her livelihood and exposing her vulnerability.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. ELARA'S BEDROOM - NIGHT",
+            "narrative_action": "Elara lies down and shoves the cable into her neck with a painful wince. The monitor beside her bed beeps a steady, rhythmic pulse. In her mind, the abstract shapes begin to form, but they instantly and violently glitch. The soothing pastel colors tear away like burning paper, replaced by a torrent of jagged, blinding, corrupted static that floods her vision.",
+            "dramaturgical_function": "The transition point into the 'Break into Two'; the fragile illusion of safety is shattered as the data stream becomes corrupted.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 19,
-            "scene_heading": "INT. ELARA'S APARTMENT - BATHROOM - NIGHT",
-            "narrative_action": "Elara stares into the cracked mirror, splashing freezing water on her pale face. The blue light from her port reflects in the glass. She holds the sync cable, her thumb hovering over the connector, completely exhausted and ready to quit. Then, the sound of Silvia humming happily in the next room drifts in. Elara tightens her jaw and shoves the cable into her port.",
-            "dramaturgical_function": "The final internal Debate. Elara actively chooses to continue sacrificing herself for her mother, locking her into the impending disaster.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. MINDSCAPE / CORPORATE BOARDROOM - NIGHTMARE",
+            "narrative_action": "First-person POV. Elara's vision clears, placing her inside a sleek, opulent glass-walled boardroom. She cannot move her head or body; she is a paralyzed passenger in someone else's memory. A terrified man in a tailored suit crawls backward across the carpet, begging for his life. A shadowy figure steps into the frame, raising a suppressed pistol. A blinding muzzle flash. A deafening crack. Blood splatters across the pristine glass table, coating Elara's field of vision in visceral, hyper-realistic crimson.",
+            "dramaturgical_function": "Delivers the hyper-realistic nightmare and reveals the dark, violent nature of the data Somnus is hiding in human minds.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 20,
-            "scene_heading": "INT. ELARA'S MIND (DREAMSCAPE) - NIGHT",
-            "narrative_action": "The dense, spinning pastel fractals suddenly freeze. A loud, digital screech echoes. The shapes tear apart like burning paper, revealing a void of jagged, corrupted static. The soothing hum is replaced by the sound of a blaring heart monitor and heavy, panicked breathing.",
-            "dramaturgical_function": "The turning point of the sequence. The safe digital space is violently breached, transitioning the genre into thriller territory.",
-            "estimated_page_count": "1"
-          },
-          {
-            "scene_number": 21,
-            "scene_heading": "INT. CORPORATE BOARDROOM (DREAMSCAPE) - CONTINUOUS",
-            "narrative_action": "First-person POV. The static clears to reveal a hyper-realistic, opulent boardroom. Elara (through the host's eyes) looks down at a pristine glass table. A terrified man begs for his life. Graves steps into the peripheral vision, raising a suppressed pistol with rigid precision. He fires. Blood spatters across the glass, coating a distinct, engraved corporate logo.",
-            "dramaturgical_function": "Delivers the sequence climax and the 'Break into Two' beat. Answers the dramatic question of what the data actually is: violent corporate secrets.",
-            "estimated_page_count": "2"
-          },
-          {
-            "scene_number": 22,
-            "scene_heading": "INT. ELARA'S APARTMENT - BEDROOM - CONTINUOUS",
-            "narrative_action": "Elara jolts awake, screaming, her body thrashing so hard she rips the cable straight out of the wall relay. Tangled in sweat-drenched sheets, she scrambles for her datapad. With shaking, frantic fingers, she sketches the exact corporate logo she saw on the bloody glass table and runs a search. A match appears. She stares at the screen, terrified, realizing it wasn't a dream.",
-            "dramaturgical_function": "Locks Elara into the main plot of Act II. She is now a witness to a real crime, holding the undeniable evidence in her own head.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. ELARA'S BEDROOM - CONTINUOUS",
+            "narrative_action": "Elara violently thrashes awake, screaming. She rips the connection cable from her skull, sending blue sparks flying across the sheets. She scrambles backward against the headboard, drenched in cold sweat, her chest heaving. She grabs her datapad and frantically runs a diagnostic on the port's intake log. The screen displays a massive, unencrypted .VID file timestamped to the exact moment of her 'dream.' She stares at the raw data file, her eyes wide with absolute terror.",
+            "dramaturgical_function": "The culmination of the 'Break into Two'; Elara realizes she is harboring real-world corporate assassination footage, thrusting her into the thriller plot.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 2
       },
       {
         "sequence_title": "The Glitch",
+        "total_estimated_pages": 16,
         "scenes": [
           {
-            "scene_number": 23,
+            "scene_number": 21,
             "scene_heading": "EXT. SUBTERRANEAN TECH-SLUMS - DAY",
-            "narrative_action": "Elara descends a rusted, spiraling staircase into the lower city. The neon-lit rain transitions into thick, oppressive steam from subterranean exhaust vents. She walks with a twitchy, hyper-vigilant gait, aggressively rubbing her temples and pressing two fingers to her carotid artery to check her pulse. She navigates a maze of black-market chop shops, keeping her head down as she searches for a specific, unmarked corrugated metal door.",
-            "dramaturgical_function": "Establishes the geographical shift into the underworld and visually demonstrates Elara's severe sleep deprivation and paranoia.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara descends a rusted spiral staircase into the oppressive heat of subterranean exhaust vents. She is twitchy, her eyes darting at every passing shadow in the neon-drenched rain. She aggressively rubs her temples and presses two fingers to her neck to check her pulse, trying to ground herself. She pushes past black-market vendors hawking stolen cybernetics, her focus entirely locked on navigating the labyrinthine alleys.",
+            "dramaturgical_function": "Establishes the shift in the world from the pristine upper levels to the gritty underworld, highlighting Elara's extreme paranoia and physical exhaustion.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 22,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - CONTINUOUS",
+            "narrative_action": "Elara pushes through a curtain of hanging cables into a cramped, ozone-scented workshop. JAX (35) sits hunched over a sparking cybernetic limb, soldering wires. Elara offers him a massive sum of credits in short, transactional sentences, demanding a neural scan. Jax doesn't even look up; he uses heavy tech jargon to complain about his failing soldering iron and flatly refuses to get involved. Desperate, Elara tears back her collar, exposing the raw, proprietary Somnus port. Jax stops. He drops the iron, his cynical facade cracking. Without a word of empathy, he aggressively grabs a heavy diagnostic scanner and points to a surgical chair in the back.",
+            "dramaturgical_function": "Introduces Jax and the B-Story dynamic. Elara's transactional approach fails, forcing her to reveal her physical vulnerability to gain an ally.",
+            "estimated_page_count": 2.5
+          },
+          {
+            "scene_number": 23,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - LATER",
+            "narrative_action": "Jax straps Elara's wrists and ankles into a rusted, jury-rigged surgical chair. He hands her a frayed leather strap, which she bites down on hard. Jax attaches a series of terrifyingly sharp diagnostic probes directly into the inflamed neural port at the base of her skull. Elara's back arches in agony as sharp spikes of cold electricity shoot down her spine. The massive bank of monitors surrounding them flares to life, casting a sickly green glow over their faces.",
+            "dramaturgical_function": "Raises the physical stakes and visualizes the invasiveness of the corporate technology embedded in Elara's body.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 24,
-            "scene_heading": "INT. JAX'S CYBER-CLINIC - CONTINUOUS",
-            "narrative_action": "Elara pushes through a curtain of hanging fiber-optic cables into a cramped, ozone-scented workshop. Jax sits hunched over a sparking cybernetic arm, soldering a microchip. Elara slaps a stack of physical credit chits on his workbench, demanding a diagnostic. Jax doesn't look up, complaining rapidly about fried logic boards and dismissing her. Elara refuses to leave, aggressively tearing back her collar to expose her high-tier Somnus neural port. Jax freezes. He drops his soldering iron, the facade of indifference shattering as he stares at the proprietary corporate hardware.",
-            "dramaturgical_function": "Introduces Jax and the B-Story dynamic. Forces Jax out of his cynical detachment by confronting him with the physical evidence of the corporate system he ran from.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - CONTINUOUS",
+            "narrative_action": "Lines of jagged, corrupted code scroll at dizzying speeds across the monitors. Jax types furiously, stripping away the encryption layers. He points to the raw data bleeding from Elara's subconscious, confirming in blunt, technical terms that her nightmare is a massive, fragmented data packet. Elara stares at the scrolling code, her breathing shallow, realizing she is carrying weaponized corporate secrets hidden inside her rented REM cycle.",
+            "dramaturgical_function": "The 'Fun and Games' investigative payoff. Validates Elara's terror by confirming the nightmares are real-world data files.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 25,
-            "scene_heading": "INT. JAX'S CYBER-CLINIC - LATER",
-            "narrative_action": "Jax ushers Elara into a rusted, jury-rigged surgical chair. He aggressively tightens heavy leather straps over her wrists and chest, muttering hyper-technical jargon to avoid making eye contact. He grabs a cluster of terrifyingly sharp diagnostic probes and jams them directly into her cervical port. Elara arches her back, biting down hard on a leather strap as sharp spikes of cold electricity visibly spasm her muscles. Surrounding monitors flare to life, casting a sickly green glow over the room as jagged, corrupted code scrolls at dizzying speeds.",
-            "dramaturgical_function": "Raises the physical stakes through an invasive, agonizing procedure, emphasizing the literal invasion of Elara's body by corporate tech.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - CONTINUOUS",
+            "narrative_action": "A sudden, piercing red light pulses on Jax's primary console. The scrolling green code instantly turns a violent crimson. Jax freezes, staring at a flashing 'BREACH DETECTED' prompt. He curses violently, realizing the micro-action of his unauthorized scan just triggered a silent alarm within the monolithic Somnus network. He lunges forward, violently ripping the diagnostic cables out of Elara's neck.",
+            "dramaturgical_function": "The midpoint of the sequence; shifts the genre from a slow-burn mystery into a kinetic, high-stakes thriller by triggering the corporate trap.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 26,
             "scene_heading": "INT. JAX'S CYBER-CLINIC - CONTINUOUS",
-            "narrative_action": "Jax types furiously on his primary console, translating the raw data bleeding from Elara's subconscious. The scrolling code on the monitors resolves into fragmented, violent video frames. Jax points at the screen, confirming the horrific reality of the encrypted data packet. Suddenly, a piercing red strobe light pulses on Jax's console. He curses violently, realizing his unauthorized scan just breached a hidden Somnus firewall. He lunges forward and violently rips the cables out of Elara's neck.",
-            "dramaturgical_function": "Delivers the 'Fun and Games' investigative payoff by confirming the data's nature, while immediately triggering a catastrophic complication.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "The heavy, reinforced steel door of the clinic implodes. Blinding smoke and deafening noise fill the cramped room. Through the settling dust steps GRAVES (40), impeccably tailored. He offers a rigid, perfectly symmetrical smile a split-second too late to be natural. Without a single word, Graves raises a suppressed automatic weapon and unleashes a merciless barrage of gunfire, systematically shredding the clinic's delicate machinery.",
+            "dramaturgical_function": "Introduces the antagonist's physical threat (Graves) and destroys the heroes' temporary safe haven.",
+            "estimated_page_count": 1.5
           },
           {
             "scene_number": 27,
-            "scene_heading": "INT. JAX'S CYBER-CLINIC - MOMENTS LATER",
-            "narrative_action": "The heavy, reinforced steel door of the clinic implodes in a deafening blast of smoke and sparks. Graves steps through the settling dust. His posture is rigid; he smiles a second too late before raising a suppressed automatic weapon. He unleashes a merciless barrage of gunfire, shredding the surgical chair Elara just vacated to metallic ribbons. Jax grabs Elara by the collar of her jacket, hauling her backward and kicking open a concealed floor grate. They drop into the darkness just as bullets chew through the floorboards.",
-            "dramaturgical_function": "Introduces the antagonist's physical threat. Forces Elara out of her passive, transactional mindset into immediate, visceral survival mode.",
-            "estimated_page_count": "1.5"
+            "scene_heading": "INT. JAX'S CYBER-CLINIC / HIDDEN CHUTE - CONTINUOUS",
+            "narrative_action": "Survival instinct overrides Elara's shock. The surgical chair she just vacated is blown to metallic ribbons by Graves's gunfire. Jax grabs Elara by the collar of her jacket, hauling her backward. He kicks a hidden latch on the floor, dropping them both through a concealed trapdoor just as a line of bullets chews through the wooden floorboards where they stood.",
+            "dramaturgical_function": "Executes a narrow, physical escape that bonds Elara and Jax as co-fugitives.",
+            "estimated_page_count": 1
           },
           {
             "scene_number": 28,
             "scene_heading": "EXT. SLUM ALLEYS - CONTINUOUS",
-            "narrative_action": "Elara and Jax plunge into a labyrinthine, neon-lit alleyway, splashing through ankle-deep toxic runoff. Graves and his tactical squad swarm the alley behind them, their weapons painting the slick brick walls with lethal laser sights. Elara trips over a rusted pipeline, her exhaustion betraying her. Jax hauls her to her feet without a word, shoving her forward as concrete shatters from bullet impacts inches from their heads.",
-            "dramaturgical_function": "Executes the kinetic chase sequence. Strips Elara of her independence, forcing her to rely entirely on Jax's street smarts to survive.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara and Jax plunge into the labyrinthine, neon-lit alleys of the city's underbelly. They splash through ankle-deep toxic runoff. Elara is completely out of her element, gasping for air as they vault over rusted pipelines and weave through a crowded, subterranean black market. Behind them, Graves's heavily armed hit squad swarms the alleyway, their weapon lasers cutting through the steam and shattering neon signs just inches from Elara's head.",
+            "dramaturgical_function": "A kinetic action set-piece that forces Elara to abandon her passive, transactional existence and actively fight for her life.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 29,
-            "scene_heading": "EXT. SUBTERRANEAN BLACK MARKET - CONTINUOUS",
-            "narrative_action": "The chase spills into a crowded, chaotic subterranean black market. Elara and Jax weave violently through dense crowds, knocking over stalls of scavenged tech-junk to create obstacles. Graves moves through the panic with terrifying, machine-like efficiency, never breaking his stride as he tracks them. Jax spots a narrow maintenance shaft behind a sparking noodle stand. He shoves Elara inside and dives in after her, sealing the heavy iron grate just as Graves's squad rounds the corner.",
-            "dramaturgical_function": "Escalates the tension of the chase by placing it in a populated area, highlighting Graves's relentless, sociopathic focus on his target.",
-            "estimated_page_count": "2"
+            "scene_heading": "INT. FLOODED SUBWAY TUNNEL - LATER",
+            "narrative_action": "Gasping for air, Elara and Jax collapse into the suffocating darkness of a forgotten, flooded subway tunnel. The distant wail of corporate sirens echoes off the cracked tile walls. Jax pulls a stolen, water-damaged datapad from his coat and hardwires it to a portable decryptor. The screen flickers violently before stabilizing. A grainy video loop plays: JULIAN STERLING, the serene CEO of Somnus, personally executing a rival executive in cold blood.",
+            "dramaturgical_function": "Delivers the sequence's major revelation—unmasking the CEO as a murderer and giving the heroes the 'smoking gun'.",
+            "estimated_page_count": 2
           },
           {
             "scene_number": 30,
-            "scene_heading": "INT. FLOODED SUBWAY TUNNEL - LATER",
-            "narrative_action": "Gasping for air, Elara and Jax collapse against the cracked tile walls of a forgotten, flooded subway tunnel. The distant wail of corporate sirens echoes from above. Jax pulls a water-damaged datapad from his coat. His hands shake slightly as he hardwires it to a portable decryptor, aggressively fiddling with the frayed wires to avoid looking at Elara. The screen flickers violently, rendering the fragment of extracted data.",
-            "dramaturgical_function": "Provides a brief, tense moment of respite to process the chase and set up the sequence's major narrative revelation.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 31,
             "scene_heading": "INT. FLOODED SUBWAY TUNNEL - CONTINUOUS",
-            "narrative_action": "The grainy video loop stabilizes on the cracked screen. Elara and Jax lean in, illuminated by the pale light. The footage clearly shows the serene, smiling face of Julian Sterling as he personally executes the rival executive. The bloody corporate logo on the glass table matches Elara's sketch perfectly. Jax stares at the screen, letting out a low whistle. They have the smoking gun.",
-            "dramaturgical_function": "Delivers the sequence climax. Solidifies the overarching mystery and gives the protagonists the ultimate weapon against the antagonist.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 32,
-            "scene_heading": "INT. FLOODED SUBWAY TUNNEL - CONTINUOUS",
-            "narrative_action": "Jax taps the screen, tracing the origin of the tracking ping that led Graves to the clinic. He reads the raw code, the color draining from his face. He starts packing his gear rapidly, avoiding Elara's gaze. Elara grabs his hands, demanding the logistics. Jax bluntly points to the code: the Somnus servers are hardwired to broadcast her exact GPS coordinates the millisecond her brain waves enter the REM state. Elara stares at the dark water, her fingers instinctively moving to check her pulse as the crushing reality sets in.",
-            "dramaturgical_function": "Establishes the ticking clock and the central dramatic hook for Act III: falling asleep is now a guaranteed death sentence.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Jax's moment of triumph vanishes as he analyzes the tracking ping that led Graves to the clinic. He reads the hardware diagnostics, his face draining of color. He looks at Elara and explains the terrifying mechanics: the Somnus servers are hardwired to broadcast her exact GPS coordinates the very second her brain waves enter the REM state. Elara stares blankly at the dark, rippling water, her fingers trembling as she presses them to her pulse. She realizes that falling asleep is now an inescapable death sentence.",
+            "dramaturgical_function": "The sequence climax and a massive escalation of the central conflict. It ties Elara's biological need for sleep directly to her immediate physical survival.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 3
       },
       {
         "sequence_title": "Hunted",
+        "total_estimated_pages": 14,
         "scenes": [
           {
-            "scene_number": 33,
-            "scene_heading": "INT. JAX'S CYBER-CLINIC - NIGHT",
-            "narrative_action": "Sickly green light bathes the cramped clinic as jagged code on Jax's monitors suddenly locks. A blaring, piercing red strobe triggers on the primary console. Jax curses, realizing his unauthorized scan just tripped a Somnus firewall. He lunges at Elara, strapped into the jury-rigged surgical chair, and violently rips the terrifyingly sharp diagnostic probes from her cervical port. Elara gasps, her spine arching in residual pain as the clinic's power grid fluctuates.",
-            "dramaturgical_function": "Enters late at the moment of catastrophic failure, shifting the sequence from investigation to immediate survival.",
-            "estimated_page_count": "1.5"
+            "scene_number": 21,
+            "scene_heading": "EXT. SUBTERRANEAN TECH-SLUMS - DAY",
+            "narrative_action": "Elara descends a rusted spiral staircase into the oppressive heat of subterranean exhaust vents. The neon-drenched rain gives way to thick, ozone-scented smog. Twitchy and hyper-vigilant, her eyes dart at every passing shadow. She aggressively rubs her temples and presses two fingers to her neck to check her pulse, masking her severe sleep deprivation as a mere physical habit. She pushes past black-market vendors hawking stolen cybernetics, her focus entirely locked on navigating the labyrinthine alleys to find the rumored underground clinic.",
+            "dramaturgical_function": "Establishes the shift in the world from the pristine upper levels to the gritty underworld, highlighting Elara's extreme paranoia and physical exhaustion.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 34,
+            "scene_number": 22,
             "scene_heading": "INT. JAX'S CYBER-CLINIC - CONTINUOUS",
-            "narrative_action": "The reinforced steel door implodes, sending blinding smoke and shattered metal across the room. GRAVES steps through the dust. He pauses, mimicking a polite smile a second too late, then raises a suppressed automatic weapon. He unleashes a merciless, silent barrage that shreds the surgical chair. Jax grabs Elara by her jacket collar, hauling her backward. He kicks a heavy latch on the floor, opening a concealed grate, and shoves her into the darkness just as bullets chew the floorboards.",
-            "dramaturgical_function": "Introduces Graves's physical threat and sociopathic nature, officially launching the kinetic chase.",
-            "estimated_page_count": "2"
+            "narrative_action": "Elara pushes through a curtain of hanging cables into a cramped workshop. JAX (35) sits hunched over a sparking cybernetic limb, soldering wires. Elara offers him a massive sum of credits in short, transactional sentences, demanding a neural scan. Jax doesn't even look up; he uses heavy tech jargon to complain about his failing soldering iron and flatly refuses to get involved. Desperate, Elara tears back her collar, exposing the raw, proprietary Somnus port. Jax stops. He drops the iron, his cynical facade cracking. Without a word of empathy, he aggressively grabs a heavy diagnostic scanner and points to a surgical chair in the back.",
+            "dramaturgical_function": "Introduces Jax and the B-Story dynamic. Elara's transactional approach fails, forcing her to reveal her physical vulnerability to gain an ally.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 35,
-            "scene_heading": "INT. SUBTERRANEAN CHUTE - CONTINUOUS",
-            "narrative_action": "Elara and Jax slide down a rusted, vertical exhaust chute in pitch darkness, the sound of suppressed gunfire echoing above. They crash hard into a pool of ankle-deep, toxic runoff. Elara scrambles, hyperventilating, her transactional mindset shattered by the visceral violence. Jax does not offer a hand; he just racks the slide of a scavenged pistol and points down the dark, dripping corridor.",
-            "dramaturgical_function": "Physical transition into the underbelly, forcing Elara to abandon her passive gig-worker persona.",
-            "estimated_page_count": "1"
+            "scene_number": 23,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - LATER",
+            "narrative_action": "Jax straps Elara's wrists and ankles into a rusted, jury-rigged surgical chair. He hands her a frayed leather strap, which she bites down on hard. Jax attaches a series of terrifyingly sharp diagnostic probes directly into the inflamed neural port at the base of her skull. Elara's back arches in agony as sharp spikes of cold electricity shoot down her spine. The massive bank of monitors surrounding them flares to life, casting a sickly green glow over their faces.",
+            "dramaturgical_function": "Raises the physical stakes and visualizes the invasiveness of the corporate technology embedded in Elara's body.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 36,
-            "scene_heading": "EXT. NEON ALLEYWAY - CONTINUOUS",
-            "narrative_action": "They sprint through a labyrinth of narrow, neon-lit alleys. Tactical hitmen drop from the fire escapes behind them, their weapons painting the slick brick walls with lethal red laser sights. Elara's severe sleep deprivation catches up to her; she trips over a rusted pipeline, scraping her knees raw. Jax hauls her up by the strap of her bag, shoving her forward as concrete shatters from bullet impacts inches from her face.",
-            "dramaturgical_function": "Escalates the chase, highlighting Elara's physical vulnerability and Jax's reluctant but necessary role as protector.",
-            "estimated_page_count": "1.5"
+            "scene_number": 24,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - CONTINUOUS",
+            "narrative_action": "Lines of jagged, corrupted code scroll at dizzying speeds across the monitors. Jax types furiously, stripping away the encryption layers. He points to the raw data bleeding from Elara's subconscious, confirming in blunt, technical terms that her nightmare is a massive, fragmented data packet. Elara stares at the scrolling code, her breathing shallow, realizing she is carrying weaponized corporate secrets hidden inside her rented REM cycle.",
+            "dramaturgical_function": "The 'Fun and Games' investigative payoff. Validates Elara's terror by confirming the nightmares are real-world data files.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 37,
-            "scene_heading": "EXT. SUBTERRANEAN BLACK MARKET - CONTINUOUS",
-            "narrative_action": "The chase spills into a chaotic, crowded subterranean bazaar. Elara and Jax weave violently through dense crowds, knocking over stalls of scavenged tech-junk to create obstacles. Graves moves through the panic with terrifying, machine-like efficiency, never breaking his stride. He does not shout or run; he simply tracks them, firing precise shots that shatter neon signs above Elara's head, raining sparks down on her.",
-            "dramaturgical_function": "Demonstrates Graves's relentless, terminator-like focus in a populated area, raising the public stakes.",
-            "estimated_page_count": "2"
+            "scene_number": 25,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - SURGICAL BAY - CONTINUOUS",
+            "narrative_action": "A sudden, piercing red light pulses on Jax's primary console. The scrolling green code instantly turns a violent crimson. Jax freezes, staring at a flashing 'BREACH DETECTED' prompt. He curses violently, realizing the micro-action of his unauthorized scan just triggered a silent alarm within the monolithic Somnus network. He lunges forward, violently ripping the diagnostic cables out of Elara's neck.",
+            "dramaturgical_function": "Shifts the genre from a slow-burn mystery into a kinetic, high-stakes thriller by triggering the corporate trap.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 38,
-            "scene_heading": "INT. ABANDONED TRANSIT HUB - CONTINUOUS",
-            "narrative_action": "Cornered in a dead-end transit hub, Jax frantically tries to hotwire a heavy security door, his hands shaking as he relies on hyper-technical jargon to mask his panic. Elara, forced to be active, uses her gig-worker logistics experience. She spots a series of overhead cargo-rail tracks. She climbs a stack of rusted shipping crates, grabs a hanging transit tether, and kicks the release valve on a pressurized steam pipe, blinding the advancing hitmen long enough for Jax to finish the bypass.",
-            "dramaturgical_function": "Elara takes active control of her survival, using her logistical skills to outsmart the corporate threat.",
-            "estimated_page_count": "2.5"
+            "scene_number": 26,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC - CONTINUOUS",
+            "narrative_action": "The heavy, reinforced steel door of the clinic implodes. Blinding smoke and deafening noise fill the cramped room. Through the settling dust steps GRAVES (40), impeccably tailored. He offers a rigid, perfectly symmetrical smile a split-second too late to be natural. Without a single word, Graves raises a suppressed automatic weapon and unleashes a merciless barrage of gunfire, systematically shredding the clinic's delicate machinery.",
+            "dramaturgical_function": "Introduces the antagonist's physical threat (Graves) and destroys the heroes' temporary safe haven.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 39,
-            "scene_heading": "INT. MAINTENANCE CRAWLSPACE - CONTINUOUS",
-            "narrative_action": "Elara and Jax dive through the bypassed door into a claustrophobic, low-ceilinged maintenance crawlspace. They lie flat on their stomachs in the dirt, breathing heavily. Above them, the heavy boots of Graves and his men echo on the metal grating. Graves stops directly over them. Dust falls on Elara's face. She covers her mouth, her eyes wide, terrified her own exhausted panting will give them away. After a tense, silent eternity, Graves moves on.",
-            "dramaturgical_function": "A micro-moment of extreme claustrophobic tension, slowing the kinetic pace before the midpoint reveal.",
-            "estimated_page_count": "1.5"
+            "scene_number": 27,
+            "scene_heading": "INT. JAX'S CYBER-CLINIC / HIDDEN CHUTE - CONTINUOUS",
+            "narrative_action": "Survival instinct overrides Elara's shock. The surgical chair she just vacated is blown to metallic ribbons by Graves's gunfire. Jax grabs Elara by the collar of her jacket, hauling her backward. He kicks a hidden latch on the floor, dropping them both through a concealed trapdoor just as a line of bullets chews through the wooden floorboards where they stood.",
+            "dramaturgical_function": "Executes a narrow, physical escape that bonds Elara and Jax as co-fugitives.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 40,
+            "scene_number": 28,
+            "scene_heading": "EXT. SLUM ALLEYS - CONTINUOUS",
+            "narrative_action": "Elara and Jax plunge into the labyrinthine, neon-lit alleys of the city's underbelly. They splash through ankle-deep toxic runoff. Elara is completely out of her element, gasping for air as they vault over rusted pipelines and weave through a crowded, subterranean black market. Behind them, Graves's heavily armed hit squad swarms the alleyway, their weapon lasers cutting through the steam and shattering neon signs just inches from Elara's head.",
+            "dramaturgical_function": "A kinetic action set-piece that forces Elara to abandon her passive, transactional existence and actively fight for her life.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 29,
             "scene_heading": "INT. FLOODED SUBWAY TUNNEL - LATER",
-            "narrative_action": "Elara and Jax drag themselves out of the crawlspace and collapse against the cracked tile walls of a forgotten, flooded subway tunnel. The distant wail of corporate sirens echoes from above. Jax pulls a water-damaged datapad from his coat. His hands shake slightly as he hardwires it to a portable decryptor, aggressively fiddling with the frayed wires and complaining about the water damage to avoid looking at Elara's traumatized expression.",
-            "dramaturgical_function": "Provides a brief, tense respite to process the chase and set up the sequence's major narrative revelation.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Gasping for air, Elara and Jax collapse into the suffocating darkness of a forgotten, flooded subway tunnel. The distant wail of corporate sirens echoes off the cracked tile walls. Jax pulls a stolen, water-damaged datapad from his coat and hardwires it to a portable decryptor. The screen flickers violently before stabilizing. A grainy video loop plays: JULIAN STERLING, the serene CEO of Somnus, personally executing a rival executive in cold blood.",
+            "dramaturgical_function": "Delivers the sequence's major revelation—unmasking the CEO as a murderer and giving the heroes the 'smoking gun'.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 41,
+            "scene_number": 30,
             "scene_heading": "INT. FLOODED SUBWAY TUNNEL - CONTINUOUS",
-            "narrative_action": "The screen flickers violently, then stabilizes. Elara and Jax lean in, illuminated by the pale, grainy light. The decrypted video loop plays clearly: Julian Sterling, the serene CEO of Somnus, personally executing a rival executive. The bloody corporate logo on the glass table matches Elara's nightmare perfectly. Jax stares at the screen, letting out a low, cynical whistle. They hold the ultimate smoking gun.",
-            "dramaturgical_function": "Delivers the sequence climax and Midpoint false victory. Solidifies the overarching mystery and gives them a weapon against the antagonist.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 42,
-            "scene_heading": "INT. FLOODED SUBWAY TUNNEL - CONTINUOUS",
-            "narrative_action": "The triumph is shattered when Jax taps the screen to trace the origin of the tracking ping that led Graves to the clinic. He reads the raw code, the color draining from his face. He bluntly points to the telemetry data: the Somnus servers are hardwired to broadcast Elara's exact GPS coordinates the millisecond her brain waves enter the REM state. Elara stares at the dark water, her fingers instinctively moving to her carotid artery to check her pulse. The crushing reality sets in: falling asleep is now an inescapable death sentence.",
-            "dramaturgical_function": "Establishes the ticking clock and the central dramatic hook for Act III: Elara must fight her own biological need to sleep to survive.",
-            "estimated_page_count": "2"
+            "narrative_action": "Jax's moment of triumph vanishes as he analyzes the tracking ping that led Graves to the clinic. He reads the hardware diagnostics, his face draining of color. He looks at Elara and explains the terrifying mechanics: the Somnus servers are hardwired to broadcast her exact GPS coordinates the very second her brain waves enter the REM state. Elara stares blankly at the dark, rippling water, her fingers trembling as she presses them to her pulse. She realizes that falling asleep is now an inescapable death sentence.",
+            "dramaturgical_function": "The sequence climax and a massive escalation of the central conflict. It ties Elara's biological need for sleep directly to her immediate physical survival.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 4
       },
       {
         "sequence_title": "Sleep Deprivation",
+        "total_estimated_pages": 13.5,
         "scenes": [
           {
-            "scene_number": 43,
+            "scene_number": 31,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - NIGHT",
-            "narrative_action": "Elara paces the rusted floorboards of a damp, windowless bunker, her movements jagged. She constantly checks the pulse at her neck. She pulls a black-market auto-injector from her pocket and jabs it into her thigh. Neon-blue liquid vanishes into her bloodstream. She gasps, her heart rate visibly spiking against her shirt. Jax sits across the room, aggressively soldering a frayed wire on a scavenged terminal, refusing to look at her trembling hands.",
-            "dramaturgical_function": "Establishes the severe physical toll of the ticking clock: Elara must artificially poison her body to avoid the lethal sleep-state ping.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara violently jams an auto-injector into her thigh. Thick, neon-blue stimulant empties into her bloodstream. She gasps, her back arching as synthetic adrenaline forces her exhausted heart into a terrifying, erratic rhythm. She aggressively rubs her temples and presses two fingers to her neck, counting her racing pulse. Across the damp, rusted room, Jax aggressively solders a bypass onto a stolen terminal, loudly complaining about the degraded copper wiring to deflect from the palpable terror filling the room.",
+            "dramaturgical_function": "Establishes the severe physical toll of forced wakefulness and the desperate measures required to evade the Somnus tracking ping.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 44,
+            "scene_number": 32,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - LATER",
-            "narrative_action": "Elara stares at a dripping pipe in the corner. The sound of the water hitting the puddle distorts, morphing into the heavy, wet thud of a body hitting a glass table. The shadows cast by Jax's terminal stretch across the wall, taking on the rigid, suited silhouette of Graves. Elara violently flinches, knocking over a stack of metal crates. Jax jumps, his soldering iron sparking. Elara rubs her temples, blaming the mess on a cramped muscle.",
-            "dramaturgical_function": "Visualizes Elara's mental degradation, blurring the line between the encrypted digital nightmare and waking reality.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Water drips from the ceiling. To Elara, it sounds exactly like the wet thud of the murdered executive's skull hitting the floor. She violently flinches, aiming her flashlight at a corner where the shadows stretch into the elongated, rigid silhouette of a corporate assassin. It's just a coat rack. Jax ignores her fracturing reality, pulling up a heavily encrypted map of the city's underbelly. He points a grease-stained finger at a massive structural dead zone: Kaelen Thorne's pirate broadcast tower. In short, transactional sentences, Elara calculates the distance and the impossible odds of crossing gang territory on foot.",
+            "dramaturgical_function": "Visualizes Elara's psychological breakdown through micro-hallucinations and introduces the sequence's specific goal: reaching Kaelen Thorne.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 45,
+            "scene_number": 33,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
-            "narrative_action": "Jax pulls up a sprawling, heavily encrypted holographic map of the city's underbelly to deflect from Elara's obvious breakdown. He points to a massive, structural dead zone on the grid. He explains it is the pirate broadcast tower of Kaelen Thorne, an archaic analog system immune to Somnus firewalls. Elara calculates the distance, her speech short and transactional, noting they have less than an hour before her heart gives out from the stimulants.",
-            "dramaturgical_function": "Sets the final destination and Act III goal, providing a concrete plan to weaponize the encrypted footage.",
-            "estimated_page_count": "2"
+            "narrative_action": "Before Elara can memorize the route, the rusted steel wall explodes inward. Blinding dust and jagged shrapnel rain across the room. Graves steps through the smoke, his suit impeccable, his posture terrifyingly rigid. He doesn't issue a command or ask for surrender; he simply raises a suppressed automatic weapon and unleashes a merciless barrage. The gunfire chews through the concrete pillars, obliterating Jax's computer terminals in a storm of sparks and flying glass.",
+            "dramaturgical_function": "Executes the 'Bad Guys Close In' beat, shattering the heroes' temporary sanctuary and thrusting them back into immediate physical danger.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 46,
+            "scene_number": 34,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
-            "narrative_action": "The rusted steel wall of the safe house suddenly explodes inward. Jagged shrapnel and blinding concrete dust fill the room. Graves steps through the smoke, his posture impeccably straight, his suit untouched. He mimics a polite nod, a second too late, before raising a suppressed rifle. Deafening, silent muzzle flashes chew through the concrete pillars, obliterating Jax's computer terminals in a storm of sparks and flying glass.",
-            "dramaturgical_function": "The antagonist violently shatters the temporary sanctuary, escalating the physical threat and forcing immediate reaction.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "In the chaotic maelstrom of laser fire, a high-caliber round catches Jax squarely in the chest. He is thrown violently backward onto the floor grates. Elara scrambles toward him, grabbing his collar, but Jax aggressively swats her hands away. Coughing up dark blood, his cynical facade vanishes. He forces himself upward just long enough to slam his bloody palm onto the emergency lockdown controls. Heavy, reinforced blast doors slam shut between Elara and Graves's advancing hit squad, sealing Jax on the wrong side.",
+            "dramaturgical_function": "Pays off Jax's character arc through a selfless sacrifice, forcing Elara to face the rest of the journey entirely alone.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 47,
-            "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
-            "narrative_action": "A high-caliber round catches Jax squarely in the chest. He is thrown backward onto the floor grates, blood pooling instantly. Elara scrambles to grab his collar, but Jax kicks her hand away. Coughing blood, his cynical facade drops. He forces himself up, slamming his bloody palm onto the emergency lockdown controls. Heavy, reinforced blast doors slam shut between Elara and the advancing hit squad, trapping Jax inside with Graves.",
-            "dramaturgical_function": "Pays off Jax's character arc. He sacrifices his safety and life to buy Elara the time she needs, taking a definitive moral stand.",
-            "estimated_page_count": "2"
+            "scene_number": 35,
+            "scene_heading": "INT. VENTILATION SHAFT - CONTINUOUS",
+            "narrative_action": "Elara scrambles blindly through the tight, rusted ductwork. Behind her, the blast doors buckle and groan under the concussive force of Graves's breaching charges. The metal vibrates violently against Elara's ribs as she drags herself forward, her breathing shallow and panicked. She kicks out a rusted grate ahead of her, the cold night air rushing in to meet her.",
+            "dramaturgical_function": "Maintains kinetic momentum and isolates the protagonist, heightening the claustrophobia and desperation of her escape.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 48,
-            "scene_heading": "INT. NARROW VENTILATION SHAFT - CONTINUOUS",
-            "narrative_action": "Elara scrambles blindly on her stomach through a claustrophobic, rusted ventilation shaft. Behind her, the heavy blast doors buckle and groan under the concussive force of breaching charges. She freezes as a single, muffled execution shot echoes from the safe house. She squeezes her eyes shut, pressing her forehead against the cold metal, before forcing herself to keep crawling forward.",
-            "dramaturgical_function": "Isolates the protagonist and cements the tragic loss of her mentor/guide.",
-            "estimated_page_count": "1"
+            "scene_number": 36,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Elara tumbles out of the vent grate, crashing hard into the freezing, neon-lit rain of a forgotten alleyway. She scrambles to her feet, but freezes as a single, muffled execution shot echoes from deep within the safe house. The heavy silence that follows confirms Jax is dead. Elara collapses behind a rotting dumpster, pulling her knees to her chest as profound grief and sheer physical exhaustion crash down on her all at once.",
+            "dramaturgical_function": "Delivers the emotional blow of Jax's death, stripping Elara of her guide and protector.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 49,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Elara tumbles out of the exhaust grate, crashing hard into the freezing, neon-lit rain of a pitch-black alleyway. She scrambles behind a rotting dumpster, her muscles cramping and failing. She curls into a tight ball, shivering uncontrollably as the black-market stimulants begin to burn out. The sheer physical exhaustion crashes down on her, leaving her hollowed out and weeping silently into her knees.",
-            "dramaturgical_function": "The 'All Is Lost' micro-moment. Elara hits absolute rock bottom, paralyzed by isolation and profound grief.",
-            "estimated_page_count": "1.5"
+            "scene_number": 37,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - LATER",
+            "narrative_action": "The sleep deprivation completely overwhelms her mind. The wet pavement beneath Elara warps into a terrifying, shifting mosaic of corrupted green code and digital static. Her body shivers uncontrollably as the black-market stimulants finally burn out. She stares up at the monolithic, glowing Somnus billboards piercing the smog high above. Her eyes flutter. The temptation to simply close her eyes, let the corporate cleaners track her REM ping, and finally sleep is an agonizingly sweet, suffocating blanket.",
+            "dramaturgical_function": "The 'All is Lost' micro-beat of the sequence. Elara hits absolute rock bottom, paralyzed by isolation and the biological urge to surrender.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 50,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - LATER",
-            "narrative_action": "The wet pavement beneath Elara warps into a terrifying, shifting mosaic of corrupted code and digital static. She stares up at the monolithic, glowing Somnus billboards piercing the smog high above. Her eyelids flutter. She leans her head back against the brick wall, the siren song of sleep overwhelming her. She stops checking her pulse, ready to let the corporate cleaners track her ping and end the nightmare.",
-            "dramaturgical_function": "Presents the ultimate temptation to surrender to the antagonist's system, testing her core need and resolve.",
-            "estimated_page_count": "1.5"
+            "scene_number": 38,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Elara's eyes are half-closed when her hand brushes against her mother's knitted scarf in her pocket. Her jaw tightens. She violently slaps her own face, forcing herself awake. Refusing to let Jax die for nothing, she pulls her water-damaged datapad from her soaked jacket. Her trembling fingers fly across the cracked screen, bypassing stealth protocols and mapping a straight, suicidal line directly through hostile gang territory to Kaelen Thorne's broadcast tower.",
+            "dramaturgical_function": "Pivots Elara from passive surrender to active rebellion, synthesizing her trauma into a concrete, weaponized plan.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 51,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Elara's eyes snap open. She grips her own wrist, feeling her fading pulse. She pulls her water-damaged datapad from her soaked jacket. Her trembling fingers fly across the cracked screen, mapping a direct line through the city's hostile, gang-controlled sectors straight to Thorne's broadcast tower. She wipes the rain from her face, her expression hardening into absolute, cold determination.",
-            "dramaturgical_function": "The internal resurrection. Elara synthesizes her trauma and Jax's sacrifice into actionable vengeance.",
-            "estimated_page_count": "1.5"
+            "scene_number": 39,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Reaching into her pocket, Elara retrieves her final, cracked vial of black-market stimulant. Without a second of hesitation, she jams the auto-injector directly into her neck. She screams as the violent, synthetic surge of adrenaline rockets through her veins, instantly banishing the digital static from her vision. Her eyes snap wide open, her fractured focus sharpening into a lethal, singular point of purpose. She checks her racing pulse one last time.",
+            "dramaturgical_function": "Physicalizes her internal transformation. She accepts the deadly biological toll of the drugs as the necessary price of her vengeance.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 52,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Reaching into her pocket, Elara retrieves her final, cracked vial of black-market stimulant. Without a second of hesitation, she jams the auto-injector directly into her neck. She gasps as the violent, synthetic surge of adrenaline rockets through her veins. Her fractured focus sharpens into a lethal, singular point. She drops the empty vial into the puddle at her feet.",
-            "dramaturgical_function": "The physical point of no return. Elara accepts the immense physical toll as the necessary price to destroy the conglomerate.",
-            "estimated_page_count": "1"
-          },
-          {
-            "scene_number": 53,
-            "scene_heading": "EXT. NEON-DRENCHED STREETS - CONTINUOUS",
-            "narrative_action": "Elara rises from the filthy alley floor. She steps out of the shadows and into the blinding, neon-drenched rain of the main street. She does not look back. She breaks into a dead, relentless sprint toward the distant, towering silhouette of the broadcast tower, dodging through the nighttime traffic as sirens wail in the distance.",
-            "dramaturgical_function": "Propels the narrative into the Act III climax with kinetic momentum, transforming Elara from passive victim to active saboteur.",
-            "estimated_page_count": "1.5"
+            "scene_number": 40,
+            "scene_heading": "EXT. LOWER-CITY STREETS - CONTINUOUS",
+            "narrative_action": "Elara rises from the filthy alley floor. She steps out from behind the dumpster and into the neon-drenched rain. She doesn't hug the shadows or check her corners. Instead, she breaks into a dead sprint straight down the center of the hostile street, moving like a walking weapon aimed directly at the heart of Julian Sterling's empire. The passive gig worker is dead; the saboteur has arrived.",
+            "dramaturgical_function": "Propels the protagonist into the climax, ending the sequence on a kinetic high note of unstoppable momentum.",
+            "estimated_page_count": 1
           }
-        ]
+        ],
+        "sequence_number": 5
       },
       {
         "sequence_title": "System Crash",
+        "total_estimated_pages": 13,
         "scenes": [
           {
-            "scene_number": 54,
+            "scene_number": 31,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - NIGHT",
-            "narrative_action": "Elara paces the damp, rusted floorboards, her movements jagged and uncoordinated. She rubs her temples, masking her severe exhaustion as a mere physical tic, before jabbing a black-market auto-injector into her thigh. Neon-blue liquid vanishes into her bloodstream; she immediately checks the pulse at her neck as her heart rate visibly spikes against her shirt. Across the room, Jax aggressively solders a frayed wire on a scavenged terminal, complaining loudly about the degraded copper wiring to avoid looking at her trembling hands. Suddenly, the dripping water from a ceiling pipe distorts, sounding exactly like the wet thud of a body hitting a floor. Elara violently flinches, knocking over a stack of metal crates.",
-            "dramaturgical_function": "Establishes the severe physical toll of the ticking clock and visualizes Elara's mental degradation as the digital nightmare actively bleeds into her waking reality.",
-            "estimated_page_count": "2"
+            "narrative_action": "Elara paces the rusted floorboards of the dimly lit hideout. She violently jams an auto-injector into her thigh, gasping as thick, neon-blue stimulant empties into her bloodstream. Her back arches as synthetic adrenaline forces her exhausted heart into an erratic rhythm. She aggressively rubs her temples and presses two fingers to her neck, counting her racing pulse to ground herself. Across the damp room, Jax aggressively solders a bypass onto a stolen terminal, sparking the metal and loudly complaining about the degraded copper wiring to deflect from the palpable terror filling the room.",
+            "dramaturgical_function": "Establishes the severe physical toll of forced wakefulness and highlights Jax's deflection tactics in the face of impending doom.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 55,
-            "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - LATER",
-            "narrative_action": "Recognizing Elara's rapid mental collapse, Jax pulls up a sprawling, heavily encrypted holographic map of the city's underbelly to ground her. He points to a massive structural dead zone on the grid—the pirate broadcast tower of Kaelen Thorne. He explains in rapid-fire, hyper-technical jargon that Thorne's archaic analog equipment is the only way to broadcast the unedited assassination footage without triggering a Somnus firewall. Elara calculates the distance aloud in short, transactional sentences, noting they have less than an hour before her heart gives out from the stimulants.",
-            "dramaturgical_function": "Sets the final destination and Act III goal, providing a concrete plan to weaponize the encrypted footage.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 56,
+            "scene_number": 32,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
-            "narrative_action": "Before Elara can move toward the exit, the rusted steel wall of the safe house explodes inward. Jagged shrapnel and blinding concrete dust fill the cramped room. Graves steps through the smoke, his posture impeccably straight, his tailored suit entirely untouched by the debris. He mimics a polite, reassuring nod—a full second too late to look natural—before raising a suppressed rifle. Deafening, silent muzzle flashes chew through the concrete pillars, obliterating Jax's computer terminals in a storm of sparks and flying glass.",
-            "dramaturgical_function": "The antagonist violently shatters the temporary sanctuary, escalating the physical threat and forcing an immediate, chaotic reaction.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Water drips from a ceiling pipe—THWACK. To Elara, it sounds exactly like the wet thud of the murdered executive's skull hitting the floor. She violently flinches, aiming her flashlight at a corner where shadows stretch into the elongated, rigid silhouette of a corporate assassin. It's just a coat rack. Ignoring her fracturing reality, Jax pulls up a heavily encrypted map of the city's underbelly, pointing a grease-stained finger at Kaelen Thorne's pirate broadcast tower. Elara stares at the route, calculating the logistics in short, transactional sentences, focusing entirely on the distance and time to avoid acknowledging her hallucinations.",
+            "dramaturgical_function": "Visualizes Elara's psychological breakdown through micro-hallucinations and introduces the sequence's specific goal: reaching Kaelen Thorne.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 57,
+            "scene_number": 33,
             "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
-            "narrative_action": "In the maelstrom of laser fire, a high-caliber round catches Jax squarely in the chest. He is thrown violently backward onto the floor grates, blood pooling instantly. Elara scrambles through the debris to drag him by his collar, but Jax kicks her hand away. Coughing blood, his cynical facade drops completely. He forces himself upward, slamming his bloody palm onto the emergency lockdown controls. Heavy, reinforced blast doors slam shut between Elara and the advancing hit squad, trapping Jax inside with Graves.",
-            "dramaturgical_function": "Pays off Jax's character arc. He takes a definitive moral stand, sacrificing his own safety and life to buy Elara the precious seconds she needs to escape.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Before Elara can memorize the route, the rusted steel wall explodes inward. Blinding dust and jagged shrapnel rain across the room. Graves steps through the smoke, his impeccably tailored suit untouched, his posture terrifyingly rigid. He doesn't issue a command, blink, or ask for surrender; he simply raises a suppressed automatic weapon and unleashes a merciless barrage. The gunfire chews through the concrete pillars, obliterating Jax's computer terminals in a storm of sparks, flying glass, and deafening noise.",
+            "dramaturgical_function": "Executes the 'Bad Guys Close In' beat, shattering the heroes' temporary sanctuary and thrusting them back into immediate, chaotic physical danger.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 58,
-            "scene_heading": "INT. NARROW VENTILATION SHAFT - CONTINUOUS",
-            "narrative_action": "Elara scrambles blindly on her stomach through a claustrophobic, rusted ventilation shaft. Behind her, the heavy blast doors buckle and groan under the concussive force of Graves's breaching charges. She freezes as a single, muffled execution shot echoes from the safe house below. She squeezes her eyes shut, pressing her forehead against the cold metal, before forcing her trembling arms to keep crawling forward into the dark.",
-            "dramaturgical_function": "Isolates the protagonist, cementing the tragic loss of her mentor and the inescapable, lethal reach of the antagonist.",
-            "estimated_page_count": "1"
+            "scene_number": 34,
+            "scene_heading": "INT. SUBTERRANEAN SAFE HOUSE - CONTINUOUS",
+            "narrative_action": "In the maelstrom of laser fire, a high-caliber round catches Jax squarely in the chest. He is thrown violently backward onto the floor grates. Elara scrambles toward him, grabbing his collar to drag him, but Jax aggressively swats her hands away. Coughing up dark blood, his cynical facade vanishes. He forces himself upward just long enough to slam his bloody palm onto the emergency lockdown controls. Heavy, reinforced blast doors slam shut between Elara and Graves's advancing hit squad, sealing Jax on the wrong side.",
+            "dramaturgical_function": "Pays off Jax's character arc through a selfless sacrifice, removing the mentor figure and forcing Elara to face the rest of the journey entirely alone.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 59,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - NIGHT",
-            "narrative_action": "Elara tumbles out of the exhaust grate, crashing hard into the freezing, neon-lit rain of a pitch-black lower-city alleyway. She scrambles behind a rotting dumpster, her muscles cramping and failing as the black-market stimulants begin to burn out. She curls into a tight ball, shivering uncontrollably. The sheer physical exhaustion crashes down on her all at once, leaving her hollowed out and weeping silently into her knees.",
-            "dramaturgical_function": "The 'All Is Lost' micro-moment. Elara hits absolute rock bottom, paralyzed by total isolation and profound grief.",
-            "estimated_page_count": "1.5"
+            "scene_number": 35,
+            "scene_heading": "INT. VENTILATION SHAFT - CONTINUOUS",
+            "narrative_action": "Elara scrambles blindly through the tight, rusted ductwork. Behind her, the blast doors buckle and groan under the concussive force of Graves's breaching charges. The metal vibrates violently against Elara's ribs as she drags herself forward, her breathing shallow and panicked. She kicks out a rusted grate ahead of her, the cold night air rushing in to meet her.",
+            "dramaturgical_function": "Maintains kinetic momentum and isolates the protagonist, heightening the claustrophobia and desperation of her escape.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 60,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - LATER",
-            "narrative_action": "The wet pavement beneath Elara warps into a terrifying, shifting mosaic of corrupted code and digital static. The relentless neural pings pound rhythmically in her skull. She stares up at the monolithic, glowing Somnus billboards piercing the smog high above. Her eyelids flutter. She leans her head back against the wet brick wall, the siren song of sleep overwhelming her. She drops her hand from her pulse point, entirely ready to close her eyes, let the corporate cleaners track her ping, and end the nightmare.",
-            "dramaturgical_function": "Presents the ultimate temptation to surrender to the antagonist's system, testing her core need and resolve during the Dark Night of the Soul.",
-            "estimated_page_count": "1.5"
+            "scene_number": 36,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Elara tumbles out of the vent grate, crashing hard into the freezing, neon-lit rain of a forgotten alleyway. She scrambles to her feet but freezes as a single, muffled execution shot echoes from deep within the safe house. The heavy silence that follows confirms Jax is dead. Elara collapses behind a rotting dumpster, pulling her knees to her chest as profound grief and sheer physical exhaustion crash down on her all at once.",
+            "dramaturgical_function": "Delivers the emotional blow of Jax's death, stripping Elara of her guide and plunging her into the 'All Is Lost' moment.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 61,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Elara's eyes snap open as she remembers Jax's sacrifice and her mother's trembling, knitting hands. She grips her own wrist, feeling her fading pulse. She pulls her water-damaged datapad from her soaked jacket. Her trembling fingers fly across the cracked screen, mapping a direct line through the city's hostile, gang-controlled sectors straight to Thorne's broadcast tower. She wipes the rain from her face, her expression hardening into absolute, cold determination.",
-            "dramaturgical_function": "The internal resurrection. Elara synthesizes her trauma and Jax's sacrifice into actionable vengeance, shifting from passive victim to active saboteur.",
-            "estimated_page_count": "1.5"
+            "scene_number": 37,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - LATER",
+            "narrative_action": "Sleep deprivation completely overwhelms her mind. The wet pavement beneath Elara warps into a terrifying, shifting mosaic of corrupted green code and digital static. Her body shivers uncontrollably as the black-market stimulants finally burn out. She stares up at the monolithic, glowing Somnus billboards piercing the smog high above. Her eyes flutter. The temptation to simply close her eyes, let the corporate cleaners track her REM ping, and finally sleep becomes an agonizingly sweet, suffocating blanket.",
+            "dramaturgical_function": "The 'Dark Night of the Soul' micro-beat. Elara hits absolute rock bottom, paralyzed by isolation and the biological urge to surrender to the antagonist.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 62,
-            "scene_heading": "EXT. FORGOTTEN ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Reaching into her pocket, Elara retrieves her final, cracked vial of black-market stimulant. Without a second of hesitation, she jams the auto-injector directly into her neck. She gasps as the violent, synthetic surge of adrenaline rockets through her veins. Her fractured focus sharpens into a lethal, singular point. She drops the empty vial into the puddle at her feet.",
-            "dramaturgical_function": "The physical point of no return. Elara accepts the immense, potentially fatal physical toll as the necessary price to destroy the conglomerate.",
-            "estimated_page_count": "1"
+            "scene_number": 38,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Elara's eyes are half-closed when her trembling hand brushes against her mother's knitted scarf in her pocket. Her jaw tightens. She violently slaps her own face, forcing herself awake. Refusing to let Jax die for nothing, she pulls her water-damaged datapad from her soaked jacket. Her fingers fly across the cracked screen, bypassing stealth protocols and mapping a straight, suicidal line directly through hostile gang territory to Kaelen Thorne's broadcast tower.",
+            "dramaturgical_function": "Pivots Elara from passive surrender to active rebellion, synthesizing her trauma into a concrete, weaponized plan.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 63,
-            "scene_heading": "EXT. NEON-DRENCHED STREETS - CONTINUOUS",
-            "narrative_action": "Elara rises from the filthy alley floor. She steps out of the shadows and into the blinding, neon-drenched rain of the main street. She does not look back. She breaks into a dead, relentless sprint toward the distant, towering silhouette of the broadcast tower, dodging through the nighttime traffic as corporate sirens wail in the distance.",
-            "dramaturgical_function": "Propels the narrative into the Act III climax with kinetic momentum, locking in her Break into Three.",
-            "estimated_page_count": "1"
+            "scene_number": 39,
+            "scene_heading": "EXT. LOWER-CITY ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Reaching into her pocket, Elara retrieves her final, cracked vial of black-market stimulant. Without a second of hesitation, she jams the auto-injector directly into her neck. She screams as the violent, synthetic surge of adrenaline rockets through her veins, instantly banishing the digital static from her vision. Her eyes snap wide open, her fractured focus sharpening into a lethal, singular point of purpose. She checks her racing pulse one last time.",
+            "dramaturgical_function": "Physicalizes her internal transformation. She accepts the deadly biological toll of the drugs as the necessary price of her vengeance.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 40,
+            "scene_heading": "EXT. LOWER-CITY STREETS - CONTINUOUS",
+            "narrative_action": "Elara rises from the filthy alley floor. She steps out from behind the dumpster and into the neon-drenched rain. She doesn't hug the shadows or check her corners. Instead, she breaks into a dead sprint straight down the center of the hostile street, moving like a walking weapon aimed directly at the heart of Julian Sterling's empire. The passive gig worker is dead; the saboteur has arrived.",
+            "dramaturgical_function": "Propels the protagonist into the climax, executing the 'Break into Three' beat and ending the sequence on a kinetic high note of unstoppable momentum.",
+            "estimated_page_count": 1
           }
-        ]
+        ],
+        "sequence_number": 6
       },
       {
         "sequence_title": "Waking Nightmare",
+        "total_estimated_pages": 17,
         "scenes": [
           {
-            "scene_number": 64,
-            "scene_heading": "EXT. LOWER CITY STREETS - NIGHT",
-            "narrative_action": "Elara sprints through the rain-slicked streets, her breathing ragged. The neural hack initiates. The neon signs above her violently glitch, their advertisements dissolving into cascading streams of jagged, blood-red code. A heavily armored Somnus security transport screeches around the corner, its searchlights sweeping the pavement. Elara dives behind a rusted transit kiosk, pressing her hands over her ears to block out the sudden, deafening dial-up screech erupting directly inside her auditory cortex.",
-            "dramaturgical_function": "Establishes the immediate physical and psychological threat, visually blending the digital hack with the real-world pursuit.",
-            "estimated_page_count": "1.5"
+            "scene_number": 41,
+            "scene_heading": "EXT. LOWER-CITY STREETS - NIGHT",
+            "narrative_action": "Elara sprints through the neon-drenched rain, her boots splashing heavily in the gutters. Suddenly, her vision violently glitches. The slick, wet pavement beneath her fractures into a churning sea of green, corrupted Somnus code. She stumbles, catching herself on a rusted light pole. The shadows stretching from the alleyways physically detach, elongating into jagged, towering silhouettes that reach for her. She rubs her temples aggressively, feeling her racing pulse, and forces her legs to keep pumping forward through the digital distortion.",
+            "dramaturgical_function": "Initiates the climax by blurring the line between physical reality and digital hallucination, weaponizing Elara's sleep deprivation against her.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 65,
-            "scene_heading": "EXT. TOWER BASE ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Elara stumbles toward the rusted fire escape of Kaelen Thorne's tower. The pavement beneath her boots feels spongy, warping like a digital wireframe. A bloodied hand shoots out from a storm drain, gripping her ankle. She looks down to see Jax's corpse, his face melting into digital static, begging her to just go to sleep. Elara violently bites down on her own lower lip. Blood spills over her chin. The sharp, blinding physical pain shatters the hallucination. Jax vanishes. She rips her boot free and leaps onto the fire escape ladder.",
-            "dramaturgical_function": "Tests Elara's resolve using her deepest guilt, forcing her to weaponize physical pain as her only anchor to reality.",
-            "estimated_page_count": "1.5"
+            "scene_number": 42,
+            "scene_heading": "EXT. INDUSTRIAL YARD - CONTINUOUS",
+            "narrative_action": "Heavily armed corporate security teams swarm the grid, tactical flashlights cutting through the thick smog. Elara dives behind a stack of rusted shipping containers, holding her breath. A micro-hallucination strikes: Jax's bloodied corpse reaches out from a nearby storm drain, his dead hands grabbing her ankle, begging her to just lie down and sleep. Elara violently kicks at the empty air. To ground her fracturing mind, she bites down hard on her own lip until warm blood runs down her chin, using the sharp physical pain to anchor herself to reality.",
+            "dramaturgical_function": "Escalates the external threat (corporate security) while using a psychological attack (Jax's ghost) to test Elara's resolve and force her to use physical pain as a survival tool.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 66,
-            "scene_heading": "EXT. BROADCAST TOWER FIRE ESCAPE - CONTINUOUS",
-            "narrative_action": "Wind howls as Elara scales the precarious, rusted iron steps, hundreds of feet above the smog. Her muscles tremble violently, on the verge of total failure from the synthetic stimulants. The rhythmic, oppressive pings in her skull accelerate to a frantic tempo. Reaching the top landing, she finds the heavy reinforced glass of the broadcast room. Without hesitating, she wraps her jacket around her elbow and violently smashes through the pane, tumbling inside amid a shower of shattered glass.",
-            "dramaturgical_function": "The physical threshold crossing into the final battleground, highlighting the extreme physical toll of her journey.",
-            "estimated_page_count": "1.5"
+            "scene_number": 43,
+            "scene_heading": "EXT. BROADCAST TOWER - CONTINUOUS",
+            "narrative_action": "Elara breaks cover and reaches the base of Kaelen Thorne's towering, rusted broadcast antenna. She leaps, grabbing the bottom rung of the fire escape. Her muscles scream in protest. The digital static in her eyes thickens into a blinding snowstorm, a biological failsafe trying to force her into unconsciousness. She climbs frantically hand-over-hand, slipping on the wet metal, driven entirely by sheer momentum and the synthetic adrenaline burning in her veins.",
+            "dramaturgical_function": "Physicalizes the final ascent to the objective, pushing Elara's body to its absolute biological limit before the final confrontation.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 67,
+            "scene_number": 44,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "Elara scrambles to her feet in a chaotic den of archaic, analog broadcast equipment. Kaelen Thorne is nowhere to be seen. From the shadows, Graves steps forward, his tailored suit immaculate. He levels a suppressed handgun directly at her chest. Without breaking his rigid posture, he states a cold, statistical fact: she has a zero percent chance of completing the upload before her neural pathways disintegrate. He does not ask her to surrender; he simply waits for the system to finish her.",
-            "dramaturgical_function": "Springs the physical trap. Confronts Elara with the inescapable, physical manifestation of the corporation's reach.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara violently kicks through the reinforced glass window, tumbling onto the floor of Kaelen's chaotic den of analog tech. She scrambles to her knees, clutching her water-damaged datapad. She freezes. Graves stands in the gloom amid the humming servers, his impeccably tailored suit dry, his suppressed weapon leveled directly at her chest. Kaelen is nowhere to be seen. Graves does not blink or ask for her surrender; his finger simply tightens on the trigger.",
+            "dramaturgical_function": "Executes the 'Storming the Castle' beat, revealing that the antagonist's forces have already breached the final sanctuary.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 68,
-            "scene_heading": "INT. ELARA'S MINDSCAPE / BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "The physical room dims as a towering, god-like digital projection of Julian Sterling materializes in Elara's vision. He wears a serene, meditative smile. Speaking in a soothing, therapeutic cadence, he praises her resilience but explains that her consciousness is inefficient and must be optimized. He initiates the catastrophic cerebral wipe. Elara drops to her knees, clutching her skull as her memories—her mother's knitting hands, her father's face—begin to violently fragment and delete.",
-            "dramaturgical_function": "Springs the digital trap. Confronts Elara with the ultimate antagonist and his twisted, sanitized ideology.",
-            "estimated_page_count": "2"
+            "scene_number": 45,
+            "scene_heading": "INT. PIRATE BROADCAST ROOM / ELARA'S MIND - CONTINUOUS",
+            "narrative_action": "Before Graves can fire, the room dissolves into a blinding white void. A towering, god-like digital projection of Julian Sterling invades Elara's waking vision. Sterling's serene, booming voice echoes inside her skull, initiating a catastrophic cerebral wipe. The immense psychic weight forces Elara to her hands and knees in the physical world. A thick line of dark blood begins to pour from her nose as the neural implant physically overheats, tearing her memories apart.",
+            "dramaturgical_function": "Merges the physical and digital threats into a single, overwhelming antagonistic force, pushing Elara to the brink of complete erasure.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 69,
+            "scene_number": 46,
+            "scene_heading": "INT. SOMNUS MAINFRAME (MINDSCAPE) - CONTINUOUS",
+            "narrative_action": "In the sterile, white digital void, Elara stops fighting the intrusion. She drops her arms and completely lowers her mental defenses, leaning directly into the agonizing connection. Bridging her conscious mind straight into the Somnus mainframe, she weaponizes her raw exhaustion and grief. She projects her trauma as a devastating digital virus. The pristine white architecture of Sterling's code is violently infected by chaotic, dark static, shattering the corporate firewall from the inside out.",
+            "dramaturgical_function": "The thematic climax. Elara uses the very humanity and exhaustion Somnus tried to commodify as the ultimate weapon to destroy their system.",
+            "estimated_page_count": 2.5
+          },
+          {
+            "scene_number": 47,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "Graves tightens his finger on the trigger, watching Elara seize on the floor. In her mind, the psychic weight of Sterling's avatar is crushing her into oblivion. Instead of fighting the intrusion, Elara makes a terrifying choice. She goes entirely limp. She stops checking her pulse, drops her hands from her head, and completely lowers her mental defenses, allowing the agonizing connection to bridge her conscious mind directly into the core of the Somnus mainframe.",
-            "dramaturgical_function": "The climax's turning point. The protagonist embraces her ultimate vulnerability, choosing to lean into the pain rather than resist it.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara's eyes snap wide open in the physical world, the white void vanishing. She lunges forward, slamming her datapad into Kaelen's archaic broadcast console. She hits the physical transmit switch. Graves fires, but his augmented combat programming suddenly freezes, his cybernetics caught in a loop of conflicting directives from the corrupted network. Inside Elara's mind, Sterling's god-like projection screams in fury before dissolving into harmless, floating static.",
+            "dramaturgical_function": "Translates the internal digital victory into physical action, seemingly executing the successful upload of the whistleblower data.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 70,
-            "scene_heading": "INT. SOMNUS MAINFRAME (MENTAL SPACE) - CONTINUOUS",
-            "narrative_action": "Inside the digital void, Elara weaponizes the raw, chaotic processing power of her severe sleep deprivation. She channels the profound grief of her father's death and the fierce love for her mother, projecting it outward as a devastating digital virus. Sterling's pristine, sterile corporate code is violently overwhelmed by the unquantifiable force of human suffering. His serene smile falters into a look of genuine panic before his towering avatar screams and shatters into harmless, floating static.",
-            "dramaturgical_function": "The ideological victory. Human resilience and emotional chaos destroy the antagonist's sterile, optimized control.",
-            "estimated_page_count": "2"
+            "scene_number": 48,
+            "scene_heading": "EXT. METROPOLIS - LATER",
+            "narrative_action": "The analog broadcast tower hums with immense power. The unencrypted assassination footage bypasses every Somnus filter, broadcasting directly onto every monolithic billboard and neural implant in the city. Down in the smog-choked streets, enraged citizens riot, tearing down corporate signage. Federal authorities violently breach the glass doors of the Somnus corporate headquarters, their flashing sirens fracturing the neon glow as the invincible conglomerate crumbles.",
+            "dramaturgical_function": "Delivers the cathartic, global resolution to the thriller, showing the immediate, world-altering consequences of Elara's sacrifice.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 71,
-            "scene_heading": "INT. PIRATE BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "Elara's eyes snap open, bleeding heavily from her nose but entirely lucid. She lunges forward, slamming her water-damaged datapad into Kaelen's archaic analog console. She hits the heavy, mechanical upload switch. Graves fires, but his shot goes wide. The unencrypted assassination footage floods the local network, instantly crashing Graves's augmented combat programming. The hitman freezes in place, his mechanical eyes rapidly clicking and flashing red as conflicting directives trap him in an endless loop.",
-            "dramaturgical_function": "The physical execution of the goal. Elara neutralizes the physical threat by broadcasting the undeniable truth.",
-            "estimated_page_count": "1.5"
+            "scene_number": 49,
+            "scene_heading": "INT. SUNLIT BEDROOM - DAY",
+            "narrative_action": "The chaotic noise of the city fades into a profound, serene quiet. Elara sits in a highly secure, sunlit room, bathed in warm morning light. The oppressive digital pings in her mind are completely silent. She checks a clean, uncracked datapad: her mother's exorbitant medical debts read zero. The immense physical tension leaves her battered body. She sinks into a plush, comfortable bed, exhales a soft, trembling breath, and closes her eyes, slipping into a deep, dreamless sleep.",
+            "dramaturgical_function": "Provides a false resolution, fulfilling Elara's ultimate desire for rest, safety, and a debt-free life for her mother.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 72,
-            "scene_heading": "EXT. METROPOLIS - NIGHT (MONTAGE)",
-            "narrative_action": "The analog broadcast tower hums with immense, vibrating power. Down in the smog-choked streets, every monolithic Somnus billboard flickers and switches to the raw assassination footage. Citizens stop in their tracks, staring up in horror. Federal sirens begin to wail across the grid. Enraged crowds swarm the corporate headquarters, shattering the pristine glass doors. The invincible conglomerate visually and literally crumbles as the truth goes globally viral.",
-            "dramaturgical_function": "Provides the cathartic release and visualizes the apparent societal victory over the corrupt system.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 73,
-            "scene_heading": "INT. SUNLIT ROOM - DAY",
-            "narrative_action": "Total silence. The harsh neon glow is gone, replaced by warm, golden morning light. Elara sits on the edge of a plush, comfortable bed. Her mother's medical debt zero-balance receipt rests on the nightstand. The oppressive digital pings are completely gone. Her body is completely relaxed. She exhales a soft, trembling breath, lies back against the soft linen, and closes her eyes, finally surrendering to a deep, profoundly peaceful, dreamless sleep.",
-            "dramaturgical_function": "Fulfills the protagonist's core desire (peaceful rest and safety for her mother), establishing the ultimate false resolution.",
-            "estimated_page_count": "1.5"
-          },
-          {
-            "scene_number": 74,
+            "scene_number": 50,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - NIGHT",
-            "narrative_action": "The golden sunlight suddenly flickers, glitching violently before burning away like melting film. Reality snaps back to the freezing, rusted broadcast room. Elara never reached the console. She is slumped lifelessly against the wall, a thick line of blood trailing from her nose, her eyes wide open and completely vacant. Graves stands over her, his gun lowered. He taps his earpiece, coldly and precisely confirming to Julian Sterling that the target's mind has been successfully and permanently wiped. He turns and walks out, leaving her hollow shell in the dark.",
-            "dramaturgical_function": "The devastating twist. Reveals the antagonist's ultimate victory, showing that the happy ending is just a permanent, inescapable REM cycle generated by the corporation.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "The golden sunlight suddenly flickers, violently tearing away like burning paper to reveal the cold, rusted reality of the broadcast tower. Elara never uploaded the file. She is slumped lifelessly against Kaelen's console, a thick line of blood dried on her chin, her eyes wide open and completely vacant. Graves stands over her, lowering his weapon. He taps his earpiece, coldly confirming to Sterling that the target's mind has been permanently wiped. Elara remains frozen, trapped forever in a corporate-mandated REM hallucination.",
+            "dramaturgical_function": "Executes a devastating final twist, revealing the antagonist's ultimate victory and reinforcing the horrifying, inescapable reality of surveillance capitalism.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 7
       },
       {
         "sequence_title": "The Broadcast",
+        "total_estimated_pages": 14.5,
         "scenes": [
           {
-            "scene_number": 75,
-            "scene_heading": "EXT. LOWER CITY STREETS - NIGHT",
-            "narrative_action": "Elara sprints through rain-slicked streets, her breathing ragged. The neural hack initiates. Neon signs above violently glitch, their advertisements dissolving into cascading streams of jagged, blood-red code. A heavily armored Somnus security transport screeches around the corner, searchlights sweeping the pavement. Elara dives behind a rusted transit kiosk, aggressively pressing her hands over her ears to block out the sudden, deafening dial-up screech erupting directly inside her auditory cortex.",
-            "dramaturgical_function": "Establishes the immediate physical and psychological threat, visually blending the digital hack with the real-world pursuit.",
-            "estimated_page_count": "1.5"
+            "scene_number": 51,
+            "scene_heading": "EXT. LOWER-CITY STREETS - NIGHT",
+            "narrative_action": "Elara tears through the labyrinthine alleys of the lower city, boots splashing through chemical puddles. The Somnus network initiates its assault: the neon signs above her violently pixelate, and the wet pavement transforms into a churning river of encrypted code. Corporate security drones sweep the area with harsh searchlights. As she ducks behind a dumpster, the shadows stretch and morph into jagged, faceless enforcers. Panting, she presses two fingers to her trembling pulse, grounding herself in her own physical exhaustion before sprinting back into the open.",
+            "dramaturgical_function": "Establishes the sequence's ticking clock and visualizes the internal stakes by blurring physical reality with weaponized digital hallucinations.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 76,
-            "scene_heading": "EXT. TOWER BASE ALLEYWAY - CONTINUOUS",
-            "narrative_action": "Elara stumbles toward the rusted fire escape of Kaelen Thorne's tower. The pavement beneath her boots feels spongy, warping like a digital wireframe. A bloodied hand shoots out from a storm drain, gripping her ankle. Jax's corpse looks up at her, face melting into digital static, begging her to just go to sleep. Elara violently bites down on her own lower lip. Blood spills over her chin. The sharp physical pain shatters the hallucination. Jax vanishes. She rips her boot free and leaps onto the fire escape ladder.",
-            "dramaturgical_function": "Tests Elara's resolve using her deepest guilt, forcing her to weaponize physical pain as her only anchor to reality.",
-            "estimated_page_count": "1.5"
+            "scene_number": 52,
+            "scene_heading": "EXT. INDUSTRIAL YARD - CONTINUOUS",
+            "narrative_action": "Heavily armed Somnus sweepers patrol the industrial yard ahead. Elara creeps behind a stack of rusted shipping containers. Suddenly, a hyper-realistic projection of Jax—his chest blown open and bleeding—crawls from a storm drain. He grabs her ankle, his voice perfectly replicated, begging her to stop fighting and just go to sleep. Elara recoils, kicking the phantom away. To break the sensory loop, she bites down viciously on her own lip. The sharp, hot sting of real blood running down her chin shatters the hallucination, allowing her to slip past the guards.",
+            "dramaturgical_function": "Escalates the psychological torture by exploiting Elara's guilt over Jax, forcing her to rely on self-inflicted physical pain to stay anchored to reality.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 77,
-            "scene_heading": "EXT. BROADCAST TOWER FIRE ESCAPE - CONTINUOUS",
-            "narrative_action": "Wind howls as Elara scales the precarious, rusted iron steps, hundreds of feet above the smog. Her muscles tremble violently, on the verge of total failure. The rhythmic, oppressive pings in her skull accelerate to a frantic tempo. Reaching the top landing, she finds the heavy reinforced glass of the broadcast room. Without hesitating, she wraps her jacket around her elbow and violently smashes through the pane, tumbling inside amid a shower of shattered glass.",
-            "dramaturgical_function": "The physical threshold crossing into the final battleground, highlighting the extreme physical toll of her journey.",
-            "estimated_page_count": "1.5"
+            "scene_number": 53,
+            "scene_heading": "EXT. BROADCAST TOWER - CONTINUOUS",
+            "narrative_action": "Elara reaches the base of Kaelen’s pirate broadcast tower. She jumps, grabbing the lowest rung of the rusted fire escape. Her muscles scream as she pulls herself up. The digital interference in her vision intensifies into a blinding white snowstorm, the Somnus implant desperately trying to force her brain into a shutdown state. Blinded and slipping on the rain-slicked metal, she climbs entirely by muscle memory and sheer, frantic momentum, pulling herself toward the glowing window above.",
+            "dramaturgical_function": "A pure physical crucible that pushes Elara's biological limits to the breaking point right before the final confrontation.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 78,
+            "scene_number": 54,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "Elara scrambles to her feet in a chaotic den of archaic, analog broadcast equipment. Kaelen Thorne is nowhere to be seen. From the shadows, Graves steps forward, his tailored suit immaculate amidst the grime. He levels a suppressed handgun directly at her chest. Without breaking his rigid posture, he states a cold, statistical fact: she has a zero percent chance of completing the upload before her neural pathways disintegrate. He does not ask her to surrender; he simply waits.",
-            "dramaturgical_function": "Springs the physical trap. Confronts Elara with the inescapable, physical manifestation of the corporation's reach.",
-            "estimated_page_count": "1"
+            "narrative_action": "Elara shatters the reinforced glass with her boot and tumbles into Kaelen’s analog broadcast den. She scrambles up, clutching the waterlogged datapad containing the unencrypted files. She freezes. The room is dead quiet. Graves emerges from the shadows of the server racks, his suit immaculate. He doesn't speak or demand the drive. He simply levels his suppressed pistol at her chest, his finger tightening on the trigger in cold, mechanical silence.",
+            "dramaturgical_function": "Delivers the 'Storming the Castle' surprise, proving the antagonist is already a step ahead and cutting off the physical escape route.",
+            "estimated_page_count": 1
           },
           {
-            "scene_number": 79,
-            "scene_heading": "INT. ELARA'S MINDSCAPE / BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "The physical room dims as a towering, god-like digital projection of Julian Sterling materializes in Elara's vision. He wears a serene, meditative smile. Speaking in a soothing, therapeutic cadence, he praises her resilience but explains that her consciousness must be optimized. He initiates the catastrophic cerebral wipe. Elara drops to her knees in the physical room, clutching her skull as her memories—her mother's knitting hands, her father's face—begin to violently fragment and delete into white noise.",
-            "dramaturgical_function": "Springs the digital trap. Confronts Elara with the ultimate antagonist and his twisted, sanitized ideology.",
-            "estimated_page_count": "1.5"
+            "scene_number": 55,
+            "scene_heading": "INT. PIRATE BROADCAST ROOM / ELARA'S MIND - CONTINUOUS",
+            "narrative_action": "Before Graves's weapon discharges, the physical room violently dissolves around Elara into a suffocating, sterile white void. A colossal, god-like digital avatar of Julian Sterling materializes above her. Sterling's soothing, therapeutic voice reverberates through her skull, initiating a catastrophic neural wipe. In the physical world, Elara collapses to her hands and knees. The implant overheats, sending a thick stream of dark blood pouring from her nose as the immense psychic pressure begins shredding her memories.",
+            "dramaturgical_function": "Merges the physical and digital antagonists into a singular, overwhelming force, pushing the protagonist to the absolute brink of defeat.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 80,
-            "scene_heading": "INT. SOMNUS MAINFRAME (MENTAL SPACE) - CONTINUOUS",
-            "narrative_action": "Graves watches Elara seize on the floor. In her mind, the psychic weight of Sterling's avatar is crushing her. Instead of fighting, Elara goes entirely limp. She stops checking her pulse, drops her hands, and completely lowers her mental defenses, allowing the connection to bridge her conscious mind directly into the Somnus mainframe. She channels the profound grief of her father's death and her sheer exhaustion, projecting it outward as a devastating digital virus. Sterling's pristine corporate code is violently overwhelmed. His serene smile falters into panic before his towering avatar screams and shatters into floating static.",
-            "dramaturgical_function": "The climax's turning point and ideological victory. The protagonist embraces her ultimate vulnerability, destroying the antagonist's sterile control with human emotional chaos.",
-            "estimated_page_count": "2"
+            "scene_number": 56,
+            "scene_heading": "INT. SOMNUS MAINFRAME (MINDSCAPE) - CONTINUOUS",
+            "narrative_action": "Trapped in the pristine white architecture of the Somnus mindscape, Elara makes a terrifying choice: she stops resisting. Lowering her mental barriers, she leans into the agonizing neural bridge. She weaponizes her severe sleep deprivation, grief, and raw human exhaustion, channeling it into a chaotic digital virus. The pristine white code around her begins to rot and blacken. Using the unquantifiable force of her human will, she violently reverses the data flow, shattering Sterling's impenetrable firewall from the inside out.",
+            "dramaturgical_function": "The thematic climax. Elara embraces her perceived weakness—her exhaustion and humanity—transforming it into the ultimate weapon to destroy the corporate machine.",
+            "estimated_page_count": 2
           },
           {
-            "scene_number": 81,
+            "scene_number": 57,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - CONTINUOUS",
-            "narrative_action": "Elara's eyes snap open, bleeding heavily from her nose but entirely lucid. She lunges forward, slamming her water-damaged datapad into Kaelen's archaic analog console. She hits the heavy, mechanical upload switch. Graves fires, but the unencrypted assassination footage floods the local network, instantly crashing his augmented combat programming. The hitman freezes in place, his mechanical eyes rapidly clicking and flashing red as conflicting directives trap him in an endless loop.",
-            "dramaturgical_function": "The physical execution of the goal. Elara neutralizes the physical threat by broadcasting the undeniable truth.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "Elara gasps, her vision snapping back to the physical broadcast room. With a guttural scream, she lunges forward and slams her datapad into Kaelen’s analog console, smashing the manual transmit button. Graves fires, but the shot goes wide. The corrupted Somnus network crashes his augmented combat programming, locking his cybernetic limbs in a rigid, twitching loop. Inside Elara's mind, Sterling's colossal avatar shrieks in unfiltered rage before violently dissolving into harmless digital ash.",
+            "dramaturgical_function": "Translates the internal psychological victory into decisive physical action, neutralizing the immediate physical threat.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 82,
-            "scene_heading": "EXT. METROPOLIS - NIGHT (MONTAGE)",
-            "narrative_action": "The analog broadcast tower hums with immense, vibrating power. Down in the smog-choked streets, every monolithic Somnus billboard flickers and switches to the raw assassination footage. Citizens stop in their tracks, staring up in horror. Federal sirens begin to wail across the grid. Enraged crowds swarm the corporate headquarters, shattering the pristine glass doors. The invincible conglomerate visually and literally crumbles as the truth goes globally viral.",
-            "dramaturgical_function": "Provides the cathartic release and visualizes the apparent societal victory over the corrupt system.",
-            "estimated_page_count": "1.5"
+            "scene_number": 58,
+            "scene_heading": "EXT. METROPOLIS - LATER",
+            "narrative_action": "The rusted analog tower roars to life, humming with immense power. The unencrypted assassination footage bypasses all Somnus filters, hijacking every monolithic billboard, screen, and neural implant across the metropolis. Down in the smog-choked streets, citizens stop and stare. The shock quickly turns to rage. Riots erupt; crowds tear down corporate signage. Heavily armed federal authorities violently breach the glass doors of Somnus HQ, their sirens cutting through the neon as the empire falls.",
+            "dramaturgical_function": "Delivers the cathartic, global resolution, visually confirming the world-altering impact of Elara's sacrifice.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 83,
-            "scene_heading": "INT. SUNLIT ROOM - DAY",
-            "narrative_action": "Total silence. The harsh neon glow is gone, replaced by warm, golden morning light. Elara sits on the edge of a plush, comfortable bed. Her mother's medical debt zero-balance receipt rests on the nightstand. The oppressive digital pings are completely gone. Her body is entirely relaxed. She exhales a soft, trembling breath, lies back against the soft linen, and closes her eyes, finally surrendering to a deep, profoundly peaceful, dreamless sleep.",
-            "dramaturgical_function": "Fulfills the protagonist's core desire (peaceful rest and safety for her mother), establishing the ultimate false resolution.",
-            "estimated_page_count": "1.5"
+            "scene_number": 59,
+            "scene_heading": "INT. SUNLIT BEDROOM - DAY",
+            "narrative_action": "The deafening noise of the riots fades into profound, serene silence. Elara sits in a highly secure, sunlit bedroom, the harsh neon replaced by warm morning light. The oppressive digital pings in her head are gone. She looks at a clean datapad: her mother's medical debt is wiped to zero. The immense tension leaves her battered body. She sinks into the plush, clean linens of the bed, exhales a trembling breath, and closes her eyes, finally slipping into a deep, completely dreamless sleep.",
+            "dramaturgical_function": "Provides a false resolution that perfectly fulfills the protagonist's ultimate desire for rest, safety, and a secure future for her mother.",
+            "estimated_page_count": 1.5
           },
           {
-            "scene_number": 84,
+            "scene_number": 60,
             "scene_heading": "INT. PIRATE BROADCAST ROOM - NIGHT",
-            "narrative_action": "The golden sunlight suddenly flickers, glitching violently before burning away like melting film. Reality snaps back to the freezing, rusted broadcast room. Elara never reached the console. She is slumped lifelessly against the wall, a thick line of blood trailing from her nose, her eyes wide open and completely vacant. Graves stands over her, his gun lowered. He taps his earpiece, coldly and precisely confirming to Julian Sterling that the target's mind has been successfully and permanently wiped. He turns and walks out, leaving her hollow shell in the dark.",
-            "dramaturgical_function": "The devastating twist. Reveals the antagonist's ultimate victory, showing that the happy ending is just a permanent, inescapable REM cycle generated by the corporation.",
-            "estimated_page_count": "1.5"
+            "narrative_action": "The golden sunlight suddenly flickers and burns away like catching paper, revealing the cold, rusted darkness of the pirate broadcast tower. Elara never hit the transmit button. She is slumped lifelessly against Kaelen’s console, a thick line of dried blood on her chin, her eyes wide open and completely vacant. Graves stands over her, lowering his smoking weapon. He taps his earpiece, coldly confirming to Sterling that the target's mind has been permanently wiped. Elara remains frozen, trapped forever in a corporate-mandated REM hallucination as the city outside continues unchanged.",
+            "dramaturgical_function": "Executes a devastating final twist, subverting the victory to reveal the antagonist's ultimate triumph and cementing the horrifying reality of surveillance capitalism.",
+            "estimated_page_count": 1.5
           }
-        ]
+        ],
+        "sequence_number": 8
       }
     ]
   }
