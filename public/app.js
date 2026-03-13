@@ -1357,11 +1357,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>
                     <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Psychological Core</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
-                        ${field('Wound', 'psychological_core.wound', char.psychological_core?.wound)}
-                        ${field('False Belief', 'psychological_core.false_belief', char.psychological_core?.false_belief)}
+                        ${field('Ghost & Wound', 'psychological_core.ghost_and_wound', char.psychological_core?.ghost_and_wound)}
+                        ${field('The Lie', 'psychological_core.the_lie', char.psychological_core?.the_lie)}
                         ${field('Fear', 'psychological_core.fear', char.psychological_core?.fear)}
                         ${field('Desire', 'psychological_core.desire', char.psychological_core?.desire)}
-                        ${field('Need', 'psychological_core.need', char.psychological_core?.need)}
+                        ${field('Psychological Need', 'psychological_core.psychological_need', char.psychological_core?.psychological_need)}
+                        ${field('Moral Need', 'psychological_core.moral_need', char.psychological_core?.moral_need)}
                     </div>
 
                     <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
@@ -1369,6 +1370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
                         ${field('Speech Patterns', 'voice_and_behavior.speech_patterns', char.voice_and_behavior?.speech_patterns)}
                         ${field('Deflection Tactic', 'voice_and_behavior.deflection_tactic', char.voice_and_behavior?.deflection_tactic)}
+                        ${field('Paradox', 'voice_and_behavior.paradox', char.voice_and_behavior?.paradox)}
                     </div>
 
                     <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
@@ -1411,8 +1413,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: card.dataset.charName || '',
                 role: card.dataset.charRole || '',
                 brief_summary: '',
-                psychological_core: { wound: '', false_belief: '', fear: '', desire: '', need: '' },
-                voice_and_behavior: { speech_patterns: '', deflection_tactic: '' },
+                psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '' },
+                voice_and_behavior: { speech_patterns: '', deflection_tactic: '', paradox: '' },
                 subtlety_guidelines: ''
             };
 
