@@ -357,6 +357,11 @@ app.post('/api/generate-draft', async (req, res) => {
             return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
         }
 
+        const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
+        if (missingFields.length > 0) {
+            return res.status(400).json({ error: `Scene ${sceneNumber} is missing required fields: ${missingFields.join(', ')}` });
+        }
+
         const projectContext = {
             synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || "",
             characters: projectData.data.stage3_characters?.characters || []
@@ -405,6 +410,11 @@ app.post('/api/revise-draft', async (req, res) => {
 
         if (!targetedScene) {
             return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
+        }
+
+        const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
+        if (missingFields.length > 0) {
+            return res.status(400).json({ error: `Scene ${sceneNumber} is missing required fields: ${missingFields.join(', ')}` });
         }
 
         const projectContext = {

@@ -12,6 +12,7 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
     const sequenceSchema = {
         type: Type.OBJECT,
         properties: {
+            sequence_number: { type: Type.NUMBER },
             sequence_title: { type: Type.STRING },
             total_estimated_pages: { type: Type.NUMBER },
             scenes: {
@@ -30,7 +31,7 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
                 }
             }
         },
-        required: ['sequence_title', 'total_estimated_pages', 'scenes']
+        required: ['sequence_number', 'sequence_title', 'total_estimated_pages', 'scenes']
     };
 
     // The root schema is an array of these sequences
@@ -68,12 +69,37 @@ OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON arr
 
         let updatedData = JSON.parse(result.response.text());
 
-        // POST-PROCESSING: Math Fix (Renumber scenes sequentially across all sequences)
+        // Build a lookup of existing draft data from the original blueprint, keyed by
+        // scene_heading (sluglines are stable identifiers). This survives Gemini's
+        // structured-output stripping of fields not in the schema (draft_text, locked).
+        const existingDraftData = new Map();
+        currentBlueprint.forEach(seq => {
+            seq.scenes?.forEach(scene => {
+                if (scene.draft_text || scene.locked) {
+                    existingDraftData.set(scene.scene_heading, {
+                        draft_text: scene.draft_text,
+                        locked: scene.locked
+                    });
+                }
+            });
+        });
+
+        // POST-PROCESSING: renumber scenes sequentially and restore lost fields
         let count = 1;
-        updatedData.forEach(sequence => {
+        updatedData.forEach((sequence, idx) => {
+            // Restore sequence_number (1-based index) in case Gemini dropped or changed it
+            sequence.sequence_number = idx + 1;
+
             if (sequence.scenes && Array.isArray(sequence.scenes)) {
                 sequence.scenes.forEach(scene => {
                     scene.scene_number = count++;
+
+                    // Restore draft_text and locked for scenes that survived the revision
+                    const existing = existingDraftData.get(scene.scene_heading);
+                    if (existing) {
+                        if (existing.draft_text) scene.draft_text = existing.draft_text;
+                        if (existing.locked) scene.locked = existing.locked;
+                    }
                 });
             }
         });
