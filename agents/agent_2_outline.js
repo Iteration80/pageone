@@ -1,9 +1,13 @@
 const { GoogleGenAI, Type } = require('@google/genai');
+const fs = require('fs');
+const path = require('path');
 
 // Initialize the Google Gen AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const agent2Outline = async (pitchData, currentOutline, notes, pdfFile) => {
+    const skillPath = path.join(__dirname, '../skills/skill_stage2_outline.md');
+    const outlineSOP = fs.readFileSync(skillPath, 'utf8');
 
     const beatItemSchema = {
         type: Type.OBJECT,
@@ -48,7 +52,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile) => {
     // Revision Bypass Logic
     if (notes && currentOutline) {
         console.log("  Surgical Revision Mode: Updating outline...");
-        const revisionSystemInstruction = 'ROLE: Structural Story Analyst. Apply the user\'s note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user\'s note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story\'s cause-and-effect makes logical sense. Maintain the exact same JSON schema.';
+        const revisionSystemInstruction = `${outlineSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user's note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story's cause-and-effect makes logical sense. Maintain the exact same JSON schema.`;
 
         const revisionPrompt = `USER NOTE: ${notes}
 
@@ -73,7 +77,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         return JSON.parse(cleanedText);
     }
 
-    const systemInstruction = "You are an elite Hollywood Story Architect. Your objective is to take a movie pitch and expand it into a professional, highly readable 8-Sequence Broad Outline. CRITICAL RULES: The 8-Sequence Structure: Divide the narrative into 8 sequences (2 for Act I, 4 for Act II, 2 for Act III). Give each sequence a thematic title. Plant the Tentpoles: Ensure the major structural pillars serve as the climaxes of their respective sequences. Invisible Cause-and-Effect: The narrative must flow using the Therefore/But engine naturally. Lean Formatting: Write exclusively in present tense.";
+    const systemInstruction = outlineSOP;
 
     const contents = [];
 

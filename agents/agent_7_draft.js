@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  */
 const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null) => {
     // Read the Screenwriting SOP rules
-    const rulesPath = path.join(__dirname, '../skills/screenwriting_rules.md');
+    const rulesPath = path.join(__dirname, '../skills/skill_stage7_draft.md');
     const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
 
     const revisionSection = revisionNotes
