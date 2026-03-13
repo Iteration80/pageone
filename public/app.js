@@ -2960,6 +2960,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnDownloadDraft = document.getElementById('btnDownloadDraft');
+    if (btnDownloadDraft) {
+        btnDownloadDraft.addEventListener('click', () => {
+            const scenes = getFlatScenes();
+            const drafted = scenes.filter(s => s.draft_text);
+            if (drafted.length === 0) {
+                alert('No scenes have been drafted yet.');
+                return;
+            }
+            const fountainText = drafted.map(s => s.draft_text.trim()).join('\n\n');
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
+            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '.fountain';
+            const blob = new Blob([fountainText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
     // Expose selectDraftScene on window from inside the closure so it has access
     // to currentDraftSceneNumber and initStage7 (both defined in this scope).
     window.selectDraftScene = function(sceneNumber) {
