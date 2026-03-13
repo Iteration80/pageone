@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
     let currentDraftSceneNumber = 1;
+    let isBatchGenerating = false;
 
     function autoResize(textarea) {
         if (!textarea) return;
@@ -142,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage7Approve = document.getElementById('btnStage7Approve');
     const btnGenerateScene = document.getElementById('btnGenerateScene');
     const btnNextScene = document.getElementById('btnNextScene');
+    const btnGenerateAll = document.getElementById('btnGenerateAll');
     const stage7Notes = document.getElementById('stage7-notes');
 
 
@@ -2629,45 +2631,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 7 Logic: Draft ---
 
+    // Renders only the scene TOC sidebar, leaving the editor and buttons untouched.
+    // Called by both initStage7() and the batch generation loop.
+    function renderStage7Sidebar() {
+        const toc = document.getElementById('stage7-toc');
+        if (!toc) return;
+
+        toc.innerHTML = '';
+        const scenes = getFlatScenes();
+        scenes.forEach(scene => {
+            const isActive = scene.scene_number === currentDraftSceneNumber;
+            const activeClass = isActive ? 'border-blue-500 bg-gray-800' : 'border-gray-700 bg-gray-900 opacity-75 hover:opacity-100';
+
+            const card = document.createElement('div');
+            card.className = `scene-accordion-card rounded-md mb-2 border ${activeClass} overflow-hidden transition-all`;
+
+            const lockBadge = scene.locked
+                ? `<span class="text-[9px] text-green-400 font-bold ml-1">LOCKED</span>`
+                : '';
+            const draftBadge = (!scene.locked && scene.draft_text)
+                ? `<span class="text-[9px] text-blue-400/60 font-bold ml-1">✓</span>`
+                : '';
+
+            card.innerHTML = `
+                <div class="accordion-header p-3 cursor-pointer flex justify-between items-center" onclick="selectDraftScene(${scene.scene_number})">
+                    <div class="flex-1 pr-4">
+                        <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}${lockBadge}${draftBadge}</div>
+                        <div class="text-xs text-gray-200 font-semibold leading-snug">${escapeHtml(scene.scene_heading)}</div>
+                    </div>
+                    <div class="p-2 hover:bg-white/10 rounded-full transition-colors" onclick="toggleSceneDetails(this, event)">
+                        <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </div>
+                <div class="accordion-body hidden p-3 bg-gray-950 border-t border-gray-700">
+                    <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
+                    <p class="text-xs text-gray-400 mb-3">${escapeHtml(scene.narrative_action)}</p>
+                    <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
+                    <p class="text-xs text-blue-400/80">${escapeHtml(scene.dramaturgical_function)}</p>
+                </div>
+            `;
+            toc.appendChild(card);
+        });
+    }
+
     function initStage7() {
         if (!btnGenerateScene || !btnNextScene || !draftEditor) return;
 
-        // Render Dynamic Sidebar
-        const toc = document.getElementById('stage7-toc');
-        if (toc) {
-            toc.innerHTML = '';
-            const scenes = getFlatScenes();
-            scenes.forEach(scene => {
-                const isActive = scene.scene_number === currentDraftSceneNumber;
-                const activeClass = isActive ? 'border-blue-500 bg-gray-800' : 'border-gray-700 bg-gray-900 opacity-75 hover:opacity-100';
-
-                const card = document.createElement('div');
-                card.className = `scene-accordion-card rounded-md mb-2 border ${activeClass} overflow-hidden transition-all`;
-                const lockBadge = scene.locked ? `<span class="text-[9px] text-green-400 font-bold ml-1">LOCKED</span>` : '';
-                card.innerHTML = `
-                    <div class="accordion-header p-3 cursor-pointer flex justify-between items-center" onclick="selectDraftScene(${scene.scene_number})">
-                        <div class="flex-1 pr-4">
-                            <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}${lockBadge}</div>
-                            <div class="text-xs text-gray-200 font-semibold leading-snug">${escapeHtml(scene.scene_heading)}</div>
-                        </div>
-                        <div class="p-2 hover:bg-white/10 rounded-full transition-colors" onclick="toggleSceneDetails(this, event)">
-                            <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                    <div class="accordion-body hidden p-3 bg-gray-950 border-t border-gray-700">
-                        <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
-                        <p class="text-xs text-gray-400 mb-3">${escapeHtml(scene.narrative_action)}</p>
-                        <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
-                        <p class="text-xs text-blue-400/80">${escapeHtml(scene.dramaturgical_function)}</p>
-                    </div>
-                `;
-                toc.appendChild(card);
-            });
-        }
+        renderStage7Sidebar();
 
         draftEditor.classList.add('font-mono');
 
-        // Check if draft text already exists in the JSON for this scene
         const scenes = getFlatScenes();
         const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
 
@@ -2859,6 +2872,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage7Approve.textContent = originalText;
                 btnStage7Approve.disabled = false;
             }
+        });
+    }
+
+    if (btnGenerateAll) {
+        btnGenerateAll.addEventListener('click', async () => {
+            // Toggle: cancel an in-progress batch run
+            if (isBatchGenerating) {
+                isBatchGenerating = false;
+                return;
+            }
+
+            if (!activeProjectId) return;
+
+            const pendingScenes = getFlatScenes().filter(s => !s.draft_text && !s.locked);
+            if (pendingScenes.length === 0) {
+                alert('All scenes already have drafts.');
+                return;
+            }
+
+            isBatchGenerating = true;
+            btnGenerateAll.textContent = '✕ Cancel';
+            btnGenerateScene.disabled = true;
+            btnNextScene.classList.add('hidden');
+
+            let completed = 0;
+            const total = pendingScenes.length;
+
+            for (const scene of pendingScenes) {
+                if (!isBatchGenerating) break;
+
+                currentDraftSceneNumber = scene.scene_number;
+                btnGenerateAll.textContent = `✕ Cancel  (${completed}/${total})`;
+
+                if (draftEditor) {
+                    draftEditor.innerHTML = `<div class="text-gray-500 italic text-center mt-24">Generating Scene ${scene.scene_number} of ${getFlatScenes().length}...</div>`;
+                }
+                renderStage7Sidebar();
+
+                try {
+                    const response = await fetch('/api/generate-draft', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, sceneNumber: scene.scene_number })
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+                        throw new Error(err.error || `Failed to generate Scene ${scene.scene_number}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (draftEditor) {
+                        draftEditor.innerHTML = formatFountainToHTML(data.result);
+                    }
+
+                    // Sync local project data so getFlatScenes() reflects the new draft_text
+                    const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                    const projData = await projRes.json();
+                    window.currentProjectData = projData.data;
+
+                    renderStage7Sidebar();
+                    completed++;
+
+                } catch (error) {
+                    console.error(`Batch generation failed on Scene ${scene.scene_number}:`, error);
+                    isBatchGenerating = false;
+                    btnGenerateAll.textContent = 'Generate All Scenes';
+                    btnGenerateScene.disabled = false;
+                    alert(`Error on Scene ${scene.scene_number}: ${error.message}`);
+                    return;
+                }
+            }
+
+            // Finished or cancelled — restore UI
+            isBatchGenerating = false;
+            btnGenerateAll.textContent = 'Generate All Scenes';
+            initStage7(); // Full re-render to restore button states
         });
     }
 
