@@ -336,6 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/projects/${activeProjectId}`);
             if (!res.ok) throw new Error("Failed to fetch project details");
             const projectDetails = await res.json();
+            window.currentProjectData = projectDetails.data;
 
             resultsContainer.innerHTML = ''; // Start clean
 
@@ -939,6 +940,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 document.querySelectorAll('.scene-textarea').forEach(ta => autoResize(ta));
             }, 50);
+        } else if (stageNum === 7) {
+            initStage7();
         }
     }
 
@@ -2632,13 +2635,53 @@ document.addEventListener('DOMContentLoaded', () => {
     function initStage7() {
         if (!btnGenerateScene || !btnNextScene || !draftEditor) return;
 
+        // Render Dynamic Sidebar
+        const toc = document.getElementById('stage7-toc');
+        if (toc) {
+            toc.innerHTML = '';
+            const scenes = getFlatScenes();
+            scenes.forEach(scene => {
+                const isActive = scene.scene_number === currentDraftSceneNumber;
+                const activeClass = isActive ? 'border-blue-500 bg-gray-800' : 'border-gray-700 bg-gray-900 opacity-75 hover:opacity-100';
+
+                const card = document.createElement('div');
+                card.className = `scene-accordion-card rounded-md mb-2 border ${activeClass} overflow-hidden transition-all`;
+                card.innerHTML = `
+                    <div class="accordion-header p-3 cursor-pointer flex justify-between items-center" onclick="selectDraftScene(${scene.scene_number})">
+                        <div class="flex-1 pr-4">
+                            <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}</div>
+                            <div class="text-xs text-gray-200 font-semibold leading-snug">${escapeHtml(scene.scene_heading)}</div>
+                        </div>
+                        <div class="p-2 hover:bg-white/10 rounded-full transition-colors" onclick="toggleSceneDetails(this, event)">
+                            <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <div class="accordion-body hidden p-3 bg-gray-950 border-t border-gray-700">
+                        <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
+                        <p class="text-xs text-gray-400 mb-3">${escapeHtml(scene.narrative_action)}</p>
+                        <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Dramaturgical Function</div>
+                        <p class="text-xs text-blue-400/80">${escapeHtml(scene.dramaturgical_function)}</p>
+                    </div>
+                `;
+                toc.appendChild(card);
+            });
+        }
+
         btnGenerateScene.textContent = `Generate Scene ${currentDraftSceneNumber}`;
         btnGenerateScene.disabled = false;
-        btnNextScene.classList.add('hidden'); // Hide "Next" until a draft exists
-        
-        // Ensure monospace font and clear editor
         draftEditor.classList.add('font-mono');
-        draftEditor.innerHTML = '';
+        
+        // Check if draft text already exists in the JSON for this scene
+        const scenes = getFlatScenes();
+        const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
+        
+        if (currentSceneData && currentSceneData.draft_text) {
+            draftEditor.innerHTML = formatFountainToHTML(currentSceneData.draft_text);
+            btnNextScene.classList.remove('hidden');
+        } else {
+            draftEditor.innerHTML = `<div class="text-gray-500 italic text-center mt-24">Ready to generate Scene ${currentDraftSceneNumber}...</div>`;
+            btnNextScene.classList.add('hidden');
+        }
     }
 
     if (btnGenerateScene) {
@@ -2671,6 +2714,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     draftEditor.innerHTML = formatFountainToHTML(draftText);
                 }
 
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                window.currentProjectData = projData.data;
+
                 // Show "Next" button after generation
                 if (btnNextScene) btnNextScene.classList.remove('hidden');
 
@@ -2694,20 +2741,33 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Stage 7 Helpers ---
-window.toggleSceneDetails = function(element) {
-    const card = element.closest('.scene-accordion-card');
-    const body = card.querySelector('.accordion-body');
-    const chevron = card.querySelector('.chevron-icon');
+    function getFlatScenes() {
+        const data = window.currentProjectData?.stage6_scenes;
+        if (!data) return [];
 
-    // Toggle hidden class
-    body.classList.toggle('hidden');
-
-    // Rotate chevron
-    if (body.classList.contains('hidden')) {
-        chevron.classList.remove('rotate-180');
-    } else {
-        chevron.classList.add('rotate-180');
+        let scenes = [];
+        if (Array.isArray(data)) {
+            data.forEach(seq => { if (seq.scenes) scenes.push(...seq.scenes); });
+        } else if (data.sequences && Array.isArray(data.sequences)) {
+            data.sequences.forEach(seq => { if (seq.scenes) scenes.push(...seq.scenes); });
+        } else if (data.scenes && Array.isArray(data.scenes)) {
+            scenes = data.scenes;
+        }
+        return scenes;
     }
-};
+
+    window.selectDraftScene = function(sceneNumber) {
+        currentDraftSceneNumber = sceneNumber;
+        initStage7(); // Re-render the view for the selected scene
+    };
+
+    window.toggleSceneDetails = function(element, event) {
+        if (event) event.stopPropagation();
+        const card = element.closest('.scene-accordion-card');
+        const body = card.querySelector('.accordion-body');
+        const chevron = card.querySelector('.chevron-icon');
+        body.classList.toggle('hidden');
+        chevron.classList.toggle('rotate-180', !body.classList.contains('hidden'));
+    };
 
 
