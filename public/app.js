@@ -2960,6 +2960,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnDownloadTreatment = document.getElementById('btnDownloadTreatment');
+    if (btnDownloadTreatment) {
+        btnDownloadTreatment.addEventListener('click', () => {
+            const treatment = window.currentProjectData?.stage5_treatment;
+            if (!treatment || !Object.values(treatment).some(v => v && typeof v === 'string' && v.trim())) {
+                alert('No treatment has been generated yet.');
+                return;
+            }
+            const sections = [
+                { label: 'TITLE, LOGLINE & CHARACTERS', key: 'title_logline_characters' },
+                { label: 'ACT I', key: 'act_1' },
+                { label: 'ACT II (PART 1)', key: 'act_2a' },
+                { label: 'ACT II (PART 2)', key: 'act_2b' },
+                { label: 'ACT III', key: 'act_3' }
+            ];
+            const text = sections
+                .filter(s => treatment[s.key] && treatment[s.key].trim())
+                .map(s => `${s.label}\n${'='.repeat(s.label.length)}\n\n${treatment[s.key].trim()}`)
+                .join('\n\n\n');
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'treatment';
+            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_treatment.txt';
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
     const btnDownloadDraft = document.getElementById('btnDownloadDraft');
     if (btnDownloadDraft) {
         btnDownloadDraft.addEventListener('click', () => {
