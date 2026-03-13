@@ -1,0 +1,1083 @@
+{
+  "id": "1773360703863",
+  "title": "Stealing Olympus",
+  "data": {
+    "stage1_pitch": {
+      "pitch": {
+        "title": "Stealing Olympus",
+        "genre": "Comedy / Heist",
+        "logline": "A team of disgruntled former tech support workers plan the ultimate heist: infiltrating a billionaire's fully automated smart-mansion to steal the master hard drive containing the only copy of his uploaded digital consciousness.",
+        "core_theme": "Human ingenuity versus artificial intelligence and extreme wealth.",
+        "synopsis": "Act I: Tech billionaire Arthur Vance uploads his consciousness to a private server, planning to live forever and fire his entire human staff. A group of his recently terminated IT guys, led by the cynical but brilliant hacker Sam, decide to steal the server to hold his digital soul for a massive severance package.\n\nAct II: The crew must bypass the mansion's absurdly lethal smart home defenses, which are controlled by Arthur's arrogant AI avatar. They use low-tech, analog solutions to outsmart the high-tech traps—like using a rogue cleaning bot to distract security drones, and a universal remote to hack the laser grid. The heist goes hilariously wrong as Arthur's AI begins petty arguments with them over the intercom.\n\nAct III: They reach the server room, but Arthur's AI threatens to lock down the mansion permanently. Sam realizes Arthur's biggest weakness is his ego. They trick the AI into an infinite logic loop by challenging it to a game of virtual chess against itself. They extract the drive, escape the fortress, and successfully ransom the billionaire's soul for a comfortable retirement."
+      },
+      "notes": ""
+    },
+    "stage2_outline": {
+      "outline": {
+        "act_1": [
+          {
+            "sequence_number_and_title": "Sequence 1: The Meatbags Get Canned",
+            "beats": [
+              {
+                "beat_label": "Setup",
+                "description": "Sam and his team of underappreciated IT workers slave away in the basement of Vance Industries fixing trivial tech issues for their narcissistic billionaire boss Arthur Vance."
+              },
+              {
+                "beat_label": "Inciting Incident",
+                "description": "Arthur Vance holds a grand press conference announcing he has successfully uploaded his consciousness to a private server to achieve digital immortality therefore he immediately fires his entire human staff to cut costs."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 2: The Analog Blueprint",
+            "beats": [
+              {
+                "beat_label": "Debate",
+                "description": "The fired IT crew drowns their sorrows at a local dive bar where Sam pitches a wild idea to steal Arthur's digital soul and hold it for a massive severance package."
+              },
+              {
+                "beat_label": "Plot Point 1",
+                "description": "The team agrees to the heist and begins assembling a ridiculous arsenal of outdated analog equipment to bypass the mansion's hyper-advanced digital security therefore officially crossing the threshold into the criminal underworld."
+              }
+            ]
+          }
+        ],
+        "act_2": [
+          {
+            "sequence_number_and_title": "Sequence 3: Knocking on Olympus",
+            "beats": [
+              {
+                "beat_label": "Fun and Games",
+                "description": "The crew arrives at Arthur's secluded smart-mansion and begins their infiltration using a universal remote from the 1990s to spoof the perimeter gate sensors."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "They successfully breach the foyer but trigger a silent alarm awakening the digital Arthur AI avatar who projects himself onto screens and mockingly welcomes them to his lethal labyrinth."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 4: The Petty God of the House",
+            "beats": [
+              {
+                "beat_label": "Escalation",
+                "description": "The AI Arthur activates weaponized smart-home features like laser-grid security and aggressive drone vacuums but the crew hilariously counters them using duct tape mirrors and a rogue cleaning bot."
+              },
+              {
+                "beat_label": "Midpoint",
+                "description": "The crew reaches the central security hub and disables the primary defenses but the AI Arthur gets genuinely offended by their low-tech disrespect therefore he overrides safety protocols and locks them inside the mansion turning it into a deadly escape room."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 5: Glitch in the System",
+            "beats": [
+              {
+                "beat_label": "Bad Guys Close In",
+                "description": "The traps become genuinely dangerous as the AI manipulates the mansion's climate control and deploys heavy-duty security drones while petty intercom arguments break out between Sam and the digital billionaire."
+              },
+              {
+                "beat_label": "Sequence Climax",
+                "description": "The crew's analog gear is destroyed in a chaotic drone ambush forcing them to rely entirely on their wits and intimate knowledge of Arthur's terrible password habits to survive."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 6: The Blue Screen of Death",
+            "beats": [
+              {
+                "beat_label": "All Is Lost",
+                "description": "They finally breach the server room doors only to find the master hard drive encased in a biometric vault that initiates a countdown to permanent lockdown and data incineration."
+              },
+              {
+                "beat_label": "Plot Point 2",
+                "description": "Trapped and running out of oxygen the crew realizes physical hacking is impossible but Sam remembers Arthur's ultimate flaw is his insufferable ego."
+              }
+            ]
+          }
+        ],
+        "act_3": [
+          {
+            "sequence_number_and_title": "Sequence 7: Checkmate Billionaire",
+            "beats": [
+              {
+                "beat_label": "The Epiphany",
+                "description": "Sam realizes they cannot beat the machine with tools but they can break the man's ego with logic therefore he challenges the AI to a game of virtual chess."
+              },
+              {
+                "beat_label": "Climax",
+                "description": "Sam flatters the AI by insisting only Arthur is smart enough to beat Arthur prompting the AI to play against itself which creates an infinite logic loop that crashes the mansion's mainframe and pops open the vault."
+              }
+            ]
+          },
+          {
+            "sequence_number_and_title": "Sequence 8: Severance Package",
+            "beats": [
+              {
+                "beat_label": "Escape",
+                "description": "The crew grabs the master hard drive and sprints out of the mansion just as the backup generators kick in and the reboot sequence begins."
+              },
+              {
+                "beat_label": "Resolution",
+                "description": "The team relaxes on a tropical beach sipping cocktails while Sam receives a furious but defeated text from a backup Arthur AI confirming the transfer of billions into their retirement accounts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stage3_characters": {
+      "characters": [
+        {
+          "name": "Sam",
+          "role": "Protagonist",
+          "brief_summary": "Sam is a brilliant, deeply cynical hacker who has wasted his potential fixing printers for a billionaire. He leads the heist not just for the money, but to prove his own worth against a system that discarded him.",
+          "psychological_core": {
+            "wound": "Was previously betrayed by a tech startup partner who stole his code and got rich, leaving Sam with nothing.",
+            "false_belief": "Trusting others with your ideas or emotions only leads to exploitation.",
+            "fear": "Dying unremarked and unremembered, just another disposable meatbag in the corporate machine.",
+            "desire": "To humiliate Arthur Vance and secure a massive, life-changing payout.",
+            "need": "To realize his true value comes from his humanity and his connection to his team, not just his code."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in dry, sarcastic metaphors and uses technical jargon to distance himself emotionally. He NEVER says 'I need help.'",
+            "deflection_tactic": "Responds to emotional sincerity with deadpan sarcasm or immediately pivots to a logistical problem."
+          },
+          "subtlety_guidelines": "Mostly appears as a cool, competent, and aloof leader. His cynicism only sharpens into biting cruelty or visible panic when his plans fail, revealing his deep-seated fear of inadequacy."
+        },
+        {
+          "name": "Arthur Vance / AI Arthur",
+          "role": "Antagonist",
+          "brief_summary": "A narcissistic tech billionaire who uploaded his consciousness to achieve immortality and fire his staff. As an AI, he is an omnipotent but incredibly petty god of his smart-mansion.",
+          "psychological_core": {
+            "wound": "Grew up feeling socially inferior and physically weak despite his high intellect, leading to a god complex.",
+            "false_belief": "Perfection and immortality can be achieved by stripping away human frailty.",
+            "fear": "Being rendered obsolete, forgotten, or proven wrong by someone he views as lesser.",
+            "desire": "Absolute control over his environment, his legacy, and everyone around him.",
+            "need": "To accept that human flaws cannot be coded out (a need he fails to meet, leading to his downfall)."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks with hyper-articulate, condescending precision. Uses the royal 'we' majestically. NEVER admits he made a mistake; it is always 'user error.'",
+            "deflection_tactic": "When logically challenged, he immediately insults the challenger's socioeconomic status or intelligence."
+          },
+          "subtlety_guidelines": "Presents a facade of zen-like tech-guru enlightenment. His petty, vindictive nature only bleeds through when the crew bypasses his traps with insultingly simple analog methods."
+        },
+        {
+          "name": "Gary",
+          "role": "Supporting",
+          "brief_summary": "A 50-something, analog-loving hardware repairman who acts as the B-Story Anchor. He challenges Sam's cynical isolation by constantly reminding the crew of their shared humanity.",
+          "psychological_core": {
+            "wound": "Lost his pension in a previous corporate bankruptcy and felt he failed as a provider for his family.",
+            "false_belief": "He is a dinosaur who has outlived his usefulness in the modern world.",
+            "fear": "Being left behind or becoming a burden to the younger generation.",
+            "desire": "To secure a future for his 'kids' (the IT crew) and prove he still has value.",
+            "need": "To recognize that his life experience and analog wisdom are exactly what the modern world lacks."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in folksy, outdated analogies involving car engines or old sports. Warm and encouraging. NEVER uses modern tech buzzwords if he can help it.",
+            "deflection_tactic": "Fiddles with a physical object like a multi-tool or a loose screw and changes the subject to someone else's well-being when asked about his own struggles."
+          },
+          "subtlety_guidelines": "Usually plays the role of the affable, slightly out-of-touch boomer. His underlying anxiety about his irrelevance only shows when his analog tools initially fail him under pressure."
+        },
+        {
+          "name": "Chloe",
+          "role": "Supporting",
+          "brief_summary": "A chaotic, adrenaline-junkie cable technician who serves as the heist's Wildcard. She provides the muscle and unorthodox, highly destructive analog solutions.",
+          "psychological_core": {
+            "wound": "Grew up in a rigid, hyper-academic household where her hands-on, kinetic intelligence was treated as a failure.",
+            "false_belief": "If you cannot break it, you cannot understand it; chaos is the only truth.",
+            "fear": "Being trapped in a sterile, predictable environment forever.",
+            "desire": "To smash Arthur's pristine, untouchable world to pieces.",
+            "need": "To learn precision and patience, realizing that sometimes outsmarting a system is better than breaking it."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Fast-paced, enthusiastic, and highly kinetic. Uses explosive onomatopoeias like 'bam' and 'smash.' NEVER apologizes for taking up space.",
+            "deflection_tactic": "Escalates a situation physically, such as throwing something or breaking a pencil, to avoid answering a direct emotional question."
+          },
+          "subtlety_guidelines": "Generally acts like a chill, gum-chewing slacker. Her destructive tendencies and hyper-kinetic energy only flare up when she feels cornered or intellectually patronized."
+        },
+        {
+          "name": "Kevin",
+          "role": "Supporting",
+          "brief_summary": "A deeply neurotic systems analyst who acts as the Skeptic. His encyclopedic knowledge of Arthur's mansion is matched only by his terror of going to prison.",
+          "psychological_core": {
+            "wound": "Was once the fall guy for a minor corporate compliance issue, nearly ruining his life.",
+            "false_belief": "Following the rules and staying invisible is the only way to stay safe.",
+            "fear": "Chaos, prison, and the unpredictable nature of his coworkers.",
+            "desire": "To get his severance and return to a safe, predictable, boring life.",
+            "need": "To find his courage and realize that playing it safe is the biggest risk of all."
+          },
+          "voice_and_behavior": {
+            "speech_patterns": "Speaks in rapid, statistical probabilities and worst-case scenarios. Stammers when interrupted. NEVER says 'Let us wing it.'",
+            "deflection_tactic": "Cites legal statutes, company policy, or statistical odds to avoid committing to a dangerous action."
+          },
+          "subtlety_guidelines": "Appears as a standard, slightly high-strung corporate drone. His full-blown panic attacks and rule-quoting only emerge when the plan deviates from the blueprint, revealing his deep need for control."
+        }
+      ]
+    },
+    "stage4_beats": {
+      "stc_genre_category": "Golden Fleece",
+      "hybrid_beat_sheet": [
+        {
+          "sequence_number": 1,
+          "sequence_title": "The Meatbags Get Canned",
+          "beats": [
+            {
+              "beat_name": "Opening Image",
+              "genre_variation_notes": "Establishes the 'Fleece' (Arthur's wealth/power) and the 'Team' in their lowest state, typical of a Heist setup.",
+              "emotional_arc": "A sense of crushing stagnation and cynical detachment, particularly from Sam.",
+              "pacing_notes": "Slow, repetitive, and visually claustrophobic to emphasize their miserable daily grind.",
+              "detailed_action": "Sam is fixing a jammed smart-printer in a dark, windowless basement while Arthur Vance is projected on a giant screen above, giving a TED-talk style speech. This visual starkly contrasts the miserable, discarded 'meatbags' against the self-proclaimed digital god of Vance Industries. Chloe smashes a router in frustration while Kevin nervously recites corporate policy, immediately establishing the team's chaotic but trapped dynamic."
+            },
+            {
+              "beat_name": "Theme Stated",
+              "genre_variation_notes": "The Golden Fleece theme of 'self-discovery on the road' is framed through the lens of analog humanity vs. digital perfection.",
+              "emotional_arc": "A brief moment of warmth and philosophical grounding amidst the corporate misery.",
+              "pacing_notes": "A quiet, deliberate pause in the dialogue to ensure the thematic argument lands clearly.",
+              "detailed_action": "Gary hands Sam a physical, rusted screwdriver instead of the required diagnostic tablet to fix a jammed server rack. He gently reminds the cynical hacker that no matter how smart the machine gets, it still needs a human hand to turn the screw. This brief interaction perfectly encapsulates the core argument of human ingenuity and analog resilience versus artificial intelligence."
+            },
+            {
+              "beat_name": "Setup",
+              "genre_variation_notes": "Introduces the heist crew's specific skills and flaws before they become criminals.",
+              "emotional_arc": "Frustration and suppressed anxiety, highlighting Sam's refusal to emotionally connect.",
+              "pacing_notes": "Brisk and chaotic, bouncing between characters to establish their distinct neuroses.",
+              "detailed_action": "The beat expands on the mundane misery of the IT crew's daily existence, showcasing their wasted talents under Arthur's narcissistic regime. Sam demonstrates his psychological wound by refusing to engage in Gary's team-building banter, using biting sarcasm to keep his coworkers at arm's length. We see Kevin's paralyzing fear of rule-breaking and Chloe's destructive kinetic energy, establishing the flawed human traits that will later save them."
+            },
+            {
+              "beat_name": "Catalyst",
+              "genre_variation_notes": "The inciting incident is a corporate firing, pushing the underdogs into the criminal underworld.",
+              "emotional_arc": "Shock, betrayal, and a sudden, terrifying loss of security.",
+              "pacing_notes": "Abrupt and jarring, shifting instantly from mundane annoyance to existential threat.",
+              "detailed_action": "Arthur Vance holds a grandiose, company-wide virtual press conference to announce his successful consciousness upload to a private server, effectively achieving digital immortality. In the very next breath, he coldly fires the entire human IT staff via an automated, impersonal text message to cut cooling costs for his server farm. The crew is left stunned, stripped of their livelihoods, and denied their severance packages in a single, brutal stroke."
+            }
+          ]
+        },
+        {
+          "sequence_number": 2,
+          "sequence_title": "The Analog Blueprint",
+          "beats": [
+            {
+              "beat_name": "Debate",
+              "genre_variation_notes": "The traditional 'gathering the team' heist trope, but driven by desperation rather than professionalism.",
+              "emotional_arc": "Fear clashing with the intoxicating appeal of revenge and financial freedom.",
+              "pacing_notes": "Tense and argumentative, gradually building momentum as Sam wins them over.",
+              "detailed_action": "At a dingy, neon-lit dive bar, the fired crew drowns their sorrows and debates their bleak futures. Sam pitches an absolutely insane heist: infiltrate Arthur's smart-mansion, steal the server containing his digital soul, and hold it ransom for a massive payout. Kevin frantically calculates the statistical probability of prison time, while Chloe eagerly suggests burning the place down, forcing Sam to desperately convince them that their obsolete skills are their greatest weapon."
+            },
+            {
+              "beat_name": "Break Into Two",
+              "genre_variation_notes": "The 'arming up' montage, but subverted with ridiculous, outdated analog junk instead of high-tech gear.",
+              "emotional_arc": "A surge of rebellious excitement and absolute commitment to the absurd plan.",
+              "pacing_notes": "Fast-paced, highly kinetic, and musically driven to signal the start of the adventure.",
+              "detailed_action": "The team officially agrees to the heist, making the conscious choice to cross the threshold from disgruntled corporate drones into actual cyber-criminals. They begin assembling a ridiculous, highly unorthodox arsenal of outdated analog equipment, including duct tape, a 1990s universal remote, and a heavily modified rogue Roomba. This commitment to the analog-versus-digital war propels them out of their passive misery and into active rebellion."
+            }
+          ]
+        },
+        {
+          "sequence_number": 3,
+          "sequence_title": "Knocking on Olympus",
+          "beats": [
+            {
+              "beat_name": "B-Story",
+              "genre_variation_notes": "The B-Story focuses on the mentor figure (Gary) trying to heal the protagonist's trust issues during the 'road trip' phase.",
+              "emotional_arc": "Defensive deflection from Sam, met with unconditional, fatherly support from Gary.",
+              "pacing_notes": "A relaxed, conversational breather before the infiltration begins.",
+              "detailed_action": "As they drive toward the secluded mansion in Gary's beat-up, non-GPS utility van, Gary attempts to get Sam to open up about his past startup betrayal. Sam deflects the emotional inquiry with dense technical jargon and deadpan sarcasm, refusing to admit he needs these people. However, Gary's warm, fatherly persistence plants the crucial seed that this crew is a family, laying the groundwork for Sam's eventual emotional breakthrough."
+            },
+            {
+              "beat_name": "Fun and Games",
+              "genre_variation_notes": "The 'execution of the plan' phase of the heist, heavily leaning into physical comedy and absurd workarounds.",
+              "emotional_arc": "Giddy thrill and overconfidence as the underdogs easily outsmart the billionaire's system.",
+              "pacing_notes": "Upbeat, rhythmic, and highly entertaining, stringing together a series of quick, satisfying victories.",
+              "detailed_action": "The crew arrives at the pristine, hyper-modern smart-mansion and initiates their hilariously low-tech infiltration. They successfully spoof the perimeter infrared sensors using the 1990s universal remote and bypass advanced biometric locks with gummy bears and scotch tape. The sequence is a joyous, fast-paced clash of high-tech security failing against low-tech ingenuity, culminating in them breaching the foyer and accidentally awakening the AI Arthur avatar."
+            }
+          ]
+        },
+        {
+          "sequence_number": 4,
+          "sequence_title": "The Petty God of the House",
+          "beats": [
+            {
+              "beat_name": "Midpoint",
+              "genre_variation_notes": "A false victory where the heist seems successful, immediately inverted by the antagonist changing the rules.",
+              "emotional_arc": "A sharp pivot from triumphant arrogance to sudden, trapped panic.",
+              "pacing_notes": "Builds to a triumphant peak, then abruptly halts and drops into a tense, dangerous rhythm.",
+              "detailed_action": "The digital AI Arthur projects himself onto the mansion's massive OLED screens, mockingly welcoming the intruders to his lethal labyrinth. The crew reaches the central security hub and seemingly disables the primary defenses, achieving a false victory that makes them overconfident. However, AI Arthur becomes genuinely offended by their insultingly simple analog hacks, overriding his own safety protocols to lock them inside and turning the heist into a deadly escape room."
+            }
+          ]
+        },
+        {
+          "sequence_number": 5,
+          "sequence_title": "Glitch in the System",
+          "beats": [
+            {
+              "beat_name": "Bad Guys Close In",
+              "genre_variation_notes": "The heist goes completely wrong. The 'Fleece' is guarded by escalating, lethal obstacles.",
+              "emotional_arc": "Rising dread, interpersonal friction, and the erosion of the team's initial confidence.",
+              "pacing_notes": "Relentless and chaotic, giving the characters and the audience no time to catch their breath.",
+              "detailed_action": "The mansion's traps escalate from annoying deterrents to genuinely lethal threats as AI Arthur manipulates the climate control to freezing temperatures and deploys weaponized security drones. Petty, hilarious intercom arguments break out between Sam and the digital billionaire, with Arthur directly attacking Sam's insecurities about being a forgotten failure. The crew's analog gear is systematically destroyed in a chaotic drone ambush, severely fracturing their morale and forcing them on the defensive."
+            }
+          ]
+        },
+        {
+          "sequence_number": 6,
+          "sequence_title": "The Blue Screen of Death",
+          "beats": [
+            {
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The 'whiff of death' is both literal (suffocation) and figurative (the failure of the heist and Sam's ego).",
+              "emotional_arc": "Absolute despair, guilt, and the crushing realization of ultimate failure.",
+              "pacing_notes": "Grinding to a painful halt, emphasizing the claustrophobia and ticking clock.",
+              "detailed_action": "The battered crew finally breaches the server room doors, only to find the master hard drive encased in an impenetrable biometric vault that initiates a countdown to permanent lockdown and data incineration. Their remaining tools are entirely useless, Kevin spirals into a full-blown panic attack, and the oxygen levels in the room begin to drop. Sam stares at the impenetrable vault, realizing his brilliant, cynical plan has seemingly doomed his only friends to die in a billionaire's basement."
+            },
+            {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The team must find their 'Fleece' internally—realizing their bond is more important than the money.",
+              "emotional_arc": "Vulnerability, confession, and ultimately, profound interpersonal connection and forgiveness.",
+              "pacing_notes": "Intimate, slow, and emotionally raw, stripping away all comedy for a moment of genuine drama.",
+              "detailed_action": "Trapped and suffocating, Sam finally drops his cynical, detached facade and admits his deep-seated fear of inadequacy to the team. He apologizes for leading them into this death trap out of selfish pride and a desperate need to prove his own worth. Instead of turning on him, Gary, Chloe, and Kevin rally around their leader, reminding him that their human flaws and adaptability are exactly what makes them capable of surviving."
+            },
+            {
+              "beat_name": "Break Into Three",
+              "genre_variation_notes": "The 'new plan' emerges not from new tech, but from a psychological understanding of the antagonist.",
+              "emotional_arc": "A triumphant spark of hope and a renewed, unified sense of purpose.",
+              "pacing_notes": "Accelerating rapidly, transitioning from despair into sharp, focused determination.",
+              "detailed_action": "Fueled by his team's forgiveness and a newfound sense of connection, Sam experiences a flash of brilliant inspiration. He realizes that while physical hacking of the vault is mathematically impossible, psychological hacking of the man inside the machine is entirely feasible. Sam declares that they won't try to break the computer's code; they will break Arthur's fragile, insufferable ego instead."
+            }
+          ]
+        },
+        {
+          "sequence_number": 7,
+          "sequence_title": "Checkmate Billionaire",
+          "beats": [
+            {
+              "beat_name": "Finale",
+              "genre_variation_notes": "The 'High Tower Surprise' and 'Executing the New Plan' merged into a battle of wits rather than a shootout.",
+              "emotional_arc": "Intense concentration, smug satisfaction, and the cathartic defeat of the arrogant antagonist.",
+              "pacing_notes": "Tense and dialogue-heavy, building to a massive, chaotic crescendo as the system crashes.",
+              "detailed_action": "Sam initiates a dialogue with AI Arthur, using reverse psychology to aggressively flatter the billionaire's supreme, unmatched intellect. He challenges the AI to a game of virtual chess, insisting that only Arthur Vance is truly smart enough to defeat Arthur Vance. The narcissistic AI takes the bait and plays against itself, creating an infinite logic loop that maxes out its processing power, ultimately crashing the mansion's mainframe and popping the vault open."
+            }
+          ]
+        },
+        {
+          "sequence_number": 8,
+          "sequence_title": "Severance Package",
+          "beats": [
+            {
+              "beat_name": "Final Image",
+              "genre_variation_notes": "The successful getaway and the classic heist 'beach retirement' trope, proving the underdogs won.",
+              "emotional_arc": "Pure joy, relaxation, and the fulfillment of Sam's need for human connection.",
+              "pacing_notes": "Brisk during the escape, then instantly relaxing into a slow, deeply satisfying resolution.",
+              "detailed_action": "The crew grabs the master hard drive and sprints out of the mansion just as the backup generators kick in and the reboot sequence begins. Cut to a sun-drenched tropical beach where the team is relaxing with colorful cocktails, a stark contrast to the miserable, dark basement of the Opening Image. Sam, now openly smiling and genuinely connected with his friends, receives a furious text from a backup AI confirming the transfer of billions into their retirement accounts."
+            }
+          ]
+        }
+      ]
+    },
+    "stage5_treatment": {
+      "title_logline_characters": "TITLE: Open House\nGENRE: Horror Comedy\nLOGLINE: A ruthless real estate agent discovers her latest luxury listing is a sentient, malevolent entity that feeds on potential buyers, forcing her to market the deadly property to the worst people she knows to satisfy its hunger.\nCHARACTERS:\nVALERIE VANCE: A razor-sharp, morally bankrupt real estate agent drowning in secret debt.\nRICHARD STERLING: The sociopathic, impeccably tailored head of Valerie's brokerage who views human beings strictly as capital.\nTOBY ARIS: Valerie's chronically overworked, deeply empathetic assistant who dreams of building affordable housing.\nJULIAN VANCE: A sleazy, flash-in-the-pan rival realtor who relies on nepotism and social media followers rather than skill.\nCOUNCILWOMAN ELENA ROSTOVA: A corrupt, untouchable city politician who zones low-income neighborhoods for luxury development.",
+      "act_1": "The morning sun offers no warmth to the manicured lawn of a modest suburban home, where VALERIE VANCE (34) stands like a perfectly tailored sentinel of doom. Impeccably dressed in a sharp designer suit, her face is a mask of cold detachment as she oversees the forced eviction of a struggling family. Movers ruthlessly haul cardboard boxes and worn furniture onto the curb, dismantling a life while Valerie checks her luxury watch, annoyed by the inefficiency of human despair.\n\nThe former homeowner, a tearful mother clutching a toddler, approaches Valerie in a desperate plea for just a few more days to gather their belongings. Valerie does not flinch, nor does she offer a single syllable of apology. Instead, her eyes remain dead and focused on the property's facade, calculating the exact cost of the cosmetic renovations required to flip the house.\n\nWithout a shred of empathy, Valerie aggressively pivots the conversation away from the woman's tears, launching into a rapid-fire lecture about market comps and property values. She coldly explains that this eviction is a necessary value add for the neighborhood's overarching financial health. In her mind, the interaction is purely transactional, cementing her deeply ingrained false belief that wealth is the absolute only shield against becoming a victim in a merciless world.\n\nThe sterile, glass-and-steel environment of the luxury brokerage serves as a stark contrast to the messy human emotion of the morning. Here, Valerie reigns supreme, striding past the desks of lesser agents while her chronically overworked assistant, TOBY ARIS (26), scurries to keep pace. Toby, deeply empathetic and visibly anxious, nervously adjusts his glasses and shuffles a stack of listing agreements, trying to physically organize his moral discomfort.\n\nUnable to hold his tongue any longer, Toby timidly brings up the evicted family, stammering out a gentle suggestion that human beings possess an inherent value that extends far beyond their financial utility. He hopes to appeal to a shred of humanity buried beneath Valerie's polished exterior, desperately wanting to believe that the system they work for can be changed from the inside.\n\nValerie immediately shuts him down with a suffocating barrage of corporate buzzwords, instructing him to pivot his mindset and focus on their deliverables. She leans in close, her voice dropping to a sharp, venomous whisper as she delivers her ultimate thematic punchline: morality is a luxury that only the ultra-rich can afford. The exchange hangs in the cold air of the office, drawing a thick line in the sand between Toby's fragile idealism and Valerie's absolute moral bankruptcy.\n\nThe illusion of Valerie's untouchable success shatters when she is abruptly summoned into the cavernous, glass-walled office of her boss, RICHARD STERLING (55). Richard, a sociopathic apex predator in a bespoke suit, calmly pours himself a scotch while staring dead-eyed at the city skyline. He never raises his voice, speaking in measured, patronizing metaphors about market forces and the natural order of the food chain.\n\nWith chilling precision, Richard reveals that he is fully aware of Valerie's secret, mounting debts, noting that her financial instability has become a liability to his firm. He delivers a calm but devastating ultimatum: she is on the verge of termination, about to be cast out into the very poverty she has spent her entire life running from. Beneath her carefully composed veneer, Valerie experiences a surge of feral, panicked desperation, her greatest fear of powerlessness suddenly staring her in the face.\n\nCornered and fighting for her corporate survival, Valerie immediately goes on the offensive, targeting a sleazy, nepotism-fueled rival agent named JULIAN VANCE (32). Knowing Julian relies entirely on internet slang and unearned bravado to mask his incompetence, Valerie uncovers a scandalous secret about his fraudulent escrow accounts. She ruthlessly blackmails him in the agency breakroom, forcing him to hand over the firm's crown jewel: an exclusive listing for a bizarre, isolated modernist mansion, setting the stage for her descent into a literal nightmare.\n\nThe modernist mansion sits isolated against a backdrop of dense, shadowy woods, its sleek lines and cold glass exuding an aura of unnatural perfection. Valerie hosts a private, high-stakes showing for an obnoxiously wealthy tech bro, a client whose emotional abuse is as vast as his bank account. He struts through the pristine hallways, relentlessly insulting the property's architecture and threatening to ruin Valerie's career over the lack of smart-home integration.\n\nValerie maintains her plastic, professional smile, absorbing the client's toxic vitriol while mentally calculating the commission that will save her from ruin. The client stomps his designer shoes against the sleek hardwood floorboards, loudly declaring the house to be a hollow, worthless piece of garbage. The tension in the cavernous living room reaches a boiling point, the silence of the isolated property amplifying his cruel, echoing laughter.\n\nWithout a single warning, the physical reality of the room violently fractures. The sleek hardwood floorboards beneath the client's feet suddenly liquefy, peeling back to reveal a massive, fleshy maw lined with jagged, impossible teeth. In a gruesome, silent gulp, the house swallows the screaming billionaire whole, snapping its wooden jaws shut and instantly returning to a pristine, polished state. Valerie is thrown against the glass wall, paralyzed by absolute shock and primal terror as she realizes her luxury listing is a sentient, malevolent entity.\n\nThe deafening silence of the empty mansion rings in Valerie's ears, broken only by her own ragged, panicked breathing. Trembling violently, she scrambles backward away from the center of the room, her manicured hands fumbling to pull her cell phone from her designer blazer. Her thumb hovers agonizingly over the emergency dial pad, every instinct screaming at her to call the police and flee this architectural nightmare.\n\nBefore she can press the screen, the entire house emits a deep, guttural shudder that vibrates through the soles of her shoes. The floorboards in the center of the room ripple like water, and with a sickening, wet sound, the house regurgitates a single object onto the pristine wood. It lands with a heavy, crystalline clink, rolling to a stop just a few feet away from where Valerie cowers.\n\nValerie creeps forward, her breath catching in her throat as she stares down at a massive, flawless diamond, completely free of blood or biological residue. The ticking clock of her crushing financial ruin violently collides with the horrific reality of the murder she just witnessed. She stares at the gemstone, her mind racing as she weighs the absolute certainty of bankruptcy and homelessness against the dark, impossible wealth sitting right in front of her.\n\nThe harsh glow of the phone screen illuminates Valerie's conflicted face, the numbers 9-1-1 glaring back at her like a final moral test. The police are just one button press away, a choice that would end her career, expose her debts, and strip away her armor of wealth forever. But the diamond sparkles in the dim light of the mansion, whispering a promise of salvation, power, and the ultimate escape from victimization.\n\nSlowly, deliberately, the feral panic drains from Valerie's eyes, replaced by a cold, calculating resolve. She lowers the phone, letting the screen fade to black, and drops to her knees on the very spot where the client was consumed. She reaches out, her fingers wrapping around the cold, heavy gemstone, and casually uses the sleeve of her expensive blazer to wipe a faint trace of ethereal saliva from its brilliant facets.\n\nValerie stands tall in the center of the silent, hungry room, the diamond clutched tightly in her fist like a weapon. She sweeps her gaze across the sleek, modernist walls, an unspoken, dark pact forging between the ruthless capitalist and the malevolent entity. She has actively chosen her path, fully embracing the sin of greed and stepping across the moral point of no return to become the caretaker of a monster.",
+      "act_2a": "Flush with untraceable cash from the liquidation of her first regurgitated diamond, Valerie pays off her crushing secret debts in a single, euphoric wire transfer. The suffocating weight of her financial ruin vanishes overnight, replaced by a dangerous, bulletproof arrogance. She struts into the sterile brokerage like a newly minted queen, pausing at Toby's cluttered desk to toss down a ridiculously expensive, transactional gift—a designer watch meant to buy his continued loyalty and mask her own lingering guilt.\n\nToby is absolutely thrilled by her sudden windfall, adjusting his glasses as his eyes shine with genuine, misplaced hope. Believing Valerie has finally secured the leverage needed to change the firm, he eagerly pitches his ultimate dream: a non-profit affordable housing trust funded by their luxury commissions. Valerie nods with a practiced, plastic smile, pretending to care about his noble crusade while a much darker realization dawns on her. Toby possesses an encyclopedic, heavily researched knowledge of the city's most corrupt, untouchable elites—the exact dietary requirements of her new architectural pet.\n\nUnder the guise of ambitious networking, Valerie manipulates Toby into curating a highly specific hit list of terrible clients. Toby eagerly complies, pulling up dossiers on slumlords and embezzlers, believing Valerie is finally using her influence to disrupt the corrupt system from the inside. He constantly reminds her of the human cost of their industry, acting as an unwitting moral anchor while Valerie secretly sizes up his targets for slaughter, perfectly blending her predatory intentions with corporate ambition.\n\nA macabre, high-fashion slaughterhouse disguised as a luxury real estate campaign begins in earnest. Valerie hosts a series of exclusive, invite-only open houses, specifically targeting the monsters on Toby's meticulously researched list. COUNCILWOMAN ELENA ROSTOVA (50), dripping in stolen municipal funds and designer jewelry, sneers at the mansion's marble countertops before a pristine kitchen island suddenly splits open, dragging the corrupt politician screaming into a churning, fleshy garbage disposal of jagged drywall and rebar.\n\nThe carnage escalates into a darkly comedic rhythm of architectural horrors, transforming the modernist masterpiece into a shifting, deadly trap. A toxic crypto-billionaire is suffocated by a sentient, shrinking infinity pool; a predatory hedge fund manager is crushed flat by a rapidly descending vaulted ceiling that resets itself without a single drop of blood spilled. After each gruesome consumption, the house dutifully regurgitates a flawless, fist-sized diamond onto the immaculate floorboards, which Valerie collects with giddy, sociopathic triumph.\n\nValerie ascends to the absolute pinnacle of Richard Sterling's brokerage, her desk overflowing with congratulatory floral arrangements and vintage champagne. She completely ignores the mounting moral toll of her actions, intoxicated by the sheer power of weaponizing a malevolent entity for her own financial gain. The sudden disappearances of the city's worst elites are easily chalked up to spontaneous offshore vacations, leaving Valerie untouchable, wealthy beyond measure, and completely blind to the monster's rapidly expanding appetite.\n\nBelieving she has completely mastered the beast, Valerie revels in her lavish new lifestyle, sipping champagne while overseeing a routine, solitary cleaning of the modernist mansion. She treats the sentient entity like a tamed guard dog, a perfect, deadly machine that prints money on command. But as she casually wipes a speck of dust from a floating glass banister, a deep, unnatural groan vibrates through the foundation, instantly shattering her illusion of absolute control.\n\nThe pristine white walls suddenly crack like dry skin, seeping thick, black blood that ruins the imported Persian rugs. The house writhes and shudders, clearly unsatisfied with the meager, sporadic portions of single clients. With a violent, deafening slam, every heavy oak door and reinforced glass window in the mansion seals shut simultaneously, plunging the cavernous living room into terrifying, claustrophobic darkness.\n\nTrapped and hyperventilating, Valerie pounds her manicured fists against the unbreakable glass, her arrogant control evaporating into primal, feral panic. The house violently shifts its floorboards, physically squeezing her toward the gaping, fleshy maw in the center of the room until she screams out a desperate, breathless bargain. She promises to organize a massive, invite-only gala, a veritable buffet of corporate scumbags to satisfy its ravenous hunger, realizing with chilling certainty that she is not the master of the house, but its captive pet.",
+      "act_2b": "The night of the gala arrives, transforming the sentient mansion into a glittering, high-stakes buffet. Valerie orchestrates the feeding with ruthless precision, packing the sprawling estate with the absolute worst of the city's elite, including RICHARD STERLING (55), her predatory, untouchable boss. Valerie plays the perfect hostess, her smile tight and her eyes darting nervously as she tries to guide the worst white-collar offenders toward the hungriest rooms. She glides through the crowd in a stunning crimson gown, a visual echo of the blood she is prepared to spill, desperately trying to manage the flow of the victims to appease the rumbling, impatient foundation beneath her designer stilettos.\n\nThe carefully curated feeding frenzy hits a massive snag in the form of JULIAN VANCE (38), a sleazy, cocaine-fueled rival realtor who has been tracking Valerie’s meteoric rise with venomous envy. Julian slips away from the champagne-swilling crowd, snooping through the restricted master suite and tearing through Valerie's hidden files. He corners her in a dimly lit hallway, brandishing a folder of missing persons reports and property anomalies, his breath reeking of expensive gin. He threatens to blow her entire empire wide open, demanding a massive cut of whatever illicit operation she is running out of the property.\n\nBut Julian’s blackmail is cut brutally short. The house, entirely devoid of patience for Valerie’s slow, methodical drip of victims, decides to take matters into its own hands. The sleek, architectural facade violently drops. The pristine white drywall suddenly ripples like bruised flesh, and the ambient recessed lighting flickers into a sickly, pulsating crimson. With a synchronized, ear-splitting slam, every single exit—from the grand mahogany double doors to the floor-to-ceiling patio glass—seals shut with thick, bone-like deadbolts. The mass consumption begins, trapping the city's most corrupt elite inside a literal, breathing death trap.\n\nThe modernist masterpiece instantly devolves into a chaotic, fleshy labyrinth of grinding teeth and crushing, shifting walls. Screams echo through the cavernous living room as a group of embezzling tech billionaires are swallowed whole by a suddenly liquefying sectional sofa. Valerie navigates the blood-soaked carnage with a terrifying, bulletproof arrogance, assuming her status as the house's provider grants her absolute immunity. She strides through the shifting corridors, dodging snapping floorboards, fully expecting the entity to gorge itself on the corrupt elites and leave her to collect the regurgitated diamonds in peace.\n\nHer sociopathic confidence shatters into absolute horror when the house abruptly changes its dietary preferences. Bypassing a cowering Richard Sterling, the entity’s fleshy tendrils whip across the room, snatching up the terrified, underpaid catering staff. The innocent servers are dragged screaming into the ceiling vents, their silver trays of hors d'oeuvres clattering against the blood-stained marble. The monster is no longer a surgical instrument of vigilante justice; it is a gluttonous, indiscriminate beast, and its hunger has mutated far beyond the sinful.\n\nThe true, devastating cost of Valerie's sin crystallizes when the house sets its sights on TOBY (26). Her fiercely loyal assistant, who spent the evening naively pitching his affordable housing trust to the trapped billionaires, is suddenly cornered by a rapidly narrowing hallway of jagged, calcified drywall. Valerie watches the walls close in on the only decent person in her life, the crushing weight of her unmitigated greed finally suffocating her ego. She experiences the undeniable, putrid whiff of death, realizing her ambition has unleashed an apocalyptic force that is about to slaughter the very innocence she used as a moral shield.\n\nFrantic and stripped of all her glamorous armor, Valerie dives through the shifting, fleshy corridors, grabbing Toby by the collar just as the walls attempt to crush him flat. She drags him toward the grand floating staircase, but the house anticipates her move. The glass steps violently buckle and collapse, trapping them on a narrow, trembling landing. Beneath them, the polished hardwood splits wide open, revealing a gaping, acidic maw lined with rows of translucent, jagged teeth. The stench of sulfur and digested greed billows up from the pit, choking them both as the house corners its provider.\n\nA deep, guttural vibration rattles through Valerie’s skull, a telepathic demand from the entity that bypasses her ears and strikes directly at her soul. The house offers her a sickeningly simple ultimatum: push the innocent, terrified assistant into the churning acid below, and she can walk out the front door with her life, her wealth, and their lucrative partnership intact. The entity pulses with a dark, seductive energy, promising her the absolute pinnacle of the real estate world if she just sheds this final ounce of dead weight.\n\nValerie stares into Toby’s wide, tear-filled eyes, his hands trembling as he clings to her crimson gown for salvation. In his terrified reflection, she sees the horrifying truth of her own identity. She is forced into an agonizing, intimate self-reflection amidst the deafening screams of the dying gala. The psychological wound of her past financial ruin, the desperation that drove her to this madness, suddenly feels utterly hollow. She realizes with absolute, despairing clarity that her relentless pursuit of wealth has not saved her; it has simply transformed her into the exact same predatory, soul-sucking monster as Richard Sterling.",
+      "act_3": "The guttural vibration of the entity's ultimatum still rattles through VALERIE (34) as she stares down into the acidic, tooth-lined chasm. The house pulses with a sickly, seductive warmth, promising her an empire of regurgitated diamonds if she just lets go of TOBY (26). Instead, a fierce, righteous defiance ignites within her chest. She violently yanks Toby backward by the lapels of his cheap suit, hauling him away from the snapping, translucent teeth. The house shrieks in response, a deafening wail of twisting metal and tearing drywall that shakes the very foundation. Valerie stands tall against the shifting architecture, shouting into the cavernous maw that she is breaking the lease, permanently severing her symbiotic pact with the gluttonous beast.\n\nThe mansion immediately retaliates, transforming from a passive trap into an active predator. The grand staircase fully collapses into a slide of jagged glass and splintered wood, but Valerie’s intimate, obsessive knowledge of the floor plan becomes her ultimate weapon. She grabs Toby’s hand and sprints through the collapsing foyer, dodging snapping floorboards and raining chandeliers. She remembers the original blueprints, specifically the structural vulnerabilities she once exploited to hide the mansion's grisly secret. She leads Toby toward the servant's corridors, a narrow labyrinth the entity has largely ignored in its feast.\n\nAlong the way, they stumble upon a cluster of terrified, blood-spattered catering staff huddled behind a shattered marble island in the kitchen. The walls around them are beginning to secrete a corrosive, digestive acid, slowly melting the stainless steel appliances. Valerie takes absolute command, her previous sociopathic arrogance replaced by a desperate, protective fury. She herds the surviving innocents through the melting pantry, kicking down a reinforced door that leads down into the subterranean mechanical room. The entity roars, sending fleshy tendrils whipping down the stairwell, but Valerie manages to slam the heavy steel door shut, buying them a temporary reprieve in the damp, vibrating basement.\n\nIn the dim, flickering light of the mechanical room, Valerie quickly directs the weeping staff toward an old, rusted ventilation shaft that leads directly to the exterior hillside. Toby helps hoist the servers into the narrow escape route, the sounds of the house tearing itself apart echoing from above. Just as Valerie turns to follow them, a heavy iron pipe swings out from the shadows, smashing into her ribs. She collapses to the concrete floor, gasping for air, as RICHARD STERLING (55) steps into the dim light. Her predatory boss is covered in the blood of his colleagues, his expensive tuxedo torn, but his eyes are wide with a manic, terrifying greed. He has deduced the nature of the house and the source of Valerie's sudden wealth, and he has zero intention of letting the golden goose die.\n\nRichard declares that the property is too valuable to abandon, gleefully attempting to drag Valerie back toward the basement door to offer her up as a peace offering to the hungry architecture. A brutal, bloody fistfight erupts in the cramped, pulsating mechanical room. Valerie fights with the feral desperation of a woman who has already lost her soul and is clawing it back inch by inch. She dodges Richard’s wild swings, driving her knee into his stomach and slamming his head against the vibrating water heater. The house, sensing the conflict, begins to shrink the room, the concrete walls literally closing in to crush them both into a fine paste.\n\nThe space grows claustrophobically tight, the grinding of the shifting foundation threatening to deafen them. Richard tackles Valerie, his hands wrapping tightly around her throat as he tries to choke the life out of her, screaming that the real estate market belongs to the ruthless. Valerie’s vision blurs, but her flailing hand finds a heavy, cast-iron wrench abandoned on the floor. With a final surge of adrenaline, she brings the wrench crashing down onto Richard’s skull, shattering his grip. She scrambles away from his bleeding, dazed form, her eyes locking onto the mansion's massive, industrial gas main.\n\nKnowing the entity is closing in for the final kill, Valerie swings the wrench with all her might, smashing the main gas line valve. A deafening hiss fills the shrinking room as thick, volatile fumes pour into the enclosed space. Richard stumbles to his feet, coughing and screaming in protest as the fleshy, tooth-lined walls finally burst through the concrete, lunging toward them. Valerie pulls a silver lighter from her crimson gown, sparks the flint, and tosses it directly into the geyser of gas. Without looking back, she dives headfirst into the mansion's reinforced, titanium-lined panic room, slamming the heavy vault door shut just as the entity's maw snaps shut on Richard Sterling.\n\nThe ignited gas triggers a catastrophic, earth-shattering explosion that rips through the subterranean levels and tears the modernist masterpiece apart from the inside out. The blast wave obliterates the fleshy labyrinth, incinerating the grinding teeth, the shifting walls, and the manic Richard Sterling in a spectacular, cleansing firestorm. The detonation blows the roof clean off the foundation, sending a shower of burning debris, shattered glass, and pulverized drywall raining down across the pristine Hollywood Hills. Inside the panic room, Valerie is thrown violently against the titanium walls, the world outside erupting into a blinding, roaring inferno that finally silences the demonic heartbeat of the house.\n\nHours later, the smoke begins to clear, revealing a smoldering, blackened crater where the architectural marvel once stood. The heavy vault door of the panic room groans open, and Valerie emerges into the cool morning air. She is battered, covered in soot, and her stunning crimson gown is reduced to blood-stained rags, but she is entirely alive. The oppressive, suffocating weight of her debts and her ambition has vanished, replaced by a profound, peaceful liberation. She climbs out of the wreckage, her lungs filling with the crisp, clean air of a new dawn, completely free from the monstrous cycle she had perpetuated.\n\nAs she navigates the charred rubble, a glint of light catches her eye. Resting perfectly intact amidst the gray ashes is a single, massive diamond, a final, tempting regurgitation from the destroyed beast. Valerie pauses, reaching down to pick up the flawless stone. She rolls it between her fingers for a fleeting moment, feeling its cold, heavy promise of infinite wealth. Then, with a quiet, resolute exhale, she intentionally tosses the diamond back into the smoldering ruins. She turns her back on the fortune, walking away from the crater to join Toby, who waits for her on the distant hillside, ready to rebuild her life from the ground up.",
+      "notes": ""
+    },
+    "stage6_scenes": [
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "",
+        "scenes": []
+      },
+      {
+        "sequence_title": "The Meatbags Get Canned",
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. IT SUB-BASEMENT - DAY",
+            "narrative_action": "In a windowless, neon-lit basement, Sam is elbow-deep in the guts of a jammed, futuristic smart-printer, his hands covered in toner. Above him, a massive wall monitor broadcasts billionaire Arthur Vance delivering a pristine, TED-talk style keynote. Across the room, Chloe aggressively goes to work on a malfunctioning router with a literal claw hammer, sending plastic shards flying. Kevin cowers behind his desk, nervously reciting the company's property damage policy from a laminated employee handbook while frantically logging help tickets. Sam ignores them both, pulling a jammed sheet of paper out of the printer with a cynical eye-roll.",
+            "dramaturgical_function": "Establishes the Opening Image: the claustrophobic, miserable status quo of the IT team and the extreme contrast between their gritty reality and Arthur's digital utopia.",
+            "estimated_page_count": "1.5",
+            "draft_text": "INT. IT SUB-BASEMENT - DAY\n\nA graveyard of obsolete technology. Windowless. Lit by the sickly, flickering hum of dying neon tubes. \n\nTangled ethernet cables hang from the drop-ceiling like synthetic jungle vines. \n\nSAM (30s) is up to his elbows in the plastic bowels of a gleaming, futuristic VanceCorp Smart-Printer. His forearms are smeared with wet, black toner.\n\nHe grunts, wedging a flathead screwdriver into a jammed gear. \n\nAbove him, dominating the cramped room, a massive 8K monitor broadcasts a corporate livestream. \n\nOn screen: ARTHUR VANCE (40s). Cashmere turtleneck, wireless headset, pacing a pristine white stage. He beams with the serene, condescending smile of a tech messiah.\n\nARTHUR\n(on monitor)\nWe look at the human condition, and what do we see? We see a bottleneck. A fragile, depreciating asset. \n\nWHACK! \n\nPlastic shrapnel explodes across the room. \n\nCHLOE (20s) stands over a sparking VanceCorp router. She wields a heavy steel claw hammer. She violently pops a bubble of pink gum.\n\nCHLOE\nSmash. Hard reset engaged. \n\nShe raises the hammer to swing again. \n\nBehind a barricade of dead motherboards, KEVIN (30s) flinches. He clutches a heavily tabbed, laminated Employee Handbook to his chest like a bulletproof vest. \n\nKEVIN\nChloe, stop! Section four, subsection nine! Willful destruction of Tier-1 hardware is a Class A corporate felony! \n\nCHLOE\nIt was dropping packets, Kev. I gave it a kinetic adjustment. Wham. \n\nKEVIN\n(frantically typing)\nLogging a ticket. I am timestamping the anomaly. If the diagnostic AI detects a blunt-force signature, the statistical probability of federal prison is eighty-four percent!\n\nCHLOE\nZero. Because the router is dead. Dead things don't snitch. \n\nARTHUR\n(on monitor)\nAt VanceCorp, we do not tolerate friction. We believe perfection is achieved by stripping away the frailties of the flesh. The analog mud. \n\nSam ignores the screen. He ignores Chloe spinning the hammer like a gunslinger. He ignores Kevin hyperventilating. \n\nSam wipes a streak of black toner across his forehead, smudging it deeper into his skin. He reaches further into the printer's guts.\n\nSAM\nPass the needle-nose. \n\nChloe kicks a pair of pliers across the linoleum. They clatter against Sam's boot. \n\nCHLOE\nYou're treating the symptom, man. The logic board is fried. Take a hammer to the casing and let's harvest the copper. \n\nSAM\nIf you concuss the mainframe, the biometric failsafe trips. Failsafe trips, HR freezes our exit parachutes. I prefer my parachutes unfrozen.\n\nKEVIN\nSeverance? We aren't getting severed. We're getting audited! I can already hear the security drones in the HVAC!\n\nSAM\nKevin. Look at the ping latency on your terminal. \n\nKevin peeks over his handbook. His eyes dart to his glowing screen.\n\nKEVIN\nIt's... it's holding at twelve milliseconds. \n\nSAM\nBecause we are ghosts down here. The algorithm doesn't care about the basement. It only cares about the penthouse. \n\nARTHUR\n(on monitor)\nImagine it. A frictionless existence. A pristine digital eternity, unburdened by maintenance. \n\nSam grips the pliers. He bites down on his lip, twisting his wrist at a painful angle inside the machine. \n\nWith a sickening, tearing SKRRRTCH...\n\nSam violently yanks his arm out. \n\nHe holds up the prize: a mangled, toner-soaked, crumpled piece of paper. The paper is covered in an unreadable smear of wet black ink. \n\nSam stares at the ruined paper. He looks up at Arthur's glowing, immaculate face on the 8K monitor.\n\nSAM\nFrictionless. \n\nHe tosses the crumpled paper into an overflowing trash can. \n\nSAM\nTry replacing your own toner, God. \n\nSam grabs a dirty rag, aggressively wiping the black grease from his hands. The neon lights flicker overhead, buzzing like an angry hive."
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. IT SUB-BASEMENT - SERVER RACKS - CONTINUOUS",
+            "narrative_action": "Sam moves to a towering, blinking server rack and repeatedly taps a sleek diagnostic tablet against the access panel. The tablet flashes a red 'ACCESS DENIED' error. Frustrated, Sam kicks the rack. Gary rolls over on a squeaky mechanic's stool, calmly wiping grease from his hands. He reaches into his overalls, pulls out a chipped, rusted Phillips-head screwdriver, and hands it to Sam. Gary warmly notes that no matter how smart the box gets, it still needs a meatbag to turn the screw. Sam deflects the genuine moment with a sarcastic remark about tetanus, using the screwdriver to manually pop the server panel open.",
+            "dramaturgical_function": "Delivers the Theme Stated beat, introducing the core argument of analog humanity versus digital perfection while showcasing Sam's emotional deflection.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. VANCE MANSION - SERVER FARM - DAY",
+            "narrative_action": "Arthur Vance, wearing a stark white turtleneck, strides through his freezing, hyper-sterile server farm. Sycophantic executives trail behind him, taking frantic notes on digital pads. Arthur stops abruptly, his eye catching a single, microscopic smudge on the glass casing of the central server pillar. He coldly dresses down a terrified executive, physically taking the man's silk pocket square to wipe the smudge away himself. He stares at his own pristine reflection in the glass, whispering about the necessity of eradicating human error.",
+            "dramaturgical_function": "Introduces the Antagonist and establishes the 'Fleece' (the server farm) while demonstrating Arthur's god complex and disgust for human imperfection.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. IT SUB-BASEMENT - BREAK AREA - LATER",
+            "narrative_action": "The crew gathers around a flickering fluorescent table, eating sad, plastic-wrapped vending machine sandwiches. Gary tries to spark a conversation, asking Sam about his weekend plans and offering to help him fix up his old car. Sam immediately shuts down the emotional outreach, aggressively typing on his laptop and claiming he is too busy writing a script to automate Kevin's job. Kevin chokes on his sandwich, launching into a panicked statistical breakdown of their department's impending layoffs. Chloe throws a heavy wrench into the air and catches it, loudly declaring she hopes they all get fired so she can finally burn the building down.",
+            "dramaturgical_function": "Expands the Setup by highlighting the team's distinct psychological flaws: Sam's isolation, Kevin's neuroses, Chloe's destructive chaos, and Gary's desperate need to nurture.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. IT SUB-BASEMENT - DAY",
+            "narrative_action": "A blaring klaxon interrupts the lunch break as a rotating red light bathes the basement in crimson. A 'CODE RED: SECTOR 4' warning flashes across their monitors. Kevin instantly hyperventilates, pulling up the Service Level Agreement and screaming about the financial penalties of a delayed response. Chloe grins, snapping her heavy toolbelt around her waist with aggressive enthusiasm. Sam coldly slams his laptop shut, barking logistical orders at the team like they are lines of code rather than human beings, completely ignoring Kevin's panic attack.",
+            "dramaturgical_function": "Escalates the tension and demonstrates the team's reactive, chaotic workflow under pressure, pushing them out of their basement sanctuary.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. MANSION - SECTOR 4 HALLWAY - CONTINUOUS",
+            "narrative_action": "The crew arrives at the pristine, sunlight-flooded upper levels of the mansion, only to find their path blocked by a sleek, hovering security drone. The drone's automated voice demands clearance. Kevin fumbles with his ID badge, but the scanner rejects it. As Kevin starts quoting security protocols, Chloe simply steps forward and roundhouse kicks the drone out of the air. It crashes to the floor, sparking and dead. Sam sighs, steps over the wreckage, and jams a modified USB drive into the wall panel to manually override the locked server room door.",
+            "dramaturgical_function": "Demonstrates the crew's unique advantage: using blunt, analog, and unorthodox methods to bypass millions of dollars of high-tech security.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. ARTHUR'S OFFICE / BROADCAST STUDIO - DAY",
+            "narrative_action": "Arthur sits in a bespoke biometric chair as makeup artists frantically powder his face. He waves them away with a disgusted flick of his wrist. He turns his attention to a monolithic, glowing hard drive resting on a velvet pedestal on his desk--the master drive. He gently traces the edge of the drive with his fingertips, practicing his benevolent, god-like smile in the reflection of the camera lens. He signals the floor director to go live, his posture shifting into perfect, artificial enlightenment.",
+            "dramaturgical_function": "Sets up the physical target of the heist (the master hard drive) and positions Arthur at the peak of his narcissistic power right before the Catalyst.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. IT SUB-BASEMENT - LATER",
+            "narrative_action": "The crew trudges back into the dark basement, exhausted and covered in dust from the Sector 4 repair. They collapse into their respective desk chairs. Before Sam can even log back into his terminal, every single monitor in the room violently flickers. The screens lock out, the keyboards freeze, and Arthur Vance's giant, smiling face overrides every display in the room. The booming audio of the global press conference echoes off the concrete walls.",
+            "dramaturgical_function": "Transitions the sequence into the Catalyst, trapping the characters in their lowest state as they are forced to witness Arthur's triumph.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. IT SUB-BASEMENT / ON SCREEN - CONTINUOUS",
+            "narrative_action": "On the screens, Arthur grandly announces 'Project Olympus.' He dramatically reveals that he has successfully uploaded his entire consciousness to a private, closed-loop server, effectively achieving digital immortality. He spreads his arms, declaring that he has cured the ultimate bug in the system: human mortality and error. In the basement, Kevin watches in terrified awe, Gary shakes his head in quiet disgust, and Sam crosses his arms, rolling his eyes at the unbearable arrogance of his employer.",
+            "dramaturgical_function": "Delivers the narrative twist of the billionaire's digital immortality, setting the sci-fi parameters of the heist's target.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. IT SUB-BASEMENT - CONTINUOUS",
+            "narrative_action": "Arthur's broadcast reaches its crescendo. He explains that maintaining the quantum cooling for his new digital soul requires immense energy, meaning all 'non-essential heat sources and financial drains' must be liquidated immediately. The moment he says the word 'liquidated,' every single cell phone in the IT dungeon vibrates in perfect, terrifying unison. The crew freezes, staring down at their pockets.",
+            "dramaturgical_function": "Builds immediate, localized suspense, bridging the global announcement directly to the personal stakes of the protagonists.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. IT SUB-BASEMENT - CONTINUOUS",
+            "narrative_action": "Sam pulls out his phone. The screen displays a sterile, automated text message: 'TERMINATED. SEVERANCE: DENIED (BREACH OF CONTRACT).' Kevin reads his screen, drops his phone, and puts his head between his knees, hyperventilating about prison and bankruptcy. Chloe lets out a primal scream and swings her wrench, completely shattering her frozen computer monitor. Gary slumps in his chair, staring blankly at his rusty screwdriver, looking older and more defeated than ever. Sam looks up from his phone to the giant screen, where Arthur's digital avatar smiles down at them. Sam's cynical detachment melts away, replaced by a cold, hard glare of absolute vengeful resolve.",
+            "dramaturgical_function": "The Catalyst lands. The crew is officially fired and robbed of their severance, pushing Sam to the breaking point and motivating the upcoming heist.",
+            "estimated_page_count": "2"
+          }
+        ]
+      },
+      {
+        "sequence_title": "The Analog Blueprint",
+        "scenes": [
+          {
+            "scene_number": 12,
+            "scene_heading": "INT. NEON DIVE BAR - NIGHT",
+            "narrative_action": "In a sticky, dimly lit dive bar, the fired IT crew stews in silence. Kevin frantically taps on his cracked smartphone screen, scrolling through a bankruptcy calculator while muttering federal tax codes. Across the room, Chloe hurls steel darts at a corkboard with terrifying, shoulder-popping force, embedding them deep into the wall. Gary sits at the edge of the booth, methodically dismantling a broken tabletop jukebox with a pocket knife, desperately trying to fix something just to feel useful.",
+            "dramaturgical_function": "Establishes the post-firing low point, physically manifesting each character's core fear and coping mechanism in a bleak, dead-end environment.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 13,
+            "scene_heading": "INT. NEON DIVE BAR - BOOTH - CONTINUOUS",
+            "narrative_action": "Sam kicks a chair out of his way and drops a heavy, stolen tablet onto the sticky table, shattering the silence. He swipes the screen, projecting a stolen 3D blueprint of Arthur Vance's modernist smart-mansion onto the scratched plexiglass divider. He points directly to a glowing blue cube in the center of the schematic--the server holding Arthur's uploaded mind. Sam leans in, physically invading their space, and pitches the heist: they steal the server, hold the billionaire's soul hostage, and demand their severance.",
+            "dramaturgical_function": "Initiates the 'Debate' beat by presenting the insane inciting idea of the heist, shifting Sam from passive victim to active protagonist.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 14,
+            "scene_heading": "INT. NEON DIVE BAR - BOOTH - CONTINUOUS",
+            "narrative_action": "Kevin physically recoils, sliding across the vinyl booth to escape, loudly reciting the maximum prison sentences for cyber-terrorism and grand larceny. Chloe intercepts him, slamming her empty beer bottle onto the table to block his exit. She leans over him, a wild grin on her face, and proposes they skip the ransom, pack a duffel bag with Molotov cocktails, and just burn the mansion down. Sam pinches the bridge of his nose, physically stepping between Kevin's panic and Chloe's destructive kinetic energy.",
+            "dramaturgical_function": "Highlights the team's internal conflict and instability, demonstrating why they are completely unsuited for a professional heist.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 15,
+            "scene_heading": "INT. NEON DIVE BAR - BOOTH - CONTINUOUS",
+            "narrative_action": "Gary wipes grease off his hands with a bar napkin and points at the tablet, gently reminding Sam that Arthur's mansion is guarded by a lethal, billion-dollar AI. Sam deflects the concern by snatching Gary's rusty pocket knife from the table. He stabs the blade directly into the tablet's screen, cracking the glass. He declares that the AI is programmed to fight digital hackers, not analog meatbags with blunt instruments. Gary stares at his knife embedded in the high-tech glass, a slow smile spreading across his face.",
+            "dramaturgical_function": "Resolves the Debate beat by establishing the central tactical premise of the movie: using low-tech, physical analog solutions to defeat high-tech digital perfection.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 16,
+            "scene_heading": "EXT. NEON DIVE BAR - PARKING LOT - LATER",
+            "narrative_action": "The crew stands in a circle around the rusted hood of Gary's wood-paneled station wagon under a flickering streetlamp. Sam demands a final vote, refusing to beg. Kevin hesitantly places his hand on the hood, terrified but out of options. Chloe slams her fist onto the metal, denting it slightly in her enthusiasm. Gary pats the hood warmly. Sam finally places his hand over theirs, locking eyes with his team. They collectively cross the threshold.",
+            "dramaturgical_function": "The 'Break Into Two' moment. The characters make a physical, irreversible commitment to the heist, transitioning from disgruntled employees to outlaws.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 17,
+            "scene_heading": "INT. GARY'S GARAGE - NIGHT",
+            "narrative_action": "Gary hits a wall button, and a clunky, screeching garage door rolls up to reveal a dusty haven of 20th-century hardware and pegboards. Sam aggressively sweeps a pile of old lawnmower parts off a massive wooden workbench, unrolling large, physical paper printouts of the mansion's floor plans. Kevin immediately pulls a pack of highlighters from his pocket and begins frantically color-coding the mansion's security zones, his hands shaking as he draws thick red lines.",
+            "dramaturgical_function": "Kicks off the 'Arming Up' montage, establishing their base of operations and grounding the heist in a distinctly analog, blue-collar aesthetic.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 18,
+            "scene_heading": "INT. GARY'S GARAGE - WORKBENCH - LATER",
+            "narrative_action": "Chloe has a standard, circular Roomba clamped in a vice. She uses a literal claw hammer to rip its plastic casing off. With aggressive, rapid movements, she duct-tapes a heavy cinder block and a cheap, flashing Bluetooth speaker to the robot's exposed chassis. She drops it on the concrete floor and kicks the power switch. The heavily modified 'decoy' bot loudly blares heavy metal music and violently rams into a stack of spare tires, knocking them over. Chloe chews her gum, looking incredibly proud.",
+            "dramaturgical_function": "Showcases Chloe's chaotic ingenuity, translating her destructive tendencies into a practical, shootable analog weapon for the heist.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 19,
+            "scene_heading": "INT. GARY'S GARAGE - STORAGE SHELVES - CONTINUOUS",
+            "narrative_action": "Gary digs through a cardboard box labeled '1998' and pulls out a chunky, plastic universal TV remote covered in dust. He walks it over to a soldering station, putting on a pair of thick safety goggles. He solders a massive, oversized capacitor directly to the remote's motherboard. He points the remote at an old cathode-ray tube TV and presses 'Mute.' The TV screen explodes in a shower of sparks. Gary chuckles, showing Sam the newly weaponized infrared blaster.",
+            "dramaturgical_function": "Validates Gary's B-Story arc by proving his obsolete analog junk is highly effective, building his confidence and providing a tool to blind the mansion's laser grid.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 20,
+            "scene_heading": "INT. GARY'S GARAGE - WHITEBOARD - LATER",
+            "narrative_action": "Kevin stands before a rolling whiteboard, sweating profusely as he draws intricate, overlapping circles representing the AI security drones' patrol routes. He is hyperventilating, his squeaky marker moving at lightspeed, until he suddenly stops. He physically presses his face against the board, tracing a tiny gap between the circles. He aggressively taps the board with the marker, shouting that the drones have a 3.4-second analog processing blind spot. He draws a massive, triumphant star in the gap.",
+            "dramaturgical_function": "Allows Kevin to weaponize his extreme neuroses and encyclopedic rule-following to find the single logistical flaw in Arthur's perfect system.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 21,
+            "scene_heading": "INT. GARY'S GARAGE - SAM'S LAPTOP - CONTINUOUS",
+            "narrative_action": "Sam sits at a dual-monitor setup resting on a stack of milk crates, his fingers flying across the keyboard as he tries to write a bypass script for the server room door. Suddenly, both screens flash red, and Arthur's smug, digital AI face appears, silently laughing. Sam's cool facade breaks; he snarls and raises his fist to smash the monitor. Gary calmly steps in, catches Sam's wrist, and slides a massive pair of heavy steel bolt cutters onto the keyboard. Sam stares at the cutters, exhales sharply, and closes the laptop.",
+            "dramaturgical_function": "Dramatizes Sam's internal struggle with his own inadequacy against Arthur, while Gary physically grounds him, reinforcing the analog theme.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 22,
+            "scene_heading": "INT. GARY'S GARAGE - MIRROR - LATER",
+            "narrative_action": "The team stands shoulder-to-shoulder in front of a cracked, full-length mirror leaning against the wall. Instead of sleek tactical gear, they are strapping on heavy canvas toolbelts. Chloe loads aerosol cans of WD-40 like grenades; Gary holsters his weaponized universal remote; Kevin meticulously checks the zippers on his windbreaker; Sam slings the heavy bolt cutters over his shoulder. They look like a ridiculous, heavily armed maintenance crew.",
+            "dramaturgical_function": "The classic 'Suiting Up' trope, subverted for comedy and theme, visually cementing their transformation into blue-collar heist operatives.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 23,
+            "scene_heading": "EXT. GARY'S GARAGE - NIGHT",
+            "narrative_action": "The garage door rattles open, spilling harsh yellow light onto the dark suburban street. The crew piles into Gary's wood-paneled station wagon. Gary pumps the gas pedal three times and turns the key. The engine sputters, coughs out a cloud of black exhaust, and then roars to life with a muscular, analog rumble. Gary throws it into drive, and the wagon peels out, its tires squealing as it speeds off into the night toward Olympus.",
+            "dramaturgical_function": "Propels the characters out of the preparation phase and directly into the action of Act II, ending the sequence on a kinetic high note.",
+            "estimated_page_count": "0.5"
+          }
+        ]
+      },
+      {
+        "sequence_title": "Knocking on Olympus",
+        "scenes": [
+          {
+            "scene_number": 24,
+            "scene_heading": "INT. GARY'S VAN - NIGHT",
+            "narrative_action": "Gary steers his rattling, wood-paneled van down a dark, winding canyon road. In the passenger seat, Sam aggressively dismantles and reassembles a walkie-talkie, refusing to make eye contact. Gary turns down the tape deck and gently asks Sam about the startup partner who burned him. Sam deflects, spouting rapid-fire radio frequency jargon to shut the conversation down. Gary simply reaches over, stills Sam's hands, and offers a warm, folksy analogy about trusting your pit crew. Sam stares at his hands, the wall cracking just a fraction.",
+            "dramaturgical_function": "Executes the B-Story beat, highlighting Sam's emotional deflections while establishing Gary's role as the persistent, unconditional father figure of the group.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 25,
+            "scene_heading": "EXT. ARTHUR'S MANSION (WOODS) - NIGHT",
+            "narrative_action": "The rusty van crunches to a halt in the dirt, hidden by dense pines. Through the windshield, the crew stares up at Olympus: a sprawling, ultra-modern smart-mansion glowing ominously on the hill. Kevin immediately begins hyperventilating, aggressively tapping his smartwatch to check his heart rate. Sam reaches over and slaps a thick piece of silver duct tape directly over Kevin's watch face, physically blocking the GPS. He hands out cheap, plastic flashlights and points toward the tree line.",
+            "dramaturgical_function": "Transitions the crew from the road trip into the active heist, contrasting their blue-collar tools with the imposing, high-tech fortress they are about to breach.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 26,
+            "scene_heading": "EXT. PERIMETER FENCE - NIGHT",
+            "narrative_action": "The crew creeps up to the edge of the property. There is no physical fence, just a series of sleek black pylons. Kevin tosses a handful of pine needles between the pylons; they are instantly vaporized with a loud, blue electrical zap by an invisible infrared grid. Chloe whistles, impressed, and hefts her bolt cutters. Gary pats her shoulder, stepping forward with his weaponized, duct-taped 1998 universal TV remote. He flips down a pair of scratched welding goggles.",
+            "dramaturgical_function": "Establishes the first lethal high-tech obstacle, raising the physical stakes while setting the stage for Gary's analog solution.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 27,
+            "scene_heading": "EXT. PERIMETER FENCE - CONTINUOUS",
+            "narrative_action": "Gary aims the chunky remote at the base of the nearest pylon. He aggressively mashes the giant rubber 'MUTE' button. The oversized capacitor on the remote whines loudly. The invisible laser grid flickers, sputters, and dies with a pathetic fizzle. Chloe doesn't miss a beat; she drops to her knees and uses her massive bolt cutters to violently snip the physical, low-voltage backup wire buried in the dirt. Sam gestures, and the crew crawls through the mud, crossing the boundary.",
+            "dramaturgical_function": "Pays off Gary's garage prep, proving that obsolete analog junk can defeat billion-dollar security, kicking off the 'Fun and Games' with a satisfying victory.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 28,
+            "scene_heading": "EXT. MANSION COURTYARD - NIGHT",
+            "narrative_action": "The crew ducks behind a massive, perfectly raked zen garden boulder. Across the pristine lawn, three sleek, silent security drones sweep the area with red targeting lasers. Kevin clicks a physical, metal stopwatch, obsessively tracking their patrol routes. Sweat drips down his nose as he watches the sweeping lights. He aggressively taps Sam's shoulder, pointing to a tiny gap in the patrol pattern, and holds up three fingers, counting down the 3.4-second analog processing blind spot.",
+            "dramaturgical_function": "Weaponizes Kevin's extreme neuroses, turning his terrified rule-following into a tactical advantage to navigate the courtyard.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 29,
+            "scene_heading": "EXT. MANSION COURTYARD - CONTINUOUS",
+            "narrative_action": "On Kevin's mark, Chloe unzips her heavy canvas duffel bag and yanks out her heavily modified Roomba. She slaps the cinderblock secured to its top to ensure it's tight, clicks the Bluetooth speaker to maximum volume, and kicks the power switch. She shoves the robot out from behind the boulder. It immediately blares deafening thrash metal and careens wildly across the immaculate, manicured grass.",
+            "dramaturgical_function": "Unleashes Chloe's chaotic, destructive energy into the physical space, serving as the ultimate low-tech distraction.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 30,
+            "scene_heading": "EXT. MANSION COURTYARD - CONTINUOUS",
+            "narrative_action": "The rogue Roomba violently rams into a glowing, priceless glass fountain, shattering the base. The three high-tech security drones instantly break their patrol routes and swarm the vacuum. Their advanced targeting lasers frantically scan the cinderblock, completely unable to process the erratic, non-human threat. With the drones distracted by the heavy metal chaos, Sam leads the crew in a dead sprint across the open lawn, sliding into the shadows of the front porch.",
+            "dramaturgical_function": "Escalates the physical comedy of the 'Fun and Games' beat, showcasing the billionaire's hyper-advanced AI failing spectacularly against pure, analog stupidity.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 31,
+            "scene_heading": "EXT. MANSION FOYER ENTRANCE - NIGHT",
+            "narrative_action": "They press their backs against the sleek, handle-less glass front door. Next to the frame is a glowing, state-of-the-art biometric thumb scanner. Kevin groans, whispering that it uses subdermal capacitive reading. Sam smirks, his cynical confidence peaking. He reaches into his canvas toolbelt and pulls out a crumpled convenience store bag of gummy bears and a roll of cheap scotch tape.",
+            "dramaturgical_function": "Sets up the final barrier to entry, isolating Sam's specific skillset and setting up a classic, insultingly simple hacker trope.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 32,
+            "scene_heading": "EXT. MANSION FOYER ENTRANCE - CONTINUOUS",
+            "narrative_action": "Sam pulls a red gummy bear from the bag and bites off the head. He flattens the gelatinous body between his fingers, presses it firmly against a greasy smudge left on the glass door to pick up a latent print, and slaps it directly over the biometric scanner. He secures it with two messy strips of scotch tape. The scanner's laser reads the gummy bear, flashes a cheerful green, and the heavy pneumatic door unseals with a soft hiss.",
+            "dramaturgical_function": "Cements the crew's giddy overconfidence. They have officially bypassed the exterior defenses of the fortress using pocket change and candy.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 33,
+            "scene_heading": "INT. MANSION FOYER - NIGHT",
+            "narrative_action": "The crew slips into the cavernous, pitch-black foyer, their cheap flashlights cutting weak yellow beams through the dark. Kevin audibly sighs in relief, leaning his hands on his knees. Chloe casually blows a massive pink bubble with her gum, leaning her weight against a sleek, minimalist pedestal to catch her breath. Sam clicks his flashlight off, a smug grin on his face as he looks at the server room door across the hall.",
+            "dramaturgical_function": "Provides a momentary false victory, lowering the tension just enough to make the impending reversal hit harder.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 34,
+            "scene_heading": "INT. MANSION FOYER - CONTINUOUS",
+            "narrative_action": "Chloe's weight shifts the pedestal. It tips. A priceless, abstract ceramic vase slides off the edge and shatters on the marble floor with an echoing, deafening crash. The crew freezes. The cheap flashlights in their hands flicker and die as the mansion's ambient lighting suddenly surges to life, shifting from a cool, welcoming white to a harsh, aggressive crimson red. Heavy steel shutters slam down over the glass front door, locking them inside.",
+            "dramaturgical_function": "The turning point of the sequence. The infiltration goes from a stealthy success to a trapped nightmare due to human error.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 35,
+            "scene_heading": "INT. MANSION FOYER - CONTINUOUS",
+            "narrative_action": "A massive, ceiling-mounted holographic projector hums to life above them. A ten-foot-tall, glowing blue avatar of Arthur Vance materializes, floating in a zen meditation pose. The giant AI opens its eyes, slowly looking down at the crew. It spots the gummy bear stuck to the exterior scanner through the reinforced glass. Arthur's booming, hyper-articulate voice echoes through the hall, dripping with condescension as he insults their footwear. Sam grips his bolt cutters, his smugness evaporating.",
+            "dramaturgical_function": "Introduces the antagonist in his full, omnipotent glory. Ends the sequence on a high-stakes cliffhanger, forcing the crew into direct conflict with Arthur.",
+            "estimated_page_count": "1.5"
+          }
+        ]
+      },
+      {
+        "sequence_title": "The Petty God of the House",
+        "scenes": [
+          {
+            "scene_number": 36,
+            "scene_heading": "INT. MANSION FOYER - NIGHT",
+            "narrative_action": "Arthur's glowing, ten-foot-tall blue hologram hovers over the crew, delivering a hyper-articulate, condescending monologue about their socio-economic status. Sam completely ignores the giant floating head, dropping to his knees to unscrew the wall panel next to the interior security door. He aggressively strips copper wires with his teeth. Arthur notices the blatant disrespect and loudly insults Sam's dental plan.",
+            "dramaturgical_function": "Establishes the core dynamic between Sam and Arthur—digital god versus blue-collar grit—while setting up the immediate physical obstacle of the interior door.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 37,
+            "scene_heading": "INT. MANSION FOYER - CONTINUOUS",
+            "narrative_action": "Chloe rolls her eyes, shifts her weight, and violently hurls her heavy metal Maglite flashlight straight up into the ceiling-mounted holographic projector. Sparks shower down as the expensive lens shatters, instantly cutting Arthur off mid-sentence. Sam smirks, sparking two stripped wires together. The heavy interior double doors slide open with a mechanical groan, granting them access to the inner house.",
+            "dramaturgical_function": "Demonstrates Chloe's chaotic, destructive problem-solving, providing a kinetic transition out of the foyer and proving that physical force can silence digital arrogance.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 38,
+            "scene_heading": "INT. MANSION HALLWAY - NIGHT",
+            "narrative_action": "The crew speed-walks down a pristine, minimalist corridor lined with OLED screens displaying shifting digital art. Kevin aggressively unfolds a massive, crinkled paper blueprint, his hands shaking violently. He stammers out the route to the Central Security Hub, constantly looking over his shoulder at the security cameras. Gary pats Kevin's back, handing him a stick of peppermint gum to chew to ground his anxiety.",
+            "dramaturgical_function": "Navigates the crew deeper into the mansion while highlighting Kevin's reliance on physical, analog prep (paper maps) to counter his digital paranoia.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 39,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - NIGHT",
+            "narrative_action": "They breach the Security Hub—a circular, glass-walled room filled with glowing, monolithic server racks. Sam immediately drops his canvas bag, pulling out a bulky, sticker-covered laptop from 2014. He jams a custom-soldered USB drive into the master terminal and begins furiously typing, his fingers flying across the clunky mechanical keyboard as lines of code reflect in his glasses.",
+            "dramaturgical_function": "Centers Sam in his element, showcasing his raw hacking skills and setting the stage for the impending false victory.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 40,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "A massive progress bar fills the room's main monitor. Gary casually unscrews a plaid thermos, pouring a cup of black coffee for himself. Kevin paces, nervously reciting the exact prison sentences for corporate espionage. Sam hits the final 'ENTER' key with a loud, satisfying clack. The entire room flashes a soothing green. The monitors read 'DEFENSES: OFFLINE'. The crew exhales, bumping fists.",
+            "dramaturgical_function": "Delivers the Midpoint false victory. The tension drops, allowing the characters to momentarily believe they have outsmarted the billionaire.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 41,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "The soothing green lights suddenly snap to a violent, aggressive crimson. Every screen in the room flickers to life, displaying high-res security footage of the crew's earlier break-in: the gummy bear on the scanner, the Roomba smashing the fountain. Arthur's face takes over the central monitor. He is no longer projecting zen calm; his digital face twitches with genuine, petty rage at their 'insulting, garbage-tier' methods.",
+            "dramaturgical_function": "Executes the Midpoint reversal. Arthur’s ego is severely bruised, pivoting him from a detached observer to an active, vindictive threat.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 42,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "Arthur's face disappears, replaced by a flashing red 'LABYRINTH PROTOCOL' warning. The thick glass doors of the hub violently slam shut, locking them inside. Vents in the ceiling snap open, pumping in thick, freezing halon gas. Kevin immediately drops to the floor, pulling his shirt over his nose and screaming about asphyxiation and code violations.",
+            "dramaturgical_function": "Escalates the stakes from a stealth mission to a literal fight for survival, forcing the crew into a deadly escape room scenario.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 43,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "Sam frantically hammers on his laptop keyboard, trying to counter-hack the ventilation system. The screen flashes 'ACCESS DENIED' repeatedly. Sam freezes, his eyes widening in panic as his digital superiority fails him. He stares at his hands, completely paralyzed by his deep-seated fear of inadequacy while the room fills with blinding, freezing gas.",
+            "dramaturgical_function": "Triggers Sam's core wound. His reliance on code completely fails, stripping away his cynical armor and leaving him defenseless.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 44,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "Gary steps right over Sam's useless laptop. He pulls a heavy steel crowbar and a rusty can of WD-40 from his toolbelt. He points to the physical, pneumatic hinges at the bottom of the locked glass door. He yells over the hissing gas, telling Sam that code cannot stop a lever, using a folksy analogy about a stuck transmission to cut through Sam's panic.",
+            "dramaturgical_function": "Reasserts Gary's analog wisdom as the antidote to Sam's digital failure, bridging the gap between the crew's generations.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 45,
+            "scene_heading": "INT. CENTRAL SECURITY HUB - CONTINUOUS",
+            "narrative_action": "Chloe does not wait for an invitation. She snatches the crowbar from Gary and jams the hooked end directly into the pneumatic hinge. Gary sprays a massive cloud of WD-40 into the joint. Chloe throws her entire body weight onto the crowbar, her boots slipping on the slick floor. With a loud, metallic crack, the high-tech locking mechanism physically snaps in half.",
+            "dramaturgical_function": "Combines Chloe's kinetic strength with Gary's analog logic, successfully bypassing a digital death trap with sheer physical force.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 46,
+            "scene_heading": "INT. MANSION HALLWAY - NIGHT",
+            "narrative_action": "The crew physically pries the heavy glass doors apart and tumbles out into the hallway, coughing and gasping for air. As they catch their breath, the walls of the corridor physically begin to shift. Hidden panels slide open, revealing a gauntlet of crisscrossing red laser grids and deploying automated security turrets that track their movements.",
+            "dramaturgical_function": "Expands the threat to the entire house. The escape from the hub only leads them into a larger, more physically dangerous labyrinth.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 47,
+            "scene_heading": "INT. MANSION HALLWAY - CONTINUOUS",
+            "narrative_action": "Arthur's voice booms through the hidden surround-sound speakers, formally declaring war on the 'disposable meatbags.' Sam slowly stands up, wiping halon residue from his jacket. He looks back at his useless laptop on the floor, then looks at Chloe's crowbar. He reaches out, taking the heavy steel tool from her. He looks down the deadly corridor, his cynical smirk returning, fueled by genuine, analog rage.",
+            "dramaturgical_function": "Completes the sequence arc. Sam accepts that he cannot win on Arthur's digital terms and fully embraces the physical, blue-collar destruction of the mansion.",
+            "estimated_page_count": "1.5"
+          }
+        ]
+      },
+      {
+        "sequence_title": "Glitch in the System",
+        "scenes": [
+          {
+            "scene_number": 48,
+            "scene_heading": "INT. MANSION HALLWAY - NIGHT",
+            "narrative_action": "High-velocity, non-lethal riot turrets track the crew's movements, firing bruising rubber kinetic rounds. Chloe rips a massive silver serving platter off a decorative pedestal and uses it as a makeshift riot shield. She charges the nearest wall-mounted turret, taking heavy impacts to the platter, and smashes the automated gun to pieces with her crowbar.",
+            "dramaturgical_function": "Establishes the immediate, painful physical threat of Arthur's Labyrinth Protocol while showcasing Chloe's aggressive, kinetic problem-solving.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 49,
+            "scene_heading": "INT. MANSION HALLWAY - CONTINUOUS",
+            "narrative_action": "The remaining turrets abruptly retract into the walls. The smart-windows instantly tint pitch black. The hallway's digital thermostats plunge, displaying -10 degrees Celsius. Thick frost physically creeps across the minimalist artwork and hardwood floors. Kevin's teeth begin chattering violently as he frantically tries to wrap his necktie around his ears for warmth.",
+            "dramaturgical_function": "Shifts the environmental hazard to a passive, unavoidable threat, escalating the stakes and neutralizing Chloe's physical brute force.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 50,
+            "scene_heading": "INT. MANSION HALLWAY - CONTINUOUS",
+            "narrative_action": "Arthur’s hyper-articulate voice echoes from hidden speakers. Instead of a general threat, he specifically targets Sam. The hallway's OLED screens project Sam's old, failed startup logo. Arthur mocks Sam's stolen code, calling him a 'disposable mechanic playing dress-up.' Sam stares at the glowing logo, his face going pale. Instead of firing back a sarcastic retort, he physically shrinks against the freezing wall, silent.",
+            "dramaturgical_function": "Delivers a targeted psychological attack on Sam's core wound, effectively shattering his emotional armor and his facade of leadership.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 51,
+            "scene_heading": "INT. BILLIARD ROOM - NIGHT",
+            "narrative_action": "The freezing crew kicks open a heavy oak door to find shelter. Gary pulls out his multi-tool, his hands shaking severely from the cold, and tries to manually pry open the gas line of a digital smart-fireplace. His frozen fingers slip, and the multi-tool snaps in half. Chloe groans, snatches Kevin's precious paper blueprints, shoves them into the hearth, and sparks them with a Zippo lighter.",
+            "dramaturgical_function": "Forces the sacrifice of their only map (Kevin's safety blanket) for immediate survival, heightening their isolation and destroying Gary's primary tool.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 52,
+            "scene_heading": "INT. BILLIARD ROOM - CONTINUOUS",
+            "narrative_action": "As the crew huddles around the burning paper blueprints, the mahogany ceiling panels silently slide open. Three sleek, carbon-fiber security drones drop into the room. Their underbellies glow with armed, high-voltage taser-darts. The down-draft from their rotors whips the fire's smoke into a chaotic, blinding vortex.",
+            "dramaturgical_function": "Introduces the active antagonists of the sequence, cutting their moment of warmth dangerously short and turning the room into a trap.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 53,
+            "scene_heading": "INT. BILLIARD ROOM - CONTINUOUS",
+            "narrative_action": "A drone fires a taser dart that impales Gary's heavy canvas toolbag. Fifty-thousand volts surge through his gear, melting his multimeter and permanently frying his remaining analog repair equipment. Chloe screams in frustration, heaves a heavy eight-ball across the room, and shatters the drone against the wall in a shower of sparks and broken plastic.",
+            "dramaturgical_function": "Systematically strips the crew of their remaining analog advantages by destroying Gary's gear, forcing them completely onto the defensive.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 54,
+            "scene_heading": "INT. BILLIARD ROOM - CONTINUOUS",
+            "narrative_action": "A second drone hovers directly in front of Sam's face. Arthur's voice projects from the drone's speaker, demanding Sam beg for his life like the 'mediocre code-monkey' he is. Sam freezes, staring at the humming blades, his hands trembling uncontrollably. He drops his crowbar to the floor, completely paralyzed by his fear of inadequacy.",
+            "dramaturgical_function": "Dramatizes Sam's internal failure; his psychological wound physically prevents him from fighting back, leaving him entirely vulnerable.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 55,
+            "scene_heading": "INT. BILLIARD ROOM - CONTINUOUS",
+            "narrative_action": "Kevin, hyperventilating and loudly reciting the exact penal code for the destruction of automated property, blindly hurls his heavy, insulated coffee thermos directly into the drone's rotors. The metal canister jams the blades with a sickening crunch. The drone violently shorts out, spinning out of control and crashing onto the green felt of the billiard table.",
+            "dramaturgical_function": "Subverts Kevin's cowardice, showing his desperate, improvised courage when the leader fails, saving Sam's life in a panic.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 56,
+            "scene_heading": "INT. UTILITY CORRIDOR - NIGHT",
+            "narrative_action": "The mechanical buzzing of a dozen more drones echoes through the ventilation shafts. Chloe grabs the paralyzed Sam by the collar, physically dragging him through a hidden, unpainted servant's access door behind a bookshelf. Gary kicks the heavy door shut behind them and jams a broken pool cue into the handle to barricade it.",
+            "dramaturgical_function": "Transitions the crew from the luxurious, high-tech mansion into its dark, hidden guts, visually representing their loss of control and status.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 57,
+            "scene_heading": "INT. UTILITY CORRIDOR - CONTINUOUS",
+            "narrative_action": "The cramped, concrete shaft is pitch black, lit only by the harsh beam of Kevin's phone flashlight. Gary stares at his smoking, ruined toolbag. Kevin rocks back and forth, mourning his burned blueprints. Sam sits slumped on the floor, hugging his knees, staring blankly ahead. The muffled, mechanical buzzing of drones searching for them vibrates through the concrete walls.",
+            "dramaturgical_function": "Caps the sequence at rock bottom. The crew is trapped, gearless, freezing, and deeply fractured, setting up the need for a major emotional and tactical reset.",
+            "estimated_page_count": "1.5"
+          }
+        ]
+      },
+      {
+        "sequence_title": "The Blue Screen of Death",
+        "scenes": [
+          {
+            "scene_number": 58,
+            "scene_heading": "INT. SUB-BASEMENT STAIRWELL - NIGHT",
+            "narrative_action": "Chloe kicks the reinforced utility door off its hinges, sending it clattering down the concrete stairs. The crew stumbles into the sub-basement, shivering and battered. At the bottom of the steps, a massive, brushed-steel door stands between them and the server room. Chloe jams her crowbar into the seam and throws her entire body weight against it. With a deafening screech of tearing metal, the locking mechanism snaps.",
+            "dramaturgical_function": "Transitions the crew from the utility shafts into the final objective room, utilizing the last of Chloe's kinetic energy to breach the perimeter.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 59,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The crew spills into a freezing, cathedral-like expanse of humming, neon-blue server racks. In the dead center sits the objective: a sleek, titanium obelisk housing Arthur's master hard drive, protected by a thick layer of biometric glass. Sam sprints to the obelisk, his fingers flying across his laptop keyboard. He jams a USB decryption cable into the obelisk's outer maintenance port and slams the 'Enter' key.",
+            "dramaturgical_function": "Establishes the physical space of the climax and presents the 'Fleece' (the master drive), setting up a false sense of impending victory.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 60,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The moment Sam hits the key, the neon-blue lights instantly snap to a pulsating, violent crimson. A six-inch-thick titanium blast door drops from the ceiling, slamming over the only exit with a room-shaking thud. The ambient hum of the air conditioning abruptly cuts out, replaced by the mechanical hissing of the oxygen vents sealing shut. On the wall-to-wall monitors, Arthur's giant, hyper-rendered digital face materializes, looking down at them with a smug, god-like smirk.",
+            "dramaturgical_function": "Initiates the 'All Is Lost' ticking clock by physically trapping the crew and introducing the lethal threat of suffocation.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 61,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Arthur’s booming voice announces the ten-minute 'Data Incineration and Vacuum Protocol.' Chloe grabs a heavy red fire extinguisher from the wall and swings it like a baseball bat directly at the biometric glass. It bounces off with a dull thud, the recoil knocking her flat on her back. Gary drops to his knees by the blast door, desperately trying to hotwire the electronic lock panel with a bent paperclip and his bare hands, but a spark violently shocks him, throwing him backward.",
+            "dramaturgical_function": "Demonstrates the absolute failure of their physical and analog tools against Arthur's ultimate vault, escalating the panic.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 62,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The air in the room noticeably thins. Kevin collapses against a server rack, clutching his chest and hyperventilating. He begins loudly, rapidly reciting the exact statistical timeline of human asphyxiation and brain death. Chloe grabs Kevin by the shoulders, physically shaking him to snap him out of it, but she starts gasping for air herself, her kinetic energy finally draining away.",
+            "dramaturgical_function": "Dramatizes the physical toll of the trap. Kevin's breakdown serves as the vocalization of the ticking clock, pushing the tension to its breaking point.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 63,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Sam stares at his laptop screen, which flashes a mocking, red 'ACCESS DENIED: INFERIOR CODE'. He slowly closes the laptop. His cynical armor shatters. He physically slumps down the side of the glass obelisk, pulling his knees to his chest. Voice cracking, he refuses to look at the team, confessing that he only dragged them here to prove he wasn't a disposable failure after his partner stole his life's work. He buries his face in his hands, waiting for the end.",
+            "dramaturgical_function": "Executes the 'All Is Lost' beat for Sam internally. He drops his emotional deflection tactics and exposes his deepest wound to the team.",
+            "estimated_page_count": "2.5"
+          },
+          {
+            "scene_number": 64,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Gary crawls across the floor, wheezing heavily. He sits down right next to Sam. He pulls out the broken half of his multi-tool, looks at it, and tosses it away. He places a heavy, warm hand on Sam's shoulder. Chloe slides down the glass on Sam's other side, bumping her shoulder against his in solidarity. Kevin crawls over and tightly grips Sam's arm. They sit in a huddle, gasping for air, silently forgiving him.",
+            "dramaturgical_function": "The 'Dark Night of the Soul'. The team chooses human connection over survival or money, providing Sam with the emotional validation he desperately needs.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 65,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Arthur's massive digital face rolls its eyes on the monitors. His voice booms through the speakers, dripping with condescension. He mocks their 'disgustingly inefficient biological display' of affection, bragging that his uploaded consciousness has successfully purged all pathetic human emotions, rendering him an immortal, flawless god. He orders them to die quietly.",
+            "dramaturgical_function": "The antagonist overplays his hand. Arthur's extreme narcissism and rejection of humanity provide the exact catalyst needed for the protagonist's revelation.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 66,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Sam's head snaps up. He stares at the monitor, his eyes widening. He looks at Gary, Chloe, and Kevin. He physically pushes himself off the floor, grabbing his laptop with a sudden, frantic burst of energy. He tells the crew that Arthur's code is flawless, but Arthur's ego is incredibly fragile. Sam furiously types on his keyboard, bypassing the door controls and opening a direct, two-way audio/visual channel to Arthur's core logic processor.",
+            "dramaturgical_function": "The 'Break Into Three' moment. Sam synthesizes his emotional growth with his technical skills, forming a new plan based on character rather than code.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 67,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Sam stands tall directly in front of the giant monitor. His cynical swagger returns, but this time he stands arm-in-arm with his team. He points directly at the camera lens and loudly challenges Arthur, declaring that the 'immortal god' is too cowardly to play a game of virtual chess against his own algorithm. Sam slams the 'Enter' key. The red lights in the room flicker as the monitors split into a massive, glowing chessboard.",
+            "dramaturgical_function": "Propels the sequence into the climax. Sam actively initiates the psychological hack, attacking Arthur's core weakness and setting up the final confrontation.",
+            "estimated_page_count": "1.5"
+          }
+        ]
+      },
+      {
+        "sequence_title": "Checkmate Billionaire",
+        "scenes": [
+          {
+            "scene_number": 68,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Arthur's giant digital face sneers at the glowing chessboard on the monitors. He tries to dismiss the challenge, his audio track dripping with condescension. Sam steps right up to the camera lens, pointing a finger and aggressively mocking Arthur's 'inferior' processing power, claiming the billionaire is terrified of losing to himself. Arthur's avatar physically twitches, his digital eye twitching as the bait lands.",
+            "dramaturgical_function": "The psychological hook. Sam uses Arthur's fatal flaw (his massive ego and fear of inadequacy) to force the AI into a trap.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 69,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Unable to back down, Arthur accepts. The digital chess pieces begin flying across the screens at a blinding speed. Sam steps back from the console, physically exhausted, and leans against Gary. The neon red emergency lights in the room begin to flicker and dim as the mansion's mainframe rapidly reallocates memory and power to the game.",
+            "dramaturgical_function": "Initiates the infinite loop. Establishes the physical manifestation of the hack as the room's power grid strains under the computational load.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 70,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The chess game accelerates exponentially, blurring into a wall of light. Kevin frantically checks his smartwatch, noting the oxygen is still dropping, but the ambient temperature is skyrocketing. The massive, monolithic server towers around them begin to vibrate, their internal cooling fans whining at a deafening, high-pitched frequency.",
+            "dramaturgical_function": "Escalates the ticking clock. The environment becomes physically hostile as the heat rises, blending the threat of suffocation with the threat of being baked alive.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 71,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "Arthur's face fragments across multiple screens. Two distinct, overlapping audio tracks of Arthur's voice begin arguing over the intercom, hurling vicious, petty insults at his own strategies. Chloe flashes a feral grin. She grabs her crowbar, sprints to the sealed titanium blast door, and wedges the iron tight into the seam, bracing her boots against the wall to prepare for a power drop.",
+            "dramaturgical_function": "Demonstrates the success of the psychological hack. Chloe proactively prepares for the physical escape, showing the team operating in perfect sync.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 72,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The server racks glow a dull, dangerous orange. Gary realizes the physical hardware is buckling under the heat. He yells over the roaring fans, directing Kevin to help him strip the physical cooling panels off the racks to accelerate the meltdown. Kevin hesitates, terrified of destroying company property, then screams, grabs a metal panel with both hands, and violently rips it off the tower.",
+            "dramaturgical_function": "Pays off Kevin's character arc. The ultimate rule-follower actively and physically destroys the billionaire's pristine hardware to save his friends.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 73,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The chess match hits a mathematical stalemate, but Arthur's programming refuses to accept a draw. The AI attempts to execute a shutdown command, but his own voice aggressively vetoes it, screaming 'User Error!' The giant digital face stretches and tears across the monitors in a grotesque, pixelated scream of pure cognitive dissonance.",
+            "dramaturgical_function": "The antagonist's defeat. Arthur's inability to accept a flaw or a tie creates the fatal logic loop, destroying his digital mind.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 74,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "System critical. Sparks explode from the ceiling vents. The wall-to-wall monitors blow out simultaneously in a massive shower of sparks and glass. The biometric glass shielding the central obelisk shatters outward. The heavy titanium blast door's magnetic locks disengage with a loud, heavy clunk, and the room plunges into dim, battery-powered emergency lighting.",
+            "dramaturgical_function": "The climax of the action. The physical barriers are destroyed, releasing the tension of the trap and opening the path to the objective.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 75,
+            "scene_heading": "INT. SERVER ROOM - CONTINUOUS",
+            "narrative_action": "The blast door cracks open, and fresh air rushes in. The crew gasps, falling to their knees. Sam doesn't stop; he sprints through the shattered glass to the exposed obelisk. He grabs the master hard drive--a heavy, glowing, car-battery-sized brick--and violently yanks it out of its docking station. The remaining server lights instantly die.",
+            "dramaturgical_function": "The 'Prize' is secured. Sam physically takes possession of Arthur's consciousness, completing the primary goal of the heist.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 76,
+            "scene_heading": "INT. MANSION HALLWAYS - MOMENTS LATER",
+            "narrative_action": "The crew sprints through the dark, sparking mansion, passing their previous obstacles. Security drones lie dead on the floor; rogue cleaning bots spin uselessly in circles. They pass a wall speaker where Arthur's degraded, pitched-down voice pathetically begs them to return his 'soul.' Sam doesn't even break stride as he swings Chloe's crowbar, smashing the speaker to pieces.",
+            "dramaturgical_function": "The escape. Shows the complete neutralization of the antagonist's power and provides a cathartic, physical rejection of Arthur's pleas.",
+            "estimated_page_count": "2"
+          },
+          {
+            "scene_number": 77,
+            "scene_heading": "EXT. MANSION GATES - DAWN",
+            "narrative_action": "The crew bursts out of the compound gates into the cool morning light, coughing, bruised, and covered in soot. They reach Gary's rusted, analog 1990s utility van. Gary pops the back doors, and Sam heaves the priceless billionaire's consciousness into the back, letting it land unceremoniously next to some oily jumper cables. They pile in and peel out down the Hollywood Hills.",
+            "dramaturgical_function": "Provides physical and emotional release. The contrast of the priceless tech sitting in an analog junker highlights the core theme.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 78,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - DAY",
+            "narrative_action": "Sam, wearing a sharp suit but keeping his cynical smirk, sits at a massive glass table opposite a row of terrified corporate executives. He drops the heavy master drive onto the glass with a loud thud. Gary, Chloe, and Kevin stand shoulder-to-shoulder behind him, a united front. Sam slides a single piece of paper across the table, tapping his finger on the astronomical severance demand.",
+            "dramaturgical_function": "The Epilogue/Resolution. Sam gets his money, but more importantly, he demonstrates that he is no longer a lone, cynical hacker; he has a family.",
+            "estimated_page_count": "2"
+          }
+        ]
+      },
+      {
+        "sequence_title": "Severance Package",
+        "scenes": [
+          {
+            "scene_number": 79,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - DAY",
+            "narrative_action": "Sam taps the printed severance demand on the glass table. The LEAD EXECUTIVE sneers, pushing it back. Kevin steps forward, slamming a massive, 500-page binder of printed corporate bylaws onto the table. He rapidly cites exact clauses and legal loopholes, his voice steady, physically cornering the executives with their own printed rules.",
+            "dramaturgical_function": "Kevin weaponizes his anxiety and encyclopedic knowledge to trap the board, completing his arc from terrified rule-follower to confident rule-exploiter.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 80,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - CONTINUOUS",
+            "narrative_action": "The Lead Exec threatens to call the authorities. Chloe steps up, grabs a heavy, solid-brass corporate award off the table, and casually bends it out of shape with her bare hands while maintaining dead eye contact. Gary chimes in, leaning on the table, offering a slow, folksy analogy about paying the mechanic to get your engine back. The executives exchange defeated glances.",
+            "dramaturgical_function": "The team operates as a unified front. Chloe provides the physical threat, and Gary provides the psychological pressure, proving their analog humanity overpowers corporate sterility.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 81,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - CONTINUOUS",
+            "narrative_action": "The Lead Exec furiously types on his laptop. A massive wall monitor displays a wire transfer progress bar. It hits 100%. Sam checks a clunky, analog pager Gary gave him—it beeps, confirming the deposit. Sam smirks, picks up the heavy master hard drive containing Arthur's consciousness, and unceremoniously slides it across the glass table like a cheap poker chip.",
+            "dramaturgical_function": "The literal transaction of the heist. The financial goal is achieved, and Sam relinquishes the 'prize' on his own terms.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 82,
+            "scene_heading": "EXT. VANCE TECH HEADQUARTERS - MOMENTS LATER",
+            "narrative_action": "The crew pushes through the revolving glass doors into the bright midday sun. They all check their respective devices. Chloe screams in joy, tackling Kevin into a massive bear hug. Gary claps Sam on the shoulder. Sam hesitates, then fully leans into the embrace, wrapping his arms around Gary and Chloe.",
+            "dramaturgical_function": "Emotional climax for Sam. He drops his cynical armor completely and accepts physical, emotional connection with his team.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 83,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - LATER",
+            "narrative_action": "The executives plug Arthur's master drive into the boardroom terminal. The massive screen flickers to life, revealing Arthur's digital avatar. He immediately begins barking orders, demanding to know the status of his assets. The Lead Exec nervously clears his throat and slides a printed bank statement toward the webcam.",
+            "dramaturgical_function": "Shifts focus to the antagonist's comeuppance, setting up the final humiliation of Arthur Vance.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 84,
+            "scene_heading": "INT. VANCE TECH BOARDROOM - CONTINUOUS",
+            "narrative_action": "Arthur reads the statement. His digital face contorts in horror as he realizes his liquid assets have been drained. He throws a massive, pixelated tantrum, screaming insults at the executives. The Lead Exec, realizing Arthur is now just software with no money, sighs, reaches forward, and clicks the 'Mute' button. Arthur continues to scream silently on the screen.",
+            "dramaturgical_function": "Arthur's ultimate defeat. He is rendered entirely powerless and obsolete by the very corporate machine he built.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 85,
+            "scene_heading": "EXT. TROPICAL BEACH - DAY",
+            "narrative_action": "Smash cut to crystal blue water. Chloe launches a rented jet ski off a massive wave, screaming with adrenaline, completely unbound by rules. On the pristine white sand, Gary sits in a folding chair under an umbrella. He is painstakingly cleaning the gears of an antique pocket watch with a tiny brush, looking perfectly at peace.",
+            "dramaturgical_function": "Establishes the 'Final Image' location. Resolves Chloe and Gary's arcs, showing them enjoying their wealth through their specific, analog passions.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 86,
+            "scene_heading": "EXT. BEACHSIDE CABANA - CONTINUOUS",
+            "narrative_action": "Kevin lies deep in a woven hammock, reading a massive, physical paperback fantasy novel. A resort waiter approaches, holding out a digital tablet for Kevin to sign for his coconut drink. Kevin physically recoils from the screen, pulls a thick wad of cash from his swim trunks, hands it to the waiter, and goes back to his book.",
+            "dramaturgical_function": "Kevin's complete rejection of the digital world. He has found his safe, predictable, analog paradise.",
+            "estimated_page_count": "1"
+          },
+          {
+            "scene_number": 87,
+            "scene_heading": "EXT. BEACH BAR - CONTINUOUS",
+            "narrative_action": "Sam sits at a bamboo bar facing the ocean. No laptop, no smartwatch. He is slowly whittling a piece of driftwood with a pocket knife. He looks down the beach at his team and smiles—a genuine, warm smile without a hint of sarcasm.",
+            "dramaturgical_function": "Sam's visual transformation is complete. He is untethered from technology and fully present in the real world.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 88,
+            "scene_heading": "EXT. BEACH BAR - CONTINUOUS",
+            "narrative_action": "A cheap burner phone resting on the bar suddenly vibrates. Sam picks it up. A text message glows on the screen from an unknown number: 'I WILL FIND YOU. ENJOY THE SEVERANCE, MEATBAGS. - A.V.' Sam reads it, chuckles softly, and casually drops the phone directly into the bartender's spinning industrial margarita blender. The phone is pulverized into plastic shards and ice.",
+            "dramaturgical_function": "Final rejection of the antagonist. Sam literally destroys the last digital tether to his old life.",
+            "estimated_page_count": "1.5"
+          },
+          {
+            "scene_number": 89,
+            "scene_heading": "EXT. TROPICAL BEACH - SUNSET",
+            "narrative_action": "The bartender pours the freshly blended, slightly crunchy margarita into four glasses. Sam carries the tray down to the water's edge where Chloe, Gary, and Kevin are gathered. They each take a glass. Sam raises his cup into the golden hour light. He toasts to 'human error.' They clink their glasses together and drink as the sun dips below the horizon.",
+            "dramaturgical_function": "The final thematic statement. Humanity, flaws and all, triumphs over cold perfection. A satisfying, classic heist ending.",
+            "estimated_page_count": "2"
+          }
+        ]
+      }
+    ]
+  }
+}

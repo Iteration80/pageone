@@ -2289,6 +2289,12 @@ document.addEventListener('DOMContentLoaded', () => {
             sequences = dummyData.sequences;
         }
 
+        // Clean up accumulated ghosts: If real scenes exist in the data, strip out any empty placeholder sequences
+        const hasRealScenes = sequences.some(seq => seq.scenes && seq.scenes.length > 0);
+        if (hasRealScenes) {
+            sequences = sequences.filter(seq => seq.scenes && seq.scenes.length > 0);
+        }
+
         if (sequences === dummyData.sequences || sequences.length === 0) {
             // If we are forcing dummy data, clear the container but allow it to draw the empty blocks so the user can hit 'Generate'
             container.innerHTML = '';
@@ -2531,7 +2537,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function scrapeStage6() {
         const sequences = [];
-        const seqBlocks = document.querySelectorAll('.sequence-block');
+        const stage6Container = document.getElementById('stage6-blueprint-container');
+        
+        // Scope the query exclusively to the Stage 6 container to avoid grabbing hidden Stage 2 blocks
+        const seqBlocks = stage6Container ? stage6Container.querySelectorAll('.sequence-block') : [];
         
         seqBlocks.forEach(block => {
             const title = block.querySelector('.sequence-title')?.textContent || "";
