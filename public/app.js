@@ -2960,6 +2960,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnDownloadScenes = document.getElementById('btnDownloadScenes');
+    if (btnDownloadScenes) {
+        btnDownloadScenes.addEventListener('click', () => {
+            const data = window.currentProjectData?.stage6_scenes;
+            if (!data) {
+                alert('No scene blueprint has been generated yet.');
+                return;
+            }
+            const sequences = Array.isArray(data) ? data : (data.sequences || []);
+            if (sequences.length === 0) {
+                alert('No scene blueprint has been generated yet.');
+                return;
+            }
+            const lines = [];
+            sequences.forEach(seq => {
+                lines.push(`SEQUENCE ${seq.sequence_number}: ${seq.sequence_title}`);
+                lines.push('='.repeat(60));
+                lines.push(`Estimated Pages: ${seq.total_estimated_pages}`);
+                lines.push('');
+                (seq.scenes || []).forEach(scene => {
+                    lines.push(`Scene ${scene.scene_number}: ${scene.scene_heading}`);
+                    lines.push(`Narrative: ${scene.narrative_action}`);
+                    lines.push(`Function: ${scene.dramaturgical_function}`);
+                    lines.push(`Est. Pages: ${scene.estimated_page_count}`);
+                    lines.push('');
+                });
+                lines.push('');
+            });
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'scenes';
+            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_scene_blueprint.txt';
+            const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
     const btnDownloadTreatment = document.getElementById('btnDownloadTreatment');
     if (btnDownloadTreatment) {
         btnDownloadTreatment.addEventListener('click', () => {
