@@ -8,10 +8,14 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * Stage 7: The Draft Agent
  * Generates one scene at a time based on the blueprint and project context.
  */
-const generateSceneDraft = async (sceneData, projectContext) => {
+const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null) => {
     // Read the Screenwriting SOP rules
     const rulesPath = path.join(__dirname, '../skills/screenwriting_rules.md');
     const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
+
+    const revisionSection = revisionNotes
+        ? `\n## REVISION NOTES\nApply the following notes to the existing draft while preserving the core scene structure and blueprint:\n${revisionNotes}\n\n## EXISTING DRAFT\n${sceneData.draft_text || 'No existing draft.'}\n`
+        : '';
 
     const prompt = `
 ${screenwritingRules}
@@ -29,11 +33,11 @@ SLUGLINE: ${sceneData.scene_heading}
 NARRATIVE ACTION: ${sceneData.narrative_action}
 DRAMATURGICAL FUNCTION: ${sceneData.dramaturgical_function}
 ESTIMATED PAGE COUNT: ${sceneData.estimated_page_count}
-
+${revisionSection}
 ## INSTRUCTIONS
-Write the screenplay pages for this specific scene using the provided rules. 
-Output ONLY the raw Fountain-formatted text. 
-Do not wrap it in markdown code blocks. 
+Write the screenplay pages for this specific scene using the provided rules.
+Output ONLY the raw Fountain-formatted text.
+Do not wrap it in markdown code blocks.
 Do not include any introductory or concluding text.
     `;
 

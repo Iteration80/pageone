@@ -21,29 +21,34 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         let inDialogueBlock = false;
 
+        // Escape HTML entities before injecting into the DOM
+        function esc(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
         lines.forEach((line) => {
             const tLine = line.trim();
-            
+
             if (tLine === '') {
                 html += '<div class="h-3"></div>'; // Spacing for empty lines
                 inDialogueBlock = false;
             } else if (/^(INT\.|EXT\.|I\/E\.|EST\.)/i.test(tLine) && tLine === tLine.toUpperCase()) {
                 // Scene Heading
-                html += `<div class="font-bold uppercase mt-6 mb-2 text-left">${tLine}</div>`;
+                html += `<div class="font-bold uppercase mt-6 mb-2 text-left">${esc(tLine)}</div>`;
                 inDialogueBlock = false;
             } else if (tLine === tLine.toUpperCase() && !inDialogueBlock && !/^(INT\.|EXT\.)/i.test(tLine)) {
                 // Character Name
-                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide">${tLine}</div>`;
+                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide">${esc(tLine)}</div>`;
                 inDialogueBlock = true;
             } else if (inDialogueBlock && tLine.startsWith('(') && tLine.endsWith(')')) {
                 // Parenthetical
-                html += `<div class="ml-[25%] mb-0 italic">${tLine}</div>`;
+                html += `<div class="ml-[25%] mb-0 italic">${esc(tLine)}</div>`;
             } else if (inDialogueBlock) {
                 // Dialogue
-                html += `<div class="ml-[15%] w-[70%] mb-0">${tLine}</div>`;
+                html += `<div class="ml-[15%] w-[70%] mb-0">${esc(tLine)}</div>`;
             } else {
                 // Action Line
-                html += `<div class="text-left mb-2 w-full">${tLine}</div>`;
+                html += `<div class="text-left mb-2 w-full">${esc(tLine)}</div>`;
             }
         });
 
@@ -889,8 +894,9 @@ document.addEventListener('DOMContentLoaded', () => {
             3: !!data.stage3_characters,
             4: !!(data.stage4_beats || data.stage4_treatment),
             5: !!data.stage5_treatment,
-            6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0))
-            // Stages 7-10 currently placeholder
+            6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0)),
+            7: !!data.stage7_approved
+            // Stages 8-10 currently placeholder
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -953,15 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!navItems[i].classList.contains('disabled')) {
                 switchStage(i);
             }
-        });
-    }
-
-    // Surgical fix for Stage 7 Navigation
-    if (navItems[7]) {
-        navItems[7].addEventListener('click', (e) => {
-            e.preventDefault();
-            // Force switching to Stage 7 even if it's currently "disabled" in the UI
-            switchStage(7);
         });
     }
 
@@ -2646,10 +2643,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const card = document.createElement('div');
                 card.className = `scene-accordion-card rounded-md mb-2 border ${activeClass} overflow-hidden transition-all`;
+                const lockBadge = scene.locked ? `<span class="text-[9px] text-green-400 font-bold ml-1">LOCKED</span>` : '';
                 card.innerHTML = `
                     <div class="accordion-header p-3 cursor-pointer flex justify-between items-center" onclick="selectDraftScene(${scene.scene_number})">
                         <div class="flex-1 pr-4">
-                            <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}</div>
+                            <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}${lockBadge}</div>
                             <div class="text-xs text-gray-200 font-semibold leading-snug">${escapeHtml(scene.scene_heading)}</div>
                         </div>
                         <div class="p-2 hover:bg-white/10 rounded-full transition-colors" onclick="toggleSceneDetails(this, event)">
@@ -2667,14 +2665,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        btnGenerateScene.textContent = `Generate Scene ${currentDraftSceneNumber}`;
-        btnGenerateScene.disabled = false;
         draftEditor.classList.add('font-mono');
-        
+
         // Check if draft text already exists in the JSON for this scene
         const scenes = getFlatScenes();
         const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
-        
+
+        if (currentSceneData?.locked) {
+            btnGenerateScene.textContent = `Scene ${currentDraftSceneNumber} Locked`;
+            btnGenerateScene.disabled = true;
+        } else {
+            btnGenerateScene.textContent = `Generate Scene ${currentDraftSceneNumber}`;
+            btnGenerateScene.disabled = false;
+        }
+
         if (currentSceneData && currentSceneData.draft_text) {
             draftEditor.innerHTML = formatFountainToHTML(currentSceneData.draft_text);
             btnNextScene.classList.remove('hidden');
@@ -2732,11 +2736,138 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnNextScene) {
-        btnNextScene.addEventListener('click', () => {
+        btnNextScene.addEventListener('click', async () => {
+            // Mark the current scene as locked and persist before advancing
+            const scenes = getFlatScenes();
+            const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
+            if (currentSceneData && activeProjectId) {
+                currentSceneData.locked = true;
+                const stage6Scenes = window.currentProjectData?.stage6_scenes;
+                if (stage6Scenes) {
+                    try {
+                        await fetch(`/api/projects/${activeProjectId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ data: { stage6_scenes: stage6Scenes } })
+                        });
+                        const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                        const projData = await projRes.json();
+                        window.currentProjectData = projData.data;
+                    } catch (err) {
+                        console.error('Failed to persist lock state:', err);
+                    }
+                }
+            }
             currentDraftSceneNumber++;
             initStage7();
         });
     }
+
+    if (btnStage7Submit) {
+        btnStage7Submit.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+            const feedback = stage7Notes?.value.trim();
+            if (!feedback) {
+                alert("Please enter revision notes in the feedback box before submitting.");
+                return;
+            }
+
+            const originalText = btnStage7Submit.textContent;
+            btnStage7Submit.disabled = true;
+            btnStage7Submit.textContent = 'Revising...';
+
+            try {
+                const response = await fetch('/api/revise-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: activeProjectId,
+                        sceneNumber: currentDraftSceneNumber,
+                        feedback: feedback
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to revise scene');
+                }
+
+                const data = await response.json();
+
+                if (draftEditor) {
+                    draftEditor.innerHTML = formatFountainToHTML(data.result);
+                }
+
+                // Sync local project data
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                window.currentProjectData = projData.data;
+
+                // Clear feedback notes
+                if (stage7Notes) {
+                    stage7Notes.value = '';
+                    stage7Notes.style.height = 'auto';
+                }
+
+                // Show "Next" button since we now have a draft
+                if (btnNextScene) btnNextScene.classList.remove('hidden');
+
+                btnStage7Submit.textContent = 'Revised ✓';
+                setTimeout(() => {
+                    btnStage7Submit.textContent = originalText;
+                    btnStage7Submit.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Stage 7 revision failed:', error);
+                alert(`Error: ${error.message}`);
+                btnStage7Submit.textContent = originalText;
+                btnStage7Submit.disabled = false;
+            }
+        });
+    }
+
+    if (btnStage7Approve) {
+        btnStage7Approve.addEventListener('click', async () => {
+            if (!activeProjectId) return;
+
+            const originalText = btnStage7Approve.textContent;
+            btnStage7Approve.disabled = true;
+            btnStage7Approve.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: { stage7_approved: true } })
+                });
+
+                if (!response.ok) throw new Error('Failed to save project');
+
+                const updatedProject = await response.json();
+                updateStageNav(updatedProject.data);
+
+                btnStage7Approve.textContent = 'Approved ✓';
+                btnStage7Approve.classList.add('approve-btn-green');
+
+                // Advance to Stage 8
+                switchStage(8);
+
+            } catch (error) {
+                console.error('Stage 7 approval failed:', error);
+                alert('An error occurred while saving.');
+                btnStage7Approve.textContent = originalText;
+                btnStage7Approve.disabled = false;
+            }
+        });
+    }
+
+    // Expose selectDraftScene on window from inside the closure so it has access
+    // to currentDraftSceneNumber and initStage7 (both defined in this scope).
+    window.selectDraftScene = function(sceneNumber) {
+        currentDraftSceneNumber = sceneNumber;
+        initStage7();
+    };
 
 });
 
@@ -2755,11 +2886,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return scenes;
     }
-
-    window.selectDraftScene = function(sceneNumber) {
-        currentDraftSceneNumber = sceneNumber;
-        initStage7(); // Re-render the view for the selected scene
-    };
 
     window.toggleSceneDetails = function(element, event) {
         if (event) event.stopPropagation();

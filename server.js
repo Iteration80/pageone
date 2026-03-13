@@ -377,6 +377,56 @@ app.post('/api/generate-draft', async (req, res) => {
     }
 });
 
+app.post('/api/revise-draft', async (req, res) => {
+    try {
+        const { projectId, sceneNumber, feedback } = req.body;
+        if (!projectId || sceneNumber === undefined || !feedback) {
+            return res.status(400).json({ error: "Missing projectId, sceneNumber, or feedback" });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        if (!projectData.data?.stage6_scenes) {
+            return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
+        }
+
+        let targetedScene = null;
+        for (const sequence of projectData.data.stage6_scenes) {
+            const scene = sequence.scenes.find(s => s.scene_number === parseInt(sceneNumber));
+            if (scene) { targetedScene = scene; break; }
+        }
+
+        if (!targetedScene) {
+            return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
+        }
+
+        const projectContext = {
+            synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || "",
+            characters: projectData.data.stage3_characters?.characters || []
+        };
+
+        console.log(`Revising draft for Scene ${sceneNumber}...`);
+        const draftText = await generateSceneDraft(targetedScene, projectContext, feedback);
+
+        targetedScene.draft_text = draftText;
+        targetedScene.locked = false; // Unlock scene after revision
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: draftText });
+    } catch (error) {
+        console.error('Stage 7 Draft Revision Error:', error.message);
+        res.status(500).json({ error: error.message || "Failed to revise scene draft" });
+    }
+});
+
 // --- Project Management Routes --- //
 
 // GET all projects
