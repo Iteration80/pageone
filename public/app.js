@@ -2875,13 +2875,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const stage7WorkshopToggle = document.getElementById('stage7WorkshopToggle');
-    const stage7Workshop = document.getElementById('stage7Workshop');
-    if (stage7WorkshopToggle && stage7Workshop) {
-        stage7WorkshopToggle.addEventListener('click', () => {
-            stage7Workshop.classList.toggle('collapsed');
-        });
-    }
+    document.querySelectorAll('.feedback-panel').forEach(panel => {
+        const header = panel.querySelector('.feedback-panel-header');
+        if (header) {
+            header.addEventListener('click', () => panel.classList.toggle('collapsed'));
+        }
+    });
 
     if (btnGenerateAll) {
         btnGenerateAll.addEventListener('click', async () => {
