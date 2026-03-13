@@ -485,28 +485,34 @@
 
             <!-- Stage 7 Feedback Panel (Sticky) -->
             <section id="stage7Workshop" class="feedback-panel">
-                <label for="stage7-notes"
-                    class="feedback-label text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">FEEDBACK</label>
-                <textarea id="stage7-notes"
-                    class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                    placeholder="e.g. Make the dialogue snappier, or shorten Scene 2..."></textarea>
-                <div class="action-row action-row-split">
-                    <div class="action-left">
-                        <button id="btnStage7Edit" class="danger-btn hidden">Revise</button>
-                    </div>
-                    <div class="action-group-right flex items-center">
-                        <label for="stage7PdfUpload" class="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 cursor-pointer transition-colors mr-4" title="Attach additional story material">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-paperclip text-gray-400">
-                                <path
-                                    d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                            </svg>
-                        </label>
-                        <input type="file" id="stage7PdfUpload" accept="application/pdf" class="hidden">
-                        <span id="stage7FileNameDisplay" class="file-name"></span>
-                        <button id="btnStage7Submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-full transition-colors">Submit</button>
-                        <button id="btnStage7Approve" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-full transition-colors ml-2">Approve</button>
+                <div class="feedback-panel-header" id="stage7WorkshopToggle">
+                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
+                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                    </button>
+                </div>
+                <div class="feedback-panel-body">
+                    <textarea id="stage7-notes"
+                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
+                        placeholder="e.g. Make the dialogue snappier, or shorten Scene 2..."></textarea>
+                    <div class="action-row action-row-split">
+                        <div class="action-left">
+                            <button id="btnStage7Edit" class="danger-btn hidden">Revise</button>
+                        </div>
+                        <div class="action-group-right flex items-center">
+                            <label for="stage7PdfUpload" class="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 cursor-pointer transition-colors mr-4" title="Attach additional story material">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-paperclip text-gray-400">
+                                    <path
+                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                </svg>
+                            </label>
+                            <input type="file" id="stage7PdfUpload" accept="application/pdf" class="hidden">
+                            <span id="stage7FileNameDisplay" class="file-name"></span>
+                            <button id="btnStage7Submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-full transition-colors">Submit</button>
+                            <button id="btnStage7Approve" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-full transition-colors ml-2">Approve</button>
+                        </div>
                     </div>
                 </div>
             </section>

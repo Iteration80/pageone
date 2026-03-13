@@ -826,6 +826,49 @@ textarea.synopsis-input {
     z-index: 10;
 }
 
+.feedback-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+}
+
+.feedback-panel-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.25s ease;
+    flex-shrink: 0;
+}
+
+.feedback-panel-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.feedback-panel-toggle svg {
+    transition: transform 0.25s ease;
+}
+
+.feedback-panel.collapsed .feedback-panel-toggle svg {
+    transform: rotate(180deg);
+}
+
+.feedback-panel-body {
+    display: contents;
+}
+
+.feedback-panel.collapsed .feedback-panel-body {
+    display: none;
+}
+
 .feedback-label {
     display: block;
     font-weight: 600;
@@ -1199,7 +1242,7 @@ textarea.synopsis-input {
 
 /* Blueprint TOC Sidebar */
 .stage7-blueprint-sidebar {
-    height: calc(100vh - 160px); /* Adjust based on footer */
+    height: 100%;
 }
 
 .toc-card {
