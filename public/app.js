@@ -2006,6 +2006,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
                 if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
+
+                // Auto-transition to Stage 5: Treatment
+                switchStage(5);
+                autoGenerateTreatmentStage5();
             } catch (err) {
                 console.error(err);
                 alert('Error saving approved treatment.');
