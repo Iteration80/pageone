@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage6Submit = document.getElementById('btnStage6Submit');
     const btnStage6Approve = document.getElementById('btnStage6Approve');
     const btnStage6Revise = document.getElementById('btnStage6Revise');
-    const btnGenerateStage6Blueprint = document.getElementById('btnGenerateStage6Blueprint');
+
 
     // Stage 7 Elements
     const stage7View = document.getElementById('stage7-view');
@@ -2354,7 +2354,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Auto-transition to Stage 6: Scene Blueprint
                 switchStage(6);
-                if (btnGenerateStage6Blueprint) btnGenerateStage6Blueprint.click();
+                generateStage6();
             } catch (err) {
                 console.error(err);
                 btnStage5Approve.textContent = originalText;
@@ -2559,67 +2559,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (btnGenerateStage6Blueprint) {
-        btnGenerateStage6Blueprint.addEventListener('click', async () => {
-            if (!activeProjectId) return;
+    const loadingStateStage6 = document.getElementById('loadingStateStage6');
+    const loadingTextStage6 = document.getElementById('loadingTextStage6');
 
-            // Clear Stage 6 old content before generation begins
-            if (stage6Board) stage6Board.innerHTML = '';
-            if (stage6Workshop) stage6Workshop.classList.add('hidden');
+    async function generateStage6() {
+        if (!activeProjectId) return;
 
-            btnGenerateStage6Blueprint.disabled = true;
-            btnGenerateStage6Blueprint.textContent = 'Starting...';
-            btnGenerateStage6Blueprint.classList.remove('approve-btn-green');
+        // Clear old content and show loading state
+        if (stage6Board) stage6Board.innerHTML = '';
+        if (stage6Workshop) stage6Workshop.classList.add('hidden');
+        if (loadingStateStage6) loadingStateStage6.classList.remove('hidden');
+        if (loadingTextStage6) loadingTextStage6.textContent = 'Generating Scene Blueprint...';
 
-            try {
-                const response = await fetch('/api/generate-stage6-scenes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId })
-                });
+        try {
+            const response = await fetch('/api/generate-stage6-scenes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to generate scene blueprint');
-                }
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to generate scene blueprint');
+            }
 
-                // Read SSE stream
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop(); // keep incomplete line
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
 
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        const event = JSON.parse(line.slice(6));
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const event = JSON.parse(line.slice(6));
 
-                        if (event.type === 'progress') {
-                            btnGenerateStage6Blueprint.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
-                        } else if (event.type === 'complete') {
-                            renderStage6(event.result);
-                            btnGenerateStage6Blueprint.textContent = 'Blueprint Generated ✓';
-                            btnGenerateStage6Blueprint.classList.add('approve-btn-green');
-                        } else if (event.type === 'error') {
-                            throw new Error(event.message);
-                        }
+                    if (event.type === 'progress') {
+                        if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
+                    } else if (event.type === 'complete') {
+                        renderStage6(event.result);
+                    } else if (event.type === 'error') {
+                        throw new Error(event.message);
                     }
                 }
-            } catch (error) {
-                console.error('Stage 6 generation failed:', error);
-                alert('An error occurred during scene generation.');
-                btnGenerateStage6Blueprint.textContent = 'Generate Initial Scene Blueprint';
-                btnGenerateStage6Blueprint.classList.remove('approve-btn-green');
-            } finally {
-                btnGenerateStage6Blueprint.disabled = false;
             }
-        });
+        } catch (error) {
+            console.error('Stage 6 generation failed:', error);
+            alert('An error occurred during scene generation.');
+        } finally {
+            if (loadingStateStage6) loadingStateStage6.classList.add('hidden');
+        }
     }
 
     if (btnStage6Submit) {

@@ -502,11 +502,15 @@
                                 </svg>
                                 Download Scenes
                             </button>
-                            <button id="btnGenerateStage6Blueprint" class="primary-btn">Generate Initial Scene
-                                Blueprint</button>
                         </div>
                     </div>
                 </header>
+
+                <!-- Loading State for Scene Blueprint -->
+                <div id="loadingStateStage6" class="hidden" style="text-align: center; margin-top: 32px;">
+                    <div class="spinner"></div>
+                    <span id="loadingTextStage6">Generating Scene Blueprint...</span>
+                </div>
 
                 <!-- Scene Board Container -->
                 <div id="stage6-blueprint-container" class="flex flex-col gap-8 pb-24">
