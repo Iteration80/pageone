@@ -788,6 +788,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const revisedPitch = data.result;
 
             if (revisedPitch) {
+                if (window.currentProjectData) window.currentProjectData.stage1_pitch = { pitch: revisedPitch };
+
                 // Update UI fields
                 currentFields.forEach(field => {
                     const key = field.getAttribute('data-field');
@@ -2662,7 +2664,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const data = await response.json();
-                
+                if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
+
                 // Clear feedback box
                 if (stage6Notes) {
                     stage6Notes.value = "";
