@@ -122,6 +122,16 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must s
 
             const parsedSeq = JSON.parse(result.text);
             parsedSeq.sequence_number = i;
+
+            // Enforce per-sequence relative numbering (Scene 1…N within each sequence)
+            // regardless of what the model produced, so scene numbers are always
+            // consistent across all 8 sequences.
+            if (parsedSeq.scenes) {
+                parsedSeq.scenes.forEach((scene, idx) => {
+                    scene.scene_number = idx + 1;
+                });
+            }
+
             allSequences.push(parsedSeq);
 
             // --- State Pass ---

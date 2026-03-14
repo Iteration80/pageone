@@ -881,6 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Navigation Logic ---
     function updateStageNav(data) {
+        window.currentProjectData = data;
         function toggle(navEl, isDone, num) {
             if (!navEl) return;
             const b = navEl.querySelector('.badge');
@@ -993,6 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
             renderOutline(data.result.outline);
+            if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
         } catch (err) {
             console.error(err);
             alert(err.message);
@@ -1233,6 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
             renderOutline(data.result.outline);
+            if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
 
             // Clear notes and PDF
             stage2Notes.value = '';
@@ -1471,6 +1474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
 
             renderCharacters(data.result.characters);
+            if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
 
             const projectRes = await fetch(`/api/projects/${activeProjectId}`);
             const projectDetails = await projectRes.json();
@@ -1578,6 +1582,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const data = await res.json();
                 renderCharacters(data.result.characters);
+                if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
 
                 // Clear notes and PDF
                 if (stage3Notes) stage3Notes.value = ''; // clear notes
@@ -1999,6 +2004,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnStage4Revise.textContent = event.label;
                         } else if (event.type === 'complete') {
                             renderTreatment(event.result);
+                            if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
                             if (stage4Notes) stage4Notes.value = '';
                             if (stage4PdfUpload) stage4PdfUpload.value = '';
                             if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
@@ -2170,6 +2176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadingTextStage5) loadingTextStage5.textContent = `Step ${event.step} of ${event.total}: ${event.label}`;
                     } else if (event.type === 'complete') {
                         renderTreatmentStage5(event.result);
+                        if (window.currentProjectData) window.currentProjectData.stage5_treatment = event.result;
                         // Reset buttons to fresh "Submit + Approve" state, overriding any
                         // stale locked state left over from project hydration.
                         if (btnStage5Edit) btnStage5Edit.classList.add('hidden');
@@ -2306,6 +2313,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnStage5Revise.textContent = event.label;
                         } else if (event.type === 'complete') {
                             renderTreatmentStage5(event.result);
+                            if (window.currentProjectData) window.currentProjectData.stage5_treatment = event.result;
                             if (stage5Notes) stage5Notes.value = '';
                             if (stage5PdfUpload) stage5PdfUpload.value = '';
                             if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
@@ -2603,6 +2611,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
                     } else if (event.type === 'complete') {
                         renderStage6(event.result);
+                        if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
                     }
