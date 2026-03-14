@@ -3100,6 +3100,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function makeFilename(title, stage, ext = 'txt') {
+        const slug = (title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'untitled';
+        const ts = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+        return `${slug}_${stage}_${ts}.${ext}`;
+    }
+
     const btnDownloadOutline = document.getElementById('btnDownloadOutline');
     if (btnDownloadOutline) {
         btnDownloadOutline.addEventListener('click', () => {
@@ -3128,7 +3134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title.replace(/\s+/g, '_')}_outline.txt`;
+            a.download = makeFilename(title, 'outline');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3150,7 +3156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title.replace(/\s+/g, '_')}_pitch.txt`;
+            a.download = makeFilename(title, 'pitch');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3191,7 +3197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title.replace(/\s+/g, '_')}_characters.txt`;
+            a.download = makeFilename(title, 'characters');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3205,7 +3211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('No beats have been generated yet.');
                 return;
             }
-            const title = window.currentProjectData?.stage1_pitch?.title || 'untitled';
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
             let text = `BEAT SHEET: ${title.toUpperCase()}\n`;
             if (data.stc_genre_category) text += `STC Genre: ${data.stc_genre_category}\n`;
             text += '\n';
@@ -3224,7 +3230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title.replace(/\s+/g, '_')}_beats.txt`;
+            a.download = makeFilename(title, 'beats');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3259,12 +3265,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 lines.push('');
             });
             const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'scenes';
-            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_scene_blueprint.txt';
             const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = filename;
+            a.download = makeFilename(title, 'scene_blueprint');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3290,12 +3295,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(s => `${s.label}\n${'='.repeat(s.label.length)}\n\n${treatment[s.key].trim()}`)
                 .join('\n\n\n');
             const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'treatment';
-            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_treatment.txt';
             const blob = new Blob([text], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = filename;
+            a.download = makeFilename(title, 'treatment');
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -3312,12 +3316,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const fountainText = drafted.map(s => s.draft_text.trim()).join('\n\n');
             const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
-            const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '.fountain';
             const blob = new Blob([fountainText], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = filename;
+            a.download = makeFilename(title, 'draft', 'fountain');
             a.click();
             URL.revokeObjectURL(url);
         });
