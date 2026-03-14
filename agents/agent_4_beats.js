@@ -4,7 +4,7 @@ const path = require('path');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null) => {
+const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null, onProgress = null) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
     const beatsSOP = fs.readFileSync(skillPath, 'utf8');
 
@@ -46,6 +46,7 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
     // Revision Bypass Logic
     if (notes && currentBeats) {
         console.log("  Surgical Revision Mode: Updating beats...");
+        if (onProgress) onProgress('Applying surgical revision...');
         const revisionSystemInstruction = `${beatsSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the 15-point beat sheet. You MUST keep unaffected beats 100% identical. HOWEVER, if the user's note creates a structural ripple effect, you must update subsequent beats to maintain narrative logic. Do not alter the overarching 8-sequence structure. Maintain the exact same JSON schema.`;
 
         const revisionPrompt = `USER NOTE: ${notes}
@@ -68,6 +69,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
 
         return JSON.parse(response.text);
     }
+
+    if (onProgress) onProgress('Generating 15-Beat Sheet...');
 
     const systemInstruction = beatsSOP;
 

@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stage 4 Workshop Elements
     const stage4Workshop = document.getElementById('stage4Workshop');
     const loadingStateTreatment = document.getElementById('loadingStateTreatment');
+    const loadingTextTreatment = document.getElementById('loadingTextTreatment');
     const treatmentContainer = document.getElementById('treatmentContainer');
     const btnStage4Revise = document.getElementById('btn-stage4-revise');
     const btnStage4Approve = document.getElementById('btn-stage4-approve');
@@ -1819,6 +1820,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (treatmentActions) treatmentActions.classList.add('hidden');
 
+        if (loadingTextTreatment) loadingTextTreatment.textContent = 'Generating 15-Beat Sheet...';
+
         try {
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
@@ -1832,21 +1835,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Server responded with ${response.status}`);
             }
 
-            const data = await response.json();
-            if (data.result) {
-                renderTreatment(data.result);
+            // Read SSE stream
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-                // Fetch updated project to refresh nav
-                const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                const projData = await projRes.json();
-                updateStageNav(projData.data);
-            } else {
-                alert('Unexpected response format from server.');
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const event = JSON.parse(line.slice(6));
+
+                    if (event.type === 'progress') {
+                        if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
+                    } else if (event.type === 'complete') {
+                        renderTreatment(event.result);
+                        const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                        const projData = await projRes.json();
+                        updateStageNav(projData.data);
+                    } else if (event.type === 'error') {
+                        throw new Error(event.message);
+                    }
+                }
             }
         } catch (err) {
             console.error('Error generating treatment:', err);
             alert('An error occurred while generating the treatment. You can retry with the Generate Treatment button.');
-            // Show the button again so the user can retry
             if (treatmentActions) treatmentActions.classList.remove('hidden');
         } finally {
             if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
@@ -1958,21 +1978,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`Server responded with ${response.status}`);
                 }
 
-                const data = await response.json();
-                if (data.result) {
-                    renderTreatment(data.result);
+                // Read SSE stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
 
-                    // Clear notes and PDF
-                    if (stage4Notes) stage4Notes.value = '';
-                    if (stage4PdfUpload) stage4PdfUpload.value = '';
-                    if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                    if (btnStage4Approve) {
-                        btnStage4Approve.textContent = 'Approve';
-                        btnStage4Approve.classList.remove('approve-btn-green');
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const event = JSON.parse(line.slice(6));
+
+                        if (event.type === 'progress') {
+                            btnStage4Revise.textContent = event.label;
+                        } else if (event.type === 'complete') {
+                            renderTreatment(event.result);
+                            if (stage4Notes) stage4Notes.value = '';
+                            if (stage4PdfUpload) stage4PdfUpload.value = '';
+                            if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
+                            if (btnStage4Approve) {
+                                btnStage4Approve.textContent = 'Approve';
+                                btnStage4Approve.classList.remove('approve-btn-green');
+                            }
+                        } else if (event.type === 'error') {
+                            throw new Error(event.message);
+                        }
                     }
-                } else {
-                    alert('Unexpected response format from server.');
                 }
             } catch (err) {
                 console.error('Error revising treatment:', err);
@@ -2086,10 +2123,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function autoGenerateTreatmentStage5() {
         if (!activeProjectId) return;
 
+        // Clear Stage 5 content
         if (loadingStateStage5) loadingStateStage5.classList.remove('hidden');
         if (stage5Actions) stage5Actions.classList.add('hidden');
         if (stage5TreatmentContainer) stage5TreatmentContainer.classList.add('hidden');
         if (stage5Workshop) stage5Workshop.classList.add('hidden');
+        Object.values(stage5TAs).forEach(ta => { if (ta) ta.value = ''; });
+
+        // Clear Stage 6 — it is now stale since Stage 5 is being regenerated
+        if (stage6Board) stage6Board.innerHTML = '';
+        if (stage6Workshop) stage6Workshop.classList.add('hidden');
 
         if (loadingTextStage5) loadingTextStage5.textContent = 'Writing Act I...';
 
@@ -2520,8 +2563,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGenerateStage6Blueprint.addEventListener('click', async () => {
             if (!activeProjectId) return;
 
+            // Clear Stage 6 old content before generation begins
+            if (stage6Board) stage6Board.innerHTML = '';
+            if (stage6Workshop) stage6Workshop.classList.add('hidden');
+
             btnGenerateStage6Blueprint.disabled = true;
             btnGenerateStage6Blueprint.textContent = 'Starting...';
+            btnGenerateStage6Blueprint.classList.remove('approve-btn-green');
 
             try {
                 const response = await fetch('/api/generate-stage6-scenes', {

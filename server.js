@@ -157,50 +157,59 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
 });
 
 app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res) => {
+    const { projectId, currentBeats, notes } = req.body || {};
+    const pdfFile = req.file;
+
+    if (!projectId) {
+        return res.status(400).json({ error: "Missing projectId" });
+    }
+
+    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    let projectData;
     try {
-        const { projectId, currentBeats, notes } = req.body || {};
-        const pdfFile = req.file;
+        const content = await fs.readFile(filePath, 'utf-8');
+        projectData = JSON.parse(content);
+    } catch (err) {
+        return res.status(404).json({ error: "Project not found" });
+    }
 
-        if (!projectId) {
-            return res.status(400).json({ error: "Missing projectId" });
-        }
+    const pitchData = projectData.data?.stage1_pitch?.pitch;
+    const beatsData = projectData.data?.stage2_outline?.outline;
+    const charsData = projectData.data?.stage3_characters?.characters;
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+    if (!pitchData || !beatsData || !charsData) {
+        return res.status(400).json({ error: "Project requires Stages 1-3 to generate Beats" });
+    }
 
-        const pitchData = projectData.data?.stage1_pitch?.pitch;
-        const beatsData = projectData.data?.stage2_outline?.outline;
-        const charsData = projectData.data?.stage3_characters?.characters;
+    const parsedCurrentBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
 
-        if (!pitchData || !beatsData || !charsData) {
-            return res.status(400).json({ error: "Project requires Stages 1-3 to generate Beats" });
-        }
+    // SSE setup
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
-        const parsedCurrentBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
+    try {
         console.log("Generating Stage 4 Beats...");
-        console.log("Input sizes - pitch:", JSON.stringify(pitchData).length, "beats:", JSON.stringify(beatsData).length, "chars:", JSON.stringify(charsData).length);
-        const beatsResult = await agent4Beats(pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile);
+        const beatsResult = await agent4Beats(
+            pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
+            (label) => send({ type: 'progress', label })
+        );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
-        console.log("STC Genre:", beatsResult.stc_genre_category?.substring(0, 80));
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
-
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
-        res.json({ result: beatsResult });
+        send({ type: 'complete', result: beatsResult });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
-        console.error('Full error:', error);
-        res.status(500).json({ error: error.message || "Failed to generate beats" });
+        send({ type: 'error', message: error.message || 'Failed to generate beats' });
+    } finally {
+        res.end();
     }
 });
 
