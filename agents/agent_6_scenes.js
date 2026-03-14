@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * Translates an 8-sequence treatment into a scene-by-scene blueprint.
  * Uses sequential prompt chaining across 8 API calls.
  */
-const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
+const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
     const scenesSOP = fs.readFileSync(skillPath, 'utf8');
 
@@ -100,6 +100,7 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Focus on detailed, phys
             const parsedSeq = JSON.parse(result.text);
             parsedSeq.sequence_number = i; // Ensure sequence number is tracked
             allSequences.push(parsedSeq);
+            if (onProgress) onProgress(i, 8);
         } catch (error) {
             console.error(`Error generating sequence ${i}:`, error);
             throw error;

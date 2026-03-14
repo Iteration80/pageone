@@ -2459,10 +2459,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnGenerateStage6Blueprint) {
         btnGenerateStage6Blueprint.addEventListener('click', async () => {
             if (!activeProjectId) return;
-            
-            // UI Feedback
+
             btnGenerateStage6Blueprint.disabled = true;
-            btnGenerateStage6Blueprint.textContent = 'Generating... (8 sequences)';
+            btnGenerateStage6Blueprint.textContent = 'Starting...';
 
             try {
                 const response = await fetch('/api/generate-stage6-scenes', {
@@ -2476,23 +2475,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(error.error || 'Failed to generate scene blueprint');
                 }
 
-                const data = await response.json();
-                
-                // Update local storage/project data
-                const projectResponse = await fetch(`/api/projects/${activeProjectId}`);
-                const updatedProject = await projectResponse.json();
-                
-                // Assuming we have a global way to sync or just re-loadProject for Stage 6
-                // For now, if we match how Stage 5 works:
-                renderStage6(data.result);
-                
-                // Success feedback
-                btnGenerateStage6Blueprint.textContent = 'Blueprint Generated ✓';
-                btnGenerateStage6Blueprint.classList.add('approve-btn-green');
+                // Read SSE stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep incomplete line
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const event = JSON.parse(line.slice(6));
+
+                        if (event.type === 'progress') {
+                            btnGenerateStage6Blueprint.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
+                        } else if (event.type === 'complete') {
+                            renderStage6(event.result);
+                            btnGenerateStage6Blueprint.textContent = 'Blueprint Generated ✓';
+                            btnGenerateStage6Blueprint.classList.add('approve-btn-green');
+                        } else if (event.type === 'error') {
+                            throw new Error(event.message);
+                        }
+                    }
+                }
             } catch (error) {
                 console.error('Stage 6 generation failed:', error);
                 alert('An error occurred during scene generation.');
                 btnGenerateStage6Blueprint.textContent = 'Generate Initial Scene Blueprint';
+                btnGenerateStage6Blueprint.classList.remove('approve-btn-green');
             } finally {
                 btnGenerateStage6Blueprint.disabled = false;
             }

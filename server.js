@@ -248,42 +248,54 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
 });
 
 app.post('/api/generate-stage6-scenes', async (req, res) => {
+    const { projectId } = req.body;
+    if (!projectId) {
+        return res.status(400).json({ error: "Missing projectId" });
+    }
+
+    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    let projectData;
     try {
-        const { projectId } = req.body;
-        if (!projectId) {
-            return res.status(400).json({ error: "Missing projectId" });
-        }
+        const content = await fs.readFile(filePath, 'utf-8');
+        projectData = JSON.parse(content);
+    } catch (err) {
+        return res.status(404).json({ error: "Project not found" });
+    }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+    const pitch = projectData.data?.stage1_pitch?.pitch;
+    const characters = projectData.data?.stage3_characters?.characters;
+    const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
+    const treatment = projectData.data?.stage5_treatment;
 
-        const pitch = projectData.data?.stage1_pitch?.pitch;
-        const characters = projectData.data?.stage3_characters?.characters;
-        const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
-        const treatment = projectData.data?.stage5_treatment;
+    if (!pitch || !characters || !beats || !treatment) {
+        return res.status(400).json({ error: "Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint" });
+    }
 
-        if (!pitch || !characters || !beats || !treatment) {
-            return res.status(400).json({ error: "Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint" });
-        }
+    // SSE setup
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    try {
         console.log("Generating Stage 6 Scene Blueprint (Sequential Chain)...");
-        const allSequences = await generateStage6Scenes(pitch, characters, beats, treatment);
+        const allSequences = await generateStage6Scenes(
+            pitch, characters, beats, treatment,
+            (current, total) => send({ type: 'progress', current, total })
+        );
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
-
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
-        res.json({ result: allSequences });
+        send({ type: 'complete', result: allSequences });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to generate scene blueprint" });
+        send({ type: 'error', message: error.message || "Failed to generate scene blueprint" });
+    } finally {
+        res.end();
     }
 });
 
