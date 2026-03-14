@@ -163,87 +163,97 @@
         {
           "name": "Jax",
           "role": "Protagonist",
-          "brief_summary": "A retired, world-weary master thief forced back into the game to clear a deadly syndicate debt. He is the mastermind of the Olympus heist, acting as the reluctant leader who must overcome his crippling trust issues to save his crew.",
+          "brief_summary": "A retired master thief dragged back into the game to clear a deadly syndicate debt. He relies on meticulous planning to avoid the pain of betrayal but must learn to trust his crew when the heist goes off the rails.",
           "psychological_core": {
-            "wound": "Betrayed by his closest friend and partner on a job that cost him his reputation and freedom.",
-            "false_belief": "If I do not rely on anyone, I cannot be betrayed.",
-            "fear": "Being responsible for the deaths of his crew because he misplaced his trust again.",
-            "desire": "To steal the Star of Eden, pay off his syndicate debt, and disappear forever.",
-            "need": "To learn to trust others and forgive himself for past mistakes in order to build a real family."
+            "ghost_and_wound": "A botched heist years ago where his partner Silas betrayed him, resulting in the death of a young crew member and leaving Jax with a massive, life-threatening syndicate debt.",
+            "the_lie": "If I control every single variable and never rely on anyone else's judgment, no one will ever get hurt again.",
+            "fear": "Total loss of control and the terrifying vulnerability of trusting another human being with his life.",
+            "desire": "To steal the Star of Eden, pay off his syndicate debt, and secure his permanent, isolated freedom.",
+            "psychological_need": "To forgive himself for the past and accept that unpredictability is a part of life, not a personal failure.",
+            "moral_need": "To stop treating his crew members as disposable chess pieces and start treating them as equal partners."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Terse, authoritative, and strictly business. He never uses the word 'we' when talking about risk, always 'I'.",
-            "deflection_tactic": "Deflects emotional questions by redirecting focus to the logistics of the plan or obsessively checking his gear."
+            "speech_patterns": "Terse, precise, and speaks strictly in probabilities, timelines, and contingencies. He NEVER says 'I trust you' or 'We will wing it.'",
+            "deflection_tactic": "Reciting technical specifications or shifting the focus to the ticking clock when asked personal or emotional questions.",
+            "paradox": "A master thief who steals billions of dollars but lives like a minimalist monk, hoarding absolutely no personal possessions."
           },
-          "subtlety_guidelines": "Jax appears as a cool, hyper-competent professional who has everything under control. His trauma only shows when someone improvises without his permission, causing him to briefly freeze or snap, masking his panic as tactical critique."
+          "subtlety_guidelines": "He masks his deep paranoia with extreme, icy professionalism 90% of the time. Under intense stress, he obsessively taps his thumb against his watch crystal, betraying his desperate fear of losing control of the timeline."
         },
         {
           "name": "Silas",
-          "role": "Antagonist",
-          "brief_summary": "The ruthless, impeccably dressed Head of Security for The Olympus and Jax's former partner. He is the physical embodiment of Jax's past trauma and the ultimate obstacle to the crew's success.",
+          "role": "Main Opponent",
+          "brief_summary": "The ruthless, highly organized Head of Security on The Olympus and Jax's treacherous former partner. He believes absolute order and authority are the only ways to prevent the chaos of the criminal underworld from destroying society.",
           "psychological_core": {
-            "wound": "Always felt second-best to Jax's natural genius in their early thieving days.",
-            "false_belief": "Loyalty is a weakness that limits ambition and true potential.",
-            "fear": "Losing control and being exposed as a fraud who only succeeded by stealing Jax's glory.",
-            "desire": "To completely crush Jax and prove he is the superior mastermind.",
-            "need": "To realize that true power comes from mutual respect, not domination and betrayal."
+            "ghost_and_wound": "The same botched heist from the past, but from his perspective, Jax's hesitation and 'softness' almost got them both killed, proving to Silas that empathy is a fatal weakness.",
+            "the_lie": "Loyalty is a liability; true security and peace can only be achieved through absolute power, leverage, and control over others.",
+            "fear": "Returning to the powerless, chaotic gutter of his youth, or being outsmarted and humiliated by Jax.",
+            "desire": "To protect the Star of Eden at all costs and capture or kill Jax to definitively prove his philosophy of absolute control is superior.",
+            "psychological_need": "To realize his ruthless pursuit of security has completely isolated him and turned him into the exact monster he once feared.",
+            "moral_need": "To stop sacrificing human lives on the altar of corporate order and security."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Overly articulate, polite, and condescending. He never raises his voice, even in a firefight, and never admits to being surprised.",
-            "deflection_tactic": "Answers accusations with philosophical musings about human nature or the evolution of business."
+            "speech_patterns": "Eloquent, paternalistic, and uses sanitized corporate security jargon to describe horrific violence. He NEVER raises his voice or admits to being surprised.",
+            "deflection_tactic": "Politely complimenting his opponent's effort while subtly making a veiled threat against their loved ones.",
+            "paradox": "A ruthless, violent enforcer who is a gentle, meticulous connoisseur of delicate Earth orchids."
           },
-          "subtlety_guidelines": "Silas projects an aura of absolute control and sophistication. His deep-seated insecurity only leaks out in the form of micro-aggressions or an obsessive need to adjust his cuffs when Jax outsmarts him."
+          "subtlety_guidelines": "He projects an aura of untouchable calm and polite corporate hospitality 90% of the time. Under extreme stress, he violently snaps the stems of his prized flowers or aggressively straightens his cuffs, revealing his underlying rage."
         },
         {
-          "name": "Lyra",
-          "role": "Supporting",
-          "brief_summary": "A fearless, adrenaline-junkie zero-G acrobat who serves as the B-Story Anchor. She forces Jax to confront his trust issues because her role requires him to literally put his life in her hands in mid-air.",
+          "name": "Elara",
+          "role": "Catalyst",
+          "brief_summary": "A high-society fixer and mysterious broker who forces Jax out of retirement. She manipulates the criminal underworld like a chessboard, serving as the transactional bridge between the syndicate and the crew.",
           "psychological_core": {
-            "wound": "Grew up as a street orphan on a low-G mining colony, constantly abandoned by those who promised to take care of her.",
-            "false_belief": "I am only valuable as long as I am useful and entertaining to those around me.",
-            "fear": "Being left behind or deemed expendable when the job gets too dangerous.",
-            "desire": "To pull off the ultimate heist and earn enough money to buy her own ship and absolute freedom.",
-            "need": "To find a surrogate family that values her for who she is, not just her acrobatic skills."
+            "ghost_and_wound": "Growing up in extreme poverty on a brutal mining colony, she watched her parents get crushed to death by corporate debt and indentured servitude.",
+            "the_lie": "Money is the only true armor in the universe, and everyone has a price.",
+            "fear": "Returning to poverty, powerlessness, and being at the mercy of someone else's whims.",
+            "desire": "To ensure the heist is successful so she can collect her massive broker fee and secure a permanent seat on the syndicate's ruling council.",
+            "psychological_need": "To find a sense of purpose and identity beyond the endless accumulation of wealth and leverage.",
+            "moral_need": "To stop treating people as commodities to be bought, sold, and discarded when their value drops."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Fast-paced, slang-heavy, and overly enthusiastic. She never talks about her past or uses the word 'family'.",
-            "deflection_tactic": "Uses dark humor or physically moves, doing a coin roll or stretching, to avoid serious emotional beats."
+            "speech_patterns": "Charismatic, transactional, and constantly uses gambling or market metaphors. She NEVER makes a promise she cannot buy her way out of.",
+            "deflection_tactic": "Offering to pay someone off or buy them an incredibly expensive drink when they demand emotional accountability.",
+            "paradox": "A cynical, money-obsessed broker who secretly and anonymously funds an orphanage on her home mining colony."
           },
-          "subtlety_guidelines": "Lyra acts like she does not take anything seriously, treating the heist like a game. Her fear of abandonment only shows when communication feeds cut out, making her hyper-verbal to fill the terrifying silence."
+          "subtlety_guidelines": "She appears effortlessly glamorous, detached, and in control 90% of the time. Under stress, she obsessively rubs a cheap, tarnished copper coin from her childhood, showing her lingering terror of poverty."
         },
         {
-          "name": "Bastian",
-          "role": "Supporting",
-          "brief_summary": "A disgraced former orbital architect turned black-market engineer who serves as the crew's Skeptic. He is obsessed with predictability and physics, constantly challenging Jax's reliance on improvisation.",
+          "name": "Kael",
+          "role": "Adjuster",
+          "brief_summary": "A brilliant, cynical master hacker who controls the digital flow of the heist. He constantly challenges Jax's rigid planning, forcing him to adapt to the chaotic reality of the job.",
           "psychological_core": {
-            "wound": "Designed a space station that suffered a catastrophic decompression due to a minor miscalculation, ruining his career and costing lives.",
-            "false_belief": "If I account for every mathematical variable, tragedy can be entirely prevented.",
-            "fear": "Unpredictable chaos that leads to collateral damage and failure.",
-            "desire": "To execute a flawless, mathematically perfect operation to prove his genius is still intact.",
-            "need": "To accept that the universe is inherently chaotic and that adaptability is more important than perfection."
+            "ghost_and_wound": "He accidentally leaked the identities of an underground resistance cell years ago, leading directly to their execution by corporate enforcers.",
+            "the_lie": "The digital world is safe and predictable; the physical world, and the people in it, will only ever let you down.",
+            "fear": "Making another miscalculation that gets his physical crew killed.",
+            "desire": "To successfully hack The Olympus mainframe and prove to himself that he is still the absolute best in the system.",
+            "psychological_need": "To forgive himself for his past mistake and step out from behind the safety of his screens.",
+            "moral_need": "To stop hiding behind technology and start taking physical risks to protect the people he cares about."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Pedantic, precise, and highly technical. He never says 'maybe' or 'I guess', as everything is stated in percentages and probabilities.",
-            "deflection_tactic": "Retreats into technical jargon or starts calculating odds aloud when confronted with a personal failure."
+            "speech_patterns": "Sarcastic, rapid-fire, and speaks in technical code and dark humor. He NEVER says 'I do not know how to fix this.'",
+            "deflection_tactic": "Making a biting, sarcastic joke about someone else's intelligence to deflect from his own deep insecurities.",
+            "paradox": "A tech genius who refuses to get any cybernetic neural implants, stubbornly preferring his flawed, vulnerable biological body."
           },
-          "subtlety_guidelines": "Bastian masks his deep anxiety with arrogance and intellectual superiority. Under extreme stress, like the gravity failing to restore on time, his confident facade cracks and he starts aggressively tapping his datapad."
+          "subtlety_guidelines": "He masks his guilt with arrogant, hyper-verbal sarcasm 90% of the time. Under stress, he goes completely mute, and his hands shake violently, contradicting his cool hacker persona."
         },
         {
-          "name": "Rook",
+          "name": "Nyx",
           "role": "Supporting",
-          "brief_summary": "An agoraphobic, deeply paranoid cyber-warfare specialist who monitors the crew from a remote terminal. They are the Oracle of the heist, providing the crew's eyes and ears while struggling with the physical reality of danger.",
+          "brief_summary": "A thrill-seeking zero-G acrobat and the physical spearhead of the vault infiltration. She embodies the chaos that Jax fears, thriving in the unpredictable environment of zero gravity.",
           "psychological_core": {
-            "wound": "Was previously burned by a syndicate employer who left them to take the fall for a massive data breach.",
-            "false_belief": "The digital world is safe and controllable, while the physical world is a chaotic trap.",
-            "fear": "Physical confrontation and losing their connection to the network.",
-            "desire": "To humiliate the Olympus's state-of-the-art security AI and prove they are the best hacker in the system.",
-            "need": "To step out from behind the screen and take physical action to protect the people they care about."
+            "ghost_and_wound": "She was permanently grounded from the official space-acrobatics league due to a false doping accusation, losing her legitimate career and her entire identity.",
+            "the_lie": "Rules and gravity are just suggestions; the only way to truly live is on the edge, completely untethered and without attachments.",
+            "fear": "Being tied down, locked up in a cage, or forced to live a normal, gravity-bound life.",
+            "desire": "To steal the diamond so she can fund her own independent, off-grid space station where she makes the rules.",
+            "psychological_need": "To realize that constantly running away from rules and attachments is just another form of being controlled by them.",
+            "moral_need": "To stop endangering others with her reckless, adrenaline-junkie behavior and start operating as part of a team."
           },
           "voice_and_behavior": {
-            "speech_patterns": "Mumbles, speaks in fragmented sentences, and rarely makes eye contact. Never uses people's real names, only handles or roles.",
-            "deflection_tactic": "Complains about bandwidth, hardware latency, or the incompetence of the system architecture to avoid answering personal questions."
+            "speech_patterns": "Playful, kinetic, and uses physical gestures more than words to communicate. She NEVER admits she is scared of falling or failing.",
+            "deflection_tactic": "Doing a physical trick, like flipping a coin or balancing precariously on a chair, instead of answering a serious question.",
+            "paradox": "A reckless adrenaline junkie who is meticulously superstitious about her pre-jump stretching routine, treating it like a sacred religion."
           },
-          "subtlety_guidelines": "Rook seems aloof and completely detached from the physical danger the crew is in. Their underlying terror of the physical world only manifests when Silas breaches their safe room, causing them to hyperventilate while typing."
+          "subtlety_guidelines": "She projects a carefree, unbreakable confidence 90% of the time. Under stress, she aggressively cracks her knuckles and breathes in sharp, hyperventilating gasps, betraying her claustrophobia and fear of being trapped."
         }
       ]
     },
@@ -414,24 +424,24 @@
           "beats": [
             {
               "beat_name": "Opening Image",
-              "genre_variation_notes": "Establishes the mundane 'before' state and the heavy burden the protagonist carries before the heist quest begins.",
-              "emotional_arc": "Crushing isolation and denial of his own vulnerability.",
-              "pacing_notes": "Slow, methodical, and visually heavy to emphasize terrestrial gravity.",
-              "detailed_action": "Jax is on Earth, living a mundane, gravity-bound existence while meticulously organizing his tools to maintain a facade of control. The heavy terrestrial gravity physically symbolizes the crushing weight of his past trauma and his looming syndicate debt. He actively avoids calls from old associates, visually establishing his absolute isolation and his false belief that relying on no one keeps him safe."
+              "genre_variation_notes": "Instead of a literal road trip starting point, the 'Fleece' begins with the hero trapped in a stagnant, hyper-controlled mundane world, emphasizing the internal flaw that the upcoming journey must fix.",
+              "emotional_arc": "(+/-) From rigid, artificial calm to underlying, suffocating anxiety. (><) Jax wants to remain perfectly hidden and in control vs. the crushing weight of his past syndicate debt threatening to expose him.",
+              "pacing_notes": "Slow, methodical, and meticulously quiet, establishing a sterile baseline that will be shattered by the ensuing chaos.",
+              "detailed_action": "Jax meticulously organizes his barren Earth apartment, checking the biometric locks and precisely setting his analog watch. He stares out at the smog-choked sky, physically grounded by gravity and psychologically paralyzed by his need for absolute control. The silence is broken when a brutal syndicate enforcer leaves a holographic message on his table, reminding Jax that his massive, life-threatening debt is due."
             },
             {
               "beat_name": "Theme Stated",
-              "genre_variation_notes": "The necessity of the 'team' is stated early, directly contrasting the hero's solo nature in a heist narrative.",
-              "emotional_arc": "Defensiveness, avoidance, and emotional deflection.",
-              "pacing_notes": "Tense, dialogue-driven, and sharply rhythmic.",
-              "detailed_action": "A shadowy broker tracks Jax down in his safehouse, delivering a cryptic message about the upcoming heist. The broker explicitly remarks that a man who trusts no one is a man who eventually makes a fatal mistake, laying out the core thematic argument of the story. Jax stubbornly deflects this observation by immediately demanding to know the logistical details and the exact payout, refusing to engage with the emotional truth."
+              "genre_variation_notes": "The theme of the Golden Fleece (internal growth over the external prize) is delivered by the Catalyst character, framing the heist not as a financial transaction, but as a test of human connection.",
+              "emotional_arc": "(+/-) From defensive detachment to unsettled realization. (><) Elara wants to force a philosophical shift in Jax vs. Jax fiercely defending his isolationist, paranoid mindset.",
+              "pacing_notes": "A tense, dialogue-heavy rhythm that feels like a verbal chess match, punctuated by Jax's nervous physical tics.",
+              "detailed_action": "Elara corners Jax in a dingy subterranean bar, sliding a secure data-pad across the table while observing him obsessively tap his watch crystal. She tells him point-blank that no matter how tightly he grips the reins, the universe favors the adaptable, not the rigid. She warns him that his refusal to trust anyone will eventually be his undoing, laying out the thematic argument he must overcome to survive."
             },
             {
-              "beat_name": "Setup",
-              "genre_variation_notes": "Shows exactly why the hero MUST go on the heist by revealing the underlying 'curse' or debt.",
-              "emotional_arc": "Rising anxiety and the terrifying realization of his own vulnerability.",
-              "pacing_notes": "Accelerating ticking clock that shatters the slow opening pace.",
-              "detailed_action": "Jax's quiet, hyper-controlled life is completely shattered when he realizes his syndicate debt is a ticking clock that will soon cost him his life. He reviews his meager solo earnings, understanding that small jobs will never clear the massive bounty on his head. He is forced to accept that his strict isolation is no longer a viable survival strategy, setting the stage for him to take on an impossible job."
+              "beat_name": "Set-up",
+              "genre_variation_notes": "Establishes the 'Six Things That Need Fixing' within the context of a heist crew leader who refuses to lead, highlighting the impossibility of the prize without a team.",
+              "emotional_arc": "(+/-) From analytical calculation to overwhelming dread. (><) Jax wants to find a solo solution to his problem vs. the sheer, impossible scale of the orbital heist demanding a coordinated team.",
+              "pacing_notes": "Accelerating montage of data analysis, building a sense of insurmountable odds before coming to a frustrated halt.",
+              "detailed_action": "Jax retreats to his safehouse to review Elara's data-pad, analyzing the impossible security schematics of The Olympus casino. He maps out his dire situation: his massive debt, his lack of resources, his paralyzing guilt over his past crew, his inability to improvise, his physical grounding on Earth, and his lingering terror of Silas. He calculates the exact probabilities of failure for a solo run, confirming his ordinary world is a prison of his own making and he cannot survive alone."
             }
           ]
         },
@@ -441,24 +451,17 @@
           "beats": [
             {
               "beat_name": "Catalyst",
-              "genre_variation_notes": "The ultimate 'prize' (the Star of Eden) is revealed, officially initiating the quest.",
-              "emotional_arc": "Desperation masking as cold, tactical calculation.",
-              "pacing_notes": "Sharp, sudden momentum shift that propels the plot forward.",
-              "detailed_action": "The broker officially offers Jax the astronomical payout for stealing the Star of Eden from the orbital casino known as The Olympus. Jax calculates the immense odds and realizes this single, highly dangerous job is his only viable path to erasing his deadly debt. The sheer scale of the heist forces him out of his stagnant status quo, compelling him to accept the mission and begin planning the impossible."
+              "genre_variation_notes": "The 'knock at the door' is both a literal attack and a formal invitation to the quest, forcing the hero out of their stagnant state.",
+              "emotional_arc": "(+/-) From controlled stagnation to desperate, adrenaline-fueled activation. (><) Jax wants to survive the immediate attack vs. the syndicate actively trying to murder him to collect his debt.",
+              "pacing_notes": "Explosive, violent, and chaotic, shattering the quiet pacing of the first sequence with sudden kinetic energy.",
+              "detailed_action": "A syndicate hit-squad breaches Jax's safehouse walls, forcing him into a brutal, close-quarters physical altercation in the dark. He barely escapes through a pre-planned blast chute, receiving a final ultimatum from the syndicate boss: pay the debt in one week or die. Standing in the burning wreckage of his controlled life, he accepts Elara's call, officially taking the Star of Eden job as his only lifeline."
             },
             {
               "beat_name": "Debate",
-              "genre_variation_notes": "The classic heist recruitment montage, gathering the specific 'fleece' seekers needed for the impossible task.",
-              "emotional_arc": "Internal conflict, reluctance, and a deep fear of repeating past betrayals.",
-              "pacing_notes": "Deliberate, analytical, building tension as the pieces fall into place.",
-              "detailed_action": "Jax struggles intensely with the necessity of recruiting a specialized team, specifically reviewing the dossiers for Lyra, Bastian, and Rook. He wrestles with his paralyzing fear that relying on others will inevitably lead to another betrayal, echoing the trauma inflicted by Silas. Ultimately, the undeniable physics of the pressure-sensitive, zero-G vault force his hand, making him realize he cannot pull this off alone and prompting him to make the calls."
-            },
-            {
-              "beat_name": "Break into Two",
-              "genre_variation_notes": "Crossing the threshold into the 'road' (The Olympus), leaving the normal world behind.",
-              "emotional_arc": "Commitment mixed with lingering apprehension about losing control.",
-              "pacing_notes": "Propulsive, definitive, and visually expansive as they leave Earth.",
-              "detailed_action": "The newly formed, highly volatile crew boards a luxury transport under meticulously crafted false identities. As the ship breaches the atmosphere, they physically and metaphorically leave Earth's gravity behind, crossing the threshold into the upside-down world of The Olympus. Jax commits entirely to the plan, stepping into an unpredictable environment where his rigid need for control will be constantly tested."
+              "genre_variation_notes": "The hesitation phase involves the recruitment of the 'Fleece' team, where the hero actively resists the personalities of the people he must rely on.",
+              "emotional_arc": "(+/-) From paralyzing doubt to reluctant, teeth-gritting commitment. (><) Jax wants absolute guarantees of success and obedience vs. Kael and Nyx's chaotic, unproven, and rebellious natures.",
+              "pacing_notes": "Stop-and-go rhythm, alternating between rapid-fire recruitment pitches and Jax's quiet moments of intense, paranoid hesitation.",
+              "detailed_action": "Jax reluctantly travels through the criminal underworld to recruit Kael, a cynical hacker, and Nyx, a thrill-seeking zero-G acrobat. He aggressively interrogates their flaws, hesitating to commit to the job as he drafts and redrafts endless contingency plans on his datapad. He ultimately realizes he has no choice but to proceed, forcing himself to shake hands with his new, unpredictable crew despite his screaming internal paranoia."
             }
           ]
         },
@@ -467,18 +470,18 @@
           "sequence_title": "The Grand Opening Gala",
           "beats": [
             {
-              "beat_name": "B Story",
-              "genre_variation_notes": "Introduces the companion (Lyra) who represents the thematic lesson of trust and reliance.",
-              "emotional_arc": "Reluctant vulnerability and the challenging of strict personal boundaries.",
-              "pacing_notes": "Breezy but emotionally sharp, providing character depth amidst the tension.",
-              "detailed_action": "While donning their high-society disguises for the gala, Jax and Lyra share a tense but revealing moment in the staging area. Lyra treats the impending danger as a thrilling game, directly challenging Jax's hyper-serious, isolated nature with her relentless optimism. Her absolute willingness to put her life in his hands forces Jax to confront his own crippling trust issues, establishing the emotional throughline of their partnership."
+              "beat_name": "Break into Two",
+              "genre_variation_notes": "The crossing of the threshold is literalized by leaving Earth's gravity and entering the opulent, high-stakes 'antithesis world' of the orbital casino.",
+              "emotional_arc": "(+/-) From grounded apprehension to zero-G vulnerability and awe. (><) The crew wants to blend in seamlessly vs. the casino's pervasive, high-tech security scanning their every move.",
+              "pacing_notes": "Smooth, sweeping, and majestic, emphasizing the sheer scale and intimidating luxury of the new world.",
+              "detailed_action": "The newly formed crew boards a sleek luxury transport under forged high-society identities, feeling the physical shift in their stomachs as the ship breaks Earth's atmosphere. They dock with The Olympus, stepping out of the airlock into the blindingly bright, opulent orbital casino. Jax crosses the threshold into the upside-down world, leaving his gravity-bound safety behind for a realm of extreme wealth, floating architecture, and deadly consequences."
             },
             {
-              "beat_name": "Fun and Games",
-              "genre_variation_notes": "The initial execution of the heist plan, showcasing the team's unique skills in a glamorous setting.",
-              "emotional_arc": "Exhilaration, synergy, and a dangerous sense of false confidence.",
-              "pacing_notes": "Fast, slick, highly kinetic, and deeply entertaining.",
-              "detailed_action": "The crew successfully infiltrates the grand opening gala, mingling seamlessly with the wealthy elite while executing slick, coordinated maneuvers. Rook hacks the security cameras from a remote utility closet, Bastian analyzes structural weak points on the fly, and Lyra scouts the vault perimeter. They navigate the glamorous but deadly environment with style, showcasing their unique skills and providing a brief window of exhilarating success before the complications arise."
+              "beat_name": "B Story",
+              "genre_variation_notes": "The 'love story' beat is repurposed as a thematic relationship beat between the rigid protagonist and a chaotic team member, exploring the core theme of trust.",
+              "emotional_arc": "(+/-) From stiff discomfort to a fleeting, terrifying moment of connection. (><) Nyx wants Jax to loosen up and trust her physical intuition vs. Jax fighting to maintain his rigid physical and emotional armor.",
+              "pacing_notes": "Intimate and rhythmic, slowing down the plot to focus entirely on character chemistry and thematic friction.",
+              "detailed_action": "While mingling at the grand opening gala, Jax is forced to dance with Nyx to maintain their cover and avoid a roaming security patrol. Nyx playfully mocks his stiff, hyper-calculated movements, urging him to feel the rhythm of the room rather than counting the musical beats. This intimate, tension-filled interaction forces Jax to physically let her lead, exposing his deep terror of vulnerability in a space where he feels entirely out of his depth."
             }
           ]
         },
@@ -487,11 +490,18 @@
           "sequence_title": "The Approach and The Switch",
           "beats": [
             {
+              "beat_name": "Fun and Games",
+              "genre_variation_notes": "Delivers the 'promise of the premise' for a heist film: the highly competent execution of complex infiltration tactics before things go wrong.",
+              "emotional_arc": "(+/-) From tense anticipation to exhilarating, synchronized confidence. (><) The crew wants to execute the perfect heist mechanics vs. the casino's complex environmental and digital obstacles.",
+              "pacing_notes": "Snappy, highly kinetic, and incredibly precise, cutting rapidly between the different crew members executing their specialized tasks.",
+              "detailed_action": "The heist kicks into high gear as the crew executes their specialized roles with thrilling, clockwork precision. Kael effortlessly slices through the casino's outer firewalls from a cramped utility closet, while Jax and Nyx navigate a treacherous, spinning ventilation shaft high above the vault. They successfully plant the explosive charges on the vault's exterior pressure sensors, experiencing the exhilarating rush of the plan working flawlessly."
+            },
+            {
               "beat_name": "Midpoint",
-              "genre_variation_notes": "The false victory of securing the asset's vulnerability, immediately subverted by the antagonist's trap.",
-              "emotional_arc": "A triumphant peak crashing instantly into sudden, suffocating dread.",
-              "pacing_notes": "Peaking speed followed by an abrupt, shocking halt in momentum.",
-              "detailed_action": "Jax and Lyra reach the vault exterior, planting explosive charges while waiting for Rook's crucial blackout signal. Rook successfully cuts the station's gravity, achieving their primary goal and securing a massive false victory for the team. However, Silas immediately anticipates the tactic and triggers a secondary magnetic lockdown, trapping the crew inside the vault sector and instantly raising the stakes to life-or-death."
+              "genre_variation_notes": "A classic False Victory that immediately pivots into a trap, raising the stakes and forcing the characters out of their comfort zones.",
+              "emotional_arc": "(+/-) From triumphant success to shocking, paralyzing entrapment. (><) Jax wants to grab the diamond and flee vs. Silas springing a perfectly timed, inescapable trap.",
+              "pacing_notes": "Builds to a triumphant crescendo, then instantly drops into dead silence, followed by a sharp spike of alarm.",
+              "detailed_action": "Kael executes the master hack, instantly cutting the station's gravity and plunging the vault sector into weightless, floating silence. Jax and Nyx drift perfectly into the vault chamber, experiencing a false victory as the massive Star of Eden sits unguarded before them. Suddenly, heavy blast doors slam shut, and Silas's voice echoes over the intercom, revealing he anticipated the exact move and triggering a secondary lockdown that traps them inside."
             }
           ]
         },
@@ -500,11 +510,11 @@
           "sequence_title": "The Three-Dimensional Battlefield",
           "beats": [
             {
-              "beat_name": "Bad Guys Close In",
-              "genre_variation_notes": "The 'road' turns deadly as the antagonist's superior forces overwhelm the specialized team.",
-              "emotional_arc": "Disorientation, overwhelming panic, and the collapse of Jax's meticulously planned reality.",
-              "pacing_notes": "Frantic, chaotic, and deeply claustrophobic.",
-              "detailed_action": "The crew floats into the vault to secure the diamond, only to be ambushed from the ceiling by Silas's heavily armed security forces. The guards activate their magnetic boots, anchoring themselves and gaining total tactical superiority in the disorienting zero-G environment. Outmaneuvered and floating helplessly, Jax and his team are pinned down by brutal suppressive laser fire as their three-minute window rapidly evaporates."
+              "beat_name": "Bad Guys Close In - Part 1",
+              "genre_variation_notes": "The antagonist flexes their superior power, and the internal team dynamics begin to fracture under the pressure of the ruined plan.",
+              "emotional_arc": "(+/-) From shocked entrapment to frantic, disorganized desperation. (><) The crew wants to find cover and escape vs. Silas's guards pinning them down with overwhelming, anchored firepower.",
+              "pacing_notes": "Frantic, disorienting acceleration as the zero-G environment turns from a tool into a deadly liability.",
+              "detailed_action": "The ceiling of the vault retracts, and Silas's elite security forces drop into the room, instantly activating magnetic boots that anchor them firmly to the walls and floor. The guards open fire with suppressive lasers, turning the zero-G vault into a chaotic, three-dimensional battlefield where up and down no longer exist. Kael panics over the comms, his voice shaking violently as he realizes his hack was entirely predicted, sparking fierce internal dissent as Jax's perfect plan completely disintegrates."
             }
           ]
         },
@@ -513,18 +523,18 @@
           "sequence_title": "The Improvised Escape",
           "beats": [
             {
-              "beat_name": "All Is Lost",
-              "genre_variation_notes": "The heist plan completely falls apart; the 'prize' seems unreachable and survival looks impossible.",
-              "emotional_arc": "Utter helplessness, loss of control, and the death of the old ego.",
-              "pacing_notes": "Frenetic, desperate, with the ticking clock rapidly counting down to zero.",
-              "detailed_action": "Realizing a conventional gunfight is absolute suicide, Jax is forced to abandon his meticulous plan and orders Bastian to detonate the luxury display cases. Millions of dollars in chips, glass, and jewels flood the room in a blinding cloud of debris, creating total chaos and stripping away all of Jax's controlled variables. Lyra uses the debris to snatch the Star of Eden, but Rook frantically warns that gravity will return in ten seconds, leaving the crew completely exposed to impending doom."
+              "beat_name": "Bad Guys Close In - Part 2",
+              "genre_variation_notes": "The physical and psychological grip tightens, stripping away the hero's remaining defenses and forcing them to face their worst fear: total loss of control.",
+              "emotional_arc": "(+/-) From frantic desperation to suffocating, claustrophobic panic. (><) Jax wants to regain tactical control of the room vs. Silas systematically stripping away their physical defenses and time.",
+              "pacing_notes": "Relentless, pounding pressure with no room to breathe, matching the ticking of the three-minute gravity timer.",
+              "detailed_action": "Jax and Nyx are pinned behind a floating marble statue, completely outmaneuvered by the mag-boot guards who literally walk on the ceiling to flank their position. Jax obsessively taps his watch as the three-minute gravity timer rapidly ticks away, his breathing turning ragged and panicked. The grip tightens to a breaking point as Silas personally enters the vault, calmly directing his men to systematically shoot apart the crew's remaining floating cover."
             },
             {
-              "beat_name": "Dark Night of the Soul",
-              "genre_variation_notes": "The hero realizes the true 'prize' is the team's survival and unity, requiring a leap of faith.",
-              "emotional_arc": "Acceptance, profound surrender of ego, and the birth of absolute trust.",
-              "pacing_notes": "Slow-motion clarity amidst absolute chaos; a deep breath before the plunge.",
-              "detailed_action": "Time slows down for Jax as he floats amidst the glittering, deadly debris, realizing he must entirely trust his crew to survive the next few seconds. He confronts his deepest fear of being responsible for their deaths, finally letting go of his obsessive need for absolute control. He issues a final, unified command, acknowledging that their survival now depends entirely on their synchronized, improvised actions rather than his rigid planning."
+              "beat_name": "All Is Lost",
+              "genre_variation_notes": "The 'whiff of death' occurs when the hero's primary tool (their rigid planning) is destroyed, proving their old way of thinking is dead.",
+              "emotional_arc": "(+/-) From suffocating panic to crushing, absolute despair. (><) Jax wants to save his team from slaughter vs. the physical destruction of their only planned escape route.",
+              "pacing_notes": "A sudden, devastating slow-motion moment of impact, followed by a hollow, ringing silence.",
+              "detailed_action": "A concentrated laser blast from Silas's rifle shatters the crew's primary extraction winch, destroying their only planned method of escaping up the vault shaft. Kael screams over the comms that he is permanently locked out of the mainframe, completely neutralizing his digital overwatch and leaving them blind. Jax watches the winch disintegrate into floating shrapnel, experiencing the terrifying 'whiff of death' as he realizes his rigid, inflexible planning has doomed another crew to die."
             }
           ]
         },
@@ -533,11 +543,18 @@
           "sequence_title": "The Gravity Drop",
           "beats": [
             {
+              "beat_name": "Dark Night of the Soul",
+              "genre_variation_notes": "The hero must surrender their ego and their fatal flaw (control) to the universe, finding the thematic answer in the very chaos they feared.",
+              "emotional_arc": "(+/-) From crushing despair to enlightened, terrifying surrender. (><) Jax wants to find a new way forward vs. his own deeply ingrained psychological fears of vulnerability and failure.",
+              "pacing_notes": "A brief, highly subjective pause in the action. Time seems to dilate as the internal realization takes hold.",
+              "detailed_action": "Floating helplessly in the crossfire, Jax stops tapping his watch, closes his eyes, and yields his obsessive need for control to the chaotic reality of the moment. He remembers Elara's and Nyx's words about adapting, realizing that his fear of betrayal is exactly what is holding him back. In a profound epiphany, he accepts that the only way to beat Silas's rigid, corporate order is to embrace absolute, unpredictable chaos and finally trust his team."
+            },
+            {
               "beat_name": "Break into Three",
-              "genre_variation_notes": "The team synthesizes their skills and the hero's new mindset to overcome the impossible odds.",
-              "emotional_arc": "Unified purpose, renewed determination, and the thrill of true collaboration.",
-              "pacing_notes": "Explosive, highly coordinated action that rockets toward the climax.",
-              "detailed_action": "Jax actively chooses to trust his team, directing them to use the massive floating debris as ballistic shields and projectiles against the mag-boot guards. He synthesizes his old planning skills with his newly found adaptability, leading the crew in a highly coordinated, improvised counterattack. This proactive shift marks his complete transformation, as he fully embraces the chaos and relies on his crew's unique talents to turn the tide."
+              "genre_variation_notes": "The synthesis of the A Story (the heist) and B Story (trust). The hero takes proactive action based on the newly accepted theme.",
+              "emotional_arc": "(+/-) From enlightened surrender to proactive, unified action. (><) The crew wants to weaponize the environment vs. the guards struggling to maintain their structured formation.",
+              "pacing_notes": "Explosive, triumphant acceleration as the heroes go on the offensive with a completely improvised strategy.",
+              "detailed_action": "Jax opens his eyes and issues a completely unscripted order, telling Kael to blindly overload the vault's luxury display cases and trusting Nyx to catch the prize. The display cases explode outward, flooding the room with a blinding, thick cloud of millions of dollars in floating chips, glass, and jewels. Nyx uses the chaotic debris as stepping stones, bounding through the glittering fog to snatch the Star of Eden right out from under Silas's nose."
             }
           ]
         },
@@ -547,28 +564,653 @@
           "beats": [
             {
               "beat_name": "Finale",
-              "genre_variation_notes": "The final confrontation with the antagonist, proving the hero has fundamentally changed and outgrown their flaw.",
-              "emotional_arc": "Confronting past trauma head-on and achieving ultimate catharsis.",
-              "pacing_notes": "High-stakes standoff exploding into a rapid, satisfying resolution.",
-              "detailed_action": "Silas intercepts Jax at the escape shuttle bay, holding Rook hostage and demanding the Star of Eden in a tense final standoff. Jax fakes a surrender, playing perfectly on Silas's arrogant need for superiority, which successfully lures his former partner in close. Jax then detonates a hidden micro-gravity charge, sending Silas crashing violently into a bulkhead, thereby neutralizing the ultimate threat and rescuing his crewmate."
+              "genre_variation_notes": "The team executes the final confrontation by applying the thematic lesson. The hero defeats the villain not with a better plan, but by trusting others.",
+              "emotional_arc": "(+/-) From high-stakes adrenaline to cathartic, hard-earned victory. (><) Jax wants to eliminate Silas and escape vs. Silas making a final, desperate stand to maintain his authority and retrieve the diamond.",
+              "pacing_notes": "A massive, bone-crunching climax followed by a swift, decisive resolution of the antagonist.",
+              "detailed_action": "Kael screams a ten-second warning, allowing the crew to brace themselves behind massive floating debris just as gravity restores with a bone-crunching slam, dropping the unprepared guards violently to the floor. The crew sprints to the hangar, where Silas intercepts them, holding a gun to Kael's head. Instead of fighting, Jax applies his lesson: he fakes a total surrender, relinquishing control and trusting Kael to react, which allows Kael to detonate a hidden micro-gravity charge that blasts Silas into a steel bulkhead."
             },
             {
               "beat_name": "Final Image",
-              "genre_variation_notes": "The successful escape, showing the hero fully integrated with their new family and free of the 'curse'.",
-              "emotional_arc": "Peace, belonging, and the realization of true freedom.",
-              "pacing_notes": "Smooth, relaxed, and expansive as the tension completely dissolves.",
-              "detailed_action": "The crew launches the stolen shuttle into the void, safely escaping The Olympus with the billion-dollar prize secured. Jax shares a hard-earned toast with the team, finally using the word 'we' instead of 'I' as he looks at his new surrogate family. The vast, open expanse of deep space now represents true freedom and connection, directly contrasting the heavy, isolated terrestrial gravity of his former life."
+              "genre_variation_notes": "The exact opposite of the Opening Image. The hero is no longer trapped, grounded, or isolated, but free, floating, and connected.",
+              "emotional_arc": "(+/-) From tense survival to peaceful, connected acceptance. (><) Jax wants to enjoy his newfound freedom and family vs. the cold, empty vacuum of space (which no longer frightens him).",
+              "pacing_notes": "Calm, expansive, and deeply resolved, fading out on a note of genuine warmth.",
+              "detailed_action": "The crew launches the stolen escape shuttle into the void, leaving the chaotic wreckage of The Olympus far behind them. Jax sits in the co-pilot seat, entirely relaxed, his hands resting quietly on his lap without a single glance at his watch. He pours a round of drinks, sharing a genuine smile and a toast with his new, unpredictable family as they vanish into the limitless freedom of deep space."
             }
           ]
         }
       ]
     },
     "stage5_treatment": {
-      "title_logline_characters": "TITLE: The Olympus Heist. LOGLINE: A meticulous master thief must abandon his obsessive need for control and trust his eccentric crew to survive a zero-gravity heist on a billionaire's orbital casino. CHARACTERS: JAX (30s), LYRA (20s), BASTIAN (50s), ROOK (20s), SILAS (40s).",
-      "act_1": "JAX (30s) meticulously plans the ultimate heist, recruiting his team of specialists to infiltrate the impenetrable orbital casino known as The Olympus. He relies entirely on his rigid, flawless planning, refusing to trust anyone with the full scope of the mission.",
-      "act_2a": "The crew successfully infiltrates The Olympus, navigating the opulent casino floor and bypassing the initial biometric security checkpoints. However, Jax's obsessive need for control begins to alienate the team as minor deviations from the plan cause him to lash out.",
-      "act_2b": "The plan completely falls apart when SILAS (40s), Jax's former partner turned ruthless security chief, anticipates their moves and traps them in the lower levels. Jax and LYRA (20s) are forced into a desperate, improvised breach of the zero-gravity vault, leading to a catastrophic confrontation.",
-      "act_3": "JAX (30s) actively chooses to trust his team, a monumental shift that instantly rewires the battlefield. As the ten-second countdown to gravity-reboot ticks away, he abandons his rigid extraction protocols and barks a series of rapid-fire, improvised commands over the comms. He directs LYRA (20s) to grab a massive, floating slab of reinforced display glass, maneuvering it into position as an impromptu ballistic shield. Synthesizing his old, meticulous planning skills with this newly found adaptability, Jax calculates the exact trajectory of the blinding storm of casino chips and shattered jewels, turning the chaotic environment into a weapon.<br><br>The mag-booted security guards open fire, their suppressive laser blasts ricocheting harmlessly off Lyra's floating glass shield. Jax seizes the opening, directing BASTIAN (50s) to remotely pulse the vault's localized ventilation fans. The sudden burst of air current catches the millions of dollars in floating wealth, accelerating the chips and diamonds into a high-velocity wave of shrapnel that violently pelts the anchored guards. The armored hornets flinch and raise their arms against the glittering onslaught, their synchronized tactical superiority crumbling under the weight of Jax's improvised, coordinated counterattack.<br><br>The countdown hits zero, and the station's artificial gravity slams back into the chamber with bone-rattling force. Simultaneously, the emergency lights cut out, plunging the room into pitch darkness just as the heavy debris crashes to the floor. The guards, blinded and battered, lose their footing as the sudden weight drags them down into the chaotic mess of shattered glass and casino chips. In the pitch black, Lyra uses Jax's braced shoulders as a physical springboard, launching herself upward toward the ventilation extraction chute while Jax provides pinpoint covering fire. Their unified purpose shines through the darkness, marking Jax's complete transformation as he fully embraces the chaos and relies on his crew's unique talents to turn the tide.<br><br>The crew executes a frantic, breathless sprint through the station's maintenance corridors, bursting through the heavy airlock doors of the escape shuttle bay. Their momentum violently halts as they are met with a nightmare scenario. SILAS (40s), immaculate and dripping with arrogant malice, stands waiting on the loading ramp. He has a trembling ROOK (20s) trapped in a brutal, inescapable chokehold, the glowing muzzle of a plasma pistol pressed flush against the young hacker's temple. Silas demands the Star of Eden, his voice echoing through the cavernous bay with venomous satisfaction as he gloats about finally cornering and outsmarting his former partner.<br><br>Jax assesses the impossible, high-stakes standoff, his mind racing through the variables. The old Jax would have coldly calculated the angles for a lethal ricochet, risking Rook's life in a detached, mathematical equation. Instead, the new Jax plays a deeply psychological game, weaponizing Silas's own fatal flaw. Jax slowly raises his hands, adopting a posture of total, humiliating defeat. He steps forward with his head bowed, holding out the glittering Star of Eden in his open palm, playing perfectly on Silas's desperate, arrogant need for absolute superiority. Silas's ego swells visibly, his grip on Rook loosening just a fraction as he leans in, intoxicated by the sight of his ultimate victory.<br><br>It is the exact, microscopic opening Jax engineered. Instead of surrendering the diamond, Jax fluidly palms a localized micro-gravity charge—a leftover explosive from their initial vault breach—and slaps it directly onto the center of Silas's armored chest plate. Jax triggers the detonator, unleashing a violent, localized inversion of gravity. Silas is violently ripped upward, his boots tearing free from the deck before he is slammed with bone-crushing force into the heavy steel bulkhead above. The sickening crunch of armor echoes through the bay as the ultimate threat is neutralized, allowing Rook to scramble to safety while Silas crashes back to the floor, unconscious and utterly defeated.<br><br>With the antagonist neutralized, the crew piles into the stolen escape shuttle, adrenaline and relief coursing through their veins. Bastian slams the thrusters to maximum, and the sleek vessel violently tears away from the sprawling, opulent mass of The Olympus. Through the rear viewport, the casino station shrinks into a glittering, insignificant speck against the vast, indifferent canvas of the cosmos. Inside the cockpit, the heavy, suffocating tension that has defined the entire mission finally evaporates, replaced by the smooth, humming vibration of the engines and the collective, exhausted exhales of a crew that has survived the impossible.<br><br>In the dimly lit cargo hold, Jax pops the seal on a bottle of top-tier champagne they liberated from the station's luxury reserves. He pours the bubbling liquid into a set of mismatched, dented thermal cups, passing them carefully to Lyra, Bastian, and Rook. The Star of Eden rests casually on a nearby supply crate, its billion-dollar facets catching the low, warm light of the cabin, but Jax barely spares the priceless artifact a single glance. His eyes are entirely fixed on the battered, triumphant faces of his surrogate family, the true prize he never knew he was looking for.<br><br>Jax raises his cup, allowing the comfortable silence to stretch for a poignant, heavy moment. He delivers a quiet, resonant toast to the group, finally and deliberately using the word 'we' instead of 'I' to describe their victory, a profound departure from the isolated existence that once defined him. He turns to look out the viewport, staring into the endless, starlit expanse of deep space. The crushing, terrestrial gravity of his past trauma and his obsessive need for control has finally released its grip, leaving him floating in the boundless peace, belonging, and true freedom of his new life."
-    }
+      "title_logline_characters": "PITCH:\nTitle: The Gravity Job\nGenre: Sci-Fi Heist / Action\nLogline: A crew of elite thieves plans a heist on a luxury space station casino by temporarily disabling its artificial gravity, requiring them to steal a billion-dollar diamond in zero-G.\nCore Theme: Trust, betrayal, and adapting to unpredictable environments.\n\nCHARACTERS:\n1. Jax (Protagonist) - A retired master thief dragged back into the game to clear a deadly syndicate debt. He relies on meticulous planning to avoid the pain of betrayal.\n2. Silas (Main Opponent) - The ruthless Head of Security on The Olympus and Jax's treacherous former partner.\n3. Elara (Catalyst) - A high-society fixer and mysterious broker who forces Jax out of retirement.\n4. Kael (Adjuster) - A brilliant, cynical master hacker who controls the digital flow of the heist.\n5. Nyx (Supporting) - A thrill-seeking zero-G acrobat and the physical spearhead of the vault infiltration.",
+      "act_1": "[SEQUENCE 1 START]\nSEQUENCE 1: The Reluctant Return\n\nJAX (50) sits in the center of his cramped, gravity-heavy Earth apartment, surrounded by absolute, sterile minimalism. He possesses no photographs, no keepsakes, and no clutter, existing only in the precise arrangement of his titanium lock-picking tools. He meticulously organizes the micro-components across a steel table, breathing in a slow, calculated rhythm.\n\nHis thumb obsessively taps against the crystal of his wristwatch, counting the exact milliseconds it takes to assemble a magnetic micro-drill blindfolded. He seeks absolute mastery over his physical environment, finding a hollow comfort in the predictable friction of metal on metal. In this hermetically sealed life, variables do not exist, and betrayal is mathematically impossible.\n\nA harsh, syncopated knock on his reinforced door violently shatters the silence. Startled by the unpredictable noise, Jax fumbles, dropping a crucial tungsten gear that clatters loudly against the floorboards. His sanctuary breached, he stares at the door with cold dread, realizing his carefully constructed isolation is failing.\n\nELARA (45) bypasses the biometric locks and lets herself into the sterile living room, her glamorous couture sharply contrasting with the bleak apartment. She casually flips a tarnished copper coin between her manicured fingers, her eyes scanning the empty walls with a mixture of pity and transactional calculation. She notes his defensive posture, instantly recognizing the terrified man hiding behind the icy professional facade.\n\nShe stops flipping the coin and confronts him with a brutal truth, stating that no matter how tightly he controls his environment, the universe thrives on unpredictable chaos. She warns him that isolation is just a slow death, and only those willing to trust others can survive the coming storm. The thematic challenge hangs in the air, directly attacking the foundation of his solitary existence.\n\nJax coldly dismisses her philosophical warning, refusing to engage with the emotional weight of her words. Instead, he deflects by reciting syndicate debt probabilities and rigid timelines, reducing his life-or-death situation to a sterile spreadsheet. He firmly denies any fear of betrayal, insisting that his math is flawless and his isolation is a strategic choice, not a psychological prison.\n\nLater that night, Jax visits a bleak, rain-swept syndicate drop point under a flickering streetlamp. He approaches a hulking syndicate enforcer, handing over a meager, carefully calculated payment of laundered credits. Jax expects a standard transaction, relying on the established rules of his debt repayment schedule to keep him safe.\n\nThe enforcer ignores the credits and violently shoves Jax against the rough brick wall, knocking the breath from his lungs. With brutal efficiency, the enforcer informs him that the syndicate bosses have accelerated his massive debt. Jax now has exactly one week to pay the balance in full, or he will forfeit his life.\n\nJax returns to his apartment bleeding from a cut above his eye, his ribs aching from the assault. He stares at his reflection in the dark window, running the grim calculations in his head. His rigid, solitary existence is no longer mathematically viable; the debt has outpaced his ability to survive alone.\n[SEQUENCE 1 END]\n\n[SEQUENCE 2 START]\nSEQUENCE 2: Assembling the Zero-G Crew\n\nElara intercepts the bleeding Jax in a dark, rain-slicked alleyway just outside his apartment building. She steps from the shadows, her transactional demeanor replaced by urgent intensity, and hands him a glowing datapad. Highly classified, three-dimensional schematics for The Olympus casino illuminate the gloom, casting blue light across Jax's bruised face.\n\nShe reveals the ultimate target hidden deep within the orbital station: the Star of Eden, a diamond worth enough to buy his permanent freedom and clear his syndicate debt instantly. Jax studies the vault's defenses, his analytical mind racing until Elara points out the catch. The vault features a hyper-sensitive pressure floor, meaning the entire heist must be executed in absolute zero-gravity.\n\nJax stares at the glowing schematics, the sheer impossibility of the job warring with his desperate need for survival. He realizes this suicidal heist is his only exit strategy from the syndicate's death sentence. Pushed into a corner, his reluctance hardens into a grim, unavoidable commitment to the impossible score.\n\nRetreating to his apartment, Jax paces for hours through glowing blue holograms of the casino vault. He desperately manipulates the digital models, trying to find a solo angle, a hidden blind spot, or a structural flaw to exploit. He refuses to accept the necessity of a crew, terrified of the vulnerability required to rely on anyone else's judgment.\n\nSimulation after simulation ends in his digital avatar being vaporized by the vault's automated security grid. Defeated by the relentless math, his frustration boils over, and he aggressively taps his thumb against his watch crystal in a rapid, frantic rhythm. The physical impossibility of a solo run finally shatters his stubborn denial.\n\nConceding to reality, Jax accesses encrypted underworld channels and begins recruiting specialists. He contacts KAEL (30), a cynical master hacker, and NYX (25), a thrill-seeking zero-G acrobat, bringing them into the fold. However, to maintain his illusion of control, Jax strictly dictates every micro-second of their proposed involvement, treating them as programmable tools rather than human partners.\n[SEQUENCE 2 END]",
+      "act_2a": "[SEQUENCE 3 START]\nSEQUENCE 3: The Grand Opening Gala\n\nThe crew boards a sleek, silver-hulled luxury transport shuttle, leaving the polluted atmosphere of Earth behind. Jax sheds his utilitarian clothing, slipping into a bespoke, midnight-blue tuxedo that feels suffocatingly restrictive. He meticulously adjusts his cuffs, hating the vulnerability of the disguise, while Kael and Nyx don equally extravagant high-society attire to match the opulent cover story.\n\nThe shuttle docks with a heavy, metallic thud against the gleaming hull of The Olympus orbital casino. Jax steps through the pressurized airlock, immediately assaulted by the sensory overload of artificial gravity, blinding crystal chandeliers, and the deafening hum of elite socialites. He crosses the threshold onto the plush carpet of the promenade, his heart hammering against his ribs as he officially abandons the sterile safety of his isolated existence.\n\nThe casino's intense biometric scanners sweep over the arriving guests in harsh, invisible waves. Jax stiffens, his pulse spiking as a heavily armed security detail scrutinizes his falsified credentials. He forces his breathing to slow, projecting an aura of bored wealth until the green light flashes, granting them access to the belly of the beast.\n\nMingling near the roulette tables, Jax rigidly monitors the crew's positioning via a concealed earpiece, treating the gala like a mathematical grid. He barks precise, micro-managed coordinates to his team, demanding absolute adherence to his pre-calculated timeline. His obsession with control blinds him to the fluid, unpredictable nature of the high-stakes social environment surrounding them.\n\nNyx playfully ignores his rigid commands, abandoning her assigned sector to improvise a flirtatious conversation with a wealthy diamond merchant. Simultaneously, Kael patches in from a cramped utility closet, sarcastically critiquing Jax’s suffocating micromanagement over the comms. Jax’s carefully constructed plan begins to fray, the human element proving impossible to quantify or control.\n\nForced to cover Nyx's unauthorized detour, Jax abandons his assigned post and intercepts a suspicious floor manager. He engages in spontaneous, unscripted banter about orbital trade tariffs, his icy exterior cracking as he relies on raw instinct rather than mathematical probability. The uncomfortable realization takes root in his mind: survival in this chaotic environment requires trusting his team's interpersonal instincts over his rigid technical specs.\n[SEQUENCE 3 END]\n\n[SEQUENCE 4 START]\nSEQUENCE 4: The Approach and The Switch\n\nThe heist officially commences as Kael splices a physical bypass node into the casino’s primary mainframe. His fingers fly across a series of glowing holographic keyboards, systematically hunting down the vault's localized security feeds. With a final, triumphant keystroke, he loops the surveillance footage, plunging the security monitors into a false state of pristine tranquility.\n\nDeep within the station's infrastructure, Nyx navigates a perilous, laser-lined ventilation shaft. She contorts her body with breathtaking, zero-G acrobatic grace, slipping through microscopic gaps in the deadly crimson grid. Her thrill-seeking nature shines as she bypasses the outer vault blast doors, moving with a fluid unpredictability that defies Jax's rigid calculations.\n\nUp in the opulent VIP lounge, Jax glides effortlessly through a crowd of intoxicated executives. He targets a stumbling casino vice president, bumping into him with a perfectly calculated apology and a disarming smile. In a fraction of a second, Jax flawlessly pickpockets a biometric master keycard from the man's breast pocket, executing the high-tech theft with slick, practiced precision.\n\nJax slips into the restricted sub-level, meeting Nyx at the massive, titanium exterior of the vault. They swiftly plant a ring of localized explosive charges around the reinforced locking mechanism, signaling Kael to initiate the environmental override. Kael executes the command, instantly cutting the artificial gravity and plunging the entire sector into disorienting, floating weightlessness.\n\nJust as Jax prepares to detonate the breaching charges, the station's deafening emergency alarms instantly blare, shattering their brief moment of confident victory. SILAS (50), the ruthless Head of Security and Jax's treacherous former partner, steps out onto a high mezzanine balcony overlooking the floating thieves. He stares down at Jax with a cold, triumphant smile, the ghosts of their shared, bloody past hanging heavily in the sterile air.\n\nSilas casually taps a command into his wrist-console, triggering a secondary, entirely unmapped lockdown protocol. Heavy tungsten blast doors slam shut from the outside, sealing off every possible exit route. The smooth jazz of the meticulously planned heist abruptly dies, leaving Jax and Nyx hopelessly trapped inside the anti-gravity chamber.\n[SEQUENCE 4 END]",
+      "act_2b": "[SEQUENCE 5 START]\n\nSEQUENCE 5: The Three-Dimensional Battlefield\n\nSilas's elite security forces breach the ceiling of the vault. Searing plasma cutters slice through the titanium roof, dropping heavy metal plating into the floating abyss. Six heavily armored GUARDS (30s) drop through the jagged opening, their magnetic boots slamming against the metallic bulkheads with terrifying, synchronized thuds. They immediately anchor themselves to the walls and ceiling, establishing total tactical dominance over the disorienting, gravity-free environment.\n\nSuppressive laser fire erupts from their rifles, painting the dark vault in deadly streaks of crimson light. Jax and Nyx drift helplessly through the open air, utterly exposed without the friction or gravity needed to dodge the incoming barrage. Jax desperately attempts to impose order on the chaos, barking rigid, pre-calculated evasive coordinates into his comms. His perfect timeline shatters into irrelevance as the guards track their floating trajectories with ruthless, predatory precision.\n\nSafe in the utility closet but emotionally crumbling, Kael watches the massacre unfold on his monitors. His hands shake violently over the glowing holographic interface, his fingers slipping as he frantically punches in override codes to break the lockdown. The system denies every frantic request, flashing glaring red error messages that reflect in his terrified eyes. The internal cohesion of the crew completely fractures, replacing their confident swagger with the raw, paralyzing reality of impending death.\n\n[SEQUENCE 5 END]\n\n[SEQUENCE 6 START]\n\nSEQUENCE 6: The Improvised Escape\n\nSearing laser fire crisscrosses the zero-G vault, instantly vaporizing the reinforced glass of the surrounding luxury display cases. Shards of molten crystal and glowing debris float through the air like a deadly meteor shower. Jax and Nyx desperately kick off the floating wreckage, using the kinetic momentum to propel themselves toward the meager cover of a titanium pillar. The sheer volume of incoming fire pins them down, stripping away any illusion of a clean, calculated escape.\n\nHuddled behind the deteriorating pillar, Jax furiously recites a string of complex contingency plans over the comms. He demands synchronized flanking maneuvers that are physically impossible to execute in the chaotic, three-dimensional crossfire. A ricocheting laser blast grazes Nyx’s shoulder, instantly cauterizing the flesh and sending a shockwave of agony through her body. She clutches the smoking wound and begins to hyperventilate, her usually fearless demeanor crumbling as crippling claustrophobia takes hold.\n\nThe confined space of the vault feels as though it is shrinking around them, the air growing thick with the smell of ozone and burnt blood. On Kael’s remote monitor, the master environmental timer flashes relentlessly, indicating exactly three minutes until the artificial gravity violently re-engages. The frantic acceleration of the firefight pushes the crew to their absolute physical and emotional limits. Jax realizes his desperate attempts to maintain mathematical order are completely useless against the overwhelming, chaotic firepower of Silas’s guards.\n\nA stray, high-caliber laser blast punches directly through the casino floorboards and detonates inside Kael’s cramped utility closet. The explosion instantly vaporizes his primary hacking console, showering him in a rain of sparks and melted synthetic plating. The catastrophic hardware failure permanently severs his connection to the vault's blast doors, instantly blinding their external sensors. Kael screams a final, desperate apology into the comms before the encrypted channel dissolves into a wall of deafening static.\n\nThe sudden silence on the comms hits Jax harder than any physical blow, bringing the frantic momentum of his mind to a dead, horrifying halt. He turns to watch Nyx bleeding and floating helplessly in the zero-G vacuum, her eyes wide with the primal fear of a trapped animal. The crushing weight of his own hubris crashes down upon him in a wave of suffocating guilt. He realizes his obsessive need for rigid control and flawless execution has led the only people he cares about directly into an inescapable death trap.\n\nThe environmental timer on Jax's wrist console hits thirty seconds, the digital numbers bleeding away their final moments of hope. The relentless gunfire from the guards pauses, allowing the heavy, silent reality of their impending execution to settle over the floating debris. Jax stops his frantic, compulsive tapping against his watch face, his arms going entirely limp at his sides. He stares into the cold, unyielding metal of the vault doors, experiencing the absolute, soul-crushing terror of total and complete failure.\n\n[SEQUENCE 6 END]",
+      "act_3": "[SEQUENCE 7 START]\n\nSEQUENCE 7: The Gravity Drop\n\nFloating helplessly in the silent, zero-gravity vacuum of the vault, Jax stares at a shattered security monitor drifting nearby. The cracked screen broadcasts the smug, gloating face of his former partner, Silas, observing the slaughter from a safe distance. The overwhelming tactical superiority of the guards leaves Jax entirely paralyzed, his meticulously calculated timeline reduced to absolute garbage. He experiences a profound, soul-crushing hopelessness, realizing his obsessive need for control has doomed his crew.\n\nAmidst the floating debris and searing laser fire, a sudden memory pierces through Jax's panic. He recalls Elara's parting words about the futility of fighting the unpredictable nature of the universe. The realization hits him with the force of a physical blow: his rigid planning is not a shield, but a cage. To survive this impossible scenario, his old way of thinking must completely die.\n\nJax makes a conscious, terrifying choice to abandon his mathematical probabilities and embrace the absolute unknown. He stops compulsively checking his wrist console and looks over at Nyx, who clutches her bleeding shoulder in terror. The paralyzing fear evaporates from Jax's chest, replaced by a sudden, enlightened clarity. He understands that raw, unpredictable chaos is the only weapon they have left against Silas's perfectly ordered security team.\n\nActing with newfound, proactive energy, Jax re-establishes a crude, static-filled comms link to Kael's ruined utility closet. He explicitly orders Kael to manually override and violently overload the vault's internal atmospheric pressure valves. Kael hesitates, arguing that such a massive pressure spike will rupture the room's structural integrity. Jax fiercely overrides the objection, demanding Kael trust the madness of the moment rather than the safety of the schematics.\n\nSimultaneously, Jax signals Nyx across the floating battlefield, instructing her to use her remaining micro-explosives on the intact luxury display cases. Nyx's eyes widen in surprise, but a fierce, adrenaline-fueled grin quickly replaces her claustrophobic panic. She pushes off a floating titanium pillar, flipping through the crossfire with reckless, improvised agility to plant the charges. The heist's primary objective and Jax's newfound trust in his team's chaotic instincts perfectly synthesize into one desperate maneuver.\n\nThe explosives detonate exactly as Kael overloads the pressure valves, creating a massive, concussive shockwave inside the vacuum. Millions of dollars in casino chips, shattered crystal, and glittering jewels explode outward into the room. The dense, swirling storm of priceless debris creates a thick, blinding cloud that completely neutralizes the guards' laser sights. Silas's elite mercenaries instantly lose their tactical dominance, firing blindly into the glittering, chaotic fog.\n\n[SEQUENCE 7 END]\n\n[SEQUENCE 8 START]\n\nSEQUENCE 8: Settling the Score\n\nNyx uses the swirling vortex of floating debris as a series of mid-air stepping stones, her acrobatic instincts perfectly suited for the blinding storm. She bounds off a floating chunk of marble, diving directly through a barrage of blind laser fire toward the center pedestal. With flawless, improvised timing, she snatches the glowing Star of Eden from its mount just as the environmental timer hits absolute zero.\n\nArtificial gravity violently re-engages, instantly pulling the chaotic, three-dimensional battlefield down to a crushing, two-dimensional reality. The heavy debris and the rigidly anchored, mag-booted guards crash brutally to the titanium floor, their rigid stances turning into a fatal flaw. Jax and Nyx hit the ground rolling, using the sudden gravitational shift to sprint past the incapacitated mercenaries. They burst through the shattered vault doors, sprinting breathlessly down the corridor toward the extraction hangar.\n\nThey slide into the hangar bay, only to find Silas blocking the ramp to their escape ship, pressing a high-caliber pistol directly to Kael's temple. Silas demands the Star of Eden, mocking Jax's predictable cowardice and insisting that Jax will always fold under pressure. Instead of calculating a tactical flank, Jax halts and raises his hands in a pathetic, defeated surrender. He plays directly into Silas's expectations, using his former partner's belief in his rigid cowardice as a weapon.\n\nJax shuffles forward with his head bowed, closing the distance to hand over the glowing gemstone. In a flash of brilliant, uncalculated instinct, Jax slaps a stolen micro-gravity charge directly onto Silas's armored chest plate. Jax triggers the detonator, releasing a localized anti-grav pulse that violently launches Silas backward into a solid steel bulkhead. The impact knocks Silas unconscious, instantly freeing Kael and allowing the victorious crew to sprint up the ramp of the escape ship.\n\nThe stolen shuttle blasts out of the hangar, its thrusters igniting brilliantly against the cold, vast void of deep space. The massive, glittering structure of The Olympus shrinks into a distant, insignificant speck behind them. Inside the cabin, the frantic adrenaline of the heist fades into a profound, exhausted relief. The crew has successfully secured the prize, but the emotional atmosphere is entirely different from their tense, calculated arrival.\n\nThe ship's artificial gravity disengages, allowing the crew to float comfortably in the serene, zero-G environment of the cabin. Nyx and Kael laugh uproariously, popping the cork on a bottle of stolen, vintage champagne to celebrate their impossible victory. Golden droplets of wine float through the air like the jewels in the vault, catching the soft, warm glow of the cabin lights. The rigid, professional distance between the crew members has completely dissolved into genuine, hard-earned connection.\n\nJax watches his bruised, joyous crew, feeling a deep, unfamiliar warmth radiating throughout his chest. He smiles genuinely, making absolutely no effort to catch his meticulously calibrated chronometer as the strap finally snaps. The expensive watch drifts away from his wrist, floating forgotten into the far, dark corner of the cabin. Jax leans back in his seat, completely liberated from his obsession with control, finally at peace with the beautiful, unpredictable chaos of the universe.\n\n[SEQUENCE 8 END]"
+    },
+    "stage6_scenes": [
+      {
+        "sequence_title": "The Reluctant Return",
+        "total_estimated_pages": 13.5,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. JAX'S APARTMENT - NIGHT",
+            "narrative_action": "Jax sits in the suffocating, gravity-heavy gloom of his minimalist Earth apartment. The air is thick with the hum of a failing atmospheric scrubber. He possesses no personal items, his metallic table bare except for a meticulously arranged row of titanium lock-picking tools. He obsessively taps his thumb against the crystal of his analog watch, counting the exact milliseconds it takes his scarred hands to assemble a magnetic micro-drill in absolute silence.",
+            "dramaturgical_function": "Establishes Jax's extreme need for control and isolation. Micro-Conflict: Jax vs. The precise mechanics of the drill. Value Shift: Stagnant (-) to In Control (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "A harsh, syncopated knock rattles the reinforced steel door. The sudden intrusion shatters Jax's rigid rhythm. His fingers slip, dropping a crucial tungsten gear onto the floor with a sharp clatter. Jax freezes, his stoic mask slipping to reveal a flash of deep-seated paranoia as he stares at the door.",
+            "dramaturgical_function": "Shatters Jax's ordinary world. Micro-Conflict: Jax's desire for silence vs. The chaotic outside world demanding attention. Value Shift: In Control (+) to Intruded Upon (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "The electronic lock disengages with a sharp hiss. Elara steps into the sterile living room without an invitation, projecting an aura of effortless, high-society glamour. She casually flips a tarnished, cheap copper coin, her presence sharply contrasting with the bleak, utilitarian apartment. Jax immediately adopts a defensive posture, sliding a titanium tool into his palm.",
+            "dramaturgical_function": "Introduces the Catalyst character. Micro-Conflict: Jax wants to maintain his boundary vs. Elara invading his safe space. Value Shift: Intruded Upon (-) to Cornered (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "Elara paces the perimeter of his meticulously clean space, inspecting his severe lifestyle. She delivers a philosophical warning, telling Jax that no matter how tightly he controls his environment, the universe thrives on unpredictable chaos. She insists that only those willing to trust others can survive the impending storm, directly challenging his isolated existence.",
+            "dramaturgical_function": "States the core theme of the story. Micro-Conflict: Elara wants Jax to embrace unpredictable teamwork vs. Jax wanting to remain hidden. Value Shift: Cornered (-) to Provoked (-).",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "Jax coldly deflects her warning, refusing to acknowledge the deep, festering wound of his past betrayals. He stubbornly recites syndicate debt probabilities and survival statistics, his voice devoid of emotion. He flatly states that math never betrays a careful man, gripping his analog watch to ground himself in his rigid philosophy.",
+            "dramaturgical_function": "Highlights Jax's fatal flaw and refusal of the call. Micro-Conflict: Jax's reliance on logic vs. Elara's push for emotional adaptation. Value Shift: Provoked (-) to Defensively Resolute (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "EXT. CITY STREETS - NIGHT",
+            "narrative_action": "Driven by the ticking clock of his obligations, Jax navigates the bleak, rain-swept city. He moves through the shadows with paranoid precision, constantly checking his flanks. The freezing rain soaks his coat as he descends toward the decaying transit rails, a man trapped by his own mathematical survival loop.",
+            "dramaturgical_function": "Transitions Jax from his safe haven to the dangerous underworld. Micro-Conflict: Jax vs. The hostile, unpredictable environment. Value Shift: Defensively Resolute (+) to Anxious (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - NIGHT",
+            "narrative_action": "Jax arrives at a hidden syndicate drop point beneath the dripping, rusted infrastructure. He approaches a hulking, cybernetically enhanced enforcer waiting in the gloom. Jax reaches into his coat and hands over a meager, tightly rolled stack of laundered credit chits, attempting to keep the transaction strictly professional.",
+            "dramaturgical_function": "Initiates the inciting incident confrontation. Micro-Conflict: Jax wants a clean transaction vs. The enforcer's looming hostility. Value Shift: Anxious (-) to Exposed (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - CONTINUOUS",
+            "narrative_action": "The transaction sours instantly. The cybernetic enforcer unrolls the chits and scoffs at the paltry sum. Without warning, the enforcer lunges, violently shoving Jax backward. Jax's spine slams hard against the damp concrete wall, knocking the wind out of him before he can even attempt to draw a weapon.",
+            "dramaturgical_function": "Escalates the physical danger and shatters Jax's illusion of control. Micro-Conflict: Jax's physical safety vs. The enforcer's brute strength. Value Shift: Exposed (-) to Overpowered (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - CONTINUOUS",
+            "narrative_action": "The enforcer presses a heavy, cybernetic forearm directly against Jax's throat, pinning him to the wall. The enforcer coldly informs him that the syndicate bosses have accelerated his massive debt timeline. He dictates the new terms: Jax has exactly one week to pay the balance in full, or his life is forfeit. The enforcer drops Jax to the wet pavement.",
+            "dramaturgical_function": "Delivers the ticking clock that forces Jax into action. Micro-Conflict: Jax's carefully planned timeline vs. The syndicate's sudden acceleration. Value Shift: Overpowered (-) to Condemned (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Jax stumbles away from the drop point into the freezing rain. He pauses under a flickering streetlamp, wiping a streak of blood from his split lip. He looks down at his analog watch, the ticking hands mocking his need for control. The agonizing realization dawns on him: his rigid, solitary existence is no longer mathematically viable to keep him breathing.",
+            "dramaturgical_function": "The sequence climax where Jax realizes he must change to survive. Micro-Conflict: Jax vs. His shattered worldview. Value Shift: Condemned (-) to Desperate Awakening (+).",
+            "estimated_page_count": 1
+          }
+        ],
+        "sequence_number": 1
+      },
+      {
+        "sequence_title": "Assembling the Zero-G Crew",
+        "total_estimated_pages": 15,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Jax stands trapped at the dead-end of the decaying transit rails, wiping blood from his split lip in the freezing rain. He stares at his ticking analog watch, the reality of his vulnerability sinking in. Elara steps directly under the flickering streetlamp, claiming the only light source and forcing Jax into the shadows. Her usual transactional detachment is gone, replaced by an urgent, predatory intensity. She steps into his personal space, blocking his only exit.",
+            "dramaturgical_function": "Structural Purpose: Establishes Elara's interception and transitions Jax from his post-climax defeat to a new complication. Value Shift: (+/-) Defeated to Confronted. Micro-Conflict: (><) Jax wants to retreat and heal vs. Elara demanding his immediate attention.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - ALLEYWAY - CONTINUOUS",
+            "narrative_action": "Elara shoves a glowing, highly encrypted datapad into Jax's bruised hands. The harsh blue light illuminates his face with the classified architectural schematics for The Olympus casino. She points to the core of the station: the Star of Eden, a flawless diamond worth enough to erase his syndicate debt overnight. Jax's eyes dart across the screen, his analytical mind immediately searching for the hidden trap within the lucrative offer.",
+            "dramaturgical_function": "Structural Purpose: Delivers the Catalyst / Golden Fleece, giving Jax a tangible way out of his deadly debt. Value Shift: (+/-) Confronted to Intrigued. Micro-Conflict: (><) Jax's ingrained paranoia vs. the undeniable lure of the ultimate prize.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "EXT. DECAYING TRANSIT RAILS - ALLEYWAY - MOMENTS LATER",
+            "narrative_action": "Jax finds the catch. Elara taps the screen, highlighting a grid of thermal and pressure-sensitive plates lining the vault floor. She obsessively rubs a tarnished copper coin with her thumb as she delivers the punchline: the countermeasures require a completely untethered, zero-gravity infiltration. Jax shoves the datapad back, physically recoiling at the idea of relying on a team. Elara leaves the pad balancing on an oil drum and walks away into the rain.",
+            "dramaturgical_function": "Structural Purpose: Forces the zero-G constraint and establishes the physical impossibility of a solo heist. Value Shift: (+/-) Intrigued to Resistant. Micro-Conflict: (><) Jax's refusal to work with a crew vs. the physical reality of the vault's lethal defenses.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. JAX'S APARTMENT - LATER",
+            "narrative_action": "Jax enters his stark, minimalist apartment. He throws the datapad onto the central console. The room instantly fills with glowing blue holograms of the casino vault. He strips off his wet jacket, revealing dark bruised ribs, and begins manipulating the digital models with frantic, precise swipes. He isolates the vault floor, determined to find a solo angle that bypasses the need for trust.",
+            "dramaturgical_function": "Structural Purpose: Begins the Debate beat. Jax attempts to solve the problem using his fatal flaw of total isolation. Value Shift: (+/-) Resistant to Determined. Micro-Conflict: (><) Jax vs. the digital architecture of The Olympus.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. JAX'S APARTMENT - LATER",
+            "narrative_action": "Jax runs the first solo simulation. He maps a route for his digital avatar along the ceiling to avoid the pressure plates. He watches the avatar scale the wall, but a thermal sensor trips. The room flashes red as the avatar is violently crushed by descending security doors. Jax resets the board, his jaw tight, refusing to accept the failure.",
+            "dramaturgical_function": "Structural Purpose: Escalates the difficulty of the heist and punishes Jax's insistence on working alone. Value Shift: (+/-) Determined to Frustrated. Micro-Conflict: (><) Jax's intellect vs. the vault's automated countermeasures.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. JAX'S APARTMENT - HOURS LATER",
+            "narrative_action": "The apartment is a chaotic mess of discarded, glowing simulation timelines. Jax is sweating, pacing around the console like a caged animal. He runs his 47th solo simulation. The avatar attempts a desperate magnetic grapple swing across the room. A hidden laser grid materializes and vaporizes the avatar. The giant red 'FAILURE' text flashes over Jax's exhausted, hollow face.",
+            "dramaturgical_function": "Structural Purpose: Pushes Jax to his breaking point, proving his current methodology is mathematically impossible. Value Shift: (+/-) Frustrated to Desperate. Micro-Conflict: (><) Jax's desperate need for control vs. the relentless math of the vault.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. JAX'S APARTMENT - DAWN",
+            "narrative_action": "Defeated by the relentless math, Jax stares at the flashing red holograms. His thumb aggressively, rhythmically taps against his analog watch crystal, terrified by his total loss of control. He physically slumps, the fight draining out of him. He reaches for the console, closes the solo simulation program, and pulls up a highly encrypted underworld directory.",
+            "dramaturgical_function": "Structural Purpose: The turning point of the Debate. Jax concedes defeat and makes the terrifying choice to seek help. Value Shift: (+/-) Desperate to Conceded. Micro-Conflict: (><) Jax's fear of vulnerability vs. his primal will to survive.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "Jax opens a secure comms channel. He filters the directory for 'Zero-G Specialists' and 'Mainframe Architects.' He drafts initial messages, but deletes them, unable to relinquish control. Finally, he types out rigid, hyper-specific contracts, dictating exact timelines and micro-seconds of involvement. He hits send, attempting to treat human beings like programmable variables.",
+            "dramaturgical_function": "Structural Purpose: Shows how Jax compromises: he will hire a crew, but he will treat them like machines to maintain his illusion of control. Value Shift: (+/-) Conceded to Reluctantly Proactive. Micro-Conflict: (><) Jax's need for help vs. his refusal to actually trust the people helping him.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. KAEL'S WORKSHOP / JAX'S APARTMENT - INTERCUT - DAY",
+            "narrative_action": "Kael leans back comfortably in his chaotic, tech-cluttered workshop, feet up on the desk. Jax stands rigidly in his sterile apartment. Jax's voice comes through the comms, cold and precise, offering the job but immediately listing Kael's exact keystroke timeline. Kael mocks Jax's rigid schedule with rapid-fire sarcasm, calling him a control freak, but his hands stop shaking as his eyes light up at the challenge of the Olympus mainframe. Kael accepts.",
+            "dramaturgical_function": "Structural Purpose: Introduces Kael and establishes the friction between Kael's chaotic genius and Jax's rigid planning. Value Shift: (+/-) Reluctantly Proactive to Challenged. Micro-Conflict: (><) Jax's dictatorial terms vs. Kael's rebellious, sarcastic nature.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. ZERO-G TRAINING SPHERE / JAX'S APARTMENT - INTERCUT - DAY",
+            "narrative_action": "Nyx floats freely near the ceiling of a zero-G training sphere, literally looking down at Jax's holographic projection. Jax, anchored heavily to his apartment floor, demands strict, to-the-second choreography. Nyx playfully flips a coin in mid-air, laughing at his rules, but agrees to the gig for the sheer adrenaline rush. Jax terminates the connection. He stares at the two new names on his holographic roster, his thumb tapping his watch glass frantically as he realizes he is no longer in absolute control.",
+            "dramaturgical_function": "Structural Purpose: Introduces Nyx, highlights the thematic clash between chaos and order, and locks in the crew. Value Shift: (+/-) Challenged to Terrified. Micro-Conflict: (><) Jax demanding strict choreography vs. Nyx treating the deadly heist like a playground.",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 2
+      },
+      {
+        "sequence_title": "Sequence 3: The Grand Opening Gala",
+        "total_estimated_pages": 15,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. JAX'S APARTMENT - CONTINUOUS",
+            "narrative_action": "Jax stands frozen in his apartment, his thumb aggressively tapping the glass of his watch as he stares at the holographic roster of his newly formed crew. The terrifying reality of his lost control sinks in. He abruptly swipes his hand through the hologram, killing the projection. He grabs a sleek, midnight-blue garment bag, taking one last look at his barren, highly predictable sanctuary before walking out the door.",
+            "dramaturgical_function": "Structural Purpose: Bridges the previous climax to the new sequence, establishing Jax's physical departure from his comfort zone. Micro-Conflict (><): Jax wants to stay in his safe, isolated bubble vs. the immediate necessity of leaving for the mission. Value Shift (+/-): Safe/Isolated (+) to Exposed/Committed (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. LUXURY TRANSPORT SHUTTLE - CABIN - LATER",
+            "narrative_action": "The sleek, aerodynamic hull of the shuttle pierces the upper atmosphere. Inside the pristine cabin, Jax aggressively tugs at the collar of his bespoke, midnight-blue tuxedo. His calloused hands fumble with the delicate silk tie. He tries to review a holographic schematic of the casino, but the suffocating elegance of his high-society disguise physically restricts his movement, breaking his concentration.",
+            "dramaturgical_function": "Structural Purpose: Visually demonstrates Jax's discomfort and vulnerability in the 'upside-down world' of high society. Micro-Conflict (><): Jax wants to focus on his technical blueprints vs. his unfamiliar, physically restrictive disguise. Value Shift (+/-): Focused/Prepared (+) to Frustrated/Uncomfortable (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. LUXURY TRANSPORT SHUTTLE - CABIN - CONTINUOUS",
+            "narrative_action": "Nyx effortlessly twirls near the cabin ceiling in a shimmering, zero-G resistant evening gown. Jax rigidly barks at her to strap in and review the entry vectors. Nyx playfully ignores him, using the cabin walls to push off into a slow-motion spin. She mocks his stiff posture, forcing Jax to aggressively tighten his tie and turn away, unable to control her kinetic, unpredictable energy.",
+            "dramaturgical_function": "Structural Purpose: Establishes the B-Story dynamic by contrasting Jax's rigid need for order against Nyx's chaotic freedom. Micro-Conflict (><): Jax demands strict adherence to pre-mission protocols vs. Nyx treating the infiltration like a zero-G playground. Value Shift (+/-): Authoritative (+) to Undermined/Ignored (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. SHUTTLE AIRLOCK - LATER",
+            "narrative_action": "The shuttle shudders violently as it docks with The Olympus. Jax grips a bulkhead handhold, his knuckles turning white. The heavy airlock doors hiss open, revealing a blindingly opulent promenade lined with cascading water features and gold-veined marble floors. Jax stands completely frozen at the threshold, his boots hovering millimeters above the deck, staring into the belly of the beast.",
+            "dramaturgical_function": "Structural Purpose: The literal 'Break into Two' threshold crossing into the heist location. Micro-Conflict (><): Jax's physical forward momentum vs. his paralyzing psychological fear of leaving his isolated safety net. Value Shift (+/-): Contained/Safe (+) to Terrified/Hesitant (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. THE OLYMPUS PROMENADE - CONTINUOUS",
+            "narrative_action": "Jax forces his foot down. The casino's artificial gravity immediately yanks him to the floor with an oppressive weight. He stumbles slightly, then instantly stiffens, his eyes darting to calculate the distance to three heavily armed security checkpoints. His thumb twitches toward his watch as his heart hammers against his ribs in a chaotic, panicked rhythm.",
+            "dramaturgical_function": "Structural Purpose: Grounds the sequence in the physical reality of the casino and triggers Jax's visceral paranoia. Micro-Conflict (><): Jax tries to project a calm, undercover persona vs. the overwhelming sensory overload of the casino's intense security apparatus. Value Shift (+/-): Hesitant (-) to Hyper-Vigilant (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - LATER",
+            "narrative_action": "The grand opening gala is a sea of glittering elite. Jax rigidly patrols the perimeter of the ballroom, his posture unnaturally stiff. He presses a finger to his ear, his concealed comms crackling. He barks precise, micro-second positional orders to the crew, completely ignoring the opulent party around him as he attempts to treat his teammates like predictable mathematical variables on a chessboard.",
+            "dramaturgical_function": "Structural Purpose: Shows Jax attempting to regain psychological safety through extreme micromanagement of his crew. Micro-Conflict (><): Jax wants to impose his sterile timeline on the chaotic gala vs. the fluid, unpredictable movement of the partygoers. Value Shift (+/-): Overwhelmed (-) to Temporarily in Control (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. MAINTENANCE CLOSET - CONTINUOUS",
+            "narrative_action": "In the dark, cramped confines of a utility closet, Kael types frantically on a glowing terminal. He listens to Jax's frantic directives over the comms and rolls his eyes. Kael sarcastically critiques Jax's rising panic, deliberately delaying a timeline confirmation by three seconds just to hear Jax's voice crack with anxiety over the earpiece.",
+            "dramaturgical_function": "Structural Purpose: Challenges Jax's authority and highlights the crew's resistance to his rigid, robotic leadership. Micro-Conflict (><): Kael wants to assert his own pacing and mock his boss vs. Jax's demand for instant, unquestioning compliance. Value Shift (+/-): Compliant (+) to Rebellious (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - ROULETTE TABLES - CONTINUOUS",
+            "narrative_action": "Over the comms, Jax orders Nyx to hold her position near a marble pillar. Nyx completely ignores the directive. Flashing a brilliant smile, she intercepts a wealthy, diamond-clad mark. She laughs loudly, running a hand down the mark's arm, subtly using her body and the mark's broad shoulders to maneuver out of the path of a roving security drone, blinding its camera to her face.",
+            "dramaturgical_function": "Structural Purpose: Escalates the B-Story by having Nyx actively break the plan to improvise a riskier, but more effective, solution. Micro-Conflict (><): Nyx wants to use her chaotic social instincts to evade the drone vs. Jax's strict orders to remain stationary. Value Shift (+/-): Restricted (-) to Successfully Hidden (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - PERIMETER - CONTINUOUS",
+            "narrative_action": "Jax watches Nyx's improvised maneuver from across the room. He taps his watch furiously, muttering curses at her insubordination. Suddenly, a heavily armed security patrol spots the disrupted drone path and pivots directly toward Nyx and the mark. Jax barks into his comms for Nyx to abort, but she is physically pinned between the mark, a roulette table, and the approaching guards.",
+            "dramaturgical_function": "Structural Purpose: The midpoint escalation of the sequence—the rigid plan completely fails, forcing immediate, unplanned action. Micro-Conflict (><): Jax tries to verbally warn Nyx to escape vs. the physical reality that she is trapped and out of time. Value Shift (+/-): Observing/Angry (+) to Panicking (-).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - ROULETTE TABLES - CONTINUOUS",
+            "narrative_action": "Jax abandons his rigid patrol route, sprinting aggressively across the crowded ballroom floor, dodging waiters and socialites. He reaches Nyx just as the guards step up. Without hesitation, Jax loudly claps the wealthy mark on the shoulder, launching into a spontaneous, uncalculated stream of boisterous banter about rare Earth vintages, physically placing his own body between Nyx and the patrol.",
+            "dramaturgical_function": "Structural Purpose: Forces Jax to break his own rules, step out of his comfort zone, and engage in the messy reality of human interaction to save his teammate. Micro-Conflict (><): Jax wants to neutralize the guards' suspicion vs. his own total lack of preparation for this spontaneous conversation. Value Shift (+/-): Panicking (-) to Commanding the Room (+).",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - ROULETTE TABLES - CONTINUOUS",
+            "narrative_action": "The guards, disarmed by Jax's booming, wealthy persona, nod respectfully and move on. As soon as their backs turn, Jax's fake smile instantly drops. He shares a tense, breathless look with Nyx. He looks down at his shaking hands, an uncomfortable realization washing over him: his sterile blueprints almost got them caught, and relying on chaotic instinct just saved their lives.",
+            "dramaturgical_function": "Structural Purpose: The emotional climax of the sequence, planting the seed of Jax's psychological need to trust his team's instincts. Micro-Conflict (><): Jax's desire to reprimand Nyx for breaking protocol vs. the undeniable truth that their combined improvisation worked. Value Shift (+/-): Arrogant in his plan (+) to Humbled/Uneasy (-).",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 3
+      },
+      {
+        "sequence_title": "The Approach and The Switch",
+        "total_estimated_pages": 13,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. THE OLYMPUS BALLROOM - ROULETTE TABLES - CONTINUOUS",
+            "narrative_action": "Jax stares at his shaking hands, the sterile blueprints of his plan having nearly failed them. He aggressively taps his thumb against his watch crystal, forcing his icy professionalism back into place. Nyx gives him a knowing smirk, flips a casino chip into the air, and melds into the dancing crowd. Jax straightens his cuffs, burying his paranoia, and strides purposefully toward the VIP lounge.",
+            "dramaturgical_function": "Structural Purpose: Bridges the climax of the previous sequence into the heist execution. Micro-Conflict (><): Jax wants to regain his emotional control vs. his lingering terror of unpredictability. Value Shift (+/-): Vulnerable to Focused.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. UTILITY CLOSET - MOMENTS LATER",
+            "narrative_action": "Kael sits in the darkened closet, bathed in the glow of holographic keyboards. His fingers fly across the keys in a rapid-fire assault on the casino mainframe. Hitting a nasty firewall, his hands begin to shake violently. He mutters a biting, sarcastic joke to the empty room, bypasses the ICE, and successfully loops the primary security feeds, replacing live vault footage with static images of empty hallways.",
+            "dramaturgical_function": "Structural Purpose: Executes the first technical hurdle of the heist. Micro-Conflict (><): Kael wants to slice the mainframe vs. the station's formidable firewalls and his own anxiety. Value Shift (+/-): Anxious to Triumphant.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. VENTILATION SHAFTS - CONTINUOUS",
+            "narrative_action": "Deep within the station infrastructure, Nyx contorts her lithe frame through a tight, laser-lined shaft. Claustrophobia creeping in, she aggressively cracks her knuckles and takes sharp, hyperventilating gasps. Spotting a micro-gravity pocket, she pushes off, propelling herself with breathtaking acrobatic grace silently over the deadly crimson beams, successfully bypassing the outer vault doors.",
+            "dramaturgical_function": "Structural Purpose: Showcases Nyx's physical prowess and bypasses the physical perimeter. Micro-Conflict (><): Nyx wants to reach the vault vs. the deadly laser grid and her fear of being trapped. Value Shift (+/-): Constricted to Liberated.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. VIP LOUNGE - CONTINUOUS",
+            "narrative_action": "Jax glides through the dimly lit lounge, his eyes locked on a stumbling, drunken casino executive. Calculating the trajectory, Jax steps into his path, bumping the man with a perfectly timed, polite apology. In the same fluid motion, Jax's swift hands flawlessly extract a high-level master keycard from the executive's breast pocket. He slips it into his sleeve and vanishes into the crowd.",
+            "dramaturgical_function": "Structural Purpose: Secures the necessary access key for the inner vault. Micro-Conflict (><): Jax wants the keycard vs. the risk of the executive noticing the theft. Value Shift (+/-): Hunting to Armed.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. RESTRICTED CORRIDOR - MOMENTS LATER",
+            "narrative_action": "Jax approaches the heavy security doors leading to the vault sector. He swipes the stolen master keycard. The light turns green, and the doors hiss open. He steps into the dimly lit, heavily armored antechamber of the core vault, where Nyx drops silently from a ceiling grate to join him. They exchange a brief, wordless nod of readiness.",
+            "dramaturgical_function": "Structural Purpose: Unites the physical infiltration team at the final target. Micro-Conflict (><): Jax wants to breach the inner sanctum vs. the station's restricted access barriers. Value Shift (+/-): Separated to Reunited.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. VAULT EXTERIOR - CONTINUOUS",
+            "narrative_action": "Moving in synchronized silence, Jax and Nyx approach the massive reinforced hinges of the core vault. They pull magnetic explosive charges from their gear, planting them in a perfect, calculated ring around the metal joints. Jax taps his comms earpiece, signaling Kael to initiate the final, critical phase of the operation.",
+            "dramaturgical_function": "Structural Purpose: Sets up the physical breach of the vault. Micro-Conflict (><): The crew wants to plant the explosives vs. the sheer scale and armor of the vault door. Value Shift (+/-): Anticipatory to Ready.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. UTILITY CLOSET - CONTINUOUS",
+            "narrative_action": "Kael receives the comms tap. He smirks, his confidence fully restored, and types the final override command into the holographic interface. He hovers his finger over the execute key for a split second, then slams it down, sending the command to kill the gravity generators for Sector 4.",
+            "dramaturgical_function": "Structural Purpose: Triggers the zero-G environment required for the heist. Micro-Conflict (><): Kael wants to cut the gravity vs. the irreversible nature of the action. Value Shift (+/-): Waiting to Committed.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. VAULT EXTERIOR - CONTINUOUS",
+            "narrative_action": "The deck plates beneath Jax and Nyx emit a low, dying hum. The artificial gravity cuts out entirely. Plunged into total weightlessness, Jax and Nyx float gracefully upward, positioning their bodies to breach the vault. Jax reaches for the detonator, relishing the perfect execution. Suddenly, ear-piercing alarms flood the sector, and harsh, strobing red lights bathe the floating thieves.",
+            "dramaturgical_function": "Structural Purpose: Executes the gravity cut but immediately pivots into the Midpoint twist. Micro-Conflict (><): Jax wants to detonate the charges vs. the sudden, blaring station alarms. Value Shift (+/-): In Control to Shocked.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. MEZZANINE BALCONY - CONTINUOUS",
+            "narrative_action": "High above the floating thieves, a concealed door slides open. Silas steps out onto the mezzanine balcony overlooking the vault chamber. His tailored suit is impeccable. He looks directly down at Jax, smiling with cold, predatory satisfaction. He raises a sleek remote control, his voice echoing over the PA system, politely informing Jax that his outdated syndicate tricks were anticipated from the moment he docked.",
+            "dramaturgical_function": "Structural Purpose: Reveals the antagonist and springs the trap. Micro-Conflict (><): Silas wants to assert his absolute dominance vs. Jax's illusion of a successful heist. Value Shift (+/-): Concealed to Dominant.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. VAULT EXTERIOR - CONTINUOUS",
+            "narrative_action": "Silas presses the button on his remote, triggering a secondary, unmapped lockdown sequence. Massive titanium blast doors violently slam shut over all exits. Jax and Nyx are left helplessly tumbling in the anti-gravity chamber. Jax obsessively taps his thumb against his watch crystal in a panic, his confident victory completely dissolved into absolute terror as he realizes they are trapped in Silas's flawless snare.",
+            "dramaturgical_function": "Structural Purpose: Finalizes the Midpoint reversal, leaving the heroes trapped at the end of the sequence. Micro-Conflict (><): Jax wants to escape vs. the titanium blast doors and the zero-G environment. Value Shift (+/-): Cornered to Doomed.",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 4
+      },
+      {
+        "sequence_title": "The Three-Dimensional Battlefield",
+        "total_estimated_pages": 14.5,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The massive titanium blast doors finish their violent descent, sealing the vault completely. Jax and Nyx tumble helplessly in the zero-gravity void. Jax's thumb frantically taps against his watch crystal, his eyes darting across the sealed room as his meticulously planned timeline evaporates. Above them, the reinforced ceiling begins to emit a low hum, the metal glowing a faint, ominous white-hot.",
+            "dramaturgical_function": "Structural Purpose: Establish the immediate physical trap. Micro-Conflict (><): Jax wants to regain control of the environment vs. the physical reality of the sealed zero-G room. Value Shift (+/-): Trapped (-) to Under imminent attack (--).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. UTILITY CLOSET - CONTINUOUS",
+            "narrative_action": "Cramped in the dimly lit closet, Kael stares at a barrage of red 'ACCESS DENIED' warnings flashing across his holographic displays. He aggressively wipes sweat from his forehead and attacks the keyboards, his fingers flying in a desperate attempt to map the secondary lockdown. His hands begin to tremble slightly. He mutters technical jargon to himself, refusing to admit defeat.",
+            "dramaturgical_function": "Structural Purpose: Show the failure of the digital overwatch. Micro-Conflict (><): Kael wants to hack the lockdown vs. Silas's unmapped security protocols locking him out. Value Shift (+/-): Frustrated (-) to Panicked (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The glowing white-hot circle on the ceiling violently implodes inward. Jagged chunks of reinforced steel and concrete erupt into the room, floating outward in deadly, slow-motion zero-G trajectories. Silas's elite security forces pour through the breach, their sleek black armor cutting through the strobing red emergency lights. Jax tries to swim backward through the empty air, flailing uselessly without a surface to push off of.",
+            "dramaturgical_function": "Structural Purpose: Execute the physical breach. Micro-Conflict (><): The crew wants to evade the falling debris vs. the zero-G physics rendering them immobile. Value Shift (+/-): Anticipation (-) to Ambushed (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The invading guards do not float. As they clear the breach, they slam their heavy magnetic boots against the metallic walls and ceiling. Synchronized, heavy metallic thuds echo through the chamber. Anchored upside down and sideways, the guards raise their suppressive laser rifles, establishing immediate, terrifying tactical dominance over Jax and Nyx, who drift completely exposed in the center of the room.",
+            "dramaturgical_function": "Structural Purpose: Introduce the antagonist's technological advantage. Micro-Conflict (><): The guards want to lock down firing positions vs. the crew's total lack of cover. Value Shift (+/-): Floating (-) to Outmaneuvered (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. SECURITY CONTROL ROOM - CONTINUOUS",
+            "narrative_action": "Silas stands perfectly still before a massive wall of monitors displaying the vault's thermal feeds. He watches the anchored heat signatures of his guards surround the floating thieves. He calmly straightens his pristine cuffs, his face devoid of surprise. He speaks into his comms with polite, chilling corporate sterility, ordering his men to pin them down but keep Jax alive.",
+            "dramaturgical_function": "Structural Purpose: Reiterate the antagonist's philosophy of absolute control. Micro-Conflict (><): Silas wants to humiliate Jax vs. the chaotic nature of the ongoing firefight. Value Shift (+/-): Anticipation (+) to Total Dominance (++).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Laser fire erupts from the ceiling and walls, crisscrossing the vault in a deadly three-dimensional web. Jax frantically kicks his legs, barking rapid-fire defensive formations into his comms. He screams for Nyx to take a flanking position behind a pillar, stubbornly clinging to his two-dimensional blueprints. Nyx ignores him, dodging a laser blast that singes her sleeve.",
+            "dramaturgical_function": "Structural Purpose: Highlight Jax's fatal flaw of clinging to rigid plans. Micro-Conflict (><): Jax wants to execute a standard defensive maneuver vs. the reality that a 'flank' does not exist in a 3D crossfire. Value Shift (+/-): Desperate (-) to Ineffective (--).",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. UTILITY CLOSET - CONTINUOUS",
+            "narrative_action": "Kael violently hammers his fists against the holographic keyboards, shattering the digital interface. Sweat pours down his face. His hands are shaking so violently now that he can barely input a command string. His breath hitches in a rising tide of panic as a massive 'SYSTEM LOCK' warning bathes his cramped closet in harsh red light.",
+            "dramaturgical_function": "Structural Purpose: Push the hacker to his breaking point. Micro-Conflict (><): Kael wants to maintain his cool persona vs. his overwhelming biological panic and guilt. Value Shift (+/-): Struggling (-) to Broken (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Nyx floats near a cluster of shattered ceiling debris. She aggressively cracks her knuckles, taking sharp, hyperventilating gasps as claustrophobia sets in. A laser blast shatters a floating gold bar inches from her head. Realizing Jax's orders are useless, she physically grabs a heavy chunk of concrete, using its mass to forcefully hurl herself out of the line of fire, adapting to the chaos.",
+            "dramaturgical_function": "Structural Purpose: Show the physical spearhead adapting to the environment. Micro-Conflict (><): Nyx wants to survive the crossfire vs. her own claustrophobia and Jax's bad orders. Value Shift (+/-): Paralyzed (-) to Kinetic (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. UTILITY CLOSET - CONTINUOUS",
+            "narrative_action": "Kael slumps back against the closet wall, his hands pressed hard against his thighs to stop the shaking. He opens the comms channel. His voice cracks, entirely stripped of its usual sarcasm, as he stammers out a confession: he cannot bypass the trap. He tells Jax they are on their own.",
+            "dramaturgical_function": "Structural Purpose: Sever the crew's digital lifeline. Micro-Conflict (><): Kael wants to fix the problem vs. his absolute technical inability to do so. Value Shift (+/-): Hiding behind tech (-) to Naked vulnerability (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Kael's cracked voice echoes in Jax's earpiece. Jax stops kicking. He stops barking orders. He stops tapping his watch crystal. As red lasers slice through the floating debris all around him, Jax simply drifts, staring up at the anchored guards. His meticulously crafted timeline is entirely in ruins, leaving him completely powerless in the center of the three-dimensional battlefield.",
+            "dramaturgical_function": "Structural Purpose: The climax of the sequence. Jax's lie of total control is shattered. Micro-Conflict (><): Jax wants to rely on his plan vs. the undeniable reality that the plan is dead. Value Shift (+/-): Clinging to control (-) to Absolute loss of control (--).",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 5
+      },
+      {
+        "sequence_title": "The Improvised Escape",
+        "total_estimated_pages": 15.5,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Jax drifts in shock, his timeline in ruins. Suddenly, searing bolts of crimson laser fire crisscross the zero-gravity vault, instantly vaporizing a velvet rope inches from his face. The lethal heat snaps him out of his paralysis. He violently contorts his body, grabbing Nyx by her harness and desperately pushing off a floating, polished marble column to dodge the incoming barrage.",
+            "dramaturgical_function": "Structural Purpose: Re-ignites the physical conflict and breaks Jax out of his shock. Micro-Conflict (><): Jax wants to avoid getting shot vs. the guards' overwhelming firepower. Value Shift (+/-): (-) Paralyzed to (+) Active evasion.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The air fills with the acrid stench of ozone and melted gold as Jax and Nyx navigate the chaotic crossfire. They weave through shattered reinforced glass from luxury displays, finally barricading themselves behind a drifting, heavily damaged roulette table that absorbs a fresh volley of laser fire.",
+            "dramaturgical_function": "Structural Purpose: Establishes a temporary, precarious safe zone within the kill box. Micro-Conflict (><): Jax and Nyx want cover vs. the relentless crossfire tracking their movements. Value Shift (+/-): (-) Exposed to (+) Temporarily shielded.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Refusing to abandon his structured mindset, Jax furiously recites an alphabetical list of emergency contingency plans over the deafening roar of weapons fire. He demands Nyx execute precise, coordinated physical movements that are mathematically impossible in the chaotic, weightless vacuum.",
+            "dramaturgical_function": "Structural Purpose: Exposes Jax's fatal flaw under pressure. Micro-Conflict (><): Jax wants to force order onto the situation vs. the chaotic reality of zero-G physics. Value Shift (+/-): (+) Clinging to control to (-) Plans failing.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. MAINTENANCE CLOSET - CONTINUOUS",
+            "narrative_action": "Kael types frantically on his glowing holographic arrays. His hands shake as he watches the vault's internal telemetry. He barks over the comms, calling out a relentless, three-minute countdown until the artificial gravity systems forcibly reboot.",
+            "dramaturgical_function": "Structural Purpose: Escalates the ticking clock. Micro-Conflict (><): Kael wants to buy them time vs. the station's automated reboot sequence. Value Shift (+/-): (+) Monitoring the situation to (-) Pressured by the countdown.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Attempting to execute one of Jax's impossible maneuvers, Nyx pushes out from behind the roulette table. A stray laser blast instantly grazes her shoulder. She recoils violently as a spray of crimson droplets floats into the air, hovering around them like suspended rubies. Jax yanks her back into cover.",
+            "dramaturgical_function": "Structural Purpose: Delivers a physical consequence for Jax's rigid, flawed planning. Micro-Conflict (><): Nyx tries to follow orders vs. the lethal crossfire. Value Shift (+/-): (+) Attempting escape to (-) Physically wounded.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Nyx clutches her seared flesh. Her usual thrill-seeking bravado evaporates. She aggressively cracks her knuckles and hyperventilates, her chest heaving as she stares wildly at the impenetrable titanium blast doors sealing them inside. A violent wave of claustrophobia crashes over her.",
+            "dramaturgical_function": "Structural Purpose: Breaks the physical spearhead of the team, neutralizing their best asset. Micro-Conflict (><): Nyx wants to breathe and escape vs. the enclosing, impenetrable walls of the vault. Value Shift (+/-): (+) Confident acrobat to (-) Panicked and trapped.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The anchored guards concentrate their fire on the drifting roulette table. A stray laser blast misses the cover and directly strikes a primary data junction on the vault wall behind them. The junction sparks violently, severing the thick physical cables.",
+            "dramaturgical_function": "Structural Purpose: Physically severs the vault's connection to the outside network. Micro-Conflict (><): The data junction's integrity vs. the chaotic crossfire. Value Shift (+/-): (+) Intact infrastructure to (-) Severed connection.",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. MAINTENANCE CLOSET - CONTINUOUS",
+            "narrative_action": "A blinding surge of feedback erupts through Kael's comms. His holographic arrays violently short-circuit, showering him in a hail of sparks. He throws his arms up to shield his face as the monitors plunge into dead static, permanently blinding his external sensors and severing his connection to the blast doors.",
+            "dramaturgical_function": "Structural Purpose: Removes the team's digital overwatch and traps the physical crew. Micro-Conflict (><): Kael wants to maintain his digital lifeline vs. the catastrophic hardware failure. Value Shift (+/-): (+) Connected overwatch to (-) Blind and isolated.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Floating behind the shredded remains of the roulette table, Jax stares at the hovering droplets of Nyx's blood. He watches his fiercely independent partner trembling in absolute terror. The devastating realization washes over him: his sterile blueprints and predictable mathematical variables blinded him to Silas's trap, transforming his masterstroke into a death sentence.",
+            "dramaturgical_function": "Structural Purpose: The internal climax of the sequence where Jax confronts the failure of his Lie. Micro-Conflict (><): Jax's belief in his perfect plans vs. the bloody, terrified reality of his crew. Value Shift (+/-): (-) Clinging to his lie to (-) Crushing realization of failure.",
+            "estimated_page_count": 2
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. MAINTENANCE CLOSET - CONTINUOUS",
+            "narrative_action": "Sitting in the dark maintenance closet, Kael goes completely mute for a second, his hands shaking violently. He manages to route a crackling, one-way audio signal through the static. Weeping, he announces the gravity reboot timer hitting the thirty-second mark.",
+            "dramaturgical_function": "Structural Purpose: Delivers the final, inescapable ticking clock before the 'All Is Lost' moment. Micro-Conflict (><): Kael wants to save them vs. the impenetrable static and failing systems. Value Shift (+/-): (-) Total silence to (-) Desperate, final warning.",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 11,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Jax hears Kael's crackling voice through the static. He slowly lowers his wrist, his fingers slipping away from the intricate chronometer he had obsessively tapped since boarding the station. His arms go completely limp, drifting aimlessly in the zero-gravity void as the true, paralyzing terror of total failure consumes his soul.",
+            "dramaturgical_function": "Structural Purpose: The 'All Is Lost' moment. Jax completely surrenders to defeat. Micro-Conflict (><): Jax's will to survive vs. the mathematical impossibility of escape. Value Shift (+/-): (-) Guilt-ridden to (-) Completely defeated.",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 6
+      },
+      {
+        "sequence_title": "The Gravity Drop",
+        "total_estimated_pages": 12.5,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Jax drifts aimlessly in the silent, zero-gravity vacuum, his arms limp. Through the floating wreckage, a shattered security monitor flickers to life. The cracked screen broadcasts the smug, sneering face of Silas, watching safely from a remote feed. Silas straightens his cuffs on screen, radiating absolute control as his heavily armed guards take aim at Jax's crew. The deafening silence of the vacuum presses against Jax, physically pinning him in his failure.",
+            "dramaturgical_function": "Structural Purpose: Establish the Dark Night of the Soul. Micro-Conflict (><): Jax's paralyzing despair vs. Silas's projected aura of absolute control. Value Shift (+/-): Defeated (-) to Hopeless (--).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Jax stares at his trembling hands, his thumb hovering over his custom chronometer. A physical shift occurs as he stops tapping. He makes a deliberate, terrifying choice. Jax unbuckles his heavy, meticulously organized utility belt. He lets it drift away. Customized lockpicks, perfectly calibrated chronometers, and strict timelines float into the sparkling wreckage, abandoned. He looks up, his eyes locking onto the chaotic, floating battlefield with a dangerous new clarity.",
+            "dramaturgical_function": "Structural Purpose: The death of the rigid planner and the birth of the improviser. Micro-Conflict (><): Jax's desperate need for mathematical control vs. the terrifying necessity of embracing chaos. Value Shift (+/-): Hopeless (--) to Liberated (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Weaponizing the unpredictability, Jax violently kicks his boots against a floating, shattered marble pillar. The physical exertion propels him like a bullet through the zero-gravity void, dodging a lethal crossfire of silent laser blasts. He navigates the tumbling debris not with calculated angles, but with raw, instinctual momentum, charting a direct collision course toward Nyx.",
+            "dramaturgical_function": "Structural Purpose: Transitioning from internal realization to proactive, kinetic action. Micro-Conflict (><): Jax's exposed trajectory vs. the lethal, organized crossfire of Silas's guards. Value Shift (+/-): Liberated (+) to Kinetic (++).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. OLYMPUS MAINFRAME ROOM - CONTINUOUS",
+            "narrative_action": "Kael hides behind a sparking terminal, his hands shaking violently, completely mute with terror. Jax's voice cracks over his earpiece, barking a frantic, improvised command to manually overload the vault's internal pressure valves. Kael finally speaks, frantically pointing out the catastrophic structural failure probabilities on his screen. Jax's voice cuts through, demanding he do it anyway. Kael swallows hard, his hands steadying as he bypasses the safety protocols.",
+            "dramaturgical_function": "Structural Purpose: Forcing the crew to abandon safety and trust the new, chaotic strategy. Micro-Conflict (><): Jax's insane, improvised order vs. Kael's paralyzing fear of catastrophic digital failure. Value Shift (+/-): Terrified (-) to Committed (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Jax intercepts Nyx mid-air, grabbing her shoulder to arrest their momentum. Nyx is hyperventilating, aggressively cracking her knuckles in the claustrophobic crossfire. Jax commands her to use her acrobatic momentum to plant her remaining micro-explosives directly onto the shattered luxury display cases. Nyx stares at him, her eyes wide in shock. Then, she stops cracking her knuckles. A feral, exhilarated grin spreads across her face as she realizes the sheer insanity of the plan.",
+            "dramaturgical_function": "Structural Purpose: Aligning the crew's physical spearhead with the chaotic new objective. Micro-Conflict (><): Nyx's claustrophobic panic vs. Jax's liberating, rule-breaking command. Value Shift (+/-): Panicked (-) to Exhilarated (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Completely abandoning her previous fear, Nyx twists gracefully through the zero-gravity crossfire. She uses the floating debris as springboards, bounding in erratic, unpredictable angles that confound the guards' targeting lasers. She reaches the reinforced glass housing millions in casino assets and rapidly slaps her remaining micro-explosive charges against the luxury display cases.",
+            "dramaturgical_function": "Structural Purpose: Executing the physical setup of the improvised Break into Three trap. Micro-Conflict (><): Nyx's chaotic, untethered acrobatics vs. the guards' rigid, organized attempts to shoot her down. Value Shift (+/-): Exhilarated (+) to Positioned (++).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. OLYMPUS MAINFRAME ROOM - CONTINUOUS",
+            "narrative_action": "Jax's scream for detonation echoes over the comms. Kael slams his fist down on his console, violently reversing the atmospheric pressure systems for the vault. On his monitors, red warning klaxons blare as the digital pressure gauges plummet into the negative, ripping the environmental controls apart.",
+            "dramaturgical_function": "Structural Purpose: Initiating the environmental shift required for the trap. Micro-Conflict (><): Kael's decisive physical action vs. the mainframe's automated safety resistance. Value Shift (+/-): Positioned (++) to Triggered (+++).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Inside the vault, the atmospheric pressure violently reverses, creating a massive, localized vacuum vortex. Simultaneously, the micro-explosives on the luxury display cases detonate. The reinforced glass shatters outward. Millions of dollars in iridescent casino chips, jagged glass shards, and glittering jewels explode into the zero-gravity room, instantly caught in the violent pull of the swirling pressure vortex.",
+            "dramaturgical_function": "Structural Purpose: The synthesis of the A-story (heist) and B-story (trust in chaos) culminating in a physical explosion. Micro-Conflict (><): The explosive force of the charges vs. the structural integrity of the luxury cases. Value Shift (+/-): Triggered (+++) to Explosive (++++).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "The massive, blinding cloud of high-velocity debris completely engulfs the room. Silas's heavily armed guards, anchored by their magnetic boots, are suddenly pelted by a hurricane of floating wealth. Their laser sights scatter uselessly off the swirling jewels and glass. Their tactical superiority and line of sight are instantly neutralized, leaving them blind and disoriented in the chaotic storm, while Jax and his crew float freely, perfectly adapted to the mess.",
+            "dramaturgical_function": "Structural Purpose: The Sequence Climax. The trap is sprung, completely turning the tide of the battle. Micro-Conflict (><): The guards' reliance on static, organized tactics vs. the blinding, unpredictable storm of floating debris. Value Shift (+/-): Outgunned (-) to Tactically Superior (+).",
+            "estimated_page_count": 1.5
+          }
+        ],
+        "sequence_number": 7
+      },
+      {
+        "sequence_title": "Settling the Score",
+        "total_estimated_pages": 13,
+        "scenes": [
+          {
+            "scene_number": 1,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - CONTINUOUS",
+            "narrative_action": "Picking up exactly where the hurricane of floating wealth blinds the guards. Nyx treats the chaotic maelstrom as her personal playground. She bounds gracefully off a floating roulette wheel and kicks off a sheet of shattered glass to propel herself across the vault. She reaches the central pedestal and snatches the glowing Star of Eden from its housing. Over the comms, Kael's countdown hits zero.",
+            "dramaturgical_function": "Executes the physical climax of the heist plan. (><) Nyx wants to secure the diamond vs. the disorienting debris storm. (+/-) Shifts from Disoriented (-) to Secured (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 2,
+            "scene_heading": "INT. ANTI-GRAVITY VAULT - SECONDS LATER",
+            "narrative_action": "The artificial gravity systems violently reboot with a sickening metallic groan. The sudden shift in physics yanks the massive cloud of debris downward. The unprepared, mag-booted security guards are slammed face-first into the unforgiving marble floor by the sheer weight of the falling debris. Jax and Nyx hit the ground rolling, using the chaotic avalanche of casino chips and shattered displays as cover to sprint through the breached vault doors.",
+            "dramaturgical_function": "Transitions the crew from the heist to the escape phase. (><) The crew wants to flee vs. the crushing weight of the restored gravity. (+/-) Shifts from Secured (+) to Desperate (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 3,
+            "scene_heading": "INT. NEON CORRIDORS (THE OLYMPUS) - CONTINUOUS",
+            "narrative_action": "Jax and Nyx tear through the neon-lit corridors of The Olympus. Their lungs burn as they desperately race toward the extraction hangar, leaving the sounds of groaning guards and settling debris behind them. Jax obsessively checks his chronometer, his thumb tapping the crystal as they push their physical limits.",
+            "dramaturgical_function": "Builds kinetic momentum and ticking-clock tension. (><) Jax and Nyx want to reach the hangar vs. their physical exhaustion. (+/-) Shifts from Desperate (-) to Hopeful (+).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 4,
+            "scene_heading": "INT. EXTRACTION HANGAR - CONTINUOUS",
+            "narrative_action": "Jax and Nyx burst through the heavy hangar doors, only to freeze in their tracks. Silas steps out from the shadows of their stolen escape ship. The ruthless casino boss holds a bruised, terrified Kael at gunpoint. Silas aggressively straightens his cuffs with his free hand, projecting an aura of untouchable control, and demands Jax hand over the Star of Eden or watch his hacker die.",
+            "dramaturgical_function": "Introduces the final, unexpected obstacle. (><) Silas wants the diamond vs. Jax wanting to save Kael. (+/-) Shifts from Hopeful (+) to Trapped (-).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 5,
+            "scene_heading": "INT. EXTRACTION HANGAR - MOMENTS LATER",
+            "narrative_action": "Silas politely mocks Jax's predictable cowardice, fully expecting his former partner to surrender the prize to avoid unnecessary bloodshed. Jax's thumb taps his watch crystal frantically, playing perfectly into Silas's perception of his anxiety. Jax slowly raises his hands in a convincing display of defeat, walking deliberately toward Silas while offering up the glowing gemstone.",
+            "dramaturgical_function": "Escalates the standoff using psychological warfare. (><) Silas wants Jax to grovel vs. Jax wanting to close the distance. (+/-) Shifts from Trapped (-) to Calculated (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 6,
+            "scene_heading": "INT. EXTRACTION HANGAR - CONTINUOUS",
+            "narrative_action": "Jax steps uncomfortably close to Silas, leaning in to whisper a final, biting remark about the unpredictability of the universe. In a blinding flash of sleight-of-hand, Jax bypasses the diamond and slaps a stolen micro-gravity charge directly onto Silas's armored chest plate. Jax violently shoves his former partner backward before Silas can pull the trigger.",
+            "dramaturgical_function": "Executes the ultimate twist and weaponizes chaos. (><) Jax wants to plant the charge vs. Silas's trigger finger. (+/-) Shifts from Threatened (-) to Victorious (+).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 7,
+            "scene_heading": "INT. EXTRACTION HANGAR - CONTINUOUS",
+            "narrative_action": "Jax detonates the charge. The localized gravity field around Silas instantly reverses, launching the screaming casino boss violently into the steel ceiling. Silas crashes heavily against the upper bulkhead, dropping his weapon and releasing Kael as he is pinned helplessly to the rafters. Jax grabs his gasping hacker by the collar and drags him up the boarding ramp as the escape ship's thrusters roar to life.",
+            "dramaturgical_function": "Resolves the central antagonist threat and secures the physical escape. (><) Jax wants to board the ship vs. the narrowing window of escape. (+/-) Shifts from Urgent (-) to Safe (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 8,
+            "scene_heading": "EXT. SPACE / THE OLYMPUS - CONTINUOUS",
+            "narrative_action": "The stolen shuttle violently detaches from the orbital station. Its powerful engines leave a blazing trail of blue plasma against the black canvas of space. The Olympus rapidly shrinks into a glittering speck of neon light behind them as the crew plunges safely into the uncharted depths of the cosmos. The deafening roar of the thrusters fades into a soothing, mechanical hum as they breach the outer navigation markers.",
+            "dramaturgical_function": "Provides a visual release of tension and establishes the physical boundary of safety. (><) The crew wants to leave orbit vs. the station's gravitational pull. (+/-) Shifts from Fleeing (-) to Free (+).",
+            "estimated_page_count": 1
+          },
+          {
+            "scene_number": 9,
+            "scene_heading": "INT. STOLEN SHUTTLE CABIN - LATER",
+            "narrative_action": "Inside the cramped, dimly lit cabin, the artificial gravity dampeners disengage. The exhausted crew floats comfortably in the zero-gravity environment. Nyx and Kael share a breathless, triumphant laugh. They pop open a stolen bottle of vintage champagne, sending floating, golden spheres of liquid spilling into the air. They catch the droplets in their mouths, the oppressive tension completely evaporated.",
+            "dramaturgical_function": "Delivers the emotional reward of the heist. (><) The crew wants to celebrate vs. the lingering adrenaline of the near-death experience. (+/-) Shifts from Exhausted (-) to Joyous (+).",
+            "estimated_page_count": 1.5
+          },
+          {
+            "scene_number": 10,
+            "scene_heading": "INT. STOLEN SHUTTLE COCKPIT - CONTINUOUS",
+            "narrative_action": "Jax floats near the cockpit window, a warm, uncharacteristic smile breaking across his bruised face as he watches his team celebrate. The intricate chronometer he had obsessively monitored slips completely off his wrist. It drifts aimlessly away into the shadows of the cabin. Jax makes no attempt to catch the watch, finally turning his back on his rigid past to embrace the beautiful, unpredictable chaos of the universe.",
+            "dramaturgical_function": "The Final Image. Completes Jax's character arc. (><) Jax wants to hold onto his rigid past vs. the undeniable proof that his crew saved him. (+/-) Shifts from Guarded (-) to Liberated (+).",
+            "estimated_page_count": 1
+          }
+        ],
+        "sequence_number": 8
+      }
+    ]
   }
 }
