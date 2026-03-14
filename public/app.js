@@ -134,6 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage6Submit = document.getElementById('btnStage6Submit');
     const btnStage6Approve = document.getElementById('btnStage6Approve');
     const btnStage6Revise = document.getElementById('btnStage6Revise');
+    const stage6PdfUpload = document.getElementById('stage6PdfUpload');
+    const stage6FileNameDisplay = document.getElementById('stage6FileNameDisplay');
 
 
     // Stage 7 Elements
@@ -2215,6 +2217,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.files && e.target.files[0]) {
                 if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = e.target.files[0].name;
             }
+        });
+    }
+
+    if (stage6PdfUpload) {
+        stage6PdfUpload.addEventListener('change', (e) => {
+            if (stage6FileNameDisplay) stage6FileNameDisplay.textContent = e.target.files[0] ? e.target.files[0].name : '';
         });
     }
 
