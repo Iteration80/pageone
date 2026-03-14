@@ -95,6 +95,18 @@
                     <p>Generating high-concept pitches...</p>
                 </div>
 
+                <!-- Download Pitch button (shown in workshop mode) -->
+                <div id="pitchDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                    <button id="btnDownloadPitch" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Pitch
+                    </button>
+                </div>
+
                 <!-- Pitch Results Container -->
                 <div id="resultsContainer" class="results-grid">
                     <!-- Cards will be injected here dynamically -->
@@ -148,6 +160,18 @@
                 <div id="loadingStateOutline" class="hidden" style="text-align: center; margin-top: 32px;">
                     <div class="spinner"></div>
                     <p>Structuring story beats...</p>
+                </div>
+
+                <!-- Download Outline button (shown when outline exists) -->
+                <div id="outlineDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-top: 16px; margin-bottom: -8px;">
+                    <button id="btnDownloadOutline" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Outline
+                    </button>
                 </div>
 
                 <!-- Outline Results Container (3-Act Structure) -->
@@ -223,6 +247,18 @@
                 <div id="loadingStateCharacters" class="hidden" style="text-align: center; margin-top: 32px;">
                     <div class="spinner"></div>
                     <p>Casting your characters...</p>
+                </div>
+
+                <!-- Download Characters button (shown when characters exist) -->
+                <div id="charactersDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-top: 24px; margin-bottom: -16px;">
+                    <button id="btnDownloadCharacters" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Characters
+                    </button>
                 </div>
 
                 <div id="charactersContainer" class="hidden"

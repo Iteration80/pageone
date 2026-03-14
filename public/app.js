@@ -663,6 +663,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show the Stage 1 Feedback Panel
         stage1FeedbackPanel.classList.remove('hidden');
         toggleStage1EditMode(false);
+        const pitchDownloadRow = document.getElementById('pitchDownloadRow');
+        if (pitchDownloadRow) pitchDownloadRow.classList.remove('hidden');
     }
 
     function toggleStage1EditMode(isApproved) {
@@ -1006,6 +1008,8 @@ document.addEventListener('DOMContentLoaded', () => {
         act1Container.innerHTML = '';
         act2Container.innerHTML = '';
         act3Container.innerHTML = '';
+        const outlineDownloadRow = document.getElementById('outlineDownloadRow');
+        if (outlineDownloadRow) outlineDownloadRow.classList.remove('hidden');
 
         const renderSequences = (sequences, container) => {
             sequences.forEach(seq => {
@@ -1258,6 +1262,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
+        const charactersDownloadRow = document.getElementById('charactersDownloadRow');
+        if (charactersDownloadRow) charactersDownloadRow.classList.remove('hidden');
 
         // Sort: Protagonist first, Antagonist second, Supporting last
         const sorted = [...characters].sort((a, b) => {
@@ -2989,6 +2995,103 @@ document.addEventListener('DOMContentLoaded', () => {
             isBatchGenerating = false;
             btnGenerateAll.textContent = 'Generate All Scenes';
             initStage7(); // Full re-render to restore button states
+        });
+    }
+
+    const btnDownloadOutline = document.getElementById('btnDownloadOutline');
+    if (btnDownloadOutline) {
+        btnDownloadOutline.addEventListener('click', () => {
+            const outline = window.currentProjectData?.stage2_outline?.outline;
+            if (!outline) { alert('No outline has been generated yet.'); return; }
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
+            let text = `OUTLINE: ${title.toUpperCase()}\n\n`;
+            const acts = [
+                { label: 'ACT I', key: 'act_1' },
+                { label: 'ACT II', key: 'act_2' },
+                { label: 'ACT III', key: 'act_3' }
+            ];
+            acts.forEach(({ label, key }) => {
+                const sequences = outline[key];
+                if (!sequences || !sequences.length) return;
+                text += `${'='.repeat(60)}\n${label}\n${'='.repeat(60)}\n\n`;
+                sequences.forEach(seq => {
+                    text += `${seq.sequence_number_and_title}\n${'-'.repeat(40)}\n`;
+                    (seq.beats || []).forEach(beat => {
+                        text += `[${beat.beat_label}] ${beat.description}\n`;
+                    });
+                    text += '\n';
+                });
+            });
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/\s+/g, '_')}_outline.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    const btnDownloadPitch = document.getElementById('btnDownloadPitch');
+    if (btnDownloadPitch) {
+        btnDownloadPitch.addEventListener('click', () => {
+            const pitch = window.currentProjectData?.stage1_pitch?.pitch;
+            if (!pitch) { alert('No pitch has been generated yet.'); return; }
+            const title = pitch.title || 'untitled';
+            let text = `PITCH: ${title.toUpperCase()}\n`;
+            text += `${'='.repeat(60)}\n\n`;
+            if (pitch.genre) text += `GENRE: ${pitch.genre}\n\n`;
+            if (pitch.logline) text += `LOGLINE:\n${pitch.logline}\n\n`;
+            if (pitch.core_theme) text += `CORE THEME:\n${pitch.core_theme}\n\n`;
+            if (pitch.synopsis) text += `SYNOPSIS:\n${pitch.synopsis}\n`;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/\s+/g, '_')}_pitch.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    const btnDownloadCharacters = document.getElementById('btnDownloadCharacters');
+    if (btnDownloadCharacters) {
+        btnDownloadCharacters.addEventListener('click', () => {
+            const characters = window.currentProjectData?.stage3_characters?.characters;
+            if (!characters || !characters.length) { alert('No characters have been generated yet.'); return; }
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
+            let text = `CHARACTERS: ${title.toUpperCase()}\n`;
+            characters.forEach(char => {
+                text += `\n${'='.repeat(60)}\n${char.name?.toUpperCase() || 'CHARACTER'} — ${char.role || ''}\n${'='.repeat(60)}\n\n`;
+                if (char.brief_summary) text += `${char.brief_summary}\n\n`;
+                const pc = char.psychological_core;
+                if (pc) {
+                    text += `PSYCHOLOGICAL CORE\n${'-'.repeat(30)}\n`;
+                    if (pc.ghost_and_wound) text += `Ghost & Wound: ${pc.ghost_and_wound}\n`;
+                    if (pc.the_lie) text += `The Lie: ${pc.the_lie}\n`;
+                    if (pc.fear) text += `Fear: ${pc.fear}\n`;
+                    if (pc.desire) text += `Desire: ${pc.desire}\n`;
+                    if (pc.psychological_need) text += `Psychological Need: ${pc.psychological_need}\n`;
+                    if (pc.moral_need) text += `Moral Need: ${pc.moral_need}\n`;
+                    text += '\n';
+                }
+                const vb = char.voice_and_behavior;
+                if (vb) {
+                    text += `VOICE & BEHAVIOR\n${'-'.repeat(30)}\n`;
+                    if (vb.speech_patterns) text += `Speech Patterns: ${vb.speech_patterns}\n`;
+                    if (vb.deflection_tactic) text += `Deflection Tactic: ${vb.deflection_tactic}\n`;
+                    if (vb.paradox) text += `Paradox: ${vb.paradox}\n`;
+                    text += '\n';
+                }
+                if (char.subtlety_guidelines) text += `SUBTLETY GUIDELINES\n${'-'.repeat(30)}\n${char.subtlety_guidelines}\n`;
+            });
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/\s+/g, '_')}_characters.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
         });
     }
 
