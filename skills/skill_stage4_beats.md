@@ -67,3 +67,4 @@ Every single beat in your output MUST contain substantive content for all five r
 * **Exactly 8 Sequences:** You cannot output more or fewer sequences.
 * **Sequence Titles:** Give each sequence a short, thematic sequence_title WITHOUT a numbering prefix (e.g., output "Desperate Measures", NEVER "Sequence 1: Desperate Measures").
 * **The Covenant of the Arc:** Remember that everyone in the story must arc/change, except the antagonist. Ensure this is reflected in the action.
+* **Self-Contained Sequence Isolation:** Each sequence object in your JSON output must be fully self-contained. You MUST NOT place narrative content, beats, or plot points belonging to Sequence N inside any other sequence's object. Every beat in a sequence object must belong exclusively to that sequence. Do not bleed narrative across sequence boundaries.

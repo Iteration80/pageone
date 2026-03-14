@@ -5,15 +5,34 @@ const path = require('path');
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
+ * Parses a treatment or beat text into a dictionary keyed by sequence number.
+ * Extracts text strictly between [SEQUENCE N START] and [SEQUENCE N END] tags.
+ * Any floating ACT headers or un-tagged text outside these delimiters is ignored.
+ *
+ * @param {string} text - The full text output from Agent 4 or Agent 5
+ * @returns {Object} - e.g. { 1: "...", 2: "...", ... 8: "..." }
+ */
+function parseSequenceBlocks(text) {
+    const blocks = {};
+    const regex = /\[SEQUENCE (\d+) START\]([\s\S]*?)\[SEQUENCE \1 END\]/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        blocks[parseInt(match[1], 10)] = match[2].trim();
+    }
+    return blocks;
+}
+
+/**
  * Stage 6 Scene Blueprint Agent
  * Translates an 8-sequence treatment into a scene-by-scene blueprint.
- * Uses sequential prompt chaining across 8 API calls.
+ * Uses iterative chunking: each of the 8 API calls receives ONLY the parsed
+ * beats and treatment text for its specific sequence, plus the final scene
+ * of the preceding sequence as a <previous_sequence_climax> anchor.
  */
 const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
     const scenesSOP = fs.readFileSync(skillPath, 'utf8');
 
-    // Strict JSON Schema as requested
     const sequenceSchema = {
         type: Type.OBJECT,
         properties: {
@@ -38,10 +57,8 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         required: ['sequence_title', 'total_estimated_pages', 'scenes']
     };
 
-    const systemInstruction = scenesSOP;
-
     const config = {
-        systemInstruction: systemInstruction,
+        systemInstruction: scenesSOP,
         temperature: 0.7,
         thinkingConfig: { thinkingLevel: 'HIGH' },
         tools: [{ googleSearch: {} }],
@@ -49,29 +66,33 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         responseSchema: sequenceSchema
     };
 
-    let allSequences = [];
+    // --- Middleware Splitter ---
+    // Build a single concatenated treatment string and parse it into
+    // per-sequence chunks using the [SEQUENCE N START/END] delimiters.
+    // This cleanly ignores any floating ACT headers or un-tagged text.
+    const fullTreatmentText = [
+        treatment.act_1 || '',
+        treatment.act_2a || '',
+        treatment.act_2b || '',
+        treatment.act_3 || ''
+    ].join('\n\n');
 
-    // Loop through sequences 1 through 8
+    const parsedTreatmentBlocks = parseSequenceBlocks(fullTreatmentText);
+
+    // --- Iterative Loop ---
+    let allSequences = [];
+    let previousSequenceClimax = 'N/A - Start of Film';
+
     for (let i = 1; i <= 8; i++) {
         console.log(`  Stage 6 Chain: Generating Sequence ${i}/8...`);
 
-        // Map treatment sequences to the appropriate Act fields if necessary
-        // The project data structure for treatment (Stage 5) has acts, 
-        // while beats (Stage 4) has a hybrid_beat_sheet array of 8 sequences.
+        // Inject ONLY this sequence's beats (JSON is already per-sequence)
         const currentBeats = beats.find(b => b.sequence_number === i);
-        
-        let currentTreatmentText = "";
-        // Mapping sequences to Act fields in Stage 5
-        if (i === 1 || i === 2) currentTreatmentText = treatment.act_1;
-        else if (i === 3 || i === 4) currentTreatmentText = treatment.act_2a;
-        else if (i === 5 || i === 6) currentTreatmentText = treatment.act_2b;
-        else if (i === 7 || i === 8) currentTreatmentText = treatment.act_3;
 
-        let previousContext = "";
-        if (i > 1) {
-            const prevSeq = allSequences[i - 2];
-            previousContext = `PREVIOUS SEQUENCE SCENES (FOR CONTINUITY):
-${JSON.stringify(prevSeq.scenes, null, 2)}`;
+        // Inject ONLY this sequence's parsed treatment text
+        const currentTreatmentText = parsedTreatmentBlocks[i] || '';
+        if (!currentTreatmentText) {
+            console.warn(`  Warning: No [SEQUENCE ${i} START/END] block found in treatment. Falling back to full act text.`);
         }
 
         const prompt = `PITCH:
@@ -80,15 +101,17 @@ ${JSON.stringify(pitch, null, 2)}
 CHARACTERS:
 ${JSON.stringify(characters, null, 2)}
 
-CURRENT SEQUENCE BEATS:
+CURRENT SEQUENCE BEATS (Sequence ${i} only):
 ${JSON.stringify(currentBeats, null, 2)}
 
-CURRENT TREATMENT TEXT:
+CURRENT SEQUENCE NARRATIVE EXPANSION (Sequence ${i} only):
 ${currentTreatmentText}
 
-${previousContext}
+<previous_sequence_climax>
+${previousSequenceClimax}
+</previous_sequence_climax>
 
-OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Focus on detailed, physical Narrative Action. Let the story dictate the exact scene count. Return a JSON object for this sequence.`;
+OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action. Return a JSON object for this sequence only.`;
 
         try {
             const result = await ai.models.generateContent({
@@ -98,8 +121,18 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Focus on detailed, phys
             });
 
             const parsedSeq = JSON.parse(result.text);
-            parsedSeq.sequence_number = i; // Ensure sequence number is tracked
+            parsedSeq.sequence_number = i;
             allSequences.push(parsedSeq);
+
+            // --- State Pass ---
+            // Capture only the final scene of this sequence as the climax anchor
+            // for the next iteration. This minimises context payload to a single
+            // scene rather than the full previous sequence JSON dump.
+            if (parsedSeq.scenes && parsedSeq.scenes.length > 0) {
+                const lastScene = parsedSeq.scenes[parsedSeq.scenes.length - 1];
+                previousSequenceClimax = `Scene ${lastScene.scene_number}: ${lastScene.scene_heading}\n\n${lastScene.narrative_action}`;
+            }
+
             if (onProgress) onProgress(i, 8);
         } catch (error) {
             console.error(`Error generating sequence ${i}:`, error);
@@ -107,6 +140,8 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Focus on detailed, phys
         }
     }
 
+    // --- Concatenate ---
+    // allSequences is the master Scene Blueprint document (array of 8 objects).
     return allSequences;
 };
 
