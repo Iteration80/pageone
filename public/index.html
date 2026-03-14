@@ -90,9 +90,9 @@
                 </section>
 
                 <!-- Loading State -->
-                <div id="loadingState" class="hidden">
+                <div id="loadingState" class="loading-state hidden">
                     <div class="spinner"></div>
-                    <p>Generating high-concept pitches...</p>
+                    <span id="loadingTextStage1">Generating high-concept pitches...</span>
                 </div>
 
                 <!-- Download Pitch button (shown in workshop mode) -->
@@ -157,9 +157,9 @@
                 </header>
 
                 <!-- Loading State for Outline -->
-                <div id="loadingStateOutline" class="hidden" style="text-align: center; margin-top: 32px;">
+                <div id="loadingStateOutline" class="loading-state hidden">
                     <div class="spinner"></div>
-                    <p>Structuring story beats...</p>
+                    <span id="loadingTextStage2">Structuring story beats...</span>
                 </div>
 
                 <!-- Download Outline button (shown when outline exists) -->
@@ -244,9 +244,9 @@
                 </header>
 
                 <!-- Character cards injected here -->
-                <div id="loadingStateCharacters" class="hidden" style="text-align: center; margin-top: 32px;">
+                <div id="loadingStateCharacters" class="loading-state hidden">
                     <div class="spinner"></div>
-                    <p>Casting your characters...</p>
+                    <span id="loadingTextStage3">Casting your characters...</span>
                 </div>
 
                 <!-- Download Characters button (shown when characters exist) -->
@@ -313,7 +313,7 @@
                     <button id="generateTreatmentBtn" class="primary-btn">Generate Treatment</button>
                 </div>
 
-                <div id="loadingStateTreatment" class="hidden" style="text-align: center; margin-top: 32px;">
+                <div id="loadingStateTreatment" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextTreatment">Generating 15-Beat Sheet...</span>
                 </div>
@@ -380,7 +380,7 @@
                 </header>
 
                 <!-- Loading State for Treatment -->
-                <div id="loadingStateStage5" class="hidden">
+                <div id="loadingStateStage5" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextStage5">Initializing Treatment Generation...</span>
                 </div>
@@ -507,7 +507,7 @@
                 </header>
 
                 <!-- Loading State for Scene Blueprint -->
-                <div id="loadingStateStage6" class="hidden" style="text-align: center; margin-top: 32px;">
+                <div id="loadingStateStage6" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextStage6">Generating Scene Blueprint...</span>
                 </div>
