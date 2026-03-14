@@ -1671,6 +1671,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTreatment(treatmentData) {
         if (!treatmentContainer) return;
         treatmentContainer.innerHTML = '';
+        const beatsDownloadRow = document.getElementById('beatsDownloadRow');
+        if (beatsDownloadRow) beatsDownloadRow.classList.remove('hidden');
 
         // STC Genre Category label
         if (treatmentData.stc_genre_category) {
@@ -2963,6 +2965,39 @@ document.addEventListener('DOMContentLoaded', () => {
             isBatchGenerating = false;
             btnGenerateAll.textContent = 'Generate All Scenes';
             initStage7(); // Full re-render to restore button states
+        });
+    }
+
+    const btnDownloadBeats = document.getElementById('btnDownloadBeats');
+    if (btnDownloadBeats) {
+        btnDownloadBeats.addEventListener('click', () => {
+            const data = window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment;
+            if (!data || !data.hybrid_beat_sheet) {
+                alert('No beats have been generated yet.');
+                return;
+            }
+            const title = window.currentProjectData?.stage1_pitch?.title || 'untitled';
+            let text = `BEAT SHEET: ${title.toUpperCase()}\n`;
+            if (data.stc_genre_category) text += `STC Genre: ${data.stc_genre_category}\n`;
+            text += '\n';
+            data.hybrid_beat_sheet.forEach(seq => {
+                const cleanTitle = (seq.sequence_title || '').replace(/^Sequence\s*\d+\s*:\s*/i, '');
+                text += `${'='.repeat(60)}\nSEQUENCE ${seq.sequence_number}: ${cleanTitle.toUpperCase()}\n${'='.repeat(60)}\n\n`;
+                (seq.beats || []).forEach(beat => {
+                    text += `--- ${beat.beat_name} ---\n\n`;
+                    if (beat.genre_variation_notes) text += `GENRE VARIATION NOTES:\n${beat.genre_variation_notes}\n\n`;
+                    if (beat.emotional_arc) text += `EMOTIONAL ARC:\n${beat.emotional_arc}\n\n`;
+                    if (beat.pacing_notes) text += `PACING NOTES:\n${beat.pacing_notes}\n\n`;
+                    if (beat.detailed_action) text += `DETAILED ACTION:\n${beat.detailed_action}\n\n`;
+                });
+            });
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/\s+/g, '_')}_beats.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
         });
     }
 
