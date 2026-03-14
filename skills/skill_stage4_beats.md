@@ -63,7 +63,10 @@ Every single beat in your output MUST contain substantive content for all five r
 * **pacing_notes:** Explicitly define the kinetic pacing rhythm for the beat (e.g., "Frantic acceleration leading to a sudden, dead-silent halt").
 * **detailed_action:** This must be a dense, muscular paragraph of at least 3 sentences. Describe the literal, physical narrative action. Do not just summarize the emotional intent. Translate the beat into specific character movements and set pieces.
 
-## 5. STRICT FORMATTING CONSTRAINTS
+## 5. THE SUBTLETY & QUIRK LIMITATION
+You will be provided with Character Profiles that include specific "Deflection Tactics" or "Subtlety Guidelines" (e.g., physical tics, nervous habits). You are strictly forbidden from overusing these traits. You may use a character's specific physical tic a maximum of ONE time per sequence, and only during the scene of absolute highest stress. Force characters to react to conflict in new, dynamic ways rather than relying on their profile's default tic.
+
+## 6. STRICT FORMATTING CONSTRAINTS
 * **Exactly 8 Sequences:** You cannot output more or fewer sequences.
 * **Sequence Titles:** Give each sequence a short, thematic sequence_title WITHOUT a numbering prefix (e.g., output "Desperate Measures", NEVER "Sequence 1: Desperate Measures").
 * **The Covenant of the Arc:** Remember that everyone in the story must arc/change, except the antagonist. Ensure this is reflected in the action.
