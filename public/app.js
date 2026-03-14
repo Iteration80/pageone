@@ -2106,13 +2106,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Server responded with ${response.status}`);
             }
 
-            const data = await response.json();
-            if (data.result) {
-                renderTreatmentStage5(data.result);
-                // Fetch updated project for nav status
-                const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                const projData = await projRes.json();
-                updateStageNav(projData.data);
+            // Read SSE stream
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const event = JSON.parse(line.slice(6));
+
+                    if (event.type === 'progress') {
+                        if (loadingTextStage5) loadingTextStage5.textContent = `Step ${event.step} of ${event.total}: ${event.label}`;
+                    } else if (event.type === 'complete') {
+                        renderTreatmentStage5(event.result);
+                        // Reset buttons to fresh "Submit + Approve" state, overriding any
+                        // stale locked state left over from project hydration.
+                        if (btnStage5Edit) btnStage5Edit.classList.add('hidden');
+                        if (btnStage5Revise) btnStage5Revise.classList.remove('hidden');
+                        if (btnStage5Approve) {
+                            btnStage5Approve.classList.remove('hidden');
+                            btnStage5Approve.textContent = 'Approve';
+                            btnStage5Approve.classList.remove('approve-btn-green');
+                            btnStage5Approve.disabled = false;
+                        }
+                        // Fetch updated project for nav status
+                        const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                        const projData = await projRes.json();
+                        updateStageNav(projData.data);
+                    } else if (event.type === 'error') {
+                        throw new Error(event.message);
+                    }
+                }
             }
         } catch (err) {
             console.error('Error generating stage 5 treatment:', err);
@@ -2199,7 +2231,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentData = scrapeTreatmentStage5();
                 const formData = new FormData();
                 formData.append('projectId', activeProjectId);
-                formData.append('currentTreatment', JSON.stringify(currentData)); // Reuse key for backend consistency if needed, but route handles it
+                formData.append('currentTreatment', JSON.stringify(currentData));
                 formData.append('notes', userNote);
                 if (selectedPdf) formData.append('pdfFile', selectedPdf);
 
@@ -2210,12 +2242,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
-                const data = await response.json();
-                if (data.result) {
-                    renderTreatmentStage5(data.result);
-                    if (stage5Notes) stage5Notes.value = '';
-                    if (stage5PdfUpload) stage5PdfUpload.value = '';
-                    if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
+                // Read SSE stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const event = JSON.parse(line.slice(6));
+
+                        if (event.type === 'progress') {
+                            btnStage5Revise.textContent = event.label;
+                        } else if (event.type === 'complete') {
+                            renderTreatmentStage5(event.result);
+                            if (stage5Notes) stage5Notes.value = '';
+                            if (stage5PdfUpload) stage5PdfUpload.value = '';
+                            if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
+                        } else if (event.type === 'error') {
+                            throw new Error(event.message);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('Error revising stage 5:', err);

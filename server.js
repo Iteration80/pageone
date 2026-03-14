@@ -205,45 +205,56 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
 });
 
 app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req, res) => {
+    const { projectId } = req.body || {};
+    if (!projectId) {
+        return res.status(400).json({ error: "Missing projectId" });
+    }
+
+    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    let projectData;
     try {
-        const { projectId } = req.body || {};
-        if (!projectId) {
-            return res.status(400).json({ error: "Missing projectId" });
-        }
+        const content = await fs.readFile(filePath, 'utf-8');
+        projectData = JSON.parse(content);
+    } catch (err) {
+        return res.status(404).json({ error: "Project not found" });
+    }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+    const pitchData = projectData.data?.stage1_pitch?.pitch;
+    const charactersData = projectData.data?.stage3_characters?.characters;
+    const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
 
-        const pitchData = projectData.data?.stage1_pitch?.pitch;
-        const charactersData = projectData.data?.stage3_characters?.characters;
-        const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
+    const { notes, currentTreatment } = req.body;
+    const parsedTreatment = currentTreatment ? JSON.parse(currentTreatment) : null;
 
-        const { notes, currentTreatment } = req.body;
-        const parsedTreatment = currentTreatment ? JSON.parse(currentTreatment) : null;
+    if (!pitchData || !charactersData || !beatsData) {
+        return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
+    }
 
-        if (!pitchData || !charactersData || !beatsData) {
-            return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
-        }
+    // SSE setup
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    try {
         console.log("Generating Stage 5 Chained Treatment...");
-        // This is a long process (4 sequential LLM calls OR 1 surgical revision)
-        const result = await agent5Treatment(pitchData, charactersData, beatsData, parsedTreatment, notes);
+        const result = await agent5Treatment(
+            pitchData, charactersData, beatsData, parsedTreatment, notes,
+            (step, total, label) => send({ type: 'progress', step, total, label })
+        );
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = result;
-
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
-        res.json({ result });
+        send({ type: 'complete', result });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to generate treatment" });
+        send({ type: 'error', message: error.message || 'Failed to generate treatment' });
+    } finally {
+        res.end();
     }
 });
 
