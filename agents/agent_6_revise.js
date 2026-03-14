@@ -41,17 +41,13 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
     };
 
     const config = {
-        systemInstruction: `You are an elite Script Coordinator modifying a Scene Blueprint based on the director's feedback. Apply the feedback (e.g., rewrite, merge, or insert scenes). 
+        systemInstruction: `You are an elite Script Coordinator modifying a Scene Blueprint based on the director's feedback. Apply the feedback (e.g., rewrite, merge, or insert scenes).
 
 CRITICAL: ONLY modify the specific scenes required by the feedback. You MUST return the entire JSON structure, keeping all unaffected sequences and scenes absolutely verbatim.`,
         temperature: 0.5,
         responseMimeType: 'application/json',
         responseSchema: rootSchema
     };
-
-    const model = ai.getGenerativeModel({
-        model: 'gemini-3.1-pro-preview',
-    });
 
     const prompt = `CURRENT SCENE BLUEPRINT (JSON):
 ${JSON.stringify(currentBlueprint)}
@@ -62,12 +58,13 @@ ${feedback}
 OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON array. Ensure ONLY the target areas are changed.`;
 
     try {
-        const result = await model.generateContent({
+        const result = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: config
+            config
         });
 
-        let updatedData = JSON.parse(result.response.text());
+        let updatedData = JSON.parse(result.text);
 
         // Build a lookup of existing draft data from the original blueprint, keyed by
         // scene_heading (sluglines are stable identifiers). This survives Gemini's
