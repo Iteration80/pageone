@@ -2133,7 +2133,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage5Edit) {
         btnStage5Edit.addEventListener('click', () => {
             if (btnStage5Revise) btnStage5Revise.classList.remove('hidden');
-            if (btnStage5Approve) btnStage5Approve.classList.remove('hidden');
+            if (btnStage5Approve) {
+                btnStage5Approve.classList.remove('hidden');
+                btnStage5Approve.textContent = 'Approve';
+                btnStage5Approve.classList.remove('approve-btn-green');
+                btnStage5Approve.disabled = false;
+            }
             btnStage5Edit.classList.add('hidden');
         });
     }
@@ -2243,6 +2248,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 btnStage5Revise.classList.add('hidden');
                 btnStage5Approve.classList.add('hidden');
+
+                // Auto-transition to Stage 6: Scene Blueprint
+                switchStage(6);
+                if (btnGenerateStage6Blueprint) btnGenerateStage6Blueprint.click();
             } catch (err) {
                 console.error(err);
                 btnStage5Approve.textContent = originalText;

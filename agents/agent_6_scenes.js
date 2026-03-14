@@ -1,4 +1,6 @@
 const { GoogleGenAI, Type } = require('@google/genai');
+const fs = require('fs');
+const path = require('path');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -8,7 +10,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * Uses sequential prompt chaining across 8 API calls.
  */
 const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
-    
+    const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
+    const scenesSOP = fs.readFileSync(skillPath, 'utf8');
+
     // Strict JSON Schema as requested
     const sequenceSchema = {
         type: Type.OBJECT,
@@ -34,7 +38,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment) => {
         required: ['sequence_title', 'total_estimated_pages', 'scenes']
     };
 
-    const systemInstruction = `You are an elite Hollywood Script Coordinator and Sequence Architect. Your objective is to take a single Sequence from a Hybrid Beat Sheet (including the character profiles) and break it down into a granular, Scene-by-Scene Blueprint. CRITICAL RULES FOR SCENE DESIGN: Pacing & Page Counts: Break the sequence into 8 to 12 individual scenes. Let the story dictate the exact number, but maintain a kinetic, modern pace (roughly 1.0 to 2.5 pages per scene). Enter Late, Leave Early: Design scenes that start at the latest possible moment and end the moment the dramatic question of the scene is answered. Dramaturgical Function: Every scene must have a clear structural purpose (e.g., establishing a flaw, escalating tension, delivering a twist). There can be no "filler" scenes. Micro-Action: Describe the literal, physical action happening in the scene. Do not just summarize the dialogue. Translate the broad beats into specific, shootable locations and character movements.`;
+    const systemInstruction = scenesSOP;
 
     const config = {
         systemInstruction: systemInstruction,
