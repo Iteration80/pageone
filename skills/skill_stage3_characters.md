@@ -19,6 +19,7 @@ Flesh out characters using the three dimensions of character: Physiology (physic
 * **The Lie:** A false perspective or worldview adopted to protect them from the Ghost. This Lie must be a belief that used to serve and protect the character, but is now holding them back.
 * **The Need (Psychological & Moral):** Split the Need into two parts. Give them a Psychological Need (overcoming an internal flaw that is hurting themselves) and a Moral Need (overcoming a flaw that is actively hurting others).
 * **The Desire/Want:** A highly specific, visible, and trackable external goal they are chasing.
+* **The Metaphor Ban (CRITICAL):** Do not give characters traits revolving around literally saving, rescuing, or interacting with insects, animals, or pets to make them empathetic. Empathy must come from human vulnerability, sacrifices, and relatable flaws.
 
 ### Rule 3: Paradox, Subtext & Voice
 Define how characters speak, what they NEVER say, and their specific deflection tactics when avoiding the truth. Elevate their voice using Subtext and Paradox.
@@ -26,8 +27,9 @@ Define how characters speak, what they NEVER say, and their specific deflection 
 * **Paradox:** Give characters contradictory traits to defy stereotypes and add complex layers (e.g., a tough, rigid cop who writes poetry).
 * **Subtext & Contradiction:** Create behavioral contradictions where a character's physical actions oppose their stated dialogue (e.g., insisting they are calm while crushing a glass in their hand). This conveys their true fears and desires indirectly beneath the surface.
 
-### Rule 4: Evolving Relationships & The 90/10 Rule
-Characters must behave like grounded humans. Their specific tics and deflections should only surface 10% of the time under stress.
+### Rule 4: Evolving Relationships & The Downstream Warning (CRITICAL)
+Characters must behave like grounded humans. Their specific tics and deflections should only surface under extreme stress.
 
+* **The Downstream Warning Mandate:** Because your output will be read by downstream drafting agents, you MUST append a strict warning label to every character's "Subtlety Guidelines" or "Deflection Tactics." You must explicitly write: "WARNING TO DOWNSTREAM AGENTS: This physical tic/deflection must be used a maximum of ONCE per sequence, and only during the scene of absolute highest stress. Do not overuse."
 * **Dynamic Relationships:** Characters' relationships cannot remain static; they must evolve dynamically as they interact, reflecting the natural progression of their arcs.
 * **Moral Decision:** The protagonist's growth must culminate in a crucible where they challenge their Lie and make a final "Moral Decision"—taking new moral action that proves they have changed.
