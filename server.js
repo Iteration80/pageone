@@ -11,6 +11,7 @@ const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 const { generateSceneDraft } = require('./agents/agent_7_draft');
+const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -103,6 +104,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         // Save to Stage 2
         projectData.data = projectData.data || {};
         projectData.data.stage2_outline = outlineData;
+        notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
@@ -146,6 +148,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         // Save to Stage 3
         projectData.data = projectData.data || {};
         projectData.data.stage3_characters = characterData;
+        notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
@@ -202,6 +205,8 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
+        notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
+
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
         send({ type: 'complete', result: beatsResult });
@@ -256,6 +261,8 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = result;
+        notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
+
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
         send({ type: 'complete', result });
@@ -301,13 +308,20 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
 
     try {
         console.log("Generating Stage 6 Scene Blueprint (Sequential Chain)...");
+        const sourceAuthorityBlock = buildSourceAuthorityBlock(projectData, 'stage6_scenes');
+        if (sourceAuthorityBlock) {
+            console.log("Stage 6: upstream revisions detected, injecting source authority block.");
+        }
+
         const allSequences = await generateStage6Scenes(
             pitch, characters, beats, treatment,
-            (current, total) => send({ type: 'progress', current, total })
+            (current, total) => send({ type: 'progress', current, total }),
+            sourceAuthorityBlock
         );
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
+        stampGenerated(projectData, 'stage6_scenes');
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
         send({ type: 'complete', result: allSequences });
@@ -345,6 +359,7 @@ app.post('/api/revise-stage6', async (req, res) => {
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
+        stampRevised(projectData, 'stage6_scenes');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 

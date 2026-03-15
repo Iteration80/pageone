@@ -29,7 +29,7 @@ function parseSequenceBlocks(text) {
  * beats and treatment text for its specific sequence, plus the final scene
  * of the preceding sequence as a <previous_sequence_climax> anchor.
  */
-const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null) => {
+const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '') => {
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
     const scenesSOP = fs.readFileSync(skillPath, 'utf8');
 
@@ -95,7 +95,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
             console.warn(`  Warning: No [SEQUENCE ${i} START/END] block found in treatment. Falling back to full act text.`);
         }
 
-        const prompt = `PITCH:
+        const prompt = `${sourceAuthorityBlock ? sourceAuthorityBlock + '\n\n' : ''}PITCH:
 ${JSON.stringify(pitch, null, 2)}
 
 CHARACTERS:
