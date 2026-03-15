@@ -83,6 +83,8 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     let allSequences = [];
     let previousSequenceClimax = 'N/A - Start of Film';
 
+    let globalSceneIndex = 1;
+
     for (let i = 1; i <= 8; i++) {
         console.log(`  Stage 6 Chain: Generating Sequence ${i}/8...`);
 
@@ -123,12 +125,11 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must s
             const parsedSeq = JSON.parse(result.text);
             parsedSeq.sequence_number = i;
 
-            // Enforce per-sequence relative numbering (Scene 1…N within each sequence)
-            // regardless of what the model produced, so scene numbers are always
-            // consistent across all 8 sequences.
+            // Enforce globally unique scene numbers across all sequences
+            // so server lookups by scene_number are always unambiguous.
             if (parsedSeq.scenes) {
-                parsedSeq.scenes.forEach((scene, idx) => {
-                    scene.scene_number = idx + 1;
+                parsedSeq.scenes.forEach((scene) => {
+                    scene.scene_number = globalSceneIndex++;
                 });
             }
 
