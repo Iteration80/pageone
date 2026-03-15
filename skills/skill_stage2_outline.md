@@ -13,7 +13,7 @@ Divide the narrative into 8 distinct sequences (2 for Act I, 4 for Act II, 2 for
 ## 3. SEQUENCE-BY-SEQUENCE BLUEPRINT
 You must construct the outline using the following dramaturgical functions for each sequence:
 
-* **Sequence A (The Status Quo & Point of Attack):** Introduce the protagonist in their "ordinary world". Hook the audience with curiosity by posing a puzzle. End the sequence with the Inciting Incident (Point of Attack)—an intrusion of instability that disrupts the flow of life.
+* **Sequence A (The Status Quo & Point of Attack):** Introduce the protagonist in their "ordinary world". Hook the audience with curiosity by posing a puzzle. End the sequence with the Inciting Incident (Point of Attack)—an intrusion of instability that disrupts the flow of life. CRITICAL: If the story involves sci-fi, supernatural, or highly specialized mechanics (e.g., a heist or legal world), you must establish the rigid rules of this world here.
 
 * **Sequence B (The Predicament):** The protagonist grapples with the new destabilizing element, hoping for a quick fix. Instead, their actions lead to a larger predicament. CRITICAL: This sequence must explicitly lock in the "Main Tension" and pose the central dramatic question of the film.
 
@@ -44,6 +44,8 @@ To ensure the outline is not just a list of events, you must weave Gulino's stor
 
 ## 5. FORMATTING & STYLE CONSTRAINTS
 * **Thematic Titles:** Give each of the 8 sequences a compelling thematic title.
+* **Defined World & Threat Mythology (CRITICAL):** Whether your story is a grounded romance, a heist, or a supernatural horror, you must establish the rigid rules, limitations, and boundaries of the primary threat or world mechanics early in the outline. You are strictly forbidden from arbitrarily inventing convenient new powers, technologies, or rules in Act II or III to resolve narrative corners.
+* **Active Minor Characters (Anti-Archetype Mandate):** Never populate your outline with flat, generic archetypes (e.g., "a greedy billionaire," "a quirky barista," "a generic guard") acting as passive plot fodder. Every minor or one-scene character must have a highly specific, active micro-goal or conflicting attitude that generates immediate friction with the protagonist.
 * **Anti-Looping Mandate:** Do not create repetitive narrative loops (e.g., three identical heists, three interchangeable kills). Sequences C and E must feature escalating, distinct complications, not repetitive montages.
 * **Plant the Tentpoles:** Ensure the major structural pillars (Inciting Incident, Midpoint, Main Culmination) serve as the climaxes of their respective sequences.
 * **Invisible Cause-and-Effect:** The narrative must flow using the "Therefore/But" engine naturally. Avoid episodic "And then..." progressions. If Sequence C happens, it must be because of how Sequence B ended.

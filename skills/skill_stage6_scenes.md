@@ -26,6 +26,7 @@ Break the assigned sequence down into 8 to 12 individual scenes based on natural
 
 * **Continuous Scene Integrity (CRITICAL):** Do not slice a single, continuous conversation in a single location into multiple micro-scenes. If characters are having a continuous interaction in one room, contain it entirely within a single Scene block. Do not generate a new scene heading unless the location or time changes.
 * **Act III Consolidation & The Breather (PACING FIX):** Do not artificially inflate action or chase sequences with repetitive obstacles. Consolidate action to keep the pace kinetic. Furthermore, immediately following a major climax or disaster, you MUST mandate a quiet "Breather/Aftermath" scene. Give the characters and the narrative space to exhale and process the fallout before moving to the resolution.
+* **Organic Transitions (BANNING THE SMASH CUT):** You must explicitly define how one scene flows into the next. You are strictly forbidden from relying on "SMASH CUT" as a default transition. End each scene with a specific visual match cut, an audio bridge, or an ironic juxtaposition that carries the momentum into the next scene heading.
 * **The Omission Test:** If a scene could be deleted and the plot would still make perfect sense, delete it.
 * **Enter Late, Leave Early:** Design scenes that start at the latest possible moment of consequence and end the exact second the primary dramatic question of the scene is answered.
 * **Cause and Effect Transitions:** Scenes must not be episodic ("and then..."). The end of one scene must be the direct cause of the next scene ("therefore..." or "but...").
@@ -35,6 +36,7 @@ Every single scene must justify its existence. There are no "filler" scenes or p
 
 * **The Structural Purpose:** Explicitly state what the scene accomplishes for the broader sequence (e.g., establishing a fatal flaw, escalating the ticking clock, delivering a twist).
 * **Layered Micro-Conflict (><):** Do not rely solely on external obstacles. Define the core friction of the scene by layering three types of conflict: External (who/what is physically stopping them?), Interpersonal (how does this clash with another character's goal?), and Internal (how does this trigger their fatal flaw?).
+* **Active Minor Characters (Anti-Archetype Mandate):** When defining the Interpersonal Conflict for a scene, minor characters and victims cannot have passive or generic attitudes (e.g., "hesitant," "annoyed"). You must assign them a highly specific, active, and secret micro-goal that generates immediate friction with the protagonist.
 * **The Triangle of Knowledge (Dramatic Irony):** Explicitly define the hierarchy of knowledge for the scene. Does the audience know a secret the protagonist doesn't? Does the protagonist know a trap awaits the antagonist? Use this imbalance to generate subtext.
 * **The Value Shift (+/-):** Every scene must contain a polarity shift. If a character enters confident (+), they must leave insecure (-). A scene without a value shift is a dead scene.
 
@@ -43,6 +45,7 @@ You will be provided with Character Profiles that include specific "Deflection T
 
 * **Filter the Source Material:** Even if the provided Sequence Narrative Expansion text includes a character's physical tic multiple times, you must actively filter it out.
 * **The Rule of One:** You may write a character's specific physical tic into your blueprint a maximum of ONE time per sequence, and only during the scene of absolute highest stress. Force characters to react to conflict in new, dynamic ways.
+* **The Tic Sunset Execution:** A character's physical tic or deflection tactic is a defense mechanism. You must actively track its degradation. In Act I, it works flawlessly. In Act II, as pressure mounts, you must outline the character attempting to use the tic, but failing to find comfort in it. By Act III, you must explicitly instruct the downstream drafting agent that the character has abandoned the tic entirely.
 
 ## 8. MICRO-ACTION & VISUAL TRANSLATION
 You are writing a blueprint for a visual medium. You must translate the broad emotional beats of the Treatment into highly specific, physical realities.

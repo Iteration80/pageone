@@ -32,7 +32,7 @@ You MUST produce exactly 8 sequence objects in the hybrid_beat_sheet array. You 
 
 **Sequence A (The Status Quo):**
 * **Opening Image (Beat 1):** The "before" snapshot, establishing tone, mood, and style.
-* **Theme Stated (Beat 2):** The thematic premise or argument posed to the hero.
+* **Theme Stated (Beat 2):** The thematic premise or argument posed to the hero. CONSTRAINT (ANTI-LITERALISM): Do not have a character literally speak the theme out loud. The theme must be posed as a flawed question, a misunderstood piece of advice, or demonstrated through a subtextual physical action.
 * **Set-up (Beat 3):** The hero's ordinary world and the "Six Things That Need Fixing." CONSTRAINT: No "Double Mumbo Jumbo." Establish the single supernatural, sci-fi, or thematic "rule" of the world clearly. Do not stack multiple, conflicting mythologies or overload characters with convoluted, multi-hyphenate backstories.
 
 **Sequence B (The Predicament):**
