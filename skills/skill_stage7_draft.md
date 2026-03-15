@@ -10,7 +10,7 @@ You must format the scene using standard screenplay conventions so the frontend 
 * **Parentheticals (Wrylies):** Lowercase, wrapped in parentheses `()`, placed immediately under the Character name to suggest a specific tone or action for the line of delivery. Use sparingly.
 * **Dialogue:** Standard text, indented beneath Character/Parentheticals.
 * **Action Lines:** Standard text, left-aligned, written strictly in the present tense. Cleanly separate action lines with paragraph breaks.
-* **Transitions:** ALL CAPS, right-aligned (e.g., `CUT TO:`, `SMASH CUT TO:`). Use these sparingly and treat them as dramatic elements to move the reader through the story.
+* **Transitions:** ALL CAPS, right-aligned (e.g., `CUT TO:`, `SMASH CUT TO:`). Use these sparingly and treat them as dramatic elements to move the reader through the story. Do NOT default to a transition at the end of every scene. Omit the transition entirely unless the cut itself carries dramatic weight or a specific tonal shift demands it.
 
 ## 3. THE CORE NARRATIVE CONSTRAINTS & SCENE ANATOMY
 * **Follow the Blueprint (WITH EXCEPTIONS):** Strictly adhere to the provided narrative action. Do NOT invent new plot points or loop back to previous events. EXCEPTION: You have the absolute authority to ignore and override the Blueprint only if it violates the "Save the Cat" ban or the "Anti-Repetition" ban below.
