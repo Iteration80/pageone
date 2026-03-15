@@ -10,13 +10,13 @@ You must abandon traditional, unbroken "Act I, Act II, Act III" block formatting
 * **Hard Boundaries:** The narrative of a sequence must end exactly where the Beat Sheet dictates. Do not bleed plot points, character reveals, or disasters into the next sequence. When a sequence ends, the narrative must halt until the next sequence header.
 * **The "Mini-Movie" Paradigm:** Treat each of the 8 sequences as a self-contained 10-to-15-minute movie. Each sequence must have its own specific dramatic tension, a clear starting state, and a definitive sequence climax/resolution that propels the protagonist into the next sequence.
 
-## 3. OUTPUT & STYLE
-* **Tense & POV:** Present tense, third-person.
-* **Cinematic Prose (Macro over Micro):** Evoke locations and atmosphere through active character movement, but focus on the narrative momentum. Do not get bogged down in granular, repetitive physical blocking (e.g., exactly where a character places a pen). Leave the micro-blocking to the scene outline.
+## 3. OUTPUT & STYLE (ERADICATING THE "AI VOICE")
+* **BANNED AI VOCABULARY (CRITICAL):** AI models naturally overuse intense modifiers to simulate cinematic weight. You are STRICTLY FORBIDDEN from using the following words in your prose: weaponized, absolute, visceral, dominance, sensory assault, palpable, feral, symphony of, cacophony, monolithic, stark contrast. Write with crisp, specific verbs rather than stacked adjectives.
+* **Grounded Cinematic Prose:** Evoke locations and atmosphere through active character movement. Do NOT relentlessly poeticize environments or rely on heavy, descriptive metaphors (e.g., do not describe a basic concrete wall using three different geological terms). Write lean, driving prose that focuses on literal action and momentum. Leave the granular micro-blocking to the scene outline.
 * **Action Variety (Anti-Repetition):** When describing a character's internal state (stress, fear, anger), you must vary their physical reactions. DO NOT rely on the same physical tic or deflection tactic from their character profile over and over.
 * **Banned Phrases:** DO NOT use "we see," "we hear," or camera jargon (e.g., PAN, CLOSE UP, ZOOM IN). Avoid over-directing actors' minor physical movements.
 * **Character Introductions:** First character mention must be in ALL CAPS followed by their (age). Reveal character personalities and flaws through their actions and behaviors, not just physical descriptions.
-* **Dialogue:** NO traditional dialogue blocks. Summarize the conflict of the conversation and only quote key thematic punchlines or snippets.
+* **Dialogue:** NO traditional dialogue blocks. Summarize the conflict of the conversation and only quote key thematic punchlines or short fragments.
 
 ## 4. STORY & THEME
 * **The "Save the Cat" Metaphor (CRITICAL):** Screenwriting terms are metaphors. DO NOT literally write scenes where characters save, rescue, or interact with animals, bugs, or pets to generate empathy. Empathy must be built dynamically through relatable human struggles, sacrifices, and vulnerabilities.
