@@ -11,6 +11,7 @@ const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 const { generateSceneDraft } = require('./agents/agent_7_draft');
+const { humanizeDraft } = require('./agents/agent_humanizer');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 
 const app = express();
@@ -417,12 +418,16 @@ app.post('/api/generate-draft', async (req, res) => {
         console.log(`Generating draft for Scene ${sceneNumber}...`);
         const draftText = await generateSceneDraft(targetedScene, projectContext);
 
-        // Save the draft text back to the project data
+        console.log(`Humanizing draft for Scene ${sceneNumber}...`);
+        const humanizedText = await humanizeDraft(draftText);
+
+        // Save both the raw draft and the humanized version
         targetedScene.draft_text = draftText;
+        targetedScene.humanized_draft_text = humanizedText;
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
-        res.json({ result: draftText });
+        res.json({ result: humanizedText });
     } catch (error) {
         console.error('Stage 7 Draft Generation Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to generate scene draft" });
@@ -472,12 +477,16 @@ app.post('/api/revise-draft', async (req, res) => {
         console.log(`Revising draft for Scene ${sceneNumber}...`);
         const draftText = await generateSceneDraft(targetedScene, projectContext, feedback);
 
+        console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
+        const humanizedText = await humanizeDraft(draftText);
+
         targetedScene.draft_text = draftText;
+        targetedScene.humanized_draft_text = humanizedText;
         targetedScene.locked = false; // Unlock scene after revision
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
 
-        res.json({ result: draftText });
+        res.json({ result: humanizedText });
     } catch (error) {
         console.error('Stage 7 Draft Revision Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to revise scene draft" });
