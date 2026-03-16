@@ -905,8 +905,9 @@ document.addEventListener('DOMContentLoaded', () => {
             4: !!(data.stage4_beats || data.stage4_treatment),
             5: !!data.stage5_treatment,
             6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0)),
-            7: !!data.stage7_approved
-            // Stages 8-10 currently placeholder
+            7: !!data.stage7_approved,
+            8: !!data.stage8_coverage
+            // Stages 9-10 currently placeholder
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -958,6 +959,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 50);
         } else if (stageNum === 7) {
             initStage7();
+        } else if (stageNum === 8) {
+            initStage8();
         }
     }
 
@@ -3345,6 +3348,257 @@ document.addEventListener('DOMContentLoaded', () => {
     window.selectDraftScene = function(sceneNumber) {
         currentDraftSceneNumber = sceneNumber;
         initStage7();
+    };
+
+    // --- Stage 8: Coverage ---
+
+    async function initStage8() {
+        const loadingDiv  = document.getElementById('stage8-loading');
+        const reportDiv   = document.getElementById('stage8-report');
+        const coverageData = window.currentProjectData?.stage8_coverage;
+
+        if (coverageData) {
+            loadingDiv?.classList.add('hidden');
+            reportDiv?.classList.remove('hidden');
+            renderCoverageReport(coverageData);
+        } else {
+            loadingDiv?.classList.remove('hidden');
+            reportDiv?.classList.add('hidden');
+            try {
+                const response = await fetch('/api/generate-coverage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: activeProjectId })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to generate coverage');
+                }
+                const data = await response.json();
+
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                window.currentProjectData = projData.data;
+                updateStageNav(projData.data);
+
+                loadingDiv?.classList.add('hidden');
+                reportDiv?.classList.remove('hidden');
+                renderCoverageReport(data.result);
+            } catch (error) {
+                console.error('Coverage generation failed:', error);
+                loadingDiv?.classList.add('hidden');
+                reportDiv?.classList.remove('hidden');
+                const container = document.getElementById('stage8-content');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="text-center mt-24">
+                            <p class="text-red-400 text-sm mb-4">Failed to generate coverage: ${error.message}</p>
+                            <button onclick="window.retryStage8Coverage()" class="primary-btn">Try Again</button>
+                        </div>`;
+                }
+            }
+        }
+
+        // Wire up Save Priorities button
+        const btnSave = document.getElementById('btnSavePriorities');
+        if (btnSave) {
+            btnSave.onclick = async () => {
+                await saveCoveragePriorities();
+                btnSave.textContent = 'Saved ✓';
+                setTimeout(() => { btnSave.textContent = 'Save Priorities'; }, 2000);
+            };
+        }
+
+        // Wire up Begin Rewrite button
+        const btnApprove = document.getElementById('btnStage8Approve');
+        if (btnApprove) {
+            btnApprove.onclick = async () => {
+                await saveCoveragePriorities();
+                try {
+                    const response = await fetch(`/api/projects/${activeProjectId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: { stage8_approved: true } })
+                    });
+                    if (!response.ok) throw new Error('Failed to save');
+                    const updated = await response.json();
+                    updateStageNav(updated.data);
+                    switchStage(9);
+                } catch (err) {
+                    console.error('Stage 8 approval failed:', err);
+                    alert('An error occurred. Please try again.');
+                }
+            };
+        }
+    }
+
+    function renderCoverageReport(data) {
+        const container = document.getElementById('stage8-content');
+        if (!container || !data) return;
+
+        window.currentCoverageTodo = JSON.parse(JSON.stringify(data.priority_todo || []));
+
+        const ratingClass = (r) => {
+            switch ((r || '').toLowerCase()) {
+                case 'excellent': return 'text-green-400 bg-green-400/10 border-green-400/30';
+                case 'good':      return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
+                case 'fair':      return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+                case 'poor':      return 'text-red-400 bg-red-400/10 border-red-400/30';
+                default:          return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
+            }
+        };
+
+        const gradeClass = (g) => {
+            switch ((g || '').toUpperCase()) {
+                case 'RECOMMEND': return 'text-green-400 bg-green-400/10 border-green-400/30';
+                case 'CONSIDER':  return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+                case 'PASS':      return 'text-red-400 bg-red-400/10 border-red-400/30';
+                default:          return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
+            }
+        };
+
+        const authClass = (a) => {
+            const s = (a || '').toLowerCase();
+            if (s.includes('authentic') || s.includes('human')) return 'text-green-400 bg-green-400/10 border-green-400/30';
+            if (s.includes('mixed')) return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+            return 'text-red-400 bg-red-400/10 border-red-400/30';
+        };
+
+        const gridKeys = ['concept', 'structure', 'characterization', 'pacing', 'dialogue'];
+        const gridHTML = gridKeys.map(k => `
+            <div class="flex flex-col items-center gap-2 text-center">
+                <span class="text-xs text-gray-500 uppercase tracking-wider">${k}</span>
+                <span class="text-xs font-bold px-2 py-1 rounded border ${ratingClass(data.evaluation_grid?.[k])}">${data.evaluation_grid?.[k] || '—'}</span>
+            </div>`).join('');
+
+        const redFlagsHTML = (data.authenticity?.red_flags || []).length > 0
+            ? `<ul class="mt-3 space-y-2">${data.authenticity.red_flags.map(f =>
+                `<li class="text-gray-300 text-sm italic border-l-2 border-yellow-500/40 pl-3 py-1">"${f}"</li>`).join('')}</ul>`
+            : '<p class="text-gray-500 text-sm italic mt-2">No major red flags detected.</p>';
+
+        container.innerHTML = `
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <div class="flex items-start justify-between gap-4 mb-3">
+                    <h2 class="text-xl font-bold text-white">${data.title || 'Untitled'}</h2>
+                    <span class="text-xs font-mono text-gray-400 uppercase tracking-wider shrink-0 mt-1">${data.genre || ''}</span>
+                </div>
+                <p class="text-gray-300 text-sm leading-relaxed italic">${data.logline || ''}</p>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-4">Evaluation Grid</h3>
+                <div class="grid grid-cols-5 gap-3">${gridHTML}</div>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-4">Narrative Synopsis</h3>
+                <div class="space-y-4">
+                    <div><span class="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Setup</span><p class="text-gray-300 text-sm leading-relaxed">${data.synopsis?.setup || ''}</p></div>
+                    <div><span class="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Escalation</span><p class="text-gray-300 text-sm leading-relaxed">${data.synopsis?.escalation || ''}</p></div>
+                    <div><span class="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Resolution</span><p class="text-gray-300 text-sm leading-relaxed">${data.synopsis?.resolution || ''}</p></div>
+                </div>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-3">Authenticity Check</h3>
+                <span class="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded border ${authClass(data.authenticity?.assessment)}">${data.authenticity?.assessment || '—'}</span>
+                ${redFlagsHTML}
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-4">Development Notes</h3>
+                <div class="space-y-4">
+                    <div>
+                        <span class="text-xs font-semibold text-green-400 uppercase tracking-wider block mb-2">Strengths</span>
+                        <p class="text-gray-300 text-sm leading-relaxed">${data.strengths || ''}</p>
+                    </div>
+                    <div class="border-t border-white/10 pt-4">
+                        <span class="text-xs font-semibold text-red-400 uppercase tracking-wider block mb-2">Weaknesses</span>
+                        <p class="text-gray-300 text-sm leading-relaxed">${data.weaknesses || ''}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Priority To-Do List</h3>
+                    <span class="text-xs text-gray-500">Editable — reorder and revise as needed</span>
+                </div>
+                <div id="stage8-todo-list" class="space-y-2"></div>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-4">Final Recommendation</h3>
+                <div class="flex items-start gap-4">
+                    <span class="text-lg font-black px-4 py-2 rounded border shrink-0 ${gradeClass(data.recommendation?.grade)}">${data.recommendation?.grade || '—'}</span>
+                    <p class="text-gray-300 text-sm leading-relaxed">${data.recommendation?.justification || ''}</p>
+                </div>
+            </div>`;
+
+        renderTodoList(window.currentCoverageTodo);
+    }
+
+    function renderTodoList(items) {
+        const container = document.getElementById('stage8-todo-list');
+        if (!container) return;
+        container.innerHTML = items.map((item, idx) => `
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 mt-0.5 rounded border shrink-0 text-blue-400 bg-blue-400/10 border-blue-400/30">P${item.priority}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">${item.category}</div>
+                    <textarea class="todo-task-input w-full bg-transparent text-sm text-gray-200 resize-none border-none focus:outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 leading-relaxed" rows="2" data-idx="${idx}">${item.task}</textarea>
+                </div>
+                <div class="flex flex-col gap-1 shrink-0 pt-1">
+                    <button onclick="window.moveTodoItem(${idx}, -1)" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move up">▲</button>
+                    <button onclick="window.moveTodoItem(${idx},  1)" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move down">▼</button>
+                </div>
+            </div>`).join('');
+        setTimeout(() => {
+            container.querySelectorAll('.todo-task-input').forEach(ta => autoResize(ta));
+        }, 50);
+    }
+
+    async function saveCoveragePriorities() {
+        if (!window.currentCoverageTodo || !activeProjectId) return;
+        // Flush any in-progress textarea edits into the working copy
+        document.querySelectorAll('.todo-task-input').forEach(ta => {
+            const i = parseInt(ta.dataset.idx);
+            if (!isNaN(i) && window.currentCoverageTodo[i]) {
+                window.currentCoverageTodo[i].task = ta.value;
+            }
+        });
+        const coverage = window.currentProjectData?.stage8_coverage;
+        if (!coverage) return;
+        coverage.priority_todo = window.currentCoverageTodo;
+        await fetch(`/api/projects/${activeProjectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { stage8_coverage: coverage } })
+        });
+        const projRes = await fetch(`/api/projects/${activeProjectId}`);
+        const projData = await projRes.json();
+        window.currentProjectData = projData.data;
+    }
+
+    window.moveTodoItem = function(idx, direction) {
+        if (!window.currentCoverageTodo) return;
+        // Flush current textarea values first
+        document.querySelectorAll('.todo-task-input').forEach(ta => {
+            const i = parseInt(ta.dataset.idx);
+            if (!isNaN(i) && window.currentCoverageTodo[i]) {
+                window.currentCoverageTodo[i].task = ta.value;
+            }
+        });
+        const todo = window.currentCoverageTodo;
+        const newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= todo.length) return;
+        [todo[idx], todo[newIdx]] = [todo[newIdx], todo[idx]];
+        todo.forEach((item, i) => { item.priority = i + 1; });
+        renderTodoList(todo);
+    };
+
+    window.retryStage8Coverage = function() {
+        initStage8();
     };
 
 });

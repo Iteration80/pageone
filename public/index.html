@@ -641,14 +641,43 @@
             </section>
         </main>
 
-        <!-- Placeholder Workspace (Stage 8) -->
+        <!-- Stage 8: Coverage -->
         <main id="stage-8-view" class="workspace hidden">
-            <div class="workspace-scrollable">
+
+            <!-- Loading State -->
+            <div id="stage8-loading" class="workspace-scrollable hidden">
                 <header class="workspace-header">
                     <h1>Stage 8: Coverage</h1>
-                    <p>Receive professional coverage and feedback on your draft.</p>
+                    <p class="text-sm text-gray-500 mt-1">Analyzing your screenplay...</p>
                 </header>
+                <div class="flex flex-col items-center justify-center mt-24 gap-4">
+                    <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-gray-400 text-sm">Generating professional coverage report. This may take a moment...</p>
+                </div>
             </div>
+
+            <!-- Report Display -->
+            <div id="stage8-report" class="workspace-scrollable hidden">
+                <header class="workspace-header">
+                    <h1>Stage 8: Coverage</h1>
+                </header>
+                <div id="stage8-content" class="max-w-3xl mx-auto px-8 pb-32 space-y-6"></div>
+            </div>
+
+            <!-- Bottom Action Panel -->
+            <section id="stage8Workshop" class="feedback-panel">
+                <div class="feedback-panel-body">
+                    <div class="action-row action-row-split">
+                        <div class="action-left">
+                            <button id="btnSavePriorities" class="danger-btn">Save Priorities</button>
+                        </div>
+                        <div class="action-group-right">
+                            <button id="btnStage8Approve" class="primary-btn">Begin Rewrite →</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
 
         <!-- Placeholder Workspace (Stage 9) -->

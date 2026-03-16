@@ -12,6 +12,7 @@ const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 const { generateSceneDraft } = require('./agents/agent_7_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
+const { agent8Coverage } = require('./agents/agent_8_coverage');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 
 const app = express();
@@ -490,6 +491,72 @@ app.post('/api/revise-draft', async (req, res) => {
     } catch (error) {
         console.error('Stage 7 Draft Revision Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to revise scene draft" });
+    }
+});
+
+// --- Stage 8: Coverage --- //
+
+app.post('/api/generate-coverage', async (req, res) => {
+    try {
+        const { projectId } = req.body;
+        if (!projectId) return res.status(400).json({ error: "Missing projectId" });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let projectData;
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+        } catch (err) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        if (!projectData.data?.stage7_approved) {
+            return res.status(400).json({ error: "Stage 7 must be approved before generating coverage" });
+        }
+
+        const stage6Scenes = projectData.data?.stage6_scenes;
+        if (!stage6Scenes) {
+            return res.status(400).json({ error: "No scene blueprint found" });
+        }
+
+        // Assemble full script from all scenes in order
+        const allScenes = [];
+        for (const seq of stage6Scenes) {
+            if (seq.scenes) allScenes.push(...seq.scenes);
+        }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+
+        const fullScriptText = allScenes
+            .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
+            .filter(Boolean)
+            .join('\n\n');
+
+        if (!fullScriptText) {
+            return res.status(400).json({ error: "No draft text found in scenes. Generate scene drafts first." });
+        }
+
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const projectContext = {
+            title:    pitch?.title || projectData.title || 'Untitled',
+            genre:    pitch?.genre || '',
+            logline:  pitch?.logline || '',
+            synopsis: pitch?.synopsis || '',
+            characters: projectData.data?.stage3_characters?.characters || []
+        };
+
+        console.log(`Generating Stage 8 Coverage for project ${projectId}...`);
+        const coverageResult = await agent8Coverage(fullScriptText, projectContext);
+
+        projectData.data = projectData.data || {};
+        projectData.data.stage8_coverage = coverageResult;
+        stampGenerated(projectData, 'stage8_coverage');
+
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ result: coverageResult });
+    } catch (error) {
+        console.error('Stage 8 Coverage Error:', error.message);
+        res.status(500).json({ error: error.message || "Failed to generate coverage" });
     }
 });
 
