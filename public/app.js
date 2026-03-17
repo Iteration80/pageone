@@ -3442,7 +3442,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnApprove = document.getElementById('btnStage8Approve');
         if (btnApprove) {
             btnApprove.onclick = async () => {
-                await saveCoveragePriorities();
+                try {
+                    await saveCoveragePriorities();
+                } catch (err) {
+                    alert('Failed to save your edits. Please try again.');
+                    return;
+                }
                 try {
                     const response = await fetch(`/api/projects/${activeProjectId}`, {
                         method: 'PUT',
@@ -3452,6 +3457,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!response.ok) throw new Error('Failed to save');
                     const updated = await response.json();
                     updateStageNav(updated.data);
+                    // Always restart Stage 9 from P1 when entering from Begin Rewrite
+                    window.stage9ResetOnInit = true;
                     switchStage(9);
                 } catch (err) {
                     console.error('Stage 8 approval failed:', err);
@@ -3678,17 +3685,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isNaN(i) && arr && arr[i]) arr[i].task = ta.value;
         });
         const coverage = window.currentProjectData?.stage8_coverage;
-        if (!coverage) return;
+        if (!coverage) {
+            console.warn('saveCoveragePriorities: stage8_coverage not found on currentProjectData — skipping save');
+            return;
+        }
         coverage.macro_todo = window.currentMacroTodo || [];
         coverage.micro_todo = window.currentMicroTodo || [];
-        await fetch(`/api/projects/${activeProjectId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { stage8_coverage: coverage } })
-        });
-        const projRes = await fetch(`/api/projects/${activeProjectId}`);
-        const projData = await projRes.json();
-        window.currentProjectData = projData.data;
+        try {
+            const saveRes = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage8_coverage: coverage } })
+            });
+            if (!saveRes.ok) throw new Error(`Server returned ${saveRes.status}`);
+            const projRes = await fetch(`/api/projects/${activeProjectId}`);
+            const projData = await projRes.json();
+            window.currentProjectData = projData.data;
+        } catch (err) {
+            console.error('saveCoveragePriorities failed:', err.message);
+            throw err; // Re-throw so the caller can abort
+        }
     }
 
     window.moveTodoItem = function(idx, direction, list) {
@@ -3726,10 +3742,12 @@ document.addEventListener('DOMContentLoaded', () => {
         workspace?.classList.add('hidden');
 
         try {
+            const reset = !!window.stage9ResetOnInit;
+            window.stage9ResetOnInit = false;
             const res = await fetch('/api/init-stage9', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId })
+                body: JSON.stringify({ projectId: activeProjectId, reset })
             });
             if (!res.ok) throw new Error((await res.json()).error || 'Failed to init Stage 9');
             const data = await res.json();

@@ -566,15 +566,27 @@ app.post('/api/generate-coverage', async (req, res) => {
 // Initialize stage9_rewrites from Stage 7 humanized text
 app.post('/api/init-stage9', async (req, res) => {
     try {
-        const { projectId } = req.body;
+        const { projectId, reset } = req.body;
         if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
         const projectData = JSON.parse(content);
 
-        // Return existing state if already initialized
-        if (projectData.data?.stage9_rewrites) {
+        // Return existing state if already initialized (unless reset requested)
+        if (projectData.data?.stage9_rewrites && !reset) {
+            return res.json({
+                stage9_rewrites: projectData.data.stage9_rewrites,
+                macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
+                micro_todo:  projectData.data.stage8_coverage?.micro_todo  || [],
+            });
+        }
+
+        // If resetting an existing session, preserve the working copy but restart priority_idx
+        if (projectData.data?.stage9_rewrites && reset) {
+            projectData.data.stage9_rewrites.priority_idx = 0;
+            projectData.data.stage9_rewrites.approved = false;
+            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
             return res.json({
                 stage9_rewrites: projectData.data.stage9_rewrites,
                 macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
