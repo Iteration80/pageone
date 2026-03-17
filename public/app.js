@@ -906,8 +906,8 @@ document.addEventListener('DOMContentLoaded', () => {
             5: !!data.stage5_treatment,
             6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0)),
             7: !!data.stage7_approved,
-            8: !!data.stage8_coverage
-            // Stages 9-10 currently placeholder
+            8: !!data.stage8_coverage,
+            9: !!data.stage9_rewrites?.approved
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -961,6 +961,8 @@ document.addEventListener('DOMContentLoaded', () => {
             initStage7();
         } else if (stageNum === 8) {
             initStage8();
+        } else if (stageNum === 9) {
+            initStage9();
         }
     }
 
@@ -3673,6 +3675,322 @@ document.addEventListener('DOMContentLoaded', () => {
     window.retryStage8Coverage = function() {
         initStage8();
     };
+
+    // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
+
+    // State
+    let stage9State   = null;   // { working, priority_idx, macro_todo, micro_todo }
+    let stage9Pending = {};     // { scene_number: proposed_text } — not yet approved
+    let stage9CurrentScene = null;  // currently selected scene_number
+    let stage9ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
+
+    async function initStage9() {
+        if (!activeProjectId) return;
+        const loading  = document.getElementById('stage9-loading');
+        const workspace = document.getElementById('stage9-workspace');
+        loading?.classList.remove('hidden');
+        workspace?.classList.add('hidden');
+
+        try {
+            const res = await fetch('/api/init-stage9', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || 'Failed to init Stage 9');
+            const data = await res.json();
+
+            stage9State = {
+                working:      data.stage9_rewrites.working,
+                priority_idx: data.stage9_rewrites.priority_idx,
+                macro_todo:   data.macro_todo || [],
+                micro_todo:   data.micro_todo  || [],
+            };
+            stage9Pending = {};
+            stage9ApprovedScenes = {};
+
+            loading?.classList.add('hidden');
+            workspace?.classList.remove('hidden');
+
+            renderStage9SceneList();
+            renderStage9TaskBanner();
+            stage9WireButtons();
+
+            // Auto-select first scene
+            const firstScene = Object.keys(stage9State.working)[0];
+            if (firstScene) stage9SelectScene(parseInt(firstScene));
+        } catch (err) {
+            console.error('initStage9 error:', err);
+            if (loading) loading.querySelector('p').textContent = 'Failed to load: ' + err.message;
+        }
+    }
+
+    function stage9GetPriorityList() {
+        const macro = (stage9State.macro_todo || []).map((t, i) => ({ ...t, list: 'MACRO', localIdx: i }));
+        const micro = (stage9State.micro_todo  || []).map((t, i) => ({ ...t, list: 'MICRO', localIdx: i }));
+        return [...macro, ...micro];
+    }
+
+    function renderStage9TaskBanner() {
+        const priorities = stage9GetPriorityList();
+        const idx = stage9State.priority_idx;
+        const taskBanner = document.getElementById('stage9-task-banner');
+        const doneBanner = document.getElementById('stage9-done-banner');
+
+        if (idx >= priorities.length) {
+            taskBanner?.classList.add('hidden');
+            doneBanner?.classList.remove('hidden');
+            return;
+        }
+
+        taskBanner?.classList.remove('hidden');
+        doneBanner?.classList.add('hidden');
+
+        const item = priorities[idx];
+        const label = `${item.list} P${item.priority} of ${item.list === 'MACRO' ? stage9State.macro_todo.length : stage9State.micro_todo.length}`;
+        document.getElementById('stage9-task-label').textContent = label;
+        document.getElementById('stage9-task-text').textContent = item.task;
+
+        const btnAutoRewrite = document.getElementById('btnAutoRewrite');
+        if (btnAutoRewrite) {
+            btnAutoRewrite.textContent = `Auto-Rewrite ${item.list} P${item.priority}`;
+            btnAutoRewrite.disabled = false;
+        }
+    }
+
+    function renderStage9SceneList() {
+        const container = document.getElementById('stage9-scene-list');
+        if (!container || !stage9State) return;
+        const entries = Object.keys(stage9State.working).map(n => parseInt(n)).sort((a, b) => a - b);
+        container.innerHTML = entries.map(n => {
+            const hasPending  = !!stage9Pending[n];
+            const hasApproved = !!stage9ApprovedScenes[n];
+            const dot = hasPending
+                ? '<span class="text-blue-400 ml-1 text-xs">●</span>'
+                : hasApproved
+                    ? '<span class="text-green-500 ml-1 text-xs">✓</span>'
+                    : '';
+            const isActive = n === stage9CurrentScene ? 'bg-white/10' : 'hover:bg-white/5';
+            // Get slugline from stage6 data
+            const allScenes = getFlatScenes();
+            const sceneData = allScenes.find(s => s.scene_number === n);
+            const label = sceneData?.scene_heading || sceneData?.slugline || `Scene ${n}`;
+            return `<button onclick="window.stage9SelectSceneBtn(${n})"
+                class="w-full text-left px-3 py-2 rounded text-xs text-gray-300 transition-colors ${isActive} flex items-center justify-between gap-2">
+                <span class="truncate">${n}. ${label}</span>${dot}
+            </button>`;
+        }).join('');
+    }
+
+    window.stage9SelectSceneBtn = function(n) { stage9SelectScene(n); };
+
+    function stage9SelectScene(n) {
+        // Flush any current right-panel edit into pending
+        if (stage9CurrentScene !== null) {
+            const rp = document.getElementById('stage9-right-panel');
+            if (rp && rp.value !== undefined) {
+                stage9Pending[stage9CurrentScene] = rp.value;
+            }
+        }
+        stage9CurrentScene = n;
+
+        const left  = document.getElementById('stage9-left-panel');
+        const right = document.getElementById('stage9-right-panel');
+        if (left)  left.value  = stage9State.working[n] || '';
+        if (right) right.value = stage9Pending[n] ?? stage9State.working[n] ?? '';
+
+        renderStage9SceneList(); // refresh active highlight
+    }
+
+    function stage9WireButtons() {
+        const btnAuto = document.getElementById('btnAutoRewrite');
+        if (btnAuto) {
+            btnAuto.onclick = async () => {
+                const priorities = stage9GetPriorityList();
+                const idx = stage9State.priority_idx;
+                if (idx >= priorities.length) return;
+                const task = priorities[idx].task;
+
+                const loadingOverlay = document.getElementById('stage9-rewrite-loading');
+                const rightPanel = document.getElementById('stage9-right-panel');
+                loadingOverlay?.classList.remove('hidden');
+                loadingOverlay?.classList.add('flex');
+                if (rightPanel) rightPanel.classList.add('hidden');
+                btnAuto.disabled = true;
+
+                try {
+                    const res = await fetch('/api/rewrite-for-priority', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    const data = await res.json();
+
+                    // Store proposed texts for modified scenes
+                    data.scenes.forEach(s => {
+                        if (s.modified) stage9Pending[s.scene_number] = s.proposed_text;
+                    });
+
+                    // Auto-select first modified scene
+                    const firstModified = data.scenes.find(s => s.modified);
+                    if (firstModified) stage9SelectScene(firstModified.scene_number);
+                    else if (stage9CurrentScene) stage9SelectScene(stage9CurrentScene);
+
+                    renderStage9SceneList();
+                } catch (err) {
+                    console.error('Auto-rewrite failed:', err);
+                    alert('Auto-rewrite failed: ' + err.message);
+                } finally {
+                    loadingOverlay?.classList.add('hidden');
+                    loadingOverlay?.classList.remove('flex');
+                    if (rightPanel) rightPanel.classList.remove('hidden');
+                    btnAuto.disabled = false;
+                }
+            };
+        }
+
+        const btnApprove = document.getElementById('btnApproveAndNext');
+        if (btnApprove) {
+            btnApprove.onclick = async () => {
+                // Flush current right-panel edit
+                if (stage9CurrentScene !== null) {
+                    const rp = document.getElementById('stage9-right-panel');
+                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
+                }
+
+                const newIdx = stage9State.priority_idx + 1;
+                try {
+                    await fetch('/api/approve-rewrite-priority', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: newIdx })
+                    });
+                    // Absorb pending into working
+                    Object.assign(stage9State.working, stage9Pending);
+                    Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[n] = true; });
+                    stage9Pending = {};
+                    stage9State.priority_idx = newIdx;
+
+                    // Update left panel for current scene
+                    if (stage9CurrentScene !== null) {
+                        const left = document.getElementById('stage9-left-panel');
+                        if (left) left.value = stage9State.working[stage9CurrentScene] || '';
+                        const right = document.getElementById('stage9-right-panel');
+                        if (right) right.value = stage9State.working[stage9CurrentScene] || '';
+                    }
+
+                    // Update project data in memory
+                    if (window.currentProjectData?.stage9_rewrites) {
+                        window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
+                    }
+
+                    renderStage9SceneList();
+                    renderStage9TaskBanner();
+                } catch (err) {
+                    console.error('Approve failed:', err);
+                    alert('Failed to save: ' + err.message);
+                }
+            };
+        }
+
+        const btnFinalize = document.getElementById('btnFinalizeRewrite');
+        if (btnFinalize) {
+            btnFinalize.onclick = async () => {
+                // Flush and save any remaining pending changes first
+                if (stage9CurrentScene !== null) {
+                    const rp = document.getElementById('stage9-right-panel');
+                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
+                }
+                if (Object.keys(stage9Pending).length > 0) {
+                    await fetch('/api/approve-rewrite-priority', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: stage9State.priority_idx })
+                    });
+                    Object.assign(stage9State.working, stage9Pending);
+                    stage9Pending = {};
+                }
+                await fetch('/api/finalize-stage9', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: activeProjectId })
+                });
+                const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                const projData = await projRes.json();
+                window.currentProjectData = projData.data;
+                updateStageNav(projData.data);
+                switchStage(10);
+            };
+        }
+
+        const btnSubmit = document.getElementById('btnStage9Submit');
+        if (btnSubmit) {
+            btnSubmit.onclick = async () => {
+                if (stage9CurrentScene === null) { alert('Select a scene first.'); return; }
+                const notes = document.getElementById('stage9-notes')?.value.trim();
+                if (!notes) { alert('Add feedback in the text area below first.'); return; }
+
+                const priorities = stage9GetPriorityList();
+                const task = priorities[stage9State.priority_idx]?.task || '';
+                const currentText = document.getElementById('stage9-right-panel')?.value || stage9State.working[stage9CurrentScene] || '';
+
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = 'Rewriting...';
+                try {
+                    const res = await fetch('/api/rewrite-scene-feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: activeProjectId,
+                            sceneNumber: stage9CurrentScene,
+                            priorityTask: task,
+                            userFeedback: notes,
+                            currentText
+                        })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    const data = await res.json();
+
+                    const right = document.getElementById('stage9-right-panel');
+                    if (right) right.value = data.proposed_text;
+                    stage9Pending[stage9CurrentScene] = data.proposed_text;
+                    renderStage9SceneList();
+
+                    if (document.getElementById('stage9-notes')) document.getElementById('stage9-notes').value = '';
+                } catch (err) {
+                    console.error('Feedback rewrite failed:', err);
+                    alert('Rewrite failed: ' + err.message);
+                } finally {
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = 'Submit';
+                }
+            };
+        }
+
+        const btnDownload = document.getElementById('btnDownloadRewrite');
+        if (btnDownload) {
+            btnDownload.onclick = () => {
+                if (!stage9State) { alert('No rewrite data available.'); return; }
+                // Flush current edit
+                if (stage9CurrentScene !== null) {
+                    const rp = document.getElementById('stage9-right-panel');
+                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
+                }
+                const working = { ...stage9State.working, ...stage9Pending };
+                const scenes = Object.keys(working).map(n => parseInt(n)).sort((a, b) => a - b);
+                const text = scenes.map(n => working[n] || '').filter(Boolean).join('\n\n');
+                const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'Untitled';
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = makeFilename(title, 'rewrite');
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        }
+    }
 
 });
 

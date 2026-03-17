@@ -13,6 +13,7 @@ const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 const { generateSceneDraft } = require('./agents/agent_7_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
 const { agent8Coverage } = require('./agents/agent_8_coverage');
+const { rewriteScene } = require('./agents/agent_9_rewrite');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 
 const app = express();
@@ -557,6 +558,176 @@ app.post('/api/generate-coverage', async (req, res) => {
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to generate coverage" });
+    }
+});
+
+// --- Stage 9: Rewrite Routes --- //
+
+// Initialize stage9_rewrites from Stage 7 humanized text
+app.post('/api/init-stage9', async (req, res) => {
+    try {
+        const { projectId } = req.body;
+        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        // Return existing state if already initialized
+        if (projectData.data?.stage9_rewrites) {
+            return res.json({
+                stage9_rewrites: projectData.data.stage9_rewrites,
+                macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
+                micro_todo:  projectData.data.stage8_coverage?.micro_todo  || [],
+            });
+        }
+
+        // Build working copy from all scene humanized/draft texts
+        const stage6Scenes = projectData.data?.stage6_scenes || [];
+        const allScenes = [];
+        for (const seq of stage6Scenes) {
+            if (seq.scenes) allScenes.push(...seq.scenes);
+        }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+
+        const working = {};
+        for (const s of allScenes) {
+            working[s.scene_number] = (s.humanized_draft_text || s.draft_text || '').trim();
+        }
+
+        const stage9 = { working, priority_idx: 0, approved: false };
+        projectData.data = projectData.data || {};
+        projectData.data.stage9_rewrites = stage9;
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({
+            stage9_rewrites: stage9,
+            macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
+            micro_todo:  projectData.data.stage8_coverage?.micro_todo  || [],
+        });
+    } catch (error) {
+        console.error('init-stage9 error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Run all scenes through the rewrite agent for one priority task
+app.post('/api/rewrite-for-priority', async (req, res) => {
+    try {
+        const { projectId, priorityTask } = req.body;
+        if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const working = projectData.data?.stage9_rewrites?.working || {};
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
+        // Build scene list from stage6 to get sluglines
+        const stage6Scenes = projectData.data?.stage6_scenes || [];
+        const allScenes = [];
+        for (const seq of stage6Scenes) {
+            if (seq.scenes) allScenes.push(...seq.scenes);
+        }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+
+        console.log(`Stage 9: rewriting ${allScenes.length} scenes for task: "${priorityTask.slice(0, 60)}..."`);
+
+        const results = await Promise.allSettled(
+            allScenes.map(s => {
+                const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
+                return rewriteScene(sceneText, priorityTask, {
+                    title,
+                    sceneNumber: s.scene_number,
+                    slugline: s.slugline || s.scene_heading || '',
+                }).then(proposed => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed }));
+            })
+        );
+
+        const scenes = results.map((r, i) => {
+            if (r.status === 'fulfilled') {
+                const { scene_number, original_text, proposed_text } = r.value;
+                return { scene_number, original_text, proposed_text, modified: proposed_text.trim() !== original_text.trim() };
+            }
+            const s = allScenes[i];
+            const fallback = working[s.scene_number] || '';
+            return { scene_number: s.scene_number, original_text: fallback, proposed_text: fallback, modified: false };
+        });
+
+        res.json({ scenes });
+    } catch (error) {
+        console.error('rewrite-for-priority error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Save approved pending changes and advance priority index
+app.post('/api/approve-rewrite-priority', async (req, res) => {
+    try {
+        const { projectId, pendingScenes, newPriorityIdx } = req.body;
+        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const stage9 = projectData.data?.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
+        if (pendingScenes) {
+            for (const [sceneNum, text] of Object.entries(pendingScenes)) {
+                stage9.working[sceneNum] = text;
+            }
+        }
+        stage9.priority_idx = newPriorityIdx;
+        projectData.data.stage9_rewrites = stage9;
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        res.json({ stage9_rewrites: stage9 });
+    } catch (error) {
+        console.error('approve-rewrite-priority error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rewrite a single scene using the priority task + user feedback
+app.post('/api/rewrite-scene-feedback', async (req, res) => {
+    try {
+        const { projectId, sceneNumber, priorityTask, userFeedback, currentText } = req.body;
+        if (!projectId || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
+        const proposed_text = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback);
+        res.json({ proposed_text });
+    } catch (error) {
+        console.error('rewrite-scene-feedback error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Mark Stage 9 as approved/finalized
+app.post('/api/finalize-stage9', async (req, res) => {
+    try {
+        const { projectId } = req.body;
+        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        if (projectData.data?.stage9_rewrites) {
+            projectData.data.stage9_rewrites.approved = true;
+        }
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        res.json({ success: true });
+    } catch (error) {
+        console.error('finalize-stage9 error:', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 

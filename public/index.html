@@ -678,14 +678,108 @@
 
         </main>
 
-        <!-- Placeholder Workspace (Stage 9) -->
+        <!-- Stage 9: Rewrite -->
         <main id="stage-9-view" class="workspace hidden">
-            <div class="workspace-scrollable">
+
+            <!-- Loading State -->
+            <div id="stage9-loading" class="workspace-scrollable hidden">
                 <header class="workspace-header">
                     <h1>Stage 9: Rewrite</h1>
-                    <p>Refine and polish your screenplay based on feedback.</p>
+                    <p class="text-sm text-gray-500 mt-1">Preparing your rewrite workspace...</p>
                 </header>
+                <div class="flex flex-col items-center justify-center mt-24 gap-4">
+                    <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-gray-400 text-sm">Loading scene drafts...</p>
+                </div>
             </div>
+
+            <!-- Rewrite Workspace -->
+            <div id="stage9-workspace" class="flex flex-col flex-1 overflow-hidden hidden">
+
+                <!-- Task Banner -->
+                <div id="stage9-task-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div id="stage9-task-label" class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">MACRO P1</div>
+                            <p id="stage9-task-text" class="text-sm text-gray-200 leading-relaxed"></p>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <button id="btnAutoRewrite" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+                                Auto-Rewrite
+                            </button>
+                            <button id="btnApproveAndNext" class="primary-btn">Approve &amp; Next →</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All-done banner (shown when all priorities exhausted) -->
+                <div id="stage9-done-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0 hidden">
+                    <div class="flex items-center justify-between gap-4">
+                        <p class="text-sm text-green-400 font-semibold">All priority tasks addressed. Review the final rewrite below.</p>
+                        <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
+                    </div>
+                </div>
+
+                <!-- Split View + Sidebar -->
+                <div class="flex flex-1 overflow-hidden">
+
+                    <!-- Split View -->
+                    <div class="flex flex-1 overflow-hidden">
+                        <!-- Left: Previous State (read-only) -->
+                        <div class="flex-1 flex flex-col border-r border-white/10 overflow-hidden">
+                            <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0">
+                                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous State</span>
+                            </div>
+                            <textarea id="stage9-left-panel" readonly
+                                class="flex-1 w-full bg-gray-950 text-gray-500 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent"
+                                placeholder="Select a scene from the sidebar..."></textarea>
+                        </div>
+                        <!-- Right: Proposed Rewrite (editable) -->
+                        <div class="flex-1 flex flex-col overflow-hidden">
+                            <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0">
+                                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
+                            </div>
+                            <div id="stage9-rewrite-loading" class="hidden flex-col items-center justify-center flex-1 gap-3">
+                                <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p class="text-gray-500 text-xs">Rewriting all scenes...</p>
+                            </div>
+                            <textarea id="stage9-right-panel"
+                                class="flex-1 w-full bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+                                placeholder="Click Auto-Rewrite or edit directly..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Right Sidebar: Scene List -->
+                    <aside class="w-72 bg-gray-950 border-l border-white/10 overflow-y-auto shrink-0 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                        <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase p-4 pb-2">SCENES</h3>
+                        <div id="stage9-scene-list" class="space-y-1 px-3 pb-8"></div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- Stage 9 Feedback Panel (Sticky) -->
+            <section id="stage9Workshop" class="feedback-panel">
+                <div class="feedback-panel-header" id="stage9WorkshopToggle">
+                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
+                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                    </button>
+                </div>
+                <div class="feedback-panel-body">
+                    <textarea id="stage9-notes"
+                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
+                        placeholder="Add specific instructions for the current scene rewrite (e.g. 'Keep Chloe's sarcasm but remove the metaphor about the building')..."></textarea>
+                    <div class="action-row action-row-split">
+                        <div class="action-left">
+                            <button id="btnDownloadRewrite" class="secondary-btn">Download Rewrite</button>
+                        </div>
+                        <div class="action-group-right">
+                            <button id="btnStage9Submit" class="primary-btn">Submit</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- Placeholder Workspace (Stage 10) -->
