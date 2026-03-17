@@ -1763,10 +1763,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Helper to create labeled textarea fields
                 const fields = [
+                    { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action },
                     { label: 'GENRE VARIATION NOTES', key: 'genre_variation_notes', value: beat.genre_variation_notes },
                     { label: 'EMOTIONAL ARC', key: 'emotional_arc', value: beat.emotional_arc },
-                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes },
-                    { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action }
+                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes }
                 ];
 
                 fields.forEach(f => {

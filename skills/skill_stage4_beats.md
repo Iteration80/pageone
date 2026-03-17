@@ -41,7 +41,7 @@ You MUST produce exactly 8 sequence objects in the hybrid_beat_sheet array. You 
 
 **Sequence C (The First Attempt):**
 * **Break into Two (Beat 6):** The proactive decision to step into the upside-down antithesis world.
-* **B Story (Beat 7):** Introduction of the love story/thematic characters to provide a breather.
+* **B Story (Beat 7):** Introduction of the love story/thematic characters to provide a breather. **CONSTRAINT (B-STORY ALIGNMENT):** The B Story character must be the one who *actively teaches* the protagonist the thematic answer — not a character who merely represents the protagonist's past, flaw, or broken worldview. The antagonist or a figure from the hero's history can carry thematic weight, but if there is another character who directly models what the correct resolution looks like (e.g., demonstrating trust, surrender, collaboration), *that* character owns the B Story. A character who embodies the protagonist's *old* philosophy is a thematic mirror, not a B Story. At the Midpoint (Beat 9), the B Story character's influence must visibly begin to crack the protagonist's fatal flaw. At Break into Three (Beat 13), the B Story provides the specific emotional catalyst that enables the climax. If the B Story character and the thematic payoff feel disconnected at the end, re-examine who actually *teaches* the lesson.
 
 **Sequence D (First Culmination / Midpoint):**
 * **Fun and Games (Beat 8):** The "promise of the premise" trailer moments. CONSTRAINT: Do not write a repetitive montage. Establish a pattern of "Fun and Games" and then immediately break it with a subversion or a trap.
