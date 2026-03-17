@@ -89,7 +89,7 @@ Please apply the note surgically and return the full updated character list in J
         });
     }
 
-    let contentsText = `Here is the approved pitch:\n${JSON.stringify(pitchData, null, 2)}\n\nHere is the broad outline (beats):\n${JSON.stringify(beatsData, null, 2)}`;
+    let contentsText = `MANDATORY FIRST STEP — OUTLINE CHARACTER COVERAGE: Before creating any characters, read the outline below and identify every distinct character it describes — whether referred to by proper name (e.g., "Jax", "Silas") or by a specific role or function (e.g., "a hacker", "the engineer", "an acrobat", "an enforcer"). Every such individual MUST receive a full profile. Invent a proper name for any role-only character. Only after all outline characters are profiled may you invent additional characters.\n\nHere is the approved pitch:\n${JSON.stringify(pitchData, null, 2)}\n\nHere is the broad outline (beats):\n${JSON.stringify(beatsData, null, 2)}`;
 
     if (notes && currentCharacters) {
         contentsText += `\n\nThe user has provided feedback for the characters. Revise the existing characters based on these notes.\n\nEXISTING CHARACTERS:\n${JSON.stringify(currentCharacters, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL cast of characters, including unrevised ones, in the proper JSON format.`;
