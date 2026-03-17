@@ -706,7 +706,7 @@
                         <div class="flex items-center gap-3 shrink-0">
                             <button id="btnAutoRewrite" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
-                                Auto-Rewrite
+                                Plan Rewrite
                             </button>
                             <button id="btnApproveAndNext" class="primary-btn">Approve &amp; Next →</button>
                         </div>
@@ -721,32 +721,60 @@
                     </div>
                 </div>
 
+                <!-- Plan Section (shown after "Plan Rewrite" is clicked) -->
+                <div id="stage9-plan-section" class="hidden border-b border-white/10 bg-gray-950 shrink-0 max-h-72 overflow-y-auto">
+                    <!-- Planning loading state -->
+                    <div id="stage9-plan-loading" class="hidden flex items-center gap-3 px-6 py-4">
+                        <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                        <p class="text-gray-400 text-sm">Auditing scope — identifying which scenes this task affects...</p>
+                    </div>
+                    <!-- Plan content -->
+                    <div id="stage9-plan-content" class="hidden px-6 py-4">
+                        <div id="stage9-plan-rationale" class="text-xs text-gray-500 italic mb-4"></div>
+                        <div id="stage9-plan-scenes" class="space-y-2 mb-4"></div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-gray-500">Not right?</span>
+                            <button id="btnAdjustPlan" class="text-xs text-blue-400 hover:text-blue-300 underline transition-colors">Adjust with feedback below</button>
+                            <div class="flex-1"></div>
+                            <button id="btnExecutePlan" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-5 rounded-full transition-colors">Execute Plan →</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Split View + Sidebar -->
                 <div class="flex flex-1 overflow-hidden">
 
                     <!-- Split View -->
                     <div class="flex flex-1 overflow-hidden">
-                        <!-- Left: Previous State (read-only) -->
+                        <!-- Left: Previous State (read-only, rendered Fountain) -->
                         <div class="flex-1 flex flex-col border-r border-white/10 overflow-hidden">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0">
                                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous State</span>
                             </div>
-                            <textarea id="stage9-left-panel" readonly
-                                class="flex-1 w-full bg-gray-950 text-gray-500 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent"
-                                placeholder="Select a scene from the sidebar..."></textarea>
+                            <div id="stage9-left-panel"
+                                class="flex-1 overflow-y-auto bg-gray-950 text-gray-500 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                                <p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>
+                            </div>
                         </div>
-                        <!-- Right: Proposed Rewrite (editable) -->
+                        <!-- Right: Proposed Rewrite -->
                         <div class="flex-1 flex flex-col overflow-hidden">
-                            <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0">
+                            <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0 flex items-center justify-between">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
+                                <button id="btnToggleEdit" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Edit Source</button>
                             </div>
-                            <div id="stage9-rewrite-loading" class="hidden flex-col items-center justify-center flex-1 gap-3">
+                            <div id="stage9-rewrite-loading" class="hidden items-center justify-center flex-1 gap-3">
                                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p class="text-gray-500 text-xs">Rewriting all scenes...</p>
+                                <p class="text-gray-500 text-xs">Executing rewrite plan...</p>
                             </div>
-                            <textarea id="stage9-right-panel"
-                                class="flex-1 w-full bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
-                                placeholder="Click Auto-Rewrite or edit directly..."></textarea>
+                            <!-- Rendered view (default) -->
+                            <div id="stage9-right-panel-view"
+                                class="flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                <p class="text-gray-600 italic text-xs">Click "Plan Rewrite" to begin...</p>
+                            </div>
+                            <!-- Raw edit textarea (hidden by default) -->
+                            <textarea id="stage9-right-panel-edit"
+                                class="hidden flex-1 w-full bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+                                placeholder="Edit raw Fountain text here..."></textarea>
                         </div>
                     </div>
 

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.width = '100%';
     }
 
-    function formatFountainToHTML(rawText) {
+    function formatFountainToHTML(rawText, annotations = null) {
         const lines = rawText.split('\n');
         let html = '';
         let inDialogueBlock = false;
@@ -27,33 +27,67 @@ document.addEventListener('DOMContentLoaded', () => {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        lines.forEach((line) => {
+        lines.forEach((line, idx) => {
             const tLine = line.trim();
+            const ann = annotations ? annotations[idx] : null;
+            const diffBg = ann === 'removed' ? ' bg-red-900/40 rounded' : ann === 'added' ? ' bg-green-900/40 rounded' : '';
 
             if (tLine === '') {
-                html += '<div class="h-3"></div>'; // Spacing for empty lines
+                html += `<div class="h-3${diffBg}"></div>`;
                 inDialogueBlock = false;
             } else if (/^(INT\.|EXT\.|I\/E\.|EST\.)/i.test(tLine) && tLine === tLine.toUpperCase()) {
-                // Scene Heading
-                html += `<div class="font-bold uppercase mt-6 mb-2 text-left">${esc(tLine)}</div>`;
+                html += `<div class="font-bold uppercase mt-6 mb-2 text-left${diffBg}">${esc(tLine)}</div>`;
                 inDialogueBlock = false;
             } else if (tLine === tLine.toUpperCase() && !inDialogueBlock && !/^(INT\.|EXT\.)/i.test(tLine)) {
-                // Character Name
-                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide">${esc(tLine)}</div>`;
+                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide${diffBg}">${esc(tLine)}</div>`;
                 inDialogueBlock = true;
             } else if (inDialogueBlock && tLine.startsWith('(') && tLine.endsWith(')')) {
-                // Parenthetical
-                html += `<div class="ml-[25%] mb-0 italic">${esc(tLine)}</div>`;
+                html += `<div class="ml-[25%] mb-0 italic${diffBg}">${esc(tLine)}</div>`;
             } else if (inDialogueBlock) {
-                // Dialogue
-                html += `<div class="ml-[15%] w-[70%] mb-0">${esc(tLine)}</div>`;
+                html += `<div class="ml-[15%] w-[70%] mb-0${diffBg}">${esc(tLine)}</div>`;
             } else {
-                // Action Line
-                html += `<div class="text-left mb-2 w-full">${esc(tLine)}</div>`;
+                html += `<div class="text-left mb-2 w-full${diffBg}">${esc(tLine)}</div>`;
             }
         });
 
         return html;
+    }
+
+    // Returns per-line diff annotations for left (removed) and right (added) panels
+    function computeLineDiff(origText, proposedText) {
+        const origLines = origText.split('\n');
+        const newLines = proposedText.split('\n');
+        const m = origLines.length, n = newLines.length;
+
+        // LCS via DP (trim lines for comparison to avoid whitespace false-positives)
+        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (origLines[i - 1].trim() === newLines[j - 1].trim()) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+
+        // Backtrack
+        const leftAnnotations = new Array(m).fill(null);
+        const rightAnnotations = new Array(n).fill(null);
+        let i = m, j = n;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && origLines[i - 1].trim() === newLines[j - 1].trim()) {
+                i--; j--;
+            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                rightAnnotations[j - 1] = 'added';
+                j--;
+            } else {
+                leftAnnotations[i - 1] = 'removed';
+                i--;
+            }
+        }
+
+        return { leftAnnotations, rightAnnotations };
     }
 
     // --- DOM Elements ---
@@ -3785,80 +3819,236 @@ document.addEventListener('DOMContentLoaded', () => {
     window.stage9SelectSceneBtn = function(n) { stage9SelectScene(n); };
 
     function stage9SelectScene(n) {
-        // Flush any current right-panel edit into pending
+        // Flush any current right-panel textarea edit into pending
         if (stage9CurrentScene !== null) {
-            const rp = document.getElementById('stage9-right-panel');
-            if (rp && rp.value !== undefined) {
-                stage9Pending[stage9CurrentScene] = rp.value;
+            const editTA = document.getElementById('stage9-right-panel-edit');
+            if (editTA && !editTA.classList.contains('hidden')) {
+                stage9Pending[stage9CurrentScene] = editTA.value;
             }
         }
         stage9CurrentScene = n;
 
-        const left  = document.getElementById('stage9-left-panel');
-        const right = document.getElementById('stage9-right-panel');
-        if (left)  left.value  = stage9State.working[n] || '';
-        if (right) right.value = stage9Pending[n] ?? stage9State.working[n] ?? '';
+        const origText     = stage9State.working[n] || '';
+        const proposedText = stage9Pending[n] !== undefined ? stage9Pending[n] : origText;
+        const leftPanel    = document.getElementById('stage9-left-panel');
+        const rightView    = document.getElementById('stage9-right-panel-view');
+        const rightEdit    = document.getElementById('stage9-right-panel-edit');
 
-        renderStage9SceneList(); // refresh active highlight
+        if (stage9Pending[n] !== undefined) {
+            const { leftAnnotations, rightAnnotations } = computeLineDiff(origText, proposedText);
+            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, leftAnnotations);
+            if (rightView)  rightView.innerHTML  = formatFountainToHTML(proposedText, rightAnnotations);
+        } else {
+            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText);
+            if (rightView)  rightView.innerHTML  = formatFountainToHTML(origText);
+        }
+        if (rightEdit) rightEdit.value = proposedText;
+
+        // Always return to rendered view when switching scenes
+        if (rightView) rightView.classList.remove('hidden');
+        if (rightEdit) rightEdit.classList.add('hidden');
+        const btnToggle = document.getElementById('btnToggleEdit');
+        if (btnToggle) btnToggle.textContent = 'Edit Source';
+
+        renderStage9SceneList();
+    }
+
+    function renderStage9Plan(planData) {
+        const loadingEl = document.getElementById('stage9-plan-loading');
+        loadingEl?.classList.add('hidden');
+        const content = document.getElementById('stage9-plan-content');
+        if (!content) return;
+
+        const rationale = document.getElementById('stage9-plan-rationale');
+        if (rationale) rationale.textContent = planData.rationale || '';
+
+        const scenesContainer = document.getElementById('stage9-plan-scenes');
+        if (scenesContainer) {
+            if (!planData.affected_scenes || planData.affected_scenes.length === 0) {
+                scenesContainer.innerHTML = '<p class="text-xs text-gray-500 italic">No scenes identified as affected by this task.</p>';
+            } else {
+                scenesContainer.innerHTML = planData.affected_scenes.map(s => `
+                    <div class="bg-white/5 rounded px-4 py-3 text-xs">
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span class="font-bold text-white">Sc ${s.scene_number}</span>
+                            <span class="text-gray-400 uppercase">${s.slugline || ''}</span>
+                        </div>
+                        <div class="text-gray-400 mb-1">${s.reason || ''}</div>
+                        <div class="text-blue-300">${s.planned_change || ''}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        content.classList.remove('hidden');
+        window.stage9CurrentPlan = planData;
+    }
+
+    function stage9FlushEditPanel() {
+        if (stage9CurrentScene === null) return;
+        const editTA = document.getElementById('stage9-right-panel-edit');
+        if (editTA && !editTA.classList.contains('hidden')) {
+            stage9Pending[stage9CurrentScene] = editTA.value;
+        }
     }
 
     function stage9WireButtons() {
-        const btnAuto = document.getElementById('btnAutoRewrite');
-        if (btnAuto) {
-            btnAuto.onclick = async () => {
+        // ── Plan Rewrite ──────────────────────────────────────────────────────
+        const btnPlan = document.getElementById('btnAutoRewrite');
+        if (btnPlan) {
+            btnPlan.onclick = async () => {
                 const priorities = stage9GetPriorityList();
                 const idx = stage9State.priority_idx;
                 if (idx >= priorities.length) return;
                 const task = priorities[idx].task;
 
-                const loadingOverlay = document.getElementById('stage9-rewrite-loading');
-                const rightPanel = document.getElementById('stage9-right-panel');
-                loadingOverlay?.classList.remove('hidden');
-                loadingOverlay?.classList.add('flex');
-                if (rightPanel) rightPanel.classList.add('hidden');
-                btnAuto.disabled = true;
+                const planSection  = document.getElementById('stage9-plan-section');
+                const planLoading  = document.getElementById('stage9-plan-loading');
+                const planContent  = document.getElementById('stage9-plan-content');
+                planSection?.classList.remove('hidden');
+                planLoading?.classList.remove('hidden');
+                planContent?.classList.add('hidden');
+                btnPlan.disabled = true;
 
                 try {
-                    const res = await fetch('/api/rewrite-for-priority', {
+                    const res = await fetch('/api/plan-rewrite', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ projectId: activeProjectId, priorityTask: task })
                     });
                     if (!res.ok) throw new Error((await res.json()).error);
-                    const data = await res.json();
-
-                    // Store proposed texts for modified scenes
-                    data.scenes.forEach(s => {
-                        if (s.modified) stage9Pending[s.scene_number] = s.proposed_text;
-                    });
-
-                    // Auto-select first modified scene
-                    const firstModified = data.scenes.find(s => s.modified);
-                    if (firstModified) stage9SelectScene(firstModified.scene_number);
-                    else if (stage9CurrentScene) stage9SelectScene(stage9CurrentScene);
-
-                    renderStage9SceneList();
+                    renderStage9Plan(await res.json());
                 } catch (err) {
-                    console.error('Auto-rewrite failed:', err);
-                    alert('Auto-rewrite failed: ' + err.message);
+                    console.error('Plan failed:', err);
+                    alert('Planning failed: ' + err.message);
+                    planSection?.classList.add('hidden');
                 } finally {
-                    loadingOverlay?.classList.add('hidden');
-                    loadingOverlay?.classList.remove('flex');
-                    if (rightPanel) rightPanel.classList.remove('hidden');
-                    btnAuto.disabled = false;
+                    btnPlan.disabled = false;
                 }
             };
         }
 
+        // ── Execute Plan ──────────────────────────────────────────────────────
+        const btnExecute = document.getElementById('btnExecutePlan');
+        if (btnExecute) {
+            btnExecute.onclick = async () => {
+                const plan = window.stage9CurrentPlan;
+                if (!plan) return;
+                const priorities = stage9GetPriorityList();
+                const task = priorities[stage9State.priority_idx]?.task || '';
+                const affectedSceneNumbers = (plan.affected_scenes || []).map(s => s.scene_number);
+
+                const loadingOverlay = document.getElementById('stage9-rewrite-loading');
+                const rightView      = document.getElementById('stage9-right-panel-view');
+                loadingOverlay?.classList.remove('hidden');
+                loadingOverlay?.classList.add('flex');
+                if (rightView) rightView.classList.add('hidden');
+                btnExecute.disabled = true;
+
+                try {
+                    const res = await fetch('/api/rewrite-for-priority', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, affectedSceneNumbers })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    const data = await res.json();
+
+                    data.scenes.forEach(s => {
+                        if (s.modified) stage9Pending[s.scene_number] = s.proposed_text;
+                    });
+
+                    // Hide plan section now that execution is done
+                    document.getElementById('stage9-plan-section')?.classList.add('hidden');
+                    window.stage9CurrentPlan = null;
+
+                    const firstModified = data.scenes.find(s => s.modified);
+                    if (firstModified) stage9SelectScene(firstModified.scene_number);
+                    else if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
+
+                    renderStage9SceneList();
+                } catch (err) {
+                    console.error('Execute plan failed:', err);
+                    alert('Rewrite failed: ' + err.message);
+                } finally {
+                    loadingOverlay?.classList.add('hidden');
+                    loadingOverlay?.classList.remove('flex');
+                    if (rightView) rightView.classList.remove('hidden');
+                    btnExecute.disabled = false;
+                }
+            };
+        }
+
+        // ── Adjust Plan ───────────────────────────────────────────────────────
+        const btnAdjust = document.getElementById('btnAdjustPlan');
+        if (btnAdjust) {
+            btnAdjust.onclick = async () => {
+                const priorities = stage9GetPriorityList();
+                const task = priorities[stage9State.priority_idx]?.task || '';
+                const notes = document.getElementById('stage9-notes')?.value.trim() || '';
+
+                const planContent = document.getElementById('stage9-plan-content');
+                const planLoading = document.getElementById('stage9-plan-loading');
+                planContent?.classList.add('hidden');
+                planLoading?.classList.remove('hidden');
+                btnAdjust.disabled = true;
+
+                try {
+                    const res = await fetch('/api/plan-rewrite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, userFeedback: notes })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    renderStage9Plan(await res.json());
+                } catch (err) {
+                    console.error('Adjust plan failed:', err);
+                    alert('Re-planning failed: ' + err.message);
+                } finally {
+                    btnAdjust.disabled = false;
+                }
+            };
+        }
+
+        // ── Toggle Edit Source ────────────────────────────────────────────────
+        const btnToggle = document.getElementById('btnToggleEdit');
+        if (btnToggle) {
+            btnToggle.onclick = () => {
+                const rightView = document.getElementById('stage9-right-panel-view');
+                const rightEdit = document.getElementById('stage9-right-panel-edit');
+                if (!rightView || !rightEdit) return;
+
+                const editVisible = !rightEdit.classList.contains('hidden');
+                if (editVisible) {
+                    // Save textarea content → re-render with diff
+                    if (stage9CurrentScene !== null) {
+                        stage9Pending[stage9CurrentScene] = rightEdit.value;
+                        const origText     = stage9State.working[stage9CurrentScene] || '';
+                        const proposedText = rightEdit.value;
+                        const { rightAnnotations } = computeLineDiff(origText, proposedText);
+                        rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
+                        // Also refresh left with removed annotations
+                        const { leftAnnotations } = computeLineDiff(origText, proposedText);
+                        const leftPanel = document.getElementById('stage9-left-panel');
+                        if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, leftAnnotations);
+                        renderStage9SceneList();
+                    }
+                    rightEdit.classList.add('hidden');
+                    rightView.classList.remove('hidden');
+                    btnToggle.textContent = 'Edit Source';
+                } else {
+                    rightView.classList.add('hidden');
+                    rightEdit.classList.remove('hidden');
+                    btnToggle.textContent = 'Preview';
+                }
+            };
+        }
+
+        // ── Approve & Next ────────────────────────────────────────────────────
         const btnApprove = document.getElementById('btnApproveAndNext');
         if (btnApprove) {
             btnApprove.onclick = async () => {
-                // Flush current right-panel edit
-                if (stage9CurrentScene !== null) {
-                    const rp = document.getElementById('stage9-right-panel');
-                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
-                }
-
+                stage9FlushEditPanel();
                 const newIdx = stage9State.priority_idx + 1;
                 try {
                     await fetch('/api/approve-rewrite-priority', {
@@ -3866,24 +4056,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: newIdx })
                     });
-                    // Absorb pending into working
                     Object.assign(stage9State.working, stage9Pending);
-                    Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[n] = true; });
+                    Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[parseInt(n)] = true; });
                     stage9Pending = {};
                     stage9State.priority_idx = newIdx;
+                    window.stage9CurrentPlan = null;
+                    document.getElementById('stage9-plan-section')?.classList.add('hidden');
 
-                    // Update left panel for current scene
-                    if (stage9CurrentScene !== null) {
-                        const left = document.getElementById('stage9-left-panel');
-                        if (left) left.value = stage9State.working[stage9CurrentScene] || '';
-                        const right = document.getElementById('stage9-right-panel');
-                        if (right) right.value = stage9State.working[stage9CurrentScene] || '';
-                    }
-
-                    // Update project data in memory
                     if (window.currentProjectData?.stage9_rewrites) {
                         window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
                     }
+
+                    // Refresh current scene view (no pending → both panels show same approved text)
+                    if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
 
                     renderStage9SceneList();
                     renderStage9TaskBanner();
@@ -3894,14 +4079,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // ── Finalize Rewrite ──────────────────────────────────────────────────
         const btnFinalize = document.getElementById('btnFinalizeRewrite');
         if (btnFinalize) {
             btnFinalize.onclick = async () => {
-                // Flush and save any remaining pending changes first
-                if (stage9CurrentScene !== null) {
-                    const rp = document.getElementById('stage9-right-panel');
-                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
-                }
+                stage9FlushEditPanel();
                 if (Object.keys(stage9Pending).length > 0) {
                     await fetch('/api/approve-rewrite-priority', {
                         method: 'POST',
@@ -3924,6 +4106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // ── Feedback Submit ───────────────────────────────────────────────────
         const btnSubmit = document.getElementById('btnStage9Submit');
         if (btnSubmit) {
             btnSubmit.onclick = async () => {
@@ -3933,7 +4116,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const priorities = stage9GetPriorityList();
                 const task = priorities[stage9State.priority_idx]?.task || '';
-                const currentText = document.getElementById('stage9-right-panel')?.value || stage9State.working[stage9CurrentScene] || '';
+                // Use current textarea value if in edit mode, otherwise pending or working
+                const editTA = document.getElementById('stage9-right-panel-edit');
+                const currentText = (editTA && !editTA.classList.contains('hidden'))
+                    ? editTA.value
+                    : (stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '');
 
                 btnSubmit.disabled = true;
                 btnSubmit.textContent = 'Rewriting...';
@@ -3952,11 +4139,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!res.ok) throw new Error((await res.json()).error);
                     const data = await res.json();
 
-                    const right = document.getElementById('stage9-right-panel');
-                    if (right) right.value = data.proposed_text;
                     stage9Pending[stage9CurrentScene] = data.proposed_text;
+                    stage9SelectScene(stage9CurrentScene); // re-render with diff
                     renderStage9SceneList();
-
                     if (document.getElementById('stage9-notes')) document.getElementById('stage9-notes').value = '';
                 } catch (err) {
                     console.error('Feedback rewrite failed:', err);
@@ -3968,15 +4153,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // ── Download Rewrite ──────────────────────────────────────────────────
         const btnDownload = document.getElementById('btnDownloadRewrite');
         if (btnDownload) {
             btnDownload.onclick = () => {
                 if (!stage9State) { alert('No rewrite data available.'); return; }
-                // Flush current edit
-                if (stage9CurrentScene !== null) {
-                    const rp = document.getElementById('stage9-right-panel');
-                    if (rp) stage9Pending[stage9CurrentScene] = rp.value;
-                }
+                stage9FlushEditPanel();
                 const working = { ...stage9State.working, ...stage9Pending };
                 const scenes = Object.keys(working).map(n => parseInt(n)).sort((a, b) => a - b);
                 const text = scenes.map(n => working[n] || '').filter(Boolean).join('\n\n');

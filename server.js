@@ -611,10 +611,10 @@ app.post('/api/init-stage9', async (req, res) => {
     }
 });
 
-// Run all scenes through the rewrite agent for one priority task
-app.post('/api/rewrite-for-priority', async (req, res) => {
+// Audit scope: which scenes does this task affect?
+app.post('/api/plan-rewrite', async (req, res) => {
     try {
-        const { projectId, priorityTask } = req.body;
+        const { projectId, priorityTask, userFeedback } = req.body;
         if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -625,7 +625,76 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        // Build scene list from stage6 to get sluglines
+        const stage6Scenes = projectData.data?.stage6_scenes || [];
+        const allScenes = [];
+        for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+
+        const fullScript = allScenes
+            .map(s => `## SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${working[s.scene_number] || s.humanized_draft_text || s.draft_text || ''}`)
+            .join('\n\n---\n\n');
+
+        const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
+        const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
+        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}\n\n## FULL SCREENPLAY\n${fullScript}`;
+
+        const plannerSchema = {
+            type: 'object',
+            properties: {
+                rationale:       { type: 'string' },
+                affected_scenes: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            scene_number:   { type: 'integer' },
+                            slugline:       { type: 'string' },
+                            reason:         { type: 'string' },
+                            planned_change: { type: 'string' },
+                        },
+                        required: ['scene_number', 'slugline', 'reason', 'planned_change'],
+                    },
+                },
+            },
+            required: ['rationale', 'affected_scenes'],
+        };
+
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                systemInstruction: plannerSop,
+                temperature: 0.2,
+                responseMimeType: 'application/json',
+                responseSchema: plannerSchema,
+            },
+        });
+
+        const plan = JSON.parse(response.text);
+        console.log(`Stage 9 plan: ${plan.affected_scenes.length} scenes affected.`);
+        res.json(plan);
+    } catch (error) {
+        console.error('plan-rewrite error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Run the rewrite agent only on planned (affected) scenes
+app.post('/api/rewrite-for-priority', async (req, res) => {
+    try {
+        const { projectId, priorityTask, affectedSceneNumbers } = req.body;
+        if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const working = projectData.data?.stage9_rewrites?.working || {};
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
         const stage6Scenes = projectData.data?.stage6_scenes || [];
         const allScenes = [];
         for (const seq of stage6Scenes) {
@@ -633,10 +702,15 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
         }
         allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-        console.log(`Stage 9: rewriting ${allScenes.length} scenes for task: "${priorityTask.slice(0, 60)}..."`);
+        // Filter to only affected scenes if planner provided a list
+        const scopedScenes = affectedSceneNumbers?.length
+            ? allScenes.filter(s => affectedSceneNumbers.includes(s.scene_number))
+            : allScenes;
+
+        console.log(`Stage 9: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."`);
 
         const results = await Promise.allSettled(
-            allScenes.map(s => {
+            scopedScenes.map(s => {
                 const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
                 return rewriteScene(sceneText, priorityTask, {
                     title,
@@ -651,7 +725,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                 const { scene_number, original_text, proposed_text } = r.value;
                 return { scene_number, original_text, proposed_text, modified: proposed_text.trim() !== original_text.trim() };
             }
-            const s = allScenes[i];
+            const s = scopedScenes[i];
             const fallback = working[s.scene_number] || '';
             return { scene_number: s.scene_number, original_text: fallback, proposed_text: fallback, modified: false };
         });
