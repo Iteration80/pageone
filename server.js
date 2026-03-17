@@ -636,8 +636,9 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
         const coverage = projectData.data?.stage8_coverage;
-        const macroTodo = coverage?.blueprint?.macro_todo || [];
-        const microTodo = coverage?.blueprint?.micro_todo || [];
+        const macroTodo = coverage?.macro_todo || [];
+        const microTodo = coverage?.micro_todo || [];
+        const priorityIdx = projectData.data?.stage9_rewrites?.priority_idx ?? 0;
 
         const stage6Scenes = projectData.data?.stage6_scenes || [];
         const allScenes = [];
@@ -648,9 +649,12 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             .map(s => `## SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${working[s.scene_number] || s.humanized_draft_text || s.draft_text || ''}`)
             .join('\n\n---\n\n');
 
-        const macroList = macroTodo.map((t, i) => `MACRO ${i + 1}: ${t}`).join('\n');
-        const microList = microTodo.map((t, i) => `MICRO ${i + 1}: ${t}`).join('\n');
-        const contextBlock = `## PROJECT: ${title}\n\n## STAGE 8 PRIORITIES\n${macroList}\n${microList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
+        const allPriorities = [
+            ...macroTodo.map((t, i) => ({ label: `MACRO ${i + 1}`, task: t.task || t, done: i < priorityIdx })),
+            ...microTodo.map((t, i) => ({ label: `MICRO ${i + 1}`, task: t.task || t, done: (macroTodo.length + i) < priorityIdx })),
+        ];
+        const priorityList = allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n');
+        const contextBlock = `## PROJECT: ${title}\n\n## STAGE 8 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
 
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';

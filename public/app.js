@@ -3767,7 +3767,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (opts.html) {
                 el.innerHTML = opts.html;
             } else {
-                el.textContent = content;
+                // Render paragraphs: split on blank lines, convert single newlines to <br>
+                const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const paras = esc(content).split(/\n\n+/);
+                el.innerHTML = paras.map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
             }
             if (opts.withPlanBtn) {
                 const btn = document.createElement('button');
@@ -3775,6 +3778,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.textContent = 'Generate Plan →';
                 btn.addEventListener('click', () => { btn.disabled = true; opts.withPlanBtn(); });
                 el.appendChild(btn);
+            }
+            if (opts.actions?.length) {
+                const row = document.createElement('div');
+                row.className = 'chat-action-row';
+                opts.actions.forEach(({ label, onClick }) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'chat-action-btn';
+                    btn.textContent = label;
+                    btn.addEventListener('click', () => { btn.disabled = true; onClick(); });
+                    row.appendChild(btn);
+                });
+                el.appendChild(row);
             }
             this.thread.appendChild(el);
             this.thread.scrollTop = this.thread.scrollHeight;
@@ -3858,7 +3873,9 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
             renderStage9SceneList();
             const modCount = data.scenes.filter(s => s.modified).length;
-            if (stage9Chat) stage9Chat.append('system', `Rewrites applied to ${modCount} scene(s). Review the diffs above, then click "Approve & Next" when ready.`);
+            if (stage9Chat) stage9Chat.append('ai', `Rewrites applied to ${modCount} scene(s). Review the diffs above — use the scene list on the right to jump between changed scenes.\n\nWhen you're happy with the changes, approve to move on to the next priority.`, {
+                actions: [{ label: 'Approve & Continue →', onClick: stage9ApproveAndContinue }]
+            });
         } catch (err) {
             console.error('Execute plan failed:', err);
             if (stage9Chat) stage9Chat.append('system', 'Rewrite failed: ' + err.message);
@@ -3867,6 +3884,54 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingOverlay?.classList.remove('flex');
             if (rightView) rightView.classList.remove('hidden');
             if (stage9Chat) stage9Chat.setDisabled(false);
+        }
+    }
+
+    async function stage9ApproveAndContinue() {
+        stage9FlushEditPanel();
+        const newIdx = stage9State.priority_idx + 1;
+        try {
+            await fetch('/api/approve-rewrite-priority', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: newIdx })
+            });
+            Object.assign(stage9State.working, stage9Pending);
+            Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[parseInt(n)] = true; });
+            stage9Pending = {};
+            stage9State.priority_idx = newIdx;
+            window.stage9CurrentPlan = null;
+            if (window.currentProjectData?.stage9_rewrites) {
+                window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
+            }
+            if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
+            renderStage9SceneList();
+
+            const priorities = stage9GetPriorityList();
+            if (newIdx >= priorities.length) {
+                // All done — show done banner, post system message
+                document.getElementById('stage9-done-banner')?.classList.remove('hidden');
+                stage9Chat?.clear();
+                stage9Chat?.append('system', 'All priorities addressed. Use the Finalize Rewrite button above to complete.');
+            } else {
+                // Clear chat and re-open with next priority
+                stage9Chat?.clear();
+                stage9Chat?.setDisabled(true);
+                try {
+                    const initRes = await fetch('/api/brainstorm-rewrite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
+                    });
+                    const initData = await initRes.json();
+                    stage9Chat?.append('ai', initData.message);
+                } finally {
+                    stage9Chat?.setDisabled(false);
+                }
+            }
+        } catch (err) {
+            console.error('Approve failed:', err);
+            alert('Failed to save: ' + err.message);
         }
     }
 
@@ -4028,27 +4093,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStage9TaskBanner() {
         const priorities = stage9GetPriorityList();
         const idx = stage9State.priority_idx;
-        const taskBanner = document.getElementById('stage9-task-banner');
         const doneBanner = document.getElementById('stage9-done-banner');
-
         if (idx >= priorities.length) {
-            taskBanner?.classList.add('hidden');
             doneBanner?.classList.remove('hidden');
-            return;
-        }
-
-        taskBanner?.classList.remove('hidden');
-        doneBanner?.classList.add('hidden');
-
-        const item = priorities[idx];
-        const label = `${item.list} P${item.priority} of ${item.list === 'MACRO' ? stage9State.macro_todo.length : stage9State.micro_todo.length}`;
-        document.getElementById('stage9-task-label').textContent = label;
-        document.getElementById('stage9-task-text').textContent = item.task;
-
-        const btnAutoRewrite = document.getElementById('btnAutoRewrite');
-        if (btnAutoRewrite) {
-            btnAutoRewrite.textContent = `Auto-Rewrite ${item.list} P${item.priority}`;
-            btnAutoRewrite.disabled = false;
+        } else {
+            doneBanner?.classList.add('hidden');
         }
     }
 
@@ -4122,12 +4171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function stage9WireButtons() {
-        // ── Plan Rewrite button → focus chat input ────────────────────────────
-        const btnPlan = document.getElementById('btnAutoRewrite');
-        if (btnPlan) {
-            btnPlan.onclick = () => document.getElementById('stage9-chat-input')?.focus();
-        }
-
         // ── Toggle Edit Source ────────────────────────────────────────────────
         const btnToggle = document.getElementById('btnToggleEdit');
         if (btnToggle) {
@@ -4158,41 +4201,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     rightView.classList.add('hidden');
                     rightEdit.classList.remove('hidden');
                     btnToggle.textContent = 'Preview';
-                }
-            };
-        }
-
-        // ── Approve & Next ────────────────────────────────────────────────────
-        const btnApprove = document.getElementById('btnApproveAndNext');
-        if (btnApprove) {
-            btnApprove.onclick = async () => {
-                stage9FlushEditPanel();
-                const newIdx = stage9State.priority_idx + 1;
-                try {
-                    await fetch('/api/approve-rewrite-priority', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: newIdx })
-                    });
-                    Object.assign(stage9State.working, stage9Pending);
-                    Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[parseInt(n)] = true; });
-                    stage9Pending = {};
-                    stage9State.priority_idx = newIdx;
-                    window.stage9CurrentPlan = null;
-                    stage9Chat?.clear();
-
-                    if (window.currentProjectData?.stage9_rewrites) {
-                        window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
-                    }
-
-                    // Refresh current scene view (no pending → both panels show same approved text)
-                    if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
-
-                    renderStage9SceneList();
-                    renderStage9TaskBanner();
-                } catch (err) {
-                    console.error('Approve failed:', err);
-                    alert('Failed to save: ' + err.message);
                 }
             };
         }
