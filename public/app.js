@@ -3509,12 +3509,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-4">Development Notes</h3>
                 <div class="space-y-4">
                     <div>
-                        <span class="text-xs font-semibold text-green-400 uppercase tracking-wider block mb-2">Strengths</span>
-                        <p class="text-gray-300 text-sm leading-relaxed">${data.strengths || ''}</p>
+                        <span class="text-xs font-semibold text-green-400 uppercase tracking-wider block mb-3">Strengths</span>
+                        <ul class="space-y-3">
+                            ${(data.strengths || []).map(s => `
+                            <li class="flex items-start gap-2 text-sm leading-relaxed">
+                                <span class="text-green-500 mt-0.5 shrink-0">•</span>
+                                <span><span class="font-semibold text-white">${s.headline}.</span> <span class="text-gray-300">${s.detail}</span></span>
+                            </li>`).join('')}
+                        </ul>
                     </div>
                     <div class="border-t border-white/10 pt-4">
-                        <span class="text-xs font-semibold text-red-400 uppercase tracking-wider block mb-2">Weaknesses</span>
-                        <p class="text-gray-300 text-sm leading-relaxed">${data.weaknesses || ''}</p>
+                        <span class="text-xs font-semibold text-red-400 uppercase tracking-wider block mb-3">Weaknesses</span>
+                        <ul class="space-y-3">
+                            ${(data.weaknesses || []).map(w => `
+                            <li class="flex items-start gap-2 text-sm leading-relaxed">
+                                <span class="text-red-500 mt-0.5 shrink-0">•</span>
+                                <span><span class="font-semibold text-white">${w.headline}.</span> <span class="text-gray-300">${w.detail}</span></span>
+                            </li>`).join('')}
+                        </ul>
                     </div>
                 </div>
             </div>

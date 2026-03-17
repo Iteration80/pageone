@@ -38,8 +38,28 @@ const coverageSchema = {
             },
             required: ["assessment", "red_flags"]
         },
-        strengths:  { type: "string" },
-        weaknesses: { type: "string" },
+        strengths: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    headline: { type: "string" },
+                    detail:   { type: "string" }
+                },
+                required: ["headline", "detail"]
+            }
+        },
+        weaknesses: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    headline: { type: "string" },
+                    detail:   { type: "string" }
+                },
+                required: ["headline", "detail"]
+            }
+        },
         priority_todo: {
             type: "array",
             items: {

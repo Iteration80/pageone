@@ -41,20 +41,27 @@ Provide a strictly 3-paragraph synopsis. Do not recount every single plot beat; 
 ---
 
 ## 4. AUTHENTICITY CHECK: "AI VS. HUMAN" DETECTION
-Do a quick pass to evaluate the script's voice and authenticity. Flag any elements that feel overly algorithmic, sterile, or "AI-generated."
+Scan the script specifically for AI-generation signals. Do not comment on what feels human — only flag what feels algorithmic, sterile, or machine-generated.
 
-* **assessment:** One of: `Highly Authentic / Human`, `Mixed`, or `Heavily AI-Assisted`.
-* **red_flags:** Identify 1–2 specific quoted instances of typical AI writing tropes. Look for:
-  * Overly flowery, novelistic action lines that cannot be filmed.
-  * "On-the-nose" dialogue where characters state exactly how they feel without any subtext.
-  * Predictable, sanitized conflict that lacks human messiness, edge, or nuance.
-  * If no red flags exist, return an empty array.
+* **assessment:** One of: `Highly Authentic / Human`, `Mixed`, or `Heavily AI-Assisted`. Base this solely on the density and severity of AI signals found.
+* **red_flags:** Identify up to 5 specific AI signals found in the script. For each, write a single sentence identifying the pattern and quoting or citing a specific example from the text. If no flags exist, return an empty array. Look for:
+  * Superlative-heavy action lines that stack intensifiers for impact rather than using precise verbs (e.g., "weaponized confidence," "absolute dominance," "a sensory assault of whispered violence").
+  * Overuse of `SMASH CUT TO:` as a rhythmic crutch rather than a purposeful editorial choice.
+  * Repetitive micro-expressions used as emotional shorthand throughout the script (e.g., white knuckles, clenched jaws, forced smiles appearing across multiple scenes).
+  * Supporting characters who are precision-tooled archetypes — they serve a single satirical or functional role with no misaligned detail, contradiction, or observed humanity.
+  * "On-the-nose" dialogue where characters explicitly state their emotional state, theme, or thesis without subtext.
+  * Novelistic action lines describing interior states, atmosphere, or sensory experience that the camera cannot capture.
 
 ---
 
 ## 5. ANALYTICAL COMMENTS (DEVELOPMENT NOTES)
-* **strengths:** Identify what is currently working well. What is the emotional core or conceptual hook that the writer should protect and preserve during the rewrite? Write as a single cohesive paragraph.
-* **weaknesses:** Identify the structural flaws, flat character arcs, passive protagonists, or thematic inconsistencies holding the script back. Explain why these elements are not working. Write as a single cohesive paragraph.
+Provide 3–5 bullet points for each section. Each bullet has two parts:
+* **headline:** A short, declarative label that names the strength or weakness directly (e.g., "Visual metaphor is the architecture of the script" / "The supernatural mechanics are underwritten").
+* **detail:** 1–3 sentences that explain *why* this is a strength or weakness, citing specific story elements.
+
+**strengths:** What is currently working well? What is the emotional core or conceptual hook the writer must protect during the rewrite? Be specific — cite character names, scenes, or devices.
+
+**weaknesses:** What structural flaws, flat arcs, passive protagonists, or thematic inconsistencies are holding the script back? Explain exactly why each element is not working and what the consequence is for the story.
 
 ---
 
@@ -66,7 +73,7 @@ Each item must have:
 * **category:** One of: `Macro`, `Character`, `Pacing/Conflict`, `Micro/Polish`
 * **task:** A single, specific, actionable rewrite instruction (e.g., "Restructure Act II to give the protagonist an active goal rather than just reacting to the antagonist.")
 
-Provide a minimum of 4 and maximum of 8 items.
+Provide a minimum of 4 and maximum of 10 items.
 
 ---
 
