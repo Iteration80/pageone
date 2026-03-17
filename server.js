@@ -623,10 +623,83 @@ app.post('/api/init-stage9', async (req, res) => {
     }
 });
 
+// Conversational brainstorm: editorial assistant helps writer clarify rewrite direction
+app.post('/api/brainstorm-rewrite', async (req, res) => {
+    try {
+        const { projectId, messages = [], isInit = false } = req.body;
+        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+        const coverage = projectData.data?.stage8_coverage;
+        const macroTodo = coverage?.blueprint?.macro_todo || [];
+        const microTodo = coverage?.blueprint?.micro_todo || [];
+
+        const stage6Scenes = projectData.data?.stage6_scenes || [];
+        const allScenes = [];
+        for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+        const working = projectData.data?.stage9_rewrites?.working || {};
+        const fullScript = allScenes
+            .map(s => `## SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${working[s.scene_number] || s.humanized_draft_text || s.draft_text || ''}`)
+            .join('\n\n---\n\n');
+
+        const macroList = macroTodo.map((t, i) => `MACRO ${i + 1}: ${t}`).join('\n');
+        const microList = microTodo.map((t, i) => `MICRO ${i + 1}: ${t}`).join('\n');
+        const contextBlock = `## PROJECT: ${title}\n\n## STAGE 8 PRIORITIES\n${macroList}\n${microList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
+
+        // Build conversation as a single prompt string
+        let conversationPrompt = contextBlock + '\n\n---\n\n';
+        if (isInit) {
+            conversationPrompt += '[The writer has just entered the rewrite stage. Open the conversation by presenting the priorities and asking what they would like to address.]';
+        } else {
+            for (const msg of messages) {
+                const label = msg.role === 'user' ? 'WRITER' : 'YOU';
+                conversationPrompt += `${label}: ${msg.content}\n\n`;
+            }
+            conversationPrompt += 'Continue the conversation as the editorial assistant.';
+        }
+
+        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+        const brainstormSchema = {
+            type: 'object',
+            properties: {
+                message: { type: 'string' },
+                suggest_plan: { type: 'boolean' }
+            },
+            required: ['message', 'suggest_plan']
+        };
+
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: conversationPrompt,
+            config: {
+                systemInstruction: brainstormSop,
+                temperature: 0.7,
+                responseMimeType: 'application/json',
+                responseSchema: brainstormSchema,
+            },
+        });
+
+        const result = JSON.parse(response.text);
+        console.log(`Brainstorm: suggest_plan=${result.suggest_plan}`);
+        res.json(result);
+    } catch (error) {
+        console.error('brainstorm-rewrite error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Audit scope: which scenes does this task affect?
 app.post('/api/plan-rewrite', async (req, res) => {
     try {
-        const { projectId, priorityTask, userFeedback } = req.body;
+        const { projectId, priorityTask, userFeedback, conversationContext } = req.body;
         if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -648,7 +721,8 @@ app.post('/api/plan-rewrite', async (req, res) => {
 
         const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
-        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}\n\n## FULL SCREENPLAY\n${fullScript}`;
+        const contextSection = conversationContext ? `\n\n## BRAINSTORM CONTEXT\n${conversationContext}` : '';
+        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## FULL SCREENPLAY\n${fullScript}`;
 
         const plannerSchema = {
             type: 'object',

@@ -717,26 +717,9 @@
                 <div id="stage9-done-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0 hidden">
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-sm text-green-400 font-semibold">All priority tasks addressed. Review the final rewrite below.</p>
-                        <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
-                    </div>
-                </div>
-
-                <!-- Plan Section (shown after "Plan Rewrite" is clicked) -->
-                <div id="stage9-plan-section" class="hidden border-b border-white/10 bg-gray-950 shrink-0 max-h-72 overflow-y-auto">
-                    <!-- Planning loading state -->
-                    <div id="stage9-plan-loading" class="hidden flex items-center gap-3 px-6 py-4">
-                        <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-                        <p class="text-gray-400 text-sm">Auditing scope — identifying which scenes this task affects...</p>
-                    </div>
-                    <!-- Plan content -->
-                    <div id="stage9-plan-content" class="hidden px-6 py-4">
-                        <div id="stage9-plan-rationale" class="text-xs text-gray-500 italic mb-4"></div>
-                        <div id="stage9-plan-scenes" class="space-y-2 mb-4"></div>
                         <div class="flex items-center gap-3">
-                            <span class="text-xs text-gray-500">Not right?</span>
-                            <button id="btnAdjustPlan" class="text-xs text-blue-400 hover:text-blue-300 underline transition-colors">Adjust with feedback below</button>
-                            <div class="flex-1"></div>
-                            <button id="btnExecutePlan" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-5 rounded-full transition-colors">Execute Plan →</button>
+                            <button id="btnDownloadRewrite" class="secondary-btn">Download Rewrite</button>
+                            <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
                         </div>
                     </div>
                 </div>
@@ -747,7 +730,7 @@
                     <!-- Split View -->
                     <div class="flex flex-1 overflow-hidden">
                         <!-- Left: Previous State (read-only, rendered Fountain) -->
-                        <div class="flex-1 flex flex-col border-r border-white/10 overflow-hidden">
+                        <div id="stage9-left-container" class="flex flex-col border-r border-white/10 overflow-hidden" style="flex-basis:50%">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0">
                                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous State</span>
                             </div>
@@ -756,8 +739,10 @@
                                 <p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>
                             </div>
                         </div>
+                        <!-- Vertical drag handle -->
+                        <div id="stage9-vsplit" class="resize-handle-v"></div>
                         <!-- Right: Proposed Rewrite -->
-                        <div class="flex-1 flex flex-col overflow-hidden">
+                        <div id="stage9-right-container" class="flex flex-col overflow-hidden" style="flex-basis:50%">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0 flex items-center justify-between">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
                                 <button id="btnToggleEdit" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Edit Source</button>
@@ -769,7 +754,7 @@
                             <!-- Rendered view (default) -->
                             <div id="stage9-right-panel-view"
                                 class="flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                                <p class="text-gray-600 italic text-xs">Click "Plan Rewrite" to begin...</p>
+                                <p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>
                             </div>
                             <!-- Raw edit textarea (hidden by default) -->
                             <textarea id="stage9-right-panel-edit"
@@ -784,30 +769,20 @@
                         <div id="stage9-scene-list" class="space-y-1 px-3 pb-8"></div>
                     </aside>
                 </div>
-            </div>
 
-            <!-- Stage 9 Feedback Panel (Sticky) -->
-            <section id="stage9Workshop" class="feedback-panel">
-                <div class="feedback-panel-header" id="stage9WorkshopToggle">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
-                </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage9-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="Add specific instructions for the current scene rewrite (e.g. 'Keep Chloe's sarcasm but remove the metaphor about the building')..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btnDownloadRewrite" class="secondary-btn">Download Rewrite</button>
-                        </div>
-                        <div class="action-group-right">
-                            <button id="btnStage9Submit" class="primary-btn">Submit</button>
-                        </div>
+                <!-- Horizontal drag handle -->
+                <div id="stage9-hsplit" class="resize-handle-h"></div>
+
+                <!-- Chat Window -->
+                <div id="stage9-chat" class="stage-chat">
+                    <div id="stage9-chat-thread" class="chat-thread"></div>
+                    <div class="chat-input-row">
+                        <textarea id="stage9-chat-input" class="chat-input" placeholder="Reply to the assistant, or describe what you'd like to change..." rows="1"></textarea>
+                        <button id="btnChatSend" class="chat-send-btn">Send</button>
                     </div>
                 </div>
-            </section>
+
+            </div>
         </main>
 
         <!-- Placeholder Workspace (Stage 10) -->

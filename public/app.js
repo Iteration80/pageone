@@ -3726,6 +3726,65 @@ document.addEventListener('DOMContentLoaded', () => {
         initStage8();
     };
 
+    // ─── REUSABLE CHAT WINDOW ────────────────────────────────────────────────
+
+    class ChatWindow {
+        constructor({ threadId, inputId, sendBtnId, onSend }) {
+            this.thread  = document.getElementById(threadId);
+            this.input   = document.getElementById(inputId);
+            this.sendBtn = document.getElementById(sendBtnId);
+            this.history = [];
+            this._wireSend(onSend);
+        }
+
+        _wireSend(onSend) {
+            const send = async () => {
+                const text = this.input.value.trim();
+                if (!text || this.sendBtn.disabled) return;
+                this.input.value = '';
+                this.input.style.height = 'auto';
+                this.append('user', text);
+                this.setDisabled(true);
+                try { await onSend(text, this.history); }
+                finally { this.setDisabled(false); this.input.focus(); }
+            };
+            this.sendBtn.addEventListener('click', send);
+            this.input.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+            });
+            this.input.addEventListener('input', () => {
+                this.input.style.height = 'auto';
+                this.input.style.height = Math.min(this.input.scrollHeight, 120) + 'px';
+            });
+        }
+
+        append(role, content, opts = {}) {
+            if (role !== 'system') {
+                this.history.push({ role: role === 'ai' ? 'assistant' : 'user', content: typeof content === 'string' ? content : '' });
+            }
+            const el = document.createElement('div');
+            el.className = `chat-message chat-message-${role}`;
+            if (opts.html) {
+                el.innerHTML = opts.html;
+            } else {
+                el.textContent = content;
+            }
+            if (opts.withPlanBtn) {
+                const btn = document.createElement('button');
+                btn.className = 'chat-generate-plan-btn';
+                btn.textContent = 'Generate Plan →';
+                btn.addEventListener('click', () => { btn.disabled = true; opts.withPlanBtn(); });
+                el.appendChild(btn);
+            }
+            this.thread.appendChild(el);
+            this.thread.scrollTop = this.thread.scrollHeight;
+            return el;
+        }
+
+        clear() { this.thread.innerHTML = ''; this.history = []; }
+        setDisabled(d) { this.sendBtn.disabled = d; this.input.disabled = d; }
+    }
+
     // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
 
     // State
@@ -3733,6 +3792,129 @@ document.addEventListener('DOMContentLoaded', () => {
     let stage9Pending = {};     // { scene_number: proposed_text } — not yet approved
     let stage9CurrentScene = null;  // currently selected scene_number
     let stage9ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
+    let stage9Chat = null;      // ChatWindow instance
+
+    function stage9RenderPlanCard(plan) {
+        const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const scenes = (plan.affected_scenes || []).map(s => `
+            <div class="chat-plan-scene">
+                <span class="chat-plan-scene-num">Scene ${s.scene_number}</span>
+                <span class="chat-plan-scene-slug">${esc(s.slugline)}</span>
+                <p class="chat-plan-scene-change">${esc(s.planned_change)}</p>
+            </div>`).join('');
+        return `<div class="chat-plan-card">
+            <p class="chat-plan-rationale">${esc(plan.rationale)}</p>
+            <div class="chat-plan-scenes">${scenes}</div>
+            <button id="btnExecutePlanInChat" class="primary-btn" style="margin-top:10px;font-size:0.8rem;">Execute Plan →</button>
+        </div>`;
+    }
+
+    async function stage9GeneratePlan() {
+        if (!stage9Chat) return;
+        const priorities = stage9GetPriorityList();
+        const task = priorities[stage9State.priority_idx]?.task;
+        if (!task) { stage9Chat.append('system', 'No active priority task.'); return; }
+        stage9Chat.append('system', 'Generating rewrite plan...');
+        const conversationContext = stage9Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
+        try {
+            const res = await fetch('/api/plan-rewrite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, conversationContext })
+            });
+            if (!res.ok) throw new Error((await res.json()).error);
+            const plan = await res.json();
+            window.stage9CurrentPlan = plan;
+            stage9Chat.append('ai', '', { html: stage9RenderPlanCard(plan) });
+            document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage9ExecutePlan(plan));
+        } catch (err) {
+            stage9Chat.append('system', 'Planning failed: ' + err.message);
+        }
+    }
+
+    async function stage9ExecutePlan(plan) {
+        if (!plan) return;
+        const priorities = stage9GetPriorityList();
+        const task = priorities[stage9State.priority_idx]?.task || '';
+        const affectedSceneNumbers = (plan.affected_scenes || []).map(s => s.scene_number);
+        const loadingOverlay = document.getElementById('stage9-rewrite-loading');
+        const rightView = document.getElementById('stage9-right-panel-view');
+        loadingOverlay?.classList.remove('hidden');
+        loadingOverlay?.classList.add('flex');
+        if (rightView) rightView.classList.add('hidden');
+        if (stage9Chat) stage9Chat.setDisabled(true);
+        try {
+            const res = await fetch('/api/rewrite-for-priority', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, affectedSceneNumbers })
+            });
+            if (!res.ok) throw new Error((await res.json()).error);
+            const data = await res.json();
+            data.scenes.forEach(s => { if (s.modified) stage9Pending[s.scene_number] = s.proposed_text; });
+            window.stage9CurrentPlan = null;
+            const firstModified = data.scenes.find(s => s.modified);
+            if (firstModified) stage9SelectScene(firstModified.scene_number);
+            else if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
+            renderStage9SceneList();
+            const modCount = data.scenes.filter(s => s.modified).length;
+            if (stage9Chat) stage9Chat.append('system', `Rewrites applied to ${modCount} scene(s). Review the diffs above, then click "Approve & Next" when ready.`);
+        } catch (err) {
+            console.error('Execute plan failed:', err);
+            if (stage9Chat) stage9Chat.append('system', 'Rewrite failed: ' + err.message);
+        } finally {
+            loadingOverlay?.classList.add('hidden');
+            loadingOverlay?.classList.remove('flex');
+            if (rightView) rightView.classList.remove('hidden');
+            if (stage9Chat) stage9Chat.setDisabled(false);
+        }
+    }
+
+    function initStage9Resizers() {
+        const vsplit = document.getElementById('stage9-vsplit');
+        const leftCont = document.getElementById('stage9-left-container');
+        const rightCont = document.getElementById('stage9-right-container');
+        if (vsplit && leftCont && rightCont) {
+            const savedV = parseFloat(localStorage.getItem('stage9SplitV') || '0.5');
+            leftCont.style.flexBasis = `${savedV * 100}%`;
+            rightCont.style.flexBasis = `${(1 - savedV) * 100}%`;
+            vsplit.addEventListener('mousedown', e => {
+                e.preventDefault();
+                vsplit.classList.add('dragging');
+                const container = vsplit.parentElement;
+                const onMove = ev => {
+                    const rect = container.getBoundingClientRect();
+                    const ratio = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / rect.width));
+                    leftCont.style.flexBasis = `${ratio * 100}%`;
+                    rightCont.style.flexBasis = `${(1 - ratio) * 100}%`;
+                    localStorage.setItem('stage9SplitV', ratio);
+                };
+                const onUp = () => { vsplit.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+        const hsplit = document.getElementById('stage9-hsplit');
+        const chatEl = document.getElementById('stage9-chat');
+        if (hsplit && chatEl) {
+            const savedH = parseInt(localStorage.getItem('stage9SplitH') || '280');
+            chatEl.style.height = `${savedH}px`;
+            hsplit.addEventListener('mousedown', e => {
+                e.preventDefault();
+                hsplit.classList.add('dragging');
+                const startY = e.clientY;
+                const startH = chatEl.offsetHeight;
+                const onMove = ev => {
+                    const newH = Math.min(600, Math.max(120, startH + (startY - ev.clientY)));
+                    chatEl.style.height = `${newH}px`;
+                    localStorage.setItem('stage9SplitH', newH);
+                };
+                const onUp = () => { hsplit.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+    }
 
     async function initStage9() {
         if (!activeProjectId) return;
@@ -3771,6 +3953,66 @@ document.addEventListener('DOMContentLoaded', () => {
             // Auto-select first scene
             const firstScene = Object.keys(stage9State.working)[0];
             if (firstScene) stage9SelectScene(parseInt(firstScene));
+
+            // Initialize chat window
+            stage9Chat = new ChatWindow({
+                threadId:  'stage9-chat-thread',
+                inputId:   'stage9-chat-input',
+                sendBtnId: 'btnChatSend',
+                onSend: async (text, history) => {
+                    if (stage9CurrentScene !== null) {
+                        // Scene selected: feedback for that scene
+                        const priorities = stage9GetPriorityList();
+                        const task = priorities[stage9State.priority_idx]?.task || '';
+                        const editTA = document.getElementById('stage9-right-panel-edit');
+                        const currentText = (editTA && !editTA.classList.contains('hidden'))
+                            ? editTA.value
+                            : (stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '');
+                        stage9Chat.append('system', `Rewriting scene ${stage9CurrentScene}...`);
+                        const res = await fetch('/api/rewrite-scene-feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage9CurrentScene, priorityTask: task, userFeedback: text, currentText })
+                        });
+                        if (!res.ok) throw new Error((await res.json()).error);
+                        const data = await res.json();
+                        stage9Pending[stage9CurrentScene] = data.proposed_text;
+                        stage9SelectScene(stage9CurrentScene);
+                        renderStage9SceneList();
+                        stage9Chat.append('ai', `Scene ${stage9CurrentScene} updated. Review the diff on the right.`);
+                    } else {
+                        // No scene selected: planning brainstorm
+                        const msgs = history.filter(m => m.role !== 'system');
+                        const res = await fetch('/api/brainstorm-rewrite', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false })
+                        });
+                        if (!res.ok) throw new Error((await res.json()).error);
+                        const data = await res.json();
+                        const opts = data.suggest_plan ? { withPlanBtn: () => stage9GeneratePlan() } : {};
+                        stage9Chat.append('ai', data.message, opts);
+                    }
+                }
+            });
+
+            // Fetch AI opening message (presents Stage 8 priorities)
+            try {
+                stage9Chat.setDisabled(true);
+                const initRes = await fetch('/api/brainstorm-rewrite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
+                });
+                if (initRes.ok) {
+                    const initData = await initRes.json();
+                    stage9Chat.append('ai', initData.message);
+                }
+            } catch (e) {
+                console.warn('Chat init failed:', e.message);
+            } finally {
+                stage9Chat.setDisabled(false);
+            }
         } catch (err) {
             console.error('initStage9 error:', err);
             if (loading) loading.querySelector('p').textContent = 'Failed to load: ' + err.message;
@@ -3871,37 +4113,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderStage9SceneList();
     }
 
-    function renderStage9Plan(planData) {
-        const loadingEl = document.getElementById('stage9-plan-loading');
-        loadingEl?.classList.add('hidden');
-        const content = document.getElementById('stage9-plan-content');
-        if (!content) return;
-
-        const rationale = document.getElementById('stage9-plan-rationale');
-        if (rationale) rationale.textContent = planData.rationale || '';
-
-        const scenesContainer = document.getElementById('stage9-plan-scenes');
-        if (scenesContainer) {
-            if (!planData.affected_scenes || planData.affected_scenes.length === 0) {
-                scenesContainer.innerHTML = '<p class="text-xs text-gray-500 italic">No scenes identified as affected by this task.</p>';
-            } else {
-                scenesContainer.innerHTML = planData.affected_scenes.map(s => `
-                    <div class="bg-white/5 rounded px-4 py-3 text-xs">
-                        <div class="flex items-baseline gap-2 mb-1">
-                            <span class="font-bold text-white">Sc ${s.scene_number}</span>
-                            <span class="text-gray-400 uppercase">${s.slugline || ''}</span>
-                        </div>
-                        <div class="text-gray-400 mb-1">${s.reason || ''}</div>
-                        <div class="text-blue-300">${s.planned_change || ''}</div>
-                    </div>
-                `).join('');
-            }
-        }
-
-        content.classList.remove('hidden');
-        window.stage9CurrentPlan = planData;
-    }
-
     function stage9FlushEditPanel() {
         if (stage9CurrentScene === null) return;
         const editTA = document.getElementById('stage9-right-panel-edit');
@@ -3911,121 +4122,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function stage9WireButtons() {
-        // ── Plan Rewrite ──────────────────────────────────────────────────────
+        // ── Plan Rewrite button → focus chat input ────────────────────────────
         const btnPlan = document.getElementById('btnAutoRewrite');
         if (btnPlan) {
-            btnPlan.onclick = async () => {
-                const priorities = stage9GetPriorityList();
-                const idx = stage9State.priority_idx;
-                if (idx >= priorities.length) return;
-                const task = priorities[idx].task;
-
-                const planSection  = document.getElementById('stage9-plan-section');
-                const planLoading  = document.getElementById('stage9-plan-loading');
-                const planContent  = document.getElementById('stage9-plan-content');
-                planSection?.classList.remove('hidden');
-                planLoading?.classList.remove('hidden');
-                planContent?.classList.add('hidden');
-                btnPlan.disabled = true;
-
-                try {
-                    const res = await fetch('/api/plan-rewrite', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task })
-                    });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    renderStage9Plan(await res.json());
-                } catch (err) {
-                    console.error('Plan failed:', err);
-                    alert('Planning failed: ' + err.message);
-                    planSection?.classList.add('hidden');
-                } finally {
-                    btnPlan.disabled = false;
-                }
-            };
-        }
-
-        // ── Execute Plan ──────────────────────────────────────────────────────
-        const btnExecute = document.getElementById('btnExecutePlan');
-        if (btnExecute) {
-            btnExecute.onclick = async () => {
-                const plan = window.stage9CurrentPlan;
-                if (!plan) return;
-                const priorities = stage9GetPriorityList();
-                const task = priorities[stage9State.priority_idx]?.task || '';
-                const affectedSceneNumbers = (plan.affected_scenes || []).map(s => s.scene_number);
-
-                const loadingOverlay = document.getElementById('stage9-rewrite-loading');
-                const rightView      = document.getElementById('stage9-right-panel-view');
-                loadingOverlay?.classList.remove('hidden');
-                loadingOverlay?.classList.add('flex');
-                if (rightView) rightView.classList.add('hidden');
-                btnExecute.disabled = true;
-
-                try {
-                    const res = await fetch('/api/rewrite-for-priority', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, affectedSceneNumbers })
-                    });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    const data = await res.json();
-
-                    data.scenes.forEach(s => {
-                        if (s.modified) stage9Pending[s.scene_number] = s.proposed_text;
-                    });
-
-                    // Hide plan section now that execution is done
-                    document.getElementById('stage9-plan-section')?.classList.add('hidden');
-                    window.stage9CurrentPlan = null;
-
-                    const firstModified = data.scenes.find(s => s.modified);
-                    if (firstModified) stage9SelectScene(firstModified.scene_number);
-                    else if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
-
-                    renderStage9SceneList();
-                } catch (err) {
-                    console.error('Execute plan failed:', err);
-                    alert('Rewrite failed: ' + err.message);
-                } finally {
-                    loadingOverlay?.classList.add('hidden');
-                    loadingOverlay?.classList.remove('flex');
-                    if (rightView) rightView.classList.remove('hidden');
-                    btnExecute.disabled = false;
-                }
-            };
-        }
-
-        // ── Adjust Plan ───────────────────────────────────────────────────────
-        const btnAdjust = document.getElementById('btnAdjustPlan');
-        if (btnAdjust) {
-            btnAdjust.onclick = async () => {
-                const priorities = stage9GetPriorityList();
-                const task = priorities[stage9State.priority_idx]?.task || '';
-                const notes = document.getElementById('stage9-notes')?.value.trim() || '';
-
-                const planContent = document.getElementById('stage9-plan-content');
-                const planLoading = document.getElementById('stage9-plan-loading');
-                planContent?.classList.add('hidden');
-                planLoading?.classList.remove('hidden');
-                btnAdjust.disabled = true;
-
-                try {
-                    const res = await fetch('/api/plan-rewrite', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, userFeedback: notes })
-                    });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    renderStage9Plan(await res.json());
-                } catch (err) {
-                    console.error('Adjust plan failed:', err);
-                    alert('Re-planning failed: ' + err.message);
-                } finally {
-                    btnAdjust.disabled = false;
-                }
-            };
+            btnPlan.onclick = () => document.getElementById('stage9-chat-input')?.focus();
         }
 
         // ── Toggle Edit Source ────────────────────────────────────────────────
@@ -4079,7 +4179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage9Pending = {};
                     stage9State.priority_idx = newIdx;
                     window.stage9CurrentPlan = null;
-                    document.getElementById('stage9-plan-section')?.classList.add('hidden');
+                    stage9Chat?.clear();
 
                     if (window.currentProjectData?.stage9_rewrites) {
                         window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
@@ -4124,53 +4224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // ── Feedback Submit ───────────────────────────────────────────────────
-        const btnSubmit = document.getElementById('btnStage9Submit');
-        if (btnSubmit) {
-            btnSubmit.onclick = async () => {
-                if (stage9CurrentScene === null) { alert('Select a scene first.'); return; }
-                const notes = document.getElementById('stage9-notes')?.value.trim();
-                if (!notes) { alert('Add feedback in the text area below first.'); return; }
-
-                const priorities = stage9GetPriorityList();
-                const task = priorities[stage9State.priority_idx]?.task || '';
-                // Use current textarea value if in edit mode, otherwise pending or working
-                const editTA = document.getElementById('stage9-right-panel-edit');
-                const currentText = (editTA && !editTA.classList.contains('hidden'))
-                    ? editTA.value
-                    : (stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '');
-
-                btnSubmit.disabled = true;
-                btnSubmit.textContent = 'Rewriting...';
-                try {
-                    const res = await fetch('/api/rewrite-scene-feedback', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            projectId: activeProjectId,
-                            sceneNumber: stage9CurrentScene,
-                            priorityTask: task,
-                            userFeedback: notes,
-                            currentText
-                        })
-                    });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    const data = await res.json();
-
-                    stage9Pending[stage9CurrentScene] = data.proposed_text;
-                    stage9SelectScene(stage9CurrentScene); // re-render with diff
-                    renderStage9SceneList();
-                    if (document.getElementById('stage9-notes')) document.getElementById('stage9-notes').value = '';
-                } catch (err) {
-                    console.error('Feedback rewrite failed:', err);
-                    alert('Rewrite failed: ' + err.message);
-                } finally {
-                    btnSubmit.disabled = false;
-                    btnSubmit.textContent = 'Submit';
-                }
-            };
-        }
-
         // ── Download Rewrite ──────────────────────────────────────────────────
         const btnDownload = document.getElementById('btnDownloadRewrite');
         if (btnDownload) {
@@ -4190,6 +4243,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 URL.revokeObjectURL(url);
             };
         }
+
+        // ── Resize handles ────────────────────────────────────────────────────
+        initStage9Resizers();
     }
 
 });
