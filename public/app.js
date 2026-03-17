@@ -3009,7 +3009,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: { stage7_approved: true } })
+                    body: JSON.stringify({ data: { stage7_approved: true, stage8_coverage: null } })
                 });
 
                 if (!response.ok) throw new Error('Failed to save project');
@@ -3019,6 +3019,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnStage7Approve.textContent = 'Approved ✓';
                 btnStage7Approve.classList.add('approve-btn-green');
+
+                // Clear stale coverage so Stage 8 re-generates
+                if (window.currentProjectData) delete window.currentProjectData.stage8_coverage;
 
                 // Advance to Stage 8
                 switchStage(8);
@@ -3399,16 +3402,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Wire up Save Priorities button
-        const btnSave = document.getElementById('btnSavePriorities');
-        if (btnSave) {
-            btnSave.onclick = async () => {
-                await saveCoveragePriorities();
-                btnSave.textContent = 'Saved ✓';
-                setTimeout(() => { btnSave.textContent = 'Save Priorities'; }, 2000);
-            };
-        }
-
         // Wire up Begin Rewrite button
         const btnApprove = document.getElementById('btnStage8Approve');
         if (btnApprove) {
@@ -3430,13 +3423,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
         }
+
+        // Wire up Download Coverage button
+        const btnDownload = document.getElementById('btnDownloadCoverage');
+        if (btnDownload) {
+            btnDownload.onclick = () => {
+                const coverage = window.currentProjectData?.stage8_coverage;
+                if (!coverage) { alert('No coverage report available.'); return; }
+                const title = coverage.title || 'Untitled';
+                const sep = (char, len = 60) => char.repeat(len);
+                let text = `COVERAGE REPORT: ${title.toUpperCase()}\n${sep('=')}\n\n`;
+                text += `GENRE: ${coverage.genre || '—'}\n\n`;
+                text += `LOGLINE:\n${coverage.logline || '—'}\n\n`;
+                text += `${sep('-')}\n\nEVALUATION GRID\n${sep('-')}\n`;
+                const grid = coverage.evaluation_grid || {};
+                ['concept', 'structure', 'characterization', 'pacing', 'dialogue'].forEach(k => {
+                    text += `  ${(k.charAt(0).toUpperCase() + k.slice(1)).padEnd(20)} ${grid[k] || '—'}\n`;
+                });
+                text += `\n${sep('-')}\n\nNARRATIVE SYNOPSIS\n${sep('-')}\n\n`;
+                if (coverage.synopsis?.setup)      text += `SETUP:\n${coverage.synopsis.setup}\n\n`;
+                if (coverage.synopsis?.escalation) text += `ESCALATION:\n${coverage.synopsis.escalation}\n\n`;
+                if (coverage.synopsis?.resolution) text += `RESOLUTION:\n${coverage.synopsis.resolution}\n\n`;
+                text += `${sep('-')}\n\nAUTHENTICITY CHECK\n${sep('-')}\n`;
+                text += `Assessment: ${coverage.authenticity?.assessment || '—'}\n`;
+                const flags = coverage.authenticity?.red_flags || [];
+                if (flags.length > 0) {
+                    text += `\nAI Signals Detected:\n`;
+                    flags.forEach((f, i) => { text += `  ${i + 1}. ${f}\n`; });
+                } else {
+                    text += `No major red flags detected.\n`;
+                }
+                text += `\n${sep('-')}\n\nDEVELOPMENT NOTES\n${sep('-')}\n\nSTRENGTHS:\n`;
+                (coverage.strengths || []).forEach(s => { text += `  • ${s.headline}. ${s.detail}\n`; });
+                text += `\nWEAKNESSES:\n`;
+                (coverage.weaknesses || []).forEach(w => { text += `  • ${w.headline}. ${w.detail}\n`; });
+                text += `\n${sep('-')}\n\nMACRO TO-DO\n${sep('-')}\n`;
+                (window.currentMacroTodo || coverage.macro_todo || []).forEach(item => {
+                    text += `  ${item.priority}. ${item.task}\n`;
+                });
+                text += `\n${sep('-')}\n\nMICRO TO-DO\n${sep('-')}\n`;
+                (window.currentMicroTodo || coverage.micro_todo || []).forEach(item => {
+                    text += `  ${item.priority}. ${item.task}\n`;
+                });
+                text += `\n${sep('-')}\n\nFINAL RECOMMENDATION\n${sep('-')}\n`;
+                text += `${coverage.recommendation?.grade || '—'}\n\n${coverage.recommendation?.justification || ''}\n`;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = makeFilename(title, 'coverage');
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        }
     }
 
     function renderCoverageReport(data) {
         const container = document.getElementById('stage8-content');
         if (!container || !data) return;
 
-        window.currentCoverageTodo = JSON.parse(JSON.stringify(data.priority_todo || []));
+        // Support both new (macro_todo/micro_todo) and legacy (priority_todo) schemas
+        const hasNewSchema = data.macro_todo !== undefined || data.micro_todo !== undefined;
+        window.currentMacroTodo = JSON.parse(JSON.stringify(hasNewSchema ? (data.macro_todo || []) : (data.priority_todo || [])));
+        window.currentMicroTodo = JSON.parse(JSON.stringify(hasNewSchema ? (data.micro_todo || []) : []));
 
         const ratingClass = (r) => {
             switch ((r || '').toLowerCase()) {
@@ -3533,10 +3582,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <div class="p-6 rounded-lg bg-white/5 border border-white/10">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Priority To-Do List</h3>
-                    <span class="text-xs text-gray-500">Editable — reorder and revise as needed</span>
+                    <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Macro To-Do</h3>
+                    <span class="text-xs text-gray-500">Structural · Plot · Character · Pacing</span>
                 </div>
-                <div id="stage8-todo-list" class="space-y-2"></div>
+                <div id="stage8-macro-todo-list" class="space-y-2"></div>
+            </div>
+
+            <div class="p-6 rounded-lg bg-white/5 border border-white/10">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Micro To-Do</h3>
+                    <span class="text-xs text-gray-500">Scene · Dialogue · Polish</span>
+                </div>
+                <div id="stage8-micro-todo-list" class="space-y-2"></div>
             </div>
 
             <div class="p-6 rounded-lg bg-white/5 border border-white/10">
@@ -3547,22 +3604,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
 
-        renderTodoList(window.currentCoverageTodo);
+        renderTodoList(window.currentMacroTodo, 'macro');
+        renderTodoList(window.currentMicroTodo, 'micro');
     }
 
-    function renderTodoList(items) {
-        const container = document.getElementById('stage8-todo-list');
+    function renderTodoList(items, list) {
+        const containerId = list === 'micro' ? 'stage8-micro-todo-list' : 'stage8-macro-todo-list';
+        const container = document.getElementById(containerId);
         if (!container) return;
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="text-gray-600 text-sm italic">No items.</p>';
+            return;
+        }
         container.innerHTML = items.map((item, idx) => `
             <div class="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                 <span class="text-xs font-mono font-bold px-2 py-0.5 mt-0.5 rounded border shrink-0 text-blue-400 bg-blue-400/10 border-blue-400/30">P${item.priority}</span>
                 <div class="flex-1 min-w-0">
-                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">${item.category}</div>
-                    <textarea class="todo-task-input w-full bg-transparent text-sm text-gray-200 resize-none border-none focus:outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 leading-relaxed" rows="2" data-idx="${idx}">${item.task}</textarea>
+                    <textarea class="todo-task-input w-full bg-transparent text-sm text-gray-200 resize-none border-none focus:outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 leading-relaxed" rows="2" data-list="${list}" data-idx="${idx}">${item.task}</textarea>
                 </div>
                 <div class="flex flex-col gap-1 shrink-0 pt-1">
-                    <button onclick="window.moveTodoItem(${idx}, -1)" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move up">▲</button>
-                    <button onclick="window.moveTodoItem(${idx},  1)" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move down">▼</button>
+                    <button onclick="window.moveTodoItem(${idx}, -1, '${list}')" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move up">▲</button>
+                    <button onclick="window.moveTodoItem(${idx},  1, '${list}')" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move down">▼</button>
                 </div>
             </div>`).join('');
         setTimeout(() => {
@@ -3571,17 +3633,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveCoveragePriorities() {
-        if (!window.currentCoverageTodo || !activeProjectId) return;
-        // Flush any in-progress textarea edits into the working copy
+        if (!activeProjectId) return;
+        // Flush any in-progress textarea edits into their respective working copies
         document.querySelectorAll('.todo-task-input').forEach(ta => {
             const i = parseInt(ta.dataset.idx);
-            if (!isNaN(i) && window.currentCoverageTodo[i]) {
-                window.currentCoverageTodo[i].task = ta.value;
-            }
+            const list = ta.dataset.list;
+            const arr = list === 'micro' ? window.currentMicroTodo : window.currentMacroTodo;
+            if (!isNaN(i) && arr && arr[i]) arr[i].task = ta.value;
         });
         const coverage = window.currentProjectData?.stage8_coverage;
         if (!coverage) return;
-        coverage.priority_todo = window.currentCoverageTodo;
+        coverage.macro_todo = window.currentMacroTodo || [];
+        coverage.micro_todo = window.currentMicroTodo || [];
         await fetch(`/api/projects/${activeProjectId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -3592,21 +3655,19 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentProjectData = projData.data;
     }
 
-    window.moveTodoItem = function(idx, direction) {
-        if (!window.currentCoverageTodo) return;
-        // Flush current textarea values first
-        document.querySelectorAll('.todo-task-input').forEach(ta => {
+    window.moveTodoItem = function(idx, direction, list) {
+        const arr = list === 'micro' ? window.currentMicroTodo : window.currentMacroTodo;
+        if (!arr) return;
+        // Flush current textarea values for this list first
+        document.querySelectorAll(`.todo-task-input[data-list="${list}"]`).forEach(ta => {
             const i = parseInt(ta.dataset.idx);
-            if (!isNaN(i) && window.currentCoverageTodo[i]) {
-                window.currentCoverageTodo[i].task = ta.value;
-            }
+            if (!isNaN(i) && arr[i]) arr[i].task = ta.value;
         });
-        const todo = window.currentCoverageTodo;
         const newIdx = idx + direction;
-        if (newIdx < 0 || newIdx >= todo.length) return;
-        [todo[idx], todo[newIdx]] = [todo[newIdx], todo[idx]];
-        todo.forEach((item, i) => { item.priority = i + 1; });
-        renderTodoList(todo);
+        if (newIdx < 0 || newIdx >= arr.length) return;
+        [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+        arr.forEach((item, i) => { item.priority = i + 1; });
+        renderTodoList(arr, list);
     };
 
     window.retryStage8Coverage = function() {

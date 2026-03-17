@@ -66,14 +66,15 @@ Provide 3–5 bullet points for each section. Each bullet has two parts:
 ---
 
 ## 6. THE BLUEPRINT: PRIORITY TO-DO LIST
-Create a ranked, actionable checklist to guide the writer's Stage 9 Rewrite. Start with macro-level fixes (plot/structure) and drill down to micro-level fixes (scenes/dialogue). Return as an array of objects.
+Create two separate ranked checklists to guide the writer's Stage 9 Rewrite. Each item must have:
+* **priority:** Integer (1 = highest priority within that list)
+* **task:** A single, specific, actionable rewrite instruction
 
-Each item must have:
-* **priority:** Integer (1 = highest priority)
-* **category:** One of: `Macro`, `Character`, `Pacing/Conflict`, `Micro/Polish`
-* **task:** A single, specific, actionable rewrite instruction (e.g., "Restructure Act II to give the protagonist an active goal rather than just reacting to the antagonist.")
+**macro_todo** — Structural, plot, character arc, and pacing fixes. These are the big rewrites: act structure, protagonist agency, thematic clarity, relationship dynamics, and sequence-level pacing. Maximum 10 items.
 
-Provide a minimum of 4 and maximum of 10 items.
+**micro_todo** — Scene-level, dialogue, and polish fixes. These are targeted improvements to specific scenes, exchanges, or lines: sharpening dialogue subtext, cutting redundant beats, fixing tonal inconsistencies, and trimming action lines. Maximum 10 items.
+
+**CRITICAL — NO PADDING RULE:** Only include tasks that are genuinely warranted by what you found in the script. If the script has 4 real macro issues, return 4 items. Do not invent tasks to fill slots. Quality over quantity.
 
 ---
 

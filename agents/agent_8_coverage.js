@@ -60,16 +60,26 @@ const coverageSchema = {
                 required: ["headline", "detail"]
             }
         },
-        priority_todo: {
+        macro_todo: {
             type: "array",
             items: {
                 type: "object",
                 properties: {
                     priority: { type: "integer" },
-                    category: { type: "string" },
                     task:     { type: "string" },
                 },
-                required: ["priority", "category", "task"]
+                required: ["priority", "task"]
+            }
+        },
+        micro_todo: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    priority: { type: "integer" },
+                    task:     { type: "string" },
+                },
+                required: ["priority", "task"]
             }
         },
         recommendation: {
@@ -81,12 +91,52 @@ const coverageSchema = {
             required: ["grade", "justification"]
         }
     },
-    required: ["title", "genre", "logline", "evaluation_grid", "synopsis", "authenticity", "strengths", "weaknesses", "priority_todo", "recommendation"]
+    required: ["title", "genre", "logline", "evaluation_grid", "synopsis", "authenticity", "strengths", "weaknesses", "macro_todo", "micro_todo", "recommendation"]
+};
+
+/**
+ * Runs a single coverage analysis pass.
+ */
+const runSingleCoverage = async (prompt, sop) => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3.1-pro-preview',
+        contents: prompt,
+        config: {
+            systemInstruction: sop,
+            temperature: 0.4,
+            thinkingConfig: { thinkingLevel: 'HIGH' },
+            responseMimeType: 'application/json',
+            responseSchema: coverageSchema,
+        }
+    });
+    return JSON.parse(response.text);
+};
+
+/**
+ * Consolidates 2–3 coverage results into a single consensus report.
+ */
+const consolidateCoverage = async (results) => {
+    const consolidatorSop = fs.readFileSync(
+        path.join(__dirname, '../skills/skill_coverage_consolidator.md'), 'utf8'
+    );
+    const prompt = `Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+            systemInstruction: consolidatorSop,
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+            responseSchema: coverageSchema,
+        }
+    });
+    return JSON.parse(response.text);
 };
 
 /**
  * Stage 8: Coverage Agent
- * Generates professional Hollywood-style script coverage for a full assembled screenplay.
+ * Runs 3 parallel coverage analyses then consolidates into a consensus report.
  *
  * @param {string} fullScriptText - All scene drafts concatenated in order
  * @param {object} projectContext - { title, genre, logline, synopsis, characters }
@@ -111,24 +161,32 @@ ${projectContext.synopsis || 'Not provided'}
 ${fullScriptText}
     `;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
-            contents: prompt,
-            config: {
-                systemInstruction: sop,
-                temperature: 0.4,
-                thinkingConfig: { thinkingLevel: 'HIGH' },
-                responseMimeType: 'application/json',
-                responseSchema: coverageSchema,
-            }
-        });
+    console.log('Coverage: running 3 parallel analyses...');
+    const settledResults = await Promise.allSettled([
+        runSingleCoverage(prompt, sop),
+        runSingleCoverage(prompt, sop),
+        runSingleCoverage(prompt, sop),
+    ]);
 
-        return JSON.parse(response.text);
-    } catch (error) {
-        console.error('Error in agent_8_coverage:', error);
-        throw error;
+    const successes = settledResults
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+
+    settledResults
+        .filter(r => r.status === 'rejected')
+        .forEach((r, i) => console.warn(`Coverage run ${i + 1} failed:`, r.reason?.message));
+
+    if (successes.length === 0) {
+        throw new Error('All 3 coverage analyses failed.');
     }
+
+    if (successes.length === 1) {
+        console.log('Coverage: only 1 run succeeded — returning single result.');
+        return successes[0];
+    }
+
+    console.log(`Coverage: ${successes.length} runs succeeded — consolidating...`);
+    return await consolidateCoverage(successes);
 };
 
 module.exports = { agent8Coverage };
