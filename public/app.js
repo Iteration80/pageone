@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('act1Container').innerHTML = '';
                     document.getElementById('act2Container').innerHTML = '';
                     document.getElementById('act3Container').innerHTML = '';
-                    stage2Workshop.classList.add('hidden');
+                    stage2Workshop?.classList.add('hidden');
                 }
 
                 // Hydrate Stage 3 Characters if exists
@@ -444,7 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                     if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
-                    if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
 
                     // Pre-fill notes
                     if (stage3Notes && projectDetails.data.stage3_characters.notes) {
@@ -466,7 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                     if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
-                    if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
 
                     if (stage4Notes && stage4Data.notes) {
                         stage4Notes.value = stage4Data.notes;
@@ -487,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                     if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
-                    if (btnStage5Approve) btnStage5Approve.classList.add('hidden');
 
                     if (stage5Notes && projectDetails.data.stage5_treatment.notes) {
                         stage5Notes.value = projectDetails.data.stage5_treatment.notes;
@@ -537,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear workspace state
             resultsContainer.innerHTML = '';
             promptInput.value = '';
-            stage1FeedbackPanel.classList.add('hidden');
+            stage1FeedbackPanel?.classList.add('hidden');
             if (stage1Notes) stage1Notes.value = '';
             if (stage2Notes) stage2Notes.value = '';
             if (stage3Notes) stage3Notes.value = '';
@@ -565,19 +562,19 @@ document.addEventListener('DOMContentLoaded', () => {
         fileNameDisplay.textContent = file ? file.name : '';
     });
 
-    stage1PdfUpload.addEventListener('change', (e) => {
+    stage1PdfUpload?.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        stage1FileNameDisplay.textContent = file ? file.name : '';
+        if (stage1FileNameDisplay) stage1FileNameDisplay.textContent = file ? file.name : '';
     });
 
-    stage2PdfUpload.addEventListener('change', (e) => {
+    stage2PdfUpload?.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        stage2FileNameDisplay.textContent = file ? file.name : '';
+        if (stage2FileNameDisplay) stage2FileNameDisplay.textContent = file ? file.name : '';
     });
 
-    stage3PdfUpload.addEventListener('change', (e) => {
+    stage3PdfUpload?.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        stage3FileNameDisplay.textContent = file ? file.name : '';
+        if (stage3FileNameDisplay) stage3FileNameDisplay.textContent = file ? file.name : '';
     });
 
     generateBtn.addEventListener('click', async () => {
@@ -697,8 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = selectedCard.querySelector('.approve-btn');
         if (btn) btn.style.display = 'none';
 
-        // Show the Stage 1 Feedback Panel
-        stage1FeedbackPanel.classList.remove('hidden');
+        stage1FeedbackPanel?.classList.remove('hidden');
         toggleStage1EditMode(false);
         const pitchDownloadRow = document.getElementById('pitchDownloadRow');
         if (pitchDownloadRow) pitchDownloadRow.classList.remove('hidden');
@@ -715,7 +711,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isApproved) {
             if (btnStage1Revise) btnStage1Revise.classList.add('hidden');
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
-            if (btnStage1Approve) btnStage1Approve.classList.add('hidden');
         } else {
             if (btnStage1Revise) {
                 btnStage1Revise.classList.remove('hidden');
@@ -871,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = field.getAttribute('data-field');
             finalData[key] = field.value;
         });
-        const notes = stage1Notes.value;
+        const notes = stage1Notes?.value ?? '';
 
         // Set nested payload for Stage 1 data
         const payload = {
@@ -1095,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (outlineData.act_3) renderSequences(outlineData.act_3, act3Container);
 
         document.getElementById('outlineContainer').classList.remove('hidden');
-        stage2Workshop.classList.remove('hidden');
+        stage2Workshop?.classList.remove('hidden');
 
         toggleStage2EditMode(false);
     }
@@ -1180,7 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isApproved) {
             if (btnStage2Edit) btnStage2Edit.classList.remove('hidden');
             if (btnStage2Revise) btnStage2Revise.classList.add('hidden');
-            if (btnStage2Approve) btnStage2Approve.classList.add('hidden');
         } else {
             if (btnStage2Edit) btnStage2Edit.classList.add('hidden');
 
@@ -1682,7 +1676,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Toggle back to edit mode
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                 if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
-                if (btnStage3Approve) btnStage3Approve.classList.add('hidden');
 
                 // Auto-transition to Stage 4: Treatment
                 switchStage(4);
@@ -1939,7 +1932,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (locked) {
             if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
             if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
-            if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
         } else {
             if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
             if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
@@ -2099,7 +2091,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Toggle back to edit mode
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
-                if (btnStage4Approve) btnStage4Approve.classList.add('hidden');
 
                 // Auto-transition to Stage 5: Treatment
                 switchStage(5);
@@ -2407,7 +2398,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 btnStage5Revise.classList.add('hidden');
-                btnStage5Approve.classList.add('hidden');
 
                 // Auto-transition to Stage 6: Scene Blueprint
                 switchStage(6);
@@ -2800,7 +2790,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Apply completion UI to Stage 6
                 if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
-                if (btnStage6Approve) btnStage6Approve.classList.add('hidden');
                 if (btnStage6Revise) btnStage6Revise.classList.remove('hidden');
 
                 // Apply completed styling to sidebar (already handled by updateStageNav, but being explicit about the active transition)
@@ -3799,6 +3788,254 @@ document.addEventListener('DOMContentLoaded', () => {
         clear() { this.thread.innerHTML = ''; this.history = []; }
         setDisabled(d) { this.sendBtn.disabled = d; this.input.disabled = d; }
     }
+
+    // ─── STAGES 1–7 CHAT ─────────────────────────────────────────────────────
+
+    async function readSSEStream(response, onEvent) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const event = JSON.parse(line.slice(6));
+                await onEvent(event);
+            }
+        }
+    }
+
+    function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision }) {
+        // Guard: skip silently if any required element is missing
+        if (!document.getElementById(sendBtnId) || !document.getElementById(inputId) || !document.getElementById(threadId)) {
+            console.warn(`initStageChat: missing element(s) for stage ${stageId}`);
+            return null;
+        }
+        let pendingRevision = false;
+        let pendingNotes = '';
+        const chat = new ChatWindow({
+            threadId, inputId, sendBtnId,
+            onSend: async (_text, history) => {
+                if (pendingRevision) {
+                    pendingRevision = false;
+                    chat.setDisabled(true);
+                    try {
+                        await executeRevision(pendingNotes);
+                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                    } catch (err) {
+                        chat.append('ai', 'Something went wrong: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                    return;
+                }
+                let data;
+                try {
+                    const res = await fetch('/api/brainstorm', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, stageId, messages: history })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                        chat.append('ai', 'Error: ' + (err.error || `Server error ${res.status}`));
+                        return;
+                    }
+                    data = await res.json();
+                } catch (err) {
+                    chat.append('ai', 'Error: ' + err.message);
+                    return;
+                }
+                chat.append('ai', data.message);
+                if (data.suggest_plan && data.execute_immediately) {
+                    // Clear directive — execute revision immediately, no confirmation needed
+                    chat.setDisabled(true);
+                    try {
+                        await executeRevision(data.message);
+                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                    } catch (err) {
+                        chat.append('ai', 'Something went wrong: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                } else if (data.suggest_plan) {
+                    // Brainstorm reached plan readiness — wait for user confirmation
+                    pendingRevision = true;
+                    pendingNotes = data.message;
+                }
+            }
+        });
+        return chat;
+    }
+
+    // Stage 1
+    initStageChat({
+        stageId: 1,
+        threadId: 'stage1-chat-thread',
+        inputId: 'stage1-chat-input',
+        sendBtnId: 'stage1-chat-send',
+        executeRevision: async (notes) => {
+            const expandedCard = document.querySelector('.pitch-card.expanded');
+            if (!expandedCard) throw new Error('No pitch selected yet.');
+            const currentFields = expandedCard.querySelectorAll('.field-group .editable-field');
+            const currentPitch = {};
+            currentFields.forEach(f => { currentPitch[f.getAttribute('data-field')] = f.value; });
+            const formData = new FormData();
+            formData.append('currentPitch', JSON.stringify(currentPitch));
+            formData.append('userNote', notes);
+            const res = await fetch('/api/refine-pitch', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const data = await res.json();
+            if (data.result) {
+                currentFields.forEach(f => {
+                    const key = f.getAttribute('data-field');
+                    if (data.result[key]) {
+                        f.value = key === 'synopsis'
+                            ? (data.result[key] || '').replace(/(?:\s*)(Act 2:)/ig, '\n\n$1').replace(/(?:\s*)(Act 3:)/ig, '\n\n$1').trim()
+                            : data.result[key];
+                    }
+                });
+                if (btnStage1Approve) { btnStage1Approve.textContent = 'Approve'; btnStage1Approve.classList.remove('approve-btn-green'); }
+            }
+        }
+    });
+
+    // Stage 2
+    initStageChat({
+        stageId: 2,
+        threadId: 'stage2-chat-thread',
+        inputId: 'stage2-chat-input',
+        sendBtnId: 'stage2-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const currentBeats = scrapeOutline();
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            formData.append('currentBeats', JSON.stringify(currentBeats));
+            formData.append('notes', notes);
+            const res = await fetch('/api/generate-outline', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const data = await res.json();
+            renderOutline(data.result.outline);
+            if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
+        }
+    });
+
+    // Stage 3
+    initStageChat({
+        stageId: 3,
+        threadId: 'stage3-chat-thread',
+        inputId: 'stage3-chat-input',
+        sendBtnId: 'stage3-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const currentCharacters = scrapeCharacters();
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            formData.append('currentCharacters', JSON.stringify(currentCharacters));
+            formData.append('notes', notes);
+            const res = await fetch('/api/generate-characters', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const data = await res.json();
+            renderCharacters(data.result.characters);
+            if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
+        }
+    });
+
+    // Stage 4
+    initStageChat({
+        stageId: 4,
+        threadId: 'stage4-chat-thread',
+        inputId: 'stage4-chat-input',
+        sendBtnId: 'stage4-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const currentBeats = scrapeTreatment();
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            formData.append('currentBeats', JSON.stringify(currentBeats));
+            formData.append('notes', notes);
+            const response = await fetch('/api/generate-stage4-beats', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(`Server error ${response.status}`);
+            await readSSEStream(response, async (event) => {
+                if (event.type === 'complete') {
+                    renderTreatment(event.result);
+                    if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); }
+                } else if (event.type === 'error') throw new Error(event.message);
+            });
+        }
+    });
+
+    // Stage 5
+    initStageChat({
+        stageId: 5,
+        threadId: 'stage5-chat-thread',
+        inputId: 'stage5-chat-input',
+        sendBtnId: 'stage5-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const currentData = scrapeTreatmentStage5();
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            formData.append('currentTreatment', JSON.stringify(currentData));
+            formData.append('notes', notes);
+            const response = await fetch('/api/generate-stage5-treatment', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(`Server error ${response.status}`);
+            await readSSEStream(response, async (event) => {
+                if (event.type === 'complete') {
+                    renderTreatmentStage5(event.result);
+                    if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); }
+                } else if (event.type === 'error') throw new Error(event.message);
+            });
+        }
+    });
+
+    // Stage 6
+    initStageChat({
+        stageId: 6,
+        threadId: 'stage6-chat-thread',
+        inputId: 'stage6-chat-input',
+        sendBtnId: 'stage6-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const res = await fetch('/api/revise-stage6', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, feedback: notes })
+            });
+            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const data = await res.json();
+            renderStage6(data.result);
+            if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
+        }
+    });
+
+    // Stage 7
+    initStageChat({
+        stageId: 7,
+        threadId: 'stage7-chat-thread',
+        inputId: 'stage7-chat-input',
+        sendBtnId: 'stage7-chat-send',
+        executeRevision: async (notes) => {
+            if (!activeProjectId) throw new Error('No active project');
+            const res = await fetch('/api/revise-draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, sceneNumber: currentDraftSceneNumber, feedback: notes })
+            });
+            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const data = await res.json();
+            if (draftEditor) draftEditor.innerHTML = formatFountainToHTML(data.result);
+            const projRes = await fetch(`/api/projects/${activeProjectId}`);
+            const projData = await projRes.json();
+            window.currentProjectData = projData.data;
+            if (btnNextScene) btnNextScene.classList.remove('hidden');
+        }
+    });
 
     // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
 

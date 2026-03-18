@@ -39,16 +39,16 @@
                 <div class="logo-text">PageOne</div>
             </div>
             <nav class="stages-nav">
-                <a href="#" id="nav-stage-1" class="stage-link active"><span class="badge">1</span> Pitch</a>
-                <a href="#" id="nav-stage-2" class="stage-link disabled"><span class="badge">2</span> Outline</a>
-                <a href="#" id="nav-stage-3" class="stage-link disabled"><span class="badge">3</span> Characters</a>
-                <a href="#" id="nav-stage-4" class="stage-link disabled"><span class="badge">4</span> Beats</a>
-                <a href="#" id="nav-stage-5" class="stage-link disabled"><span class="badge">5</span> Treatment</a>
-                <a href="#" id="nav-stage-6" class="stage-link disabled"><span class="badge">6</span> Scenes</a>
-                <a href="#" id="nav-stage7" class="stage-link disabled"><span class="badge">7</span> Draft</a>
-                <a href="#" id="nav-stage-8" class="stage-link disabled"><span class="badge">8</span> Coverage</a>
-                <a href="#" id="nav-stage-9" class="stage-link disabled"><span class="badge">9</span> Rewrite</a>
-                <a href="#" id="nav-stage-10" class="stage-link disabled"><span class="badge">10</span> Polish</a>
+                <a href="javascript:void(0)" id="nav-stage-1" class="stage-link active"><span class="badge">1</span> Pitch</a>
+                <a href="javascript:void(0)" id="nav-stage-2" class="stage-link disabled"><span class="badge">2</span> Outline</a>
+                <a href="javascript:void(0)" id="nav-stage-3" class="stage-link disabled"><span class="badge">3</span> Characters</a>
+                <a href="javascript:void(0)" id="nav-stage-4" class="stage-link disabled"><span class="badge">4</span> Beats</a>
+                <a href="javascript:void(0)" id="nav-stage-5" class="stage-link disabled"><span class="badge">5</span> Treatment</a>
+                <a href="javascript:void(0)" id="nav-stage-6" class="stage-link disabled"><span class="badge">6</span> Scenes</a>
+                <a href="javascript:void(0)" id="nav-stage7" class="stage-link disabled"><span class="badge">7</span> Draft</a>
+                <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">8</span> Coverage</a>
+                <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">9</span> Rewrite</a>
+                <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">10</span> Polish</a>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnReturnHome" class="sidebar-home-btn" title="Return Home">
@@ -64,9 +64,12 @@
         <!-- Main Workspace (Stage 1) -->
         <main id="stage-1-view" class="workspace">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 1: Pitch Generation</h1>
-                    <p>Brainstorm three distinct, high-concept movie pitch options.</p>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 1: Pitch Generation</h1>
+                        <p>Brainstorm three distinct, high-concept movie pitch options.</p>
+                    </div>
+                    <button id="btn-stage1-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                 </header>
 
                 <section class="prompt-section">
@@ -113,47 +116,27 @@
                 </div>
             </div>
 
-            <!-- Stage 1 Feedback Panel (Sticky) -->
-            <section id="stage1FeedbackPanel" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 1 Chat Window -->
+            <div id="stage1-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage1-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage1-chat-input" class="chat-input" placeholder="e.g. Make the logline punchier, change the genre..." rows="1"></textarea>
+                    <button id="stage1-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage1-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make it scarier, change the setting..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btn-stage1-edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage1PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage1PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage1FileNameDisplay" class="file-name"></span>
-                            <button id="btn-stage1-revise" class="primary-btn">Submit</button>
-                            <button id="btn-stage1-approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Stage 2 Workspace (Hidden by default) -->
         <main id="stage-2-view" class="workspace hidden">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 2: Outline</h1>
-                    <p>Expand your finalized pitch into a structured 8-sequence outline.</p>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 2: Outline</h1>
+                        <p>Expand your finalized pitch into a structured 8-sequence outline.</p>
+                    </div>
+                    <button id="btn-stage2-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                 </header>
 
                 <!-- Loading State for Outline -->
@@ -200,47 +183,27 @@
                 </div>
             </div>
 
-            <!-- Stage 2 Workshop section (Sticky Feedback Panel) -->
-            <section id="stage2Workshop" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 2 Chat Window -->
+            <div id="stage2-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage2-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage2-chat-input" class="chat-input" placeholder="e.g. Make the midpoint more dramatic..." rows="1"></textarea>
+                    <button id="stage2-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage2-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make the midpoint more dramatic..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btn-stage2-edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage2PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage2PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage2FileNameDisplay" class="file-name"></span>
-                            <button id="btn-stage2-revise" class="primary-btn">Submit</button>
-                            <button id="btn-stage2-approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Main Workspace (Stage 3) -->
         <main id="stage-3-view" class="workspace hidden">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 3: Characters</h1>
-                    <p>Develop deep, psychologically grounded character profiles based on your story.</p>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 3: Characters</h1>
+                        <p>Develop deep, psychologically grounded character profiles based on your story.</p>
+                    </div>
+                    <button id="btn-stage3-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                 </header>
 
                 <!-- Character cards injected here -->
@@ -267,46 +230,27 @@
                 </div>
             </div>
 
-            <section id="stage3Workshop" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 3 Chat Window -->
+            <div id="stage3-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage3-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage3-chat-input" class="chat-input" placeholder="e.g. Make the protagonist more conflicted..." rows="1"></textarea>
+                    <button id="stage3-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage3-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make the Protagonist more conflicted..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btn-stage3-edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage3PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage3PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage3FileNameDisplay" class="file-name"></span>
-                            <button id="btn-stage3-revise" class="primary-btn">Submit</button>
-                            <button id="btn-stage3-approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Main Workspace (Stage 4) -->
         <main id="stage-4-view" class="workspace hidden">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 4: Beats</h1>
-                    <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 4: Beats</h1>
+                        <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
+                    </div>
+                    <button id="btn-stage4-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                 </header>
 
                 <div id="treatmentActions" class="action-row" style="margin-bottom: 24px;">
@@ -336,47 +280,28 @@
                 </div>
             </div>
 
-            <section id="stage4Workshop" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 4 Chat Window -->
+            <div id="stage4-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage4-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage4-chat-input" class="chat-input" placeholder="e.g. Make the midpoint twist more surprising..." rows="1"></textarea>
+                    <button id="stage4-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage4-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make the midpoint twist more surprising..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btn-stage4-edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage4PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage4PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage4FileNameDisplay" class="file-name"></span>
-                            <button id="btn-stage4-revise" class="primary-btn">Submit</button>
-                            <button id="btn-stage4-approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Placeholder Workspace (Stage 5) -->
         <!-- Stage 5: Treatment Workspace -->
         <main id="stage-5-view" class="workspace hidden">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 5: Treatment</h1>
-                    <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 5: Treatment</h1>
+                        <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
+                    </div>
+                    <button id="btnStage5Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                 </header>
 
                 <!-- Loading State for Treatment -->
@@ -450,59 +375,36 @@
             </div>
 
             <!-- Sticky Stage 5 Feedback Panel -->
-            <section id="stage5Workshop" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 5 Chat Window -->
+            <div id="stage5-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage5-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage5-chat-input" class="chat-input" placeholder="e.g. Make Act II more intense..." rows="1"></textarea>
+                    <button id="stage5-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage5Notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make Act II more intense, or focus more on the B-story..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btnStage5Edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage5PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage5PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage5FileNameDisplay" class="file-name"></span>
-                            <button id="btnStage5Revise" class="primary-btn">Submit</button>
-                            <button id="btnStage5Approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Stage 6: Scenes (Scene Blueprint) -->
         <main id="stage-6-view" class="workspace hidden">
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h1>Stage 6: Scene Blueprint</h1>
-                            <p>Manage and refine individual scenes organized by sequence.</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <button id="btnDownloadScenes" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Download Scenes
-                            </button>
-                        </div>
+                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <h1>Stage 6: Scene Blueprint</h1>
+                        <p>Manage and refine individual scenes organized by sequence.</p>
+                    </div>
+                    <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                        <button id="btnDownloadScenes" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download Scenes
+                        </button>
+                        <button id="btnStage6Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
                     </div>
                 </header>
 
@@ -519,38 +421,16 @@
             </div>
 
             <!-- Stage 6 Feedback Panel (Sticky) -->
-            <section id="stage6Workshop" class="feedback-panel hidden">
-                <div class="feedback-panel-header">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+
+            <!-- Stage 6 Chat Window -->
+            <div id="stage6-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage6-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage6-chat-input" class="chat-input" placeholder="e.g. Restructure Sequence 3, sharpen Scene 12..." rows="1"></textarea>
+                    <button id="stage6-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage6-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make Sequence 2 more action-packed, or refine Scene 12..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btnStage6Revise" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage6PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage6PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage6FileNameDisplay" class="file-name"></span>
-                            <button id="btnStage6Submit" class="primary-btn">Submit</button>
-                            <button id="btnStage6Approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
 
@@ -559,9 +439,12 @@
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
                 <div class="flex-1 bg-gray-900 overflow-y-auto draft-editor-container scrollbar-hide">
-                    <header class="workspace-header" style="padding: 28px 60px 0">
-                        <h1>Stage 7: Draft</h1>
-                        <p>Write the first draft of your screenplay using standard formatting.</p>
+                    <header class="workspace-header" style="padding: 28px 60px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                        <div>
+                            <h1>Stage 7: Draft</h1>
+                            <p>Write the first draft of your screenplay using standard formatting.</p>
+                        </div>
+                        <button id="btnStage7Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
                     </header>
                     <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto">
                         <!-- Generation Control Bar -->
@@ -607,38 +490,16 @@
             </div>
 
             <!-- Stage 7 Feedback Panel (Sticky) -->
-            <section id="stage7Workshop" class="feedback-panel">
-                <div class="feedback-panel-header" id="stage7WorkshopToggle">
-                    <label class="feedback-label text-gray-400 block text-xs font-semibold tracking-wider uppercase" style="pointer-events:none;">FEEDBACK</label>
-                    <button class="feedback-panel-toggle" aria-label="Toggle feedback panel" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                    </button>
+    
+            <!-- Stage 7 Chat Window -->
+            <div id="stage7-chat" class="stage-chat">
+                <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
+                <div id="stage7-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="stage7-chat-input" class="chat-input" placeholder="e.g. Make the dialogue snappier, shorten the scene..." rows="1"></textarea>
+                    <button id="stage7-chat-send" class="chat-send-btn">Send</button>
                 </div>
-                <div class="feedback-panel-body">
-                    <textarea id="stage7-notes"
-                        class="notes-input w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
-                        placeholder="e.g. Make the dialogue snappier, or shorten Scene 2..."></textarea>
-                    <div class="action-row action-row-split">
-                        <div class="action-left">
-                            <button id="btnStage7Edit" class="danger-btn hidden">Revise</button>
-                        </div>
-                        <div class="action-group-right">
-                            <label for="stage7PdfUpload" class="icon-btn" title="Attach additional story material">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-paperclip">
-                                    <path
-                                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
-                            </label>
-                            <input type="file" id="stage7PdfUpload" accept="application/pdf" class="hidden">
-                            <span id="stage7FileNameDisplay" class="file-name"></span>
-                            <button id="btnStage7Submit" class="primary-btn">Submit</button>
-                            <button id="btnStage7Approve" class="primary-btn">Approve</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <!-- Stage 8: Coverage -->

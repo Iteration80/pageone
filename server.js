@@ -623,6 +623,77 @@ app.post('/api/init-stage9', async (req, res) => {
     }
 });
 
+// General-purpose brainstorm: stages 1–7 chat assistant
+app.post('/api/brainstorm', async (req, res) => {
+    try {
+        const { projectId, stageId, messages = [], sceneNumber } = req.body;
+        if (!projectId || !stageId) return res.status(400).json({ error: 'Missing projectId or stageId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
+        const stageNames = {
+            1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
+            4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint', 7: 'Draft'
+        };
+
+        let stageData;
+        switch (stageId) {
+            case 1: stageData = JSON.stringify(projectData.data?.stage1_pitch?.pitch || {}, null, 2); break;
+            case 2: stageData = JSON.stringify(projectData.data?.stage2_outline?.outline || [], null, 2); break;
+            case 3: stageData = JSON.stringify(projectData.data?.stage3_characters?.characters || [], null, 2); break;
+            case 4: stageData = JSON.stringify(projectData.data?.stage4_beats || [], null, 2); break;
+            case 5: {
+                const t = projectData.data?.stage5_treatment || {};
+                stageData = [t.act_1, t.act_2a, t.act_2b, t.act_3].filter(Boolean).join('\n\n---\n\n');
+                break;
+            }
+            case 6: stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2); break;
+            case 7: {
+                const scenes = [];
+                for (const seq of (projectData.data?.stage6_scenes || [])) {
+                    if (seq.scenes) scenes.push(...seq.scenes);
+                }
+                const scene = scenes.find(s => s.scene_number === sceneNumber) || scenes[0];
+                stageData = scene
+                    ? `Scene ${scene.scene_number}: ${scene.scene_heading || scene.slugline || ''}\n${scene.humanized_draft_text || scene.draft_text || ''}`
+                    : 'No scene selected.';
+                break;
+            }
+            default: return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
+        }
+
+        let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageNames[stageId]}\n${stageData}\n\n---\n\n`;
+        for (const msg of messages) {
+            conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
+        }
+        conversationPrompt += 'Continue the conversation as the editorial assistant.';
+
+        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: conversationPrompt,
+            config: {
+                systemInstruction: brainstormSop,
+                temperature: 0.7,
+                responseMimeType: 'application/json',
+                responseSchema: { type: 'object', properties: { message: { type: 'string' }, suggest_plan: { type: 'boolean' }, execute_immediately: { type: 'boolean' } }, required: ['message', 'suggest_plan', 'execute_immediately'] },
+            },
+        });
+        const result = JSON.parse(response.text);
+        console.log(`Brainstorm stage${stageId}: suggest_plan=${result.suggest_plan} execute_immediately=${result.execute_immediately}`);
+        res.json(result);
+    } catch (error) {
+        console.error('brainstorm error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Conversational brainstorm: editorial assistant helps writer clarify rewrite direction
 app.post('/api/brainstorm-rewrite', async (req, res) => {
     try {
