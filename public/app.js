@@ -3920,6 +3920,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 if (btnStage1Approve) { btnStage1Approve.textContent = 'Approve'; btnStage1Approve.classList.remove('approve-btn-green'); }
+                // Auto-save revised pitch so changes survive a refresh
+                const updatedPitch = {};
+                currentFields.forEach(f => { updatedPitch[f.getAttribute('data-field')] = f.value; });
+                await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: { stage1_pitch: { pitch: updatedPitch, notes: stage1Notes?.value ?? '' } } })
+                });
             }
         }
     });
