@@ -383,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.currentProjectData = projectDetails.data;
 
             resultsContainer.innerHTML = ''; // Start clean
+            document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
 
             // Always default back to Stage 1 when opening a project
             switchStage(1);
@@ -535,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.innerHTML = '';
             promptInput.value = '';
             stage1FeedbackPanel?.classList.add('hidden');
+            document.querySelector('.prompt-section')?.classList.remove('hidden');
             if (stage1Notes) stage1Notes.value = '';
             if (stage2Notes) stage2Notes.value = '';
             if (stage3Notes) stage3Notes.value = '';
@@ -689,6 +691,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Expand the selected card
         selectedCard.classList.add('expanded');
+
+        // Hide the prompt/generation section — not needed in workshop mode
+        document.querySelector('.prompt-section')?.classList.add('hidden');
 
         // Hide the "Select to Workshop" button
         const btn = selectedCard.querySelector('.approve-btn');
@@ -3820,13 +3825,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const chat = new ChatWindow({
             threadId, inputId, sendBtnId,
             onSend: async (_text, history) => {
+                const showWorking = () => {
+                    const el = document.createElement('div');
+                    el.className = 'chat-message chat-message-working';
+                    el.innerHTML = 'Applying changes <div class="chat-working-dots"><span></span><span></span><span></span></div>';
+                    chat.thread.appendChild(el);
+                    chat.thread.scrollTop = chat.thread.scrollHeight;
+                    return el;
+                };
+
                 if (pendingRevision) {
                     pendingRevision = false;
                     chat.setDisabled(true);
+                    const indicator = showWorking();
                     try {
                         await executeRevision(pendingNotes);
+                        indicator.remove();
                         chat.append('ai', 'Done. Review the changes above, then approve when ready.');
                     } catch (err) {
+                        indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
                     } finally {
                         chat.setDisabled(false);
@@ -3854,10 +3871,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.suggest_plan && data.execute_immediately) {
                     // Clear directive — execute revision immediately, no confirmation needed
                     chat.setDisabled(true);
+                    const indicator = showWorking();
                     try {
                         await executeRevision(data.message);
+                        indicator.remove();
                         chat.append('ai', 'Done. Review the changes above, then approve when ready.');
                     } catch (err) {
+                        indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
                     } finally {
                         chat.setDisabled(false);
@@ -4036,6 +4056,34 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnNextScene) btnNextScene.classList.remove('hidden');
         }
     });
+
+    // ─── STAGE CHAT RESIZERS (Stages 1–7) ───────────────────────────────────
+    for (let s = 1; s <= 7; s++) {
+        const hsplit = document.getElementById(`stage${s}-hsplit`);
+        const chatEl = document.getElementById(`stage${s}-chat`);
+        if (!hsplit || !chatEl) continue;
+        const storageKey = `stageChatH${s}`;
+        const saved = parseInt(localStorage.getItem(storageKey) || '280');
+        chatEl.style.height = `${saved}px`;
+        hsplit.addEventListener('mousedown', e => {
+            e.preventDefault();
+            hsplit.classList.add('dragging');
+            const startY = e.clientY;
+            const startH = chatEl.offsetHeight;
+            const onMove = ev => {
+                const newH = Math.min(600, Math.max(120, startH + (startY - ev.clientY)));
+                chatEl.style.height = `${newH}px`;
+                localStorage.setItem(storageKey, newH);
+            };
+            const onUp = () => {
+                hsplit.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
 
     // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
 
