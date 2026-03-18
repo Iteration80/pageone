@@ -182,21 +182,10 @@ body {
 }
 
 .workspace-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    flex-shrink: 0;
     background: var(--bg-color);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    margin: -28px -60px 0;
-    padding: 28px 60px 20px;
-}
-
-/* Stage 7's header lives inside .draft-editor-container which has no padding,
-   so the negative-margin compensation is not needed there */
-.draft-editor-container .workspace-header {
-    margin: 0;
-    padding-bottom: 20px;
-    background: #111827; /* bg-gray-900 matches the editor pane */
+    padding: 20px 60px;
 }
 
 .workspace-header h1 {

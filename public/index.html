@@ -63,15 +63,14 @@
 
         <!-- Main Workspace (Stage 1) -->
         <main id="stage-1-view" class="workspace">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 1: Pitch Generation</h1>
+                    <p>Brainstorm three distinct, high-concept movie pitch options.</p>
+                </div>
+                <button id="btn-stage1-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 1: Pitch Generation</h1>
-                        <p>Brainstorm three distinct, high-concept movie pitch options.</p>
-                    </div>
-                    <button id="btn-stage1-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                </header>
-
                 <section class="prompt-section">
                     <textarea id="promptInput"
                         class="w-full bg-transparent border-none resize-none overflow-hidden text-gray-300"
@@ -131,15 +130,14 @@
 
         <!-- Stage 2 Workspace (Hidden by default) -->
         <main id="stage-2-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 2: Outline</h1>
+                    <p>Expand your finalized pitch into a structured 8-sequence outline.</p>
+                </div>
+                <button id="btn-stage2-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 2: Outline</h1>
-                        <p>Expand your finalized pitch into a structured 8-sequence outline.</p>
-                    </div>
-                    <button id="btn-stage2-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                </header>
-
                 <!-- Loading State for Outline -->
                 <div id="loadingStateOutline" class="loading-state hidden">
                     <div class="spinner"></div>
@@ -199,15 +197,14 @@
 
         <!-- Main Workspace (Stage 3) -->
         <main id="stage-3-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 3: Characters</h1>
+                    <p>Develop deep, psychologically grounded character profiles based on your story.</p>
+                </div>
+                <button id="btn-stage3-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 3: Characters</h1>
-                        <p>Develop deep, psychologically grounded character profiles based on your story.</p>
-                    </div>
-                    <button id="btn-stage3-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                </header>
-
                 <!-- Character cards injected here -->
                 <div id="loadingStateCharacters" class="loading-state hidden">
                     <div class="spinner"></div>
@@ -247,15 +244,14 @@
 
         <!-- Main Workspace (Stage 4) -->
         <main id="stage-4-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 4: Beats</h1>
+                    <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
+                </div>
+                <button id="btn-stage4-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 4: Beats</h1>
-                        <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
-                    </div>
-                    <button id="btn-stage4-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                </header>
-
                 <div id="treatmentActions" class="action-row" style="margin-bottom: 24px;">
                     <button id="generateTreatmentBtn" class="primary-btn">Generate Treatment</button>
                 </div>
@@ -299,15 +295,14 @@
         <!-- Placeholder Workspace (Stage 5) -->
         <!-- Stage 5: Treatment Workspace -->
         <main id="stage-5-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 5: Treatment</h1>
+                    <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
+                </div>
+                <button id="btnStage5Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 5: Treatment</h1>
-                        <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
-                    </div>
-                    <button id="btnStage5Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                </header>
-
                 <!-- Loading State for Treatment -->
                 <div id="loadingStateStage5" class="loading-state hidden">
                     <div class="spinner"></div>
@@ -394,25 +389,24 @@
 
         <!-- Stage 6: Scenes (Scene Blueprint) -->
         <main id="stage-6-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 6: Scene Blueprint</h1>
+                    <p>Manage and refine individual scenes organized by sequence.</p>
+                </div>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadScenes" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Scenes
+                    </button>
+                    <button id="btnStage6Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                    <div>
-                        <h1>Stage 6: Scene Blueprint</h1>
-                        <p>Manage and refine individual scenes organized by sequence.</p>
-                    </div>
-                    <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
-                        <button id="btnDownloadScenes" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Download Scenes
-                        </button>
-                        <button id="btnStage6Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
-                    </div>
-                </header>
-
                 <!-- Loading State for Scene Blueprint -->
                 <div id="loadingStateStage6" class="loading-state hidden">
                     <div class="spinner"></div>
@@ -442,16 +436,16 @@
 
         <!-- Stage 7: Draft -->
         <main id="stage7-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 7: Draft</h1>
+                    <p>Write the first draft of your screenplay using standard formatting.</p>
+                </div>
+                <button id="btnStage7Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+            </header>
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
                 <div class="flex-1 bg-gray-900 overflow-y-auto draft-editor-container scrollbar-hide">
-                    <header class="workspace-header" style="padding: 28px 60px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                        <div>
-                            <h1>Stage 7: Draft</h1>
-                            <p>Write the first draft of your screenplay using standard formatting.</p>
-                        </div>
-                        <button id="btnStage7Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
-                    </header>
                     <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto">
                         <!-- Generation Control Bar -->
                         <div class="max-w-4xl mx-auto flex items-center justify-between mb-4">
@@ -511,13 +505,13 @@
 
         <!-- Stage 8: Coverage -->
         <main id="stage-8-view" class="workspace hidden">
+            <header class="workspace-header">
+                <h1>Stage 8: Coverage</h1>
+                <p id="stage8-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
+            </header>
 
             <!-- Loading State -->
             <div id="stage8-loading" class="workspace-scrollable hidden">
-                <header class="workspace-header">
-                    <h1>Stage 8: Coverage</h1>
-                    <p class="text-sm text-gray-500 mt-1">Running 3 independent analyses and building consensus report...</p>
-                </header>
                 <div class="flex flex-col items-center justify-center mt-24 gap-4">
                     <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <p class="text-gray-400 text-sm">This runs 3 parallel analyses then consolidates into a consensus report. May take 2–3 minutes...</p>
@@ -526,10 +520,6 @@
 
             <!-- Report Display -->
             <div id="stage8-report" class="workspace-scrollable hidden">
-                <header class="workspace-header">
-                    <h1>Stage 8: Coverage</h1>
-                    <p>Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
-                </header>
                 <div id="stage8-content" class="max-w-3xl mx-auto px-8 pb-32 space-y-6"></div>
             </div>
 
@@ -552,10 +542,6 @@
 
             <!-- Loading State -->
             <div id="stage9-loading" class="workspace-scrollable hidden">
-                <header class="workspace-header">
-                    <h1>Stage 9: Rewrite</h1>
-                    <p class="text-sm text-gray-500 mt-1">Preparing your rewrite workspace...</p>
-                </header>
                 <div class="flex flex-col items-center justify-center mt-24 gap-4">
                     <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <p class="text-gray-400 text-sm">Loading scene drafts...</p>
@@ -567,7 +553,7 @@
 
                 <!-- Stage Header -->
                 <div class="border-b border-white/10 bg-gray-950 shrink-0" style="padding: 28px 60px">
-                    <div class="workspace-header" style="margin-bottom:0">
+                    <div class="workspace-header" style="padding:0;margin:0">
                         <h1>Stage 9: Rewrite</h1>
                         <p>Work with the assistant to address coverage priorities, scene by scene.</p>
                     </div>
@@ -650,11 +636,11 @@
 
         <!-- Placeholder Workspace (Stage 10) -->
         <main id="stage-10-view" class="workspace hidden">
+            <header class="workspace-header">
+                <h1>Stage 10: Polish</h1>
+                <p>Finalize your screenplay for submission.</p>
+            </header>
             <div class="workspace-scrollable">
-                <header class="workspace-header">
-                    <h1>Stage 10: Polish</h1>
-                    <p>Finalize your screenplay for submission.</p>
-                </header>
             </div>
         </main>
     </div>
