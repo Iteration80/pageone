@@ -707,16 +707,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleStage1EditMode(isApproved) {
         const expandedCard = document.querySelector('.pitch-card.expanded');
-        if (expandedCard) {
-            const fields = expandedCard.querySelectorAll('.field-group .editable-field');
-            fields.forEach(f => f.disabled = isApproved);
-        }
-        if (stage1Notes) stage1Notes.disabled = isApproved;
+        const allFields = expandedCard
+            ? [...expandedCard.querySelectorAll('.field-group .editable-field')]
+            : [];
+        if (stage1Notes) allFields.push(stage1Notes);
 
         if (isApproved) {
+            // Fields stay editable — first keystroke auto-exits approved state
+            allFields.forEach(f => {
+                if (f._approveResetHandler) {
+                    f.removeEventListener('input', f._approveResetHandler);
+                }
+                f._approveResetHandler = () => toggleStage1EditMode(false);
+                f.addEventListener('input', f._approveResetHandler, { once: true });
+            });
             if (btnStage1Revise) btnStage1Revise.classList.add('hidden');
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
+            if (btnStage1Approve) {
+                btnStage1Approve.textContent = 'Approved ✓';
+                btnStage1Approve.classList.add('approve-btn-green');
+                btnStage1Approve.disabled = true;
+            }
         } else {
+            // Clean up any pending auto-reset listeners
+            allFields.forEach(f => {
+                if (f._approveResetHandler) {
+                    f.removeEventListener('input', f._approveResetHandler);
+                    delete f._approveResetHandler;
+                }
+            });
             if (btnStage1Revise) {
                 btnStage1Revise.classList.remove('hidden');
                 btnStage1Revise.disabled = false;
@@ -1017,6 +1036,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide the workshop so no old buttons show
         if (stage2Workshop) stage2Workshop.classList.add('hidden');
+
+        // Reset approve button — generation is starting, nothing is approved yet
+        if (btnStage2Approve) {
+            btnStage2Approve.textContent = 'Approve';
+            btnStage2Approve.classList.remove('approve-btn-green');
+            btnStage2Approve.classList.add('hidden');
+        }
 
         loadingStateOutline.classList.remove('hidden');
         document.getElementById('act1Container').innerHTML = '';
@@ -1494,6 +1520,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function autoGenerateCharacters() {
         if (!activeProjectId) return;
 
+        if (btnStage3Approve) {
+            btnStage3Approve.textContent = 'Approve';
+            btnStage3Approve.classList.remove('approve-btn-green');
+            btnStage3Approve.classList.add('hidden');
+        }
+
         loadingStateCharacters.classList.remove('hidden');
         charactersContainer.classList.add('hidden');
 
@@ -1855,6 +1887,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function autoGenerateTreatment() {
         if (!activeProjectId) return;
 
+        if (btnStage4Approve) {
+            btnStage4Approve.textContent = 'Approve';
+            btnStage4Approve.classList.remove('approve-btn-green');
+            btnStage4Approve.classList.add('hidden');
+        }
+
         if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
 
         // Kill the workshop bar during generation
@@ -2167,6 +2205,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function autoGenerateTreatmentStage5() {
         if (!activeProjectId) return;
+
+        if (btnStage5Approve) {
+            btnStage5Approve.textContent = 'Approve';
+            btnStage5Approve.classList.remove('approve-btn-green');
+            btnStage5Approve.classList.add('hidden');
+        }
 
         // Clear Stage 5 content
         if (loadingStateStage5) loadingStateStage5.classList.remove('hidden');
@@ -2616,6 +2660,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function generateStage6() {
         if (!activeProjectId) return;
+
+        if (btnStage6Approve) {
+            btnStage6Approve.textContent = 'Approve';
+            btnStage6Approve.classList.remove('approve-btn-green');
+            btnStage6Approve.classList.add('hidden');
+        }
 
         // Clear old content and show loading state
         if (stage6Board) stage6Board.innerHTML = '';
@@ -3919,10 +3969,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             : data.result[key];
                     }
                 });
-                if (btnStage1Approve) { btnStage1Approve.textContent = 'Approve'; btnStage1Approve.classList.remove('approve-btn-green'); }
+                toggleStage1EditMode(false);
                 // Auto-save revised pitch so changes survive a refresh
                 const updatedPitch = {};
                 currentFields.forEach(f => { updatedPitch[f.getAttribute('data-field')] = f.value; });
+                if (window.currentProjectData) window.currentProjectData.stage1_pitch = { pitch: updatedPitch };
                 await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
