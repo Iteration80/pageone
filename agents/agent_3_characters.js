@@ -1,49 +1,52 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
-// Initialize the Google Gen AI SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
 
-const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage3_characters.md');
     const charactersSOP = fs.readFileSync(skillPath, 'utf8');
 
     const characterSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         required: ['characters'],
         properties: {
             characters: {
-                type: Type.ARRAY,
+                type: 'array',
                 items: {
-                    type: Type.OBJECT,
+                    type: 'object',
                     required: ['name', 'role', 'brief_summary', 'psychological_core', 'voice_and_behavior', 'subtlety_guidelines'],
                     properties: {
-                        name: { type: Type.STRING },
-                        role: { type: Type.STRING, description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
-                        brief_summary: { type: Type.STRING, description: "A punchy, 2-sentence bio encapsulating who they are, their occupation/status, and their exact narrative function." },
+                        name: { type: 'string' },
+                        role: { type: 'string', description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
+                        brief_summary: { type: 'string', description: "A punchy, 2-sentence bio encapsulating who they are, their occupation/status, and their exact narrative function." },
                         psychological_core: {
-                            type: Type.OBJECT,
+                            type: 'object',
                             required: ['ghost_and_wound', 'the_lie', 'fear', 'desire', 'psychological_need', 'moral_need'],
                             properties: {
-                                ghost_and_wound: { type: Type.STRING, description: "The specific traumatic past event that still haunts them and caused an unhealed psychological injury." },
-                                the_lie: { type: Type.STRING, description: "The false worldview adopted to protect them from the Ghost — a belief that once served them but now holds them back." },
-                                fear: { type: Type.STRING },
-                                desire: { type: Type.STRING, description: "A highly specific, visible, and trackable external goal they are chasing." },
-                                psychological_need: { type: Type.STRING, description: "The internal flaw they must overcome that is hurting themselves." },
-                                moral_need: { type: Type.STRING, description: "The internal flaw they must overcome that is actively hurting others." }
+                                ghost_and_wound: { type: 'string', description: "The specific traumatic past event that still haunts them and caused an unhealed psychological injury." },
+                                the_lie: { type: 'string', description: "The false worldview adopted to protect them from the Ghost — a belief that once served them but now holds them back." },
+                                fear: { type: 'string' },
+                                desire: { type: 'string', description: "A highly specific, visible, and trackable external goal they are chasing." },
+                                psychological_need: { type: 'string', description: "The internal flaw they must overcome that is hurting themselves." },
+                                moral_need: { type: 'string', description: "The internal flaw they must overcome that is actively hurting others." }
                             }
                         },
                         voice_and_behavior: {
-                            type: Type.OBJECT,
+                            type: 'object',
                             required: ['speech_patterns', 'deflection_tactic', 'paradox'],
                             properties: {
-                                speech_patterns: { type: Type.STRING, description: "How they talk and what they NEVER say." },
-                                deflection_tactic: { type: Type.STRING, description: "Their go-to deflection when they don't want to answer honestly." },
-                                paradox: { type: Type.STRING, description: "A contradictory trait that defies stereotypes and adds complex layers (e.g., a tough cop who writes poetry)." }
+                                speech_patterns: { type: 'string', description: "How they talk and what they NEVER say." },
+                                deflection_tactic: { type: 'string', description: "Their go-to deflection when they don't want to answer honestly." },
+                                paradox: { type: 'string', description: "A contradictory trait that defies stereotypes and adds complex layers (e.g., a tough cop who writes poetry)." }
                             }
                         },
-                        subtlety_guidelines: { type: Type.STRING, description: "How they mask their flaws 90% of the time, and what behavioral contradiction surfaces under stress." }
+                        subtlety_guidelines: { type: 'string', description: "How they mask their flaws 90% of the time, and what behavioral contradiction surfaces under stress." }
                     }
                 }
             }
@@ -62,15 +65,14 @@ ${JSON.stringify(currentCharacters, null, 2)}
 
 Please apply the note surgically and return the full updated character list in JSON format.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.3,
-                responseMimeType: "application/json",
-                responseSchema: characterSchema,
-            }
+            },
+            schema: characterSchema
         });
 
         return JSON.parse(response.text);
@@ -96,16 +98,15 @@ Please apply the note surgically and return the full updated character list in J
     }
     contents.push(contentsText);
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents,
         config: {
-            systemInstruction: systemInstruction,
+            systemInstruction,
             temperature: 0.6,
             thinkingConfig: { thinkingLevel: 'HIGH' },
-            responseMimeType: "application/json",
-            responseSchema: characterSchema,
-        }
+        },
+        schema: characterSchema
     });
 
     return JSON.parse(response.text);

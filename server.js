@@ -2,6 +2,31 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
+
+// ─── Settings (BYOK + per-stage model config) ─────────────────────────────────
+const SETTINGS_PATH = path.join(__dirname, 'data', 'settings.json');
+let appSettings = {};
+
+async function loadSettings() {
+    try {
+        const raw = await fs.readFile(SETTINGS_PATH, 'utf-8');
+        appSettings = JSON.parse(raw);
+        console.log('Settings loaded from data/settings.json');
+    } catch {
+        appSettings = {}; // file doesn't exist yet — fall back to .env
+    }
+}
+
+/** Returns the model + API keys to use for a given stage number (1–9). */
+function getModelConfig(stageNum) {
+    return {
+        model: appSettings.stageModels?.[`stage${stageNum}`] || process.env.GEMINI_MODEL,
+        geminiApiKey: appSettings.geminiApiKey || process.env.GEMINI_API_KEY,
+        anthropicApiKey: appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+    };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
 const { agent2Outline } = require('./agents/agent_2_outline');
@@ -33,6 +58,7 @@ async function initDb() {
     }
 }
 initDb();
+loadSettings();
 
 // Middleware
 app.use(express.static('public'));
@@ -47,7 +73,7 @@ app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
         // Validation removed to allow random pitch generation if both are empty
 
         console.log("Generating pitch options...");
-        const result = await agent1Pitch(prompt, pdfFile);
+        const result = await agent1Pitch(prompt, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing agent:", error);
@@ -68,7 +94,7 @@ app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
         const parsedPitch = typeof currentPitch === 'string' ? JSON.parse(currentPitch) : currentPitch;
 
         console.log("Revising pitch...");
-        const result = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile);
+        const result = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing refine agent:", error);
@@ -102,7 +128,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         const parsedBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
 
         console.log("Generating Stage 2 Outline...");
-        const outlineData = await agent2Outline(stage1, parsedBeats, notes, pdfFile);
+        const outlineData = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfig(2));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -146,7 +172,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         const parsedChars = currentCharacters ? (typeof currentCharacters === 'string' ? JSON.parse(currentCharacters) : currentCharacters) : null;
 
         console.log("Generating Stage 3 Characters...");
-        const characterData = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile);
+        const characterData = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfig(3));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
@@ -201,7 +227,8 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         console.log("Generating Stage 4 Beats...");
         const beatsResult = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
-            (label) => send({ type: 'progress', label })
+            (label) => send({ type: 'progress', label }),
+            getModelConfig(4)
         );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
@@ -259,7 +286,8 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
         console.log("Generating Stage 5 Chained Treatment...");
         const result = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notes,
-            (step, total, label) => send({ type: 'progress', step, total, label })
+            (step, total, label) => send({ type: 'progress', step, total, label }),
+            getModelConfig(5)
         );
 
         projectData.data = projectData.data || {};
@@ -319,7 +347,8 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
         const allSequences = await generateStage6Scenes(
             pitch, characters, beats, treatment,
             (current, total) => send({ type: 'progress', current, total }),
-            sourceAuthorityBlock
+            sourceAuthorityBlock,
+            getModelConfig(6)
         );
 
         projectData.data = projectData.data || {};
@@ -358,7 +387,7 @@ app.post('/api/revise-stage6', async (req, res) => {
         }
 
         console.log("Revising Stage 6 Scene Blueprint...");
-        const updatedBlueprint = await reviseStage6Scenes(currentBlueprint, feedback);
+        const updatedBlueprint = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfig(6));
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
@@ -418,7 +447,7 @@ app.post('/api/generate-draft', async (req, res) => {
         };
 
         console.log(`Generating draft for Scene ${sceneNumber}...`);
-        const draftText = await generateSceneDraft(targetedScene, projectContext);
+        const draftText = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7));
 
         console.log(`Humanizing draft for Scene ${sceneNumber}...`);
         const humanizedText = await humanizeDraft(draftText);
@@ -477,7 +506,7 @@ app.post('/api/revise-draft', async (req, res) => {
         };
 
         console.log(`Revising draft for Scene ${sceneNumber}...`);
-        const draftText = await generateSceneDraft(targetedScene, projectContext, feedback);
+        const draftText = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7));
 
         console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
         const humanizedText = await humanizeDraft(draftText);
@@ -546,7 +575,7 @@ app.post('/api/generate-coverage', async (req, res) => {
         };
 
         console.log(`Generating Stage 8 Coverage for project ${projectId}...`);
-        const coverageResult = await agent8Coverage(fullScriptText, projectContext);
+        const coverageResult = await agent8Coverage(fullScriptText, projectContext, getModelConfig(8));
 
         projectData.data = projectData.data || {};
         projectData.data.stage8_coverage = coverageResult;
@@ -877,7 +906,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }).then(proposed => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed }));
+                }, '', getModelConfig(9)).then(proposed => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed }));
             })
         );
 
@@ -937,7 +966,7 @@ app.post('/api/rewrite-scene-feedback', async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const proposed_text = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback);
+        const proposed_text = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(9));
         res.json({ proposed_text });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
@@ -963,6 +992,33 @@ app.post('/api/finalize-stage9', async (req, res) => {
     } catch (error) {
         console.error('finalize-stage9 error:', error.message);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Settings Routes --- //
+
+app.get('/api/settings', (req, res) => {
+    res.json({
+        geminiApiKey: appSettings.geminiApiKey ? '***' : '',
+        anthropicApiKey: appSettings.anthropicApiKey ? '***' : '',
+        stageModels: appSettings.stageModels || {}
+    });
+});
+
+app.post('/api/settings', async (req, res) => {
+    try {
+        const { geminiApiKey, anthropicApiKey, stageModels } = req.body;
+        // Only update keys that were actually changed (don't overwrite with masked placeholder)
+        if (geminiApiKey && geminiApiKey !== '***') appSettings.geminiApiKey = geminiApiKey;
+        if (anthropicApiKey && anthropicApiKey !== '***') appSettings.anthropicApiKey = anthropicApiKey;
+        if (stageModels) appSettings.stageModels = stageModels;
+
+        await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+        await fs.writeFile(SETTINGS_PATH, JSON.stringify(appSettings, null, 2));
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('Failed to save settings:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

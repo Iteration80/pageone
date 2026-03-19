@@ -1,9 +1,23 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 
-// Initialize with explicit API key to avoid SDK options undefined bug
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const pitchSchema = {
+    type: 'object',
+    properties: {
+        title: { type: 'string' },
+        logline: { type: 'string' },
+        genre: { type: 'string' },
+        core_theme: { type: 'string' },
+        synopsis: { type: 'string' }
+    },
+    required: ["title", "logline", "genre", "core_theme", "synopsis"]
+};
 
-const agent1Refine = async (currentPitch, userNote, pdfFile) => {
+const agent1Refine = async (currentPitch, userNote, pdfFile, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
 
     // Revision Bypass Logic
     if (userNote && currentPitch) {
@@ -17,25 +31,14 @@ ${JSON.stringify(currentPitch, null, 2)}
 
 Please apply the note surgically and return the full updated pitch in JSON format. Ensure you do not change anything else.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.4,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        logline: { type: Type.STRING },
-                        genre: { type: Type.STRING },
-                        core_theme: { type: Type.STRING },
-                        synopsis: { type: Type.STRING }
-                    },
-                    required: ["title", "logline", "genre", "core_theme", "synopsis"]
-                }
-            }
+            },
+            schema: pitchSchema
         });
 
         const rawText = response.text;
@@ -45,26 +48,15 @@ Please apply the note surgically and return the full updated pitch in JSON forma
 
     const contents = [];
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents,
         config: {
             temperature: 0.2, // surgical edits
             thinkingConfig: { thinkingLevel: "HIGH" },
             systemInstruction: "You are an elite Hollywood Creative Executive. The user will provide an existing movie pitch in JSON format, along with a specific note. Revise the pitch to incorporate the note. CRITICAL: ONLY alter the specific elements of the pitch that are directly affected by the user's note. Preserve the original wording, tone, title, and concepts exactly as they are unless the note explicitly requires changing them. Output the revised pitch strictly according to the defined JSON schema.",
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING },
-                    logline: { type: Type.STRING },
-                    genre: { type: Type.STRING },
-                    core_theme: { type: Type.STRING },
-                    synopsis: { type: Type.STRING }
-                },
-                required: ["title", "logline", "genre", "core_theme", "synopsis"]
-            }
-        }
+        },
+        schema: pitchSchema
     });
 
     // CRITICAL SDK SYNTAX: Extract the text using const rawText = response.text; (no parentheses).

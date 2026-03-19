@@ -26,6 +26,28 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 
 ---
 
+## Recent Changes
+
+### 2026-03-19 — BYOK Settings + Per-Stage Model Selection
+Full multi-provider settings system shipped. Key changes:
+
+- **`agents/ai-client.js`** (new) — unified wrapper supporting Gemini (`gemini-*`) and Anthropic (`claude-*`) providers. Detects provider from model name prefix. Handles content format conversion, PDF inline data, JSON schema enforcement (native on Gemini, system-prompt injection on Claude). Gemini-only features (`googleSearch` tool, `thinkingConfig`) are silently dropped for Claude.
+- **All 11 agent files** migrated from direct `GoogleGenAI` SDK to `ai-client.js`. Each accepts `modelConfig = {}` as last optional param (`model`, `geminiApiKey`, `anthropicApiKey`) with `.env` as fallback. `agent_humanizer.js` intentionally left unchanged (hardcoded flash model).
+- **`server.js`** — `loadSettings()` at startup reads `data/settings.json`; `getModelConfig(stageNum)` returns the right model+keys per stage; `GET /api/settings` and `POST /api/settings` endpoints added; all agent call sites updated.
+- **`data/settings.json`** (gitignored) — stores `geminiApiKey`, `anthropicApiKey`, and `stageModels.stage1`–`stage9`.
+- **Frontend** — gear icon in sidebar footer + hub header opens a settings modal with API key fields and per-stage model dropdowns (Gemini 3.1 Pro, Gemini 2.0 Flash, Claude Opus 4.6, Claude Sonnet 4.6, Claude Haiku 4.5).
+- **`.gitignore`** created covering `.env`, `data/settings.json`, `data/projects/`, `node_modules/`.
+
+**Architecture notes:**
+- Coverage consolidator (`agent_8_coverage.js`) always uses hardcoded `gemini-3-flash-preview` — intentional cost optimization, not user-configurable.
+- `.env` remains fully functional as fallback if no `settings.json` exists.
+- Settings changes take effect immediately (no restart needed) — `appSettings` is updated in-memory on POST.
+
+### 2026-03-18 — Gemini model name made configurable
+All 19 hardcoded `'gemini-3.1-pro-preview'` strings across `agents/*.js` replaced with `process.env.GEMINI_MODEL`. (Superseded by per-stage model selection above.)
+
+---
+
 ## Meta-Skill: Task Observer
 
 At the start of any task-oriented session — any interaction where you will use tools and produce deliverables — activate the Task Observer protocol below.

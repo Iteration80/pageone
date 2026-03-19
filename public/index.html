@@ -19,7 +19,12 @@
                 <div class="logo-badge">P1</div>
                 <div class="logo-text">PageOne Hub</div>
             </div>
-            <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button id="btnOpenSettingsHub" class="icon-btn" title="Settings" style="padding:8px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
+            </div>
         </header>
         <main class="hub-workspace">
             <h2>Your Projects</h2>
@@ -57,6 +62,9 @@
                         <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
+                </button>
+                <button id="btnOpenSettings" class="sidebar-home-btn" title="Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
             </div>
         </aside>
@@ -665,6 +673,39 @@
             <div class="modal-actions">
                 <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
                 <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:560px;max-height:80vh;overflow-y:auto">
+            <h3>Settings</h3>
+
+            <section style="margin-bottom:24px">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
+                <label style="display:block;margin-bottom:12px">
+                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Gemini API Key</span>
+                    <input type="password" id="settings-gemini-key" class="modal-input" style="width:100%"
+                           placeholder="AIza... (leave blank to keep existing)" autocomplete="off">
+                </label>
+                <label style="display:block">
+                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Anthropic API Key</span>
+                    <input type="password" id="settings-anthropic-key" class="modal-input" style="width:100%"
+                           placeholder="sk-ant-... (leave blank to keep existing)" autocomplete="off">
+                </label>
+            </section>
+
+            <section>
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">Model Per Stage</h4>
+                <div id="settings-stage-models" style="display:flex;flex-direction:column;gap:8px">
+                    <!-- Injected by JS -->
+                </div>
+            </section>
+
+            <div class="modal-actions" style="margin-top:24px">
+                <button id="cancelSettingsBtn" class="secondary-btn">Cancel</button>
+                <button id="saveSettingsBtn" class="primary-btn">Save</button>
             </div>
         </div>
     </div>

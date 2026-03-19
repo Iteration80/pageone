@@ -1,31 +1,34 @@
-const { GoogleGenAI, Type } = require('@google/genai');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const { generateContent } = require('./ai-client');
 
 /**
  * Stage 6 Revision Agent
  * Modifies an existing Stage 6 Scene Blueprint based on user feedback.
  */
-const reviseStage6Scenes = async (currentBlueprint, feedback) => {
-    
+const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
     // Strict JSON Schema matching agent_6_scenes.js
     const sequenceSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            sequence_number: { type: Type.NUMBER },
-            sequence_title: { type: Type.STRING },
-            total_estimated_pages: { type: Type.NUMBER },
+            sequence_number: { type: 'number' },
+            sequence_title: { type: 'string' },
+            total_estimated_pages: { type: 'number' },
             scenes: {
-                type: Type.ARRAY,
+                type: 'array',
                 description: 'An array of scenes.',
                 items: {
-                    type: Type.OBJECT,
+                    type: 'object',
                     properties: {
-                        scene_number: { type: Type.NUMBER },
-                        scene_heading: { type: Type.STRING },
-                        narrative_action: { type: Type.STRING },
-                        dramaturgical_function: { type: Type.STRING },
-                        estimated_page_count: { type: Type.NUMBER }
+                        scene_number: { type: 'number' },
+                        scene_heading: { type: 'string' },
+                        narrative_action: { type: 'string' },
+                        dramaturgical_function: { type: 'string' },
+                        estimated_page_count: { type: 'number' }
                     },
                     required: ['scene_number', 'scene_heading', 'narrative_action', 'dramaturgical_function', 'estimated_page_count']
                 }
@@ -36,7 +39,7 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
 
     // The root schema is an array of these sequences
     const rootSchema = {
-        type: Type.ARRAY,
+        type: 'array',
         items: sequenceSchema
     };
 
@@ -45,8 +48,6 @@ const reviseStage6Scenes = async (currentBlueprint, feedback) => {
 
 CRITICAL: ONLY modify the specific scenes required by the feedback. You MUST return the entire JSON structure, keeping all unaffected sequences and scenes absolutely verbatim.`,
         temperature: 0.5,
-        responseMimeType: 'application/json',
-        responseSchema: rootSchema
     };
 
     const prompt = `CURRENT SCENE BLUEPRINT (JSON):
@@ -58,10 +59,11 @@ ${feedback}
 OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON array. Ensure ONLY the target areas are changed.`;
 
     try {
-        const result = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const result = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config
+            config,
+            schema: rootSchema
         });
 
         let updatedData = JSON.parse(result.text);
@@ -84,7 +86,7 @@ OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON arr
         // POST-PROCESSING: renumber scenes sequentially and restore lost fields
         let count = 1;
         updatedData.forEach((sequence, idx) => {
-            // Restore sequence_number (1-based index) in case Gemini dropped or changed it
+            // Restore sequence_number (1-based index) in case it was dropped or changed
             sequence.sequence_number = idx + 1;
 
             if (sequence.scenes && Array.isArray(sequence.scenes)) {

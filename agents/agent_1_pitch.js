@@ -1,10 +1,12 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 
-// Initialize the Google Gen AI SDK
-// Initialize with explicit API key to avoid SDK options undefined bug
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
 
-const agent1Pitch = async (prompt, pdfFile) => {
     const contents = [];
     if (pdfFile) {
         contents.push({
@@ -24,35 +26,34 @@ const agent1Pitch = async (prompt, pdfFile) => {
     }
 
     const pitchItemSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            title: { type: Type.STRING },
-            logline: { type: Type.STRING },
-            genre: { type: Type.STRING },
-            core_theme: { type: Type.STRING },
-            synopsis: { type: Type.STRING }
+            title: { type: 'string' },
+            logline: { type: 'string' },
+            genre: { type: 'string' },
+            core_theme: { type: 'string' },
+            synopsis: { type: 'string' }
         },
         required: ["title", "logline", "genre", "core_theme", "synopsis"]
     };
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents,
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
             systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. Do not include conversational filler. You must output your response strictly according to the defined JSON schema. CRITICAL FORMATTING: You MUST separate Act I, Act II, and Act III in the Synopsis with double line breaks (\\n\\n) so they render as distinct paragraphs. Do not output the synopsis as a single block of text.",
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    pitch_options: {
-                        type: Type.ARRAY,
-                        items: pitchItemSchema
-                    }
-                },
-                required: ["pitch_options"]
-            }
+        },
+        schema: {
+            type: 'object',
+            properties: {
+                pitch_options: {
+                    type: 'array',
+                    items: pitchItemSchema
+                }
+            },
+            required: ["pitch_options"]
         }
     });
 

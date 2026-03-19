@@ -1,0 +1,11 @@
+# Environment
+.env
+
+# User settings (API keys — never commit)
+data/settings.json
+
+# Project data
+data/projects/
+
+# Node
+node_modules/

@@ -1,29 +1,32 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
-// Initialize the Google Gen AI SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
 
-const agent2Outline = async (pitchData, currentOutline, notes, pdfFile) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage2_outline.md');
     const outlineSOP = fs.readFileSync(skillPath, 'utf8');
 
     const beatItemSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            beat_label: { type: Type.STRING },
-            description: { type: Type.STRING }
+            beat_label: { type: 'string' },
+            description: { type: 'string' }
         },
         required: ["beat_label", "description"]
     };
 
     const sequenceItemSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            sequence_number_and_title: { type: Type.STRING },
+            sequence_number_and_title: { type: 'string' },
             beats: {
-                type: Type.ARRAY,
+                type: 'array',
                 items: beatItemSchema
             }
         },
@@ -31,17 +34,17 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile) => {
     };
 
     const outlineSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            title: { type: Type.STRING },
-            genre: { type: Type.STRING },
-            logline: { type: Type.STRING },
+            title: { type: 'string' },
+            genre: { type: 'string' },
+            logline: { type: 'string' },
             outline: {
-                type: Type.OBJECT,
+                type: 'object',
                 properties: {
-                    act_1: { type: Type.ARRAY, items: sequenceItemSchema },
-                    act_2: { type: Type.ARRAY, items: sequenceItemSchema },
-                    act_3: { type: Type.ARRAY, items: sequenceItemSchema }
+                    act_1: { type: 'array', items: sequenceItemSchema },
+                    act_2: { type: 'array', items: sequenceItemSchema },
+                    act_3: { type: 'array', items: sequenceItemSchema }
                 },
                 required: ["act_1", "act_2", "act_3"]
             }
@@ -61,15 +64,14 @@ ${JSON.stringify(currentOutline, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated outline in JSON format.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.5,
-                responseMimeType: "application/json",
-                responseSchema: outlineSchema
-            }
+            },
+            schema: outlineSchema
         });
 
         const rawText = response.text;
@@ -96,16 +98,15 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
     }
     contents.push(contentsText);
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents,
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
-            systemInstruction: systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: outlineSchema
-        }
+            systemInstruction,
+        },
+        schema: outlineSchema
     });
 
     const rawText = response.text;

@@ -1,8 +1,10 @@
+const { generateContent } = require('./ai-client');
 const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
 const path = require('path');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Note: consolidateCoverage is initialized lazily so it picks up the API key
+// that may have been set via settings after module load.
 
 const coverageSchema = {
     type: "object",
@@ -95,33 +97,40 @@ const coverageSchema = {
 };
 
 /**
- * Runs a single coverage analysis pass.
+ * Runs a single coverage analysis pass using the configured model.
  */
-const runSingleCoverage = async (prompt, sop) => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
         contents: prompt,
         config: {
             systemInstruction: sop,
             temperature: 0.4,
             thinkingConfig: { thinkingLevel: 'HIGH' },
-            responseMimeType: 'application/json',
-            responseSchema: coverageSchema,
-        }
+        },
+        schema: coverageSchema
     });
     return JSON.parse(response.text);
 };
 
 /**
  * Consolidates 2–3 coverage results into a single consensus report.
+ * Always uses the fast Gemini flash model — intentional cost optimization.
  */
-const consolidateCoverage = async (results) => {
+const consolidateCoverage = async (results, geminiApiKey) => {
     const consolidatorSop = fs.readFileSync(
         path.join(__dirname, '../skills/skill_coverage_consolidator.md'), 'utf8'
     );
     const prompt = `Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
 
-    const response = await ai.models.generateContent({
+    const consolidateAi = new GoogleGenAI({ apiKey: geminiApiKey || process.env.GEMINI_API_KEY });
+    const response = await consolidateAi.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
@@ -140,9 +149,10 @@ const consolidateCoverage = async (results) => {
  *
  * @param {string} fullScriptText - All scene drafts concatenated in order
  * @param {object} projectContext - { title, genre, logline, synopsis, characters }
+ * @param {object} modelConfig    - { model, geminiApiKey, anthropicApiKey }
  * @returns {Promise<object>} - Structured coverage report
  */
-const agent8Coverage = async (fullScriptText, projectContext) => {
+const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage8_coverage.md'), 'utf8');
 
     const prompt = `
@@ -163,9 +173,9 @@ ${fullScriptText}
 
     console.log('Coverage: running 3 parallel analyses...');
     const settledResults = await Promise.allSettled([
-        runSingleCoverage(prompt, sop),
-        runSingleCoverage(prompt, sop),
-        runSingleCoverage(prompt, sop),
+        runSingleCoverage(prompt, sop, modelConfig),
+        runSingleCoverage(prompt, sop, modelConfig),
+        runSingleCoverage(prompt, sop, modelConfig),
     ]);
 
     const successes = settledResults
@@ -186,7 +196,7 @@ ${fullScriptText}
     }
 
     console.log(`Coverage: ${successes.length} runs succeeded — consolidating...`);
-    return await consolidateCoverage(successes);
+    return await consolidateCoverage(successes, modelConfig.geminiApiKey || process.env.GEMINI_API_KEY);
 };
 
 module.exports = { agent8Coverage };

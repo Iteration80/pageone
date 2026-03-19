@@ -4576,4 +4576,104 @@ document.addEventListener('DOMContentLoaded', () => {
         chevron.classList.toggle('rotate-180', !body.classList.contains('hidden'));
     };
 
+    // ─── Settings Modal ────────────────────────────────────────────────────────
+
+    const MODEL_OPTIONS = [
+        { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+        { value: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash' },
+        { value: 'claude-opus-4-6',          label: 'Claude Opus 4.6' },
+        { value: 'claude-sonnet-4-6',        label: 'Claude Sonnet 4.6' },
+        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    ];
+
+    const STAGE_LABELS = [
+        [1, 'Pitch'], [2, 'Outline'], [3, 'Characters'], [4, 'Beats'],
+        [5, 'Treatment'], [6, 'Scenes'], [7, 'Draft'], [8, 'Coverage'], [9, 'Rewrite']
+    ];
+
+    const settingsModal = document.getElementById('settingsModal');
+
+    function buildModelSelect(stageNum, currentModel) {
+        const select = document.createElement('select');
+        select.id = `settings-model-stage${stageNum}`;
+        select.className = 'modal-input';
+        select.style.cssText = 'flex:1;padding:4px 8px';
+        MODEL_OPTIONS.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            if (opt.value === currentModel) option.selected = true;
+            select.appendChild(option);
+        });
+        return select;
+    }
+
+    async function openSettingsModal() {
+        let settings = { stageModels: {} };
+        try {
+            const res = await fetch('/api/settings');
+            settings = await res.json();
+        } catch (e) {
+            console.warn('Could not load settings:', e);
+        }
+
+        // Never pre-fill API key fields (they show masked values server-side)
+        document.getElementById('settings-gemini-key').value = '';
+        document.getElementById('settings-anthropic-key').value = '';
+
+        // Build per-stage model dropdowns
+        const container = document.getElementById('settings-stage-models');
+        container.innerHTML = '';
+        STAGE_LABELS.forEach(([num, label]) => {
+            const currentModel = settings.stageModels?.[`stage${num}`] || 'gemini-3.1-pro-preview';
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:12px';
+            const lbl = document.createElement('span');
+            lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
+            lbl.textContent = `Stage ${num}: ${label}`;
+            row.appendChild(lbl);
+            row.appendChild(buildModelSelect(num, currentModel));
+            container.appendChild(row);
+        });
+
+        settingsModal.classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+        settingsModal.classList.add('hidden');
+    }
+
+    document.getElementById('btnOpenSettings')?.addEventListener('click', openSettingsModal);
+    document.getElementById('btnOpenSettingsHub')?.addEventListener('click', openSettingsModal);
+    document.getElementById('cancelSettingsBtn')?.addEventListener('click', closeSettingsModal);
+
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+        const geminiApiKey = document.getElementById('settings-gemini-key').value.trim();
+        const anthropicApiKey = document.getElementById('settings-anthropic-key').value.trim();
+
+        const stageModels = {};
+        STAGE_LABELS.forEach(([num]) => {
+            const sel = document.getElementById(`settings-model-stage${num}`);
+            if (sel) stageModels[`stage${num}`] = sel.value;
+        });
+
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ geminiApiKey, anthropicApiKey, stageModels })
+            });
+            if (!res.ok) throw new Error('Save failed');
+            closeSettingsModal();
+        } catch (err) {
+            console.error('Failed to save settings:', err);
+            alert('Failed to save settings. Check the console for details.');
+        }
+    });
+
+    // Close modal when clicking the overlay backdrop
+    settingsModal?.addEventListener('click', (e) => {
+        if (e.target === settingsModal) closeSettingsModal();
+    });
+
 

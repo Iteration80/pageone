@@ -1,14 +1,18 @@
-const { GoogleGenAI } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Stage 7: The Draft Agent
  * Generates one scene at a time based on the blueprint and project context.
  */
-const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null) => {
+const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
     // Read the Screenwriting SOP rules
     const rulesPath = path.join(__dirname, '../skills/skill_stage7_draft.md');
     const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
@@ -42,8 +46,8 @@ Do not include any introductory or concluding text.
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: prompt,
             config: {
                 temperature: 0.7,

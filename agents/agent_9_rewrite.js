@@ -1,8 +1,6 @@
-const { GoogleGenAI } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Stage 9: Scene Rewrite Agent
@@ -13,9 +11,16 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * @param {string} priorityTask      - The specific rewrite instruction to apply
  * @param {object} sceneContext      - { title, sceneNumber, slugline }
  * @param {string} [userFeedback]    - Optional additional user instructions
+ * @param {object} [modelConfig]     - { model, geminiApiKey, anthropicApiKey }
  * @returns {Promise<string>}        - Rewritten (or unchanged) Fountain scene text
  */
-const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '') => {
+const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '', modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_rewrite.md'), 'utf8');
 
     const feedbackSection = userFeedback
@@ -35,8 +40,8 @@ ${sceneText}
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: prompt,
             config: {
                 systemInstruction: sop,

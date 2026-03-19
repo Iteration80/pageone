@@ -1,8 +1,6 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Parses a treatment or beat text into a dictionary keyed by sequence number.
@@ -28,27 +26,35 @@ function parseSequenceBlocks(text) {
  * Uses iterative chunking: each of the 8 API calls receives ONLY the parsed
  * beats and treatment text for its specific sequence, plus the final scene
  * of the preceding sequence as a <previous_sequence_climax> anchor.
+ *
+ * Note: googleSearch tool is Gemini-only and silently dropped when using Claude.
  */
-const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '') => {
+const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '', modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
     const scenesSOP = fs.readFileSync(skillPath, 'utf8');
 
     const sequenceSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            sequence_title: { type: Type.STRING },
-            total_estimated_pages: { type: Type.NUMBER },
+            sequence_title: { type: 'string' },
+            total_estimated_pages: { type: 'number' },
             scenes: {
-                type: Type.ARRAY,
+                type: 'array',
                 description: 'An array of scenes. Provide 8 to 12 scenes based on the natural narrative breaks of the sequence.',
                 items: {
-                    type: Type.OBJECT,
+                    type: 'object',
                     properties: {
-                        scene_number: { type: Type.NUMBER },
-                        scene_heading: { type: Type.STRING },
-                        narrative_action: { type: Type.STRING },
-                        dramaturgical_function: { type: Type.STRING },
-                        estimated_page_count: { type: Type.NUMBER }
+                        scene_number: { type: 'number' },
+                        scene_heading: { type: 'string' },
+                        narrative_action: { type: 'string' },
+                        dramaturgical_function: { type: 'string' },
+                        estimated_page_count: { type: 'number' }
                     },
                     required: ['scene_number', 'scene_heading', 'narrative_action', 'dramaturgical_function', 'estimated_page_count']
                 }
@@ -61,9 +67,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         systemInstruction: scenesSOP,
         temperature: 0.7,
         thinkingConfig: { thinkingLevel: 'HIGH' },
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: sequenceSchema
+        tools: [{ googleSearch: {} }],  // Gemini-only; silently dropped for Claude by ai-client
     };
 
     // --- Middleware Splitter ---
@@ -116,10 +120,11 @@ ${previousSequenceClimax}
 OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action. Return a JSON object for this sequence only.`;
 
         try {
-            const result = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+            const result = await generateContent({
+                model, geminiApiKey, anthropicApiKey,
                 contents: [prompt],
-                config: config
+                config,
+                schema: sequenceSchema
             });
 
             const parsedSeq = JSON.parse(result.text);

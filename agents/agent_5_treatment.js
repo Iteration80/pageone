@@ -1,30 +1,39 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Stage 5 Treatment Agent (Chained Prompt Architecture)
  * Transform pitch, characters, and 8-sequence beats into a granular 4-act treatment.
- * Uses 4 sequential ai.models.generateContent() calls to build the treatment piece by piece.
+ * Uses 4 sequential generateContent() calls to build the treatment piece by piece.
  */
-const agent5Treatment = async (pitchData, charactersData, beatsData, currentTreatment = null, notes = null, onProgress = null) => {
+const agent5Treatment = async (pitchData, charactersData, beatsData, currentTreatment = null, notes = null, onProgress = null, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
     const skillPath = path.join(__dirname, '../skills/skill_stage5_treatment.md');
     const treatmentSOP = fs.readFileSync(skillPath, 'utf8');
 
     const systemInstruction = treatmentSOP;
 
     const treatmentSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            title_logline_characters: { type: Type.STRING },
-            act_1: { type: Type.STRING },
-            act_2a: { type: Type.STRING },
-            act_2b: { type: Type.STRING },
-            act_3: { type: Type.STRING }
+            title_logline_characters: { type: 'string' },
+            act_1: { type: 'string' },
+            act_2a: { type: 'string' },
+            act_2b: { type: 'string' },
+            act_3: { type: 'string' }
         },
         required: ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3']
+    };
+
+    const baseConfig = {
+        systemInstruction,
+        temperature: 0.5,
     };
 
     // Revision Bypass Logic
@@ -40,28 +49,18 @@ ${JSON.stringify(currentTreatment, null, 2)}
 
 Please apply the note surgically and return the full updated treatment in JSON format. Ensure you do not change anything else.`;
 
-        const revisionConfig = {
-            systemInstruction: revisionSystemInstruction,
-            temperature: 0.3,
-            responseMimeType: "application/json",
-            responseSchema: treatmentSchema,
-        };
-
-        const result = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const result = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
-            config: revisionConfig,
+            config: {
+                systemInstruction: revisionSystemInstruction,
+                temperature: 0.3,
+            },
+            schema: treatmentSchema
         });
 
         return JSON.parse(result.text);
     }
-
-    const baseConfig = {
-        systemInstruction: systemInstruction,
-        temperature: 0.5,
-        responseMimeType: "application/json",
-        responseSchema: treatmentSchema,
-    };
 
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)
     console.log("  Chain Step 1/4: Writing Title, Logline, Characters & Act I...");
@@ -74,10 +73,11 @@ BEATS (Sequences 1-2): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave others empty.`;
 
-    const result1 = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+    const result1 = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
         contents: [step1Prompt],
         config: baseConfig,
+        schema: treatmentSchema
     });
     const parsed1 = JSON.parse(result1.text);
 
@@ -94,10 +94,11 @@ BEATS (Sequences 3-4): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
 
-    const result2 = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+    const result2 = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
         contents: [step2Prompt],
         config: baseConfig,
+        schema: treatmentSchema
     });
     const parsed2 = JSON.parse(result2.text);
 
@@ -113,10 +114,11 @@ BEATS (Sequences 5-6): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
 
-    const result3 = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+    const result3 = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
         contents: [step3Prompt],
         config: baseConfig,
+        schema: treatmentSchema
     });
     const parsed3 = JSON.parse(result3.text);
 
@@ -132,10 +134,11 @@ BEATS (Sequences 7-8): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
 
-    const result4 = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+    const result4 = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
         contents: [step4Prompt],
         config: baseConfig,
+        schema: treatmentSchema
     });
     const finalParsed = JSON.parse(result4.text);
 

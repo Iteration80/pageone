@@ -1,36 +1,40 @@
-const { GoogleGenAI, Type } = require('@google/genai');
+const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null, onProgress = null, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
 
-const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null, onProgress = null) => {
     const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
     const beatsSOP = fs.readFileSync(skillPath, 'utf8');
 
     const treatmentSchema = {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-            stc_genre_category: { type: Type.STRING, description: "A short STC genre label, e.g. 'Golden Fleece' or 'Monster in the House'. No explanations." },
+            stc_genre_category: { type: 'string', description: "A short STC genre label, e.g. 'Golden Fleece' or 'Monster in the House'. No explanations." },
             hybrid_beat_sheet: {
-                type: Type.ARRAY,
+                type: 'array',
                 description: "Exactly 8 sequence objects, one per Gulino sequence.",
                 items: {
-                    type: Type.OBJECT,
+                    type: 'object',
                     properties: {
-                        sequence_number: { type: Type.INTEGER, description: "1 through 8." },
-                        sequence_title: { type: Type.STRING, description: "A short title for this sequence, WITHOUT numbering prefix." },
+                        sequence_number: { type: 'integer', description: "1 through 8." },
+                        sequence_title: { type: 'string', description: "A short title for this sequence, WITHOUT numbering prefix." },
                         beats: {
-                            type: Type.ARRAY,
+                            type: 'array',
                             description: "The STC beats that fall within this sequence. Each sequence has 1-3 beats.",
                             items: {
-                                type: Type.OBJECT,
+                                type: 'object',
                                 properties: {
-                                    beat_name: { type: Type.STRING, description: "The standard STC beat name, e.g. 'Opening Image', 'Catalyst', 'Break into Two'." },
-                                    genre_variation_notes: { type: Type.STRING, description: "How this beat is adapted for the specific STC genre." },
-                                    emotional_arc: { type: Type.STRING, description: "The emotional undercurrent running beneath the plot action." },
-                                    pacing_notes: { type: Type.STRING, description: "Pacing rhythm: where to speed up, where to breathe." },
-                                    detailed_action: { type: Type.STRING, description: "A dense paragraph (3+ sentences) detailing the exact narrative action." }
+                                    beat_name: { type: 'string', description: "The standard STC beat name, e.g. 'Opening Image', 'Catalyst', 'Break into Two'." },
+                                    genre_variation_notes: { type: 'string', description: "How this beat is adapted for the specific STC genre." },
+                                    emotional_arc: { type: 'string', description: "The emotional undercurrent running beneath the plot action." },
+                                    pacing_notes: { type: 'string', description: "Pacing rhythm: where to speed up, where to breathe." },
+                                    detailed_action: { type: 'string', description: "A dense paragraph (3+ sentences) detailing the exact narrative action." }
                                 },
                                 required: ['beat_name', 'genre_variation_notes', 'emotional_arc', 'pacing_notes', 'detailed_action']
                             }
@@ -56,15 +60,14 @@ ${JSON.stringify(currentBeats, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated beat sheet in JSON format.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+        const response = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.5,
-                responseMimeType: "application/json",
-                responseSchema: treatmentSchema,
-            }
+            },
+            schema: treatmentSchema
         });
 
         return JSON.parse(response.text);
@@ -105,15 +108,14 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
     }
     contents.push(contentsText);
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: contents,
+    const response = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents,
         config: {
-            systemInstruction: systemInstruction,
+            systemInstruction,
             temperature: 0.6,
-            responseMimeType: "application/json",
-            responseSchema: treatmentSchema,
-        }
+        },
+        schema: treatmentSchema
     });
 
     const parsed = JSON.parse(response.text);
