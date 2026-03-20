@@ -84,6 +84,8 @@ All 19 hardcoded `'gemini-3.1-pro-preview'` strings across `agents/*.js` replace
 
 At the start of any task-oriented session — any interaction where you will use tools and produce deliverables — activate the Task Observer protocol below.
 
+**Monday Auto-Review:** If today is Monday, read `data/skill_observations/log.md` immediately. If any OPEN observations exist, run `/review-skills` before beginning the session's main work.
+
 When working on any PageOne skill file, also check `data/skill_observations/log.md` for OPEN observations tagged to that skill. Apply their insights to the current work, even if the skill file itself hasn't been updated yet.
 
 ---
@@ -98,26 +100,33 @@ When working on any PageOne skill file, also check `data/skill_observations/log.
 2. **Gaps** — When something is fixed manually that the skill should handle automatically.
 3. **Patterns** — When the same type of error recurs across sessions or projects.
 
-#### How to Log (silently, without interrupting the user's flow)
-Append to `data/skill_observations/log.md` using this format:
+#### How to Log
+Use the Write/Edit tool to append to `data/skill_observations/log.md` immediately when a signal is detected — don't batch them up or defer to session end. The tool call itself is fine; just don't interrupt with discussion about it.
+
+Minimal required fields (drop Principle if nothing generalizable):
 
 ```
 ### Observation [N]: [Short title]
 **Status:** OPEN
 **Date:** [YYYY-MM-DD]
-**Skill:** skills/skill_stage[N]_[name].md
+**Skill:** skills/skill_[name].md
 **Signal:** [What happened — user correction, gap noticed, pattern observed]
-**Issue:** [The specific rule or gap that caused or failed to prevent this]
 **Suggested improvement:** [A concrete change to make to the skill file]
-**Principle:** [The generalizable lesson this illustrates]
 ```
 
-Use monotonically increasing observation numbers. Check the log for the highest existing number before appending to avoid collisions.
+Check the log for the highest existing observation number before appending to avoid collisions.
+
+#### Session-End Checkpoint (mandatory)
+Before wrapping up any session where tools were used, do a quick scan:
+- Was any stage regenerated with user feedback notes?
+- Did the user correct Claude's approach mid-task?
+- Was any output manually fixed that a skill should have caught?
+
+If yes to any: append observations now (if not already logged during the session).
+If no: no action needed.
 
 #### When to Surface Observations
 At the end of any session where observations were logged, add a brief note: "I've logged [N] observation(s) to `data/skill_observations/log.md`."
-
-Do not interrupt the user during work to surface observations. Log silently; report at session end.
 
 #### Review Trigger
 When the user runs `/review-skills`, follow the protocol defined in `skills/skill_meta_review.md`.
