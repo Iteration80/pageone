@@ -27,6 +27,7 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ---
 
 ## Recent Changes
+*Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
 ### 2026-03-19 — BYOK Settings + Per-Stage Model Selection
 Full multi-provider settings system shipped. Key changes:
@@ -74,9 +75,6 @@ Root causes fixed per stage:
 - **Stage 2** — `finally` block was re-enabling button after successful approval; load-time hydration wasn't setting `disabled = true`; change-detection listener wasn't setting `disabled = false`
 - **Stages 3, 4** — textarea `input` listeners only called `autoResize()`, never reset the approve button
 - **Stage 6** — same as 3/4, plus `disabled = false` also needed on `renderStage6()` re-render (no `finally` block in approval handler left `disabled` stuck as `true` on nav-back)
-
-### 2026-03-18 — Gemini model name made configurable
-All 19 hardcoded `'gemini-3.1-pro-preview'` strings across `agents/*.js` replaced with `process.env.GEMINI_MODEL`. (Superseded by per-stage model selection above.)
 
 ---
 

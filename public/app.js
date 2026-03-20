@@ -3428,37 +3428,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${slug}_${stage}_${ts}.${ext}`;
     }
 
+    // ── Export helper: triggers a server-generated file download ──────────────
+    async function triggerApiDownload(url, btn) {
+        const orig = btn ? btn.textContent : null;
+        try {
+            if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+            const res = await fetch(url);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Export failed' }));
+                alert(err.error || 'Export failed');
+                return;
+            }
+            const disposition = res.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename="([^"]+)"/);
+            const filename = match ? match[1] : 'export';
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (e) {
+            alert('Export failed: ' + e.message);
+        } finally {
+            if (btn && orig) { btn.disabled = false; btn.textContent = orig; }
+        }
+    }
+
     const btnDownloadOutline = document.getElementById('btnDownloadOutline');
     if (btnDownloadOutline) {
         btnDownloadOutline.addEventListener('click', () => {
-            const outline = window.currentProjectData?.stage2_outline?.outline;
-            if (!outline) { alert('No outline has been generated yet.'); return; }
-            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
-            let text = `OUTLINE: ${title.toUpperCase()}\n\n`;
-            const acts = [
-                { label: 'ACT I', key: 'act_1' },
-                { label: 'ACT II', key: 'act_2' },
-                { label: 'ACT III', key: 'act_3' }
-            ];
-            acts.forEach(({ label, key }) => {
-                const sequences = outline[key];
-                if (!sequences || !sequences.length) return;
-                text += `${'='.repeat(60)}\n${label}\n${'='.repeat(60)}\n\n`;
-                sequences.forEach(seq => {
-                    text += `${seq.sequence_number_and_title}\n${'-'.repeat(40)}\n`;
-                    (seq.beats || []).forEach(beat => {
-                        text += `[${beat.beat_label}] ${beat.description}\n`;
-                    });
-                    text += '\n';
-                });
-            });
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'outline');
-            a.click();
-            URL.revokeObjectURL(url);
+            if (!window.currentProjectData?.stage2_outline?.outline) { alert('No outline has been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=outline`, btnDownloadOutline);
         });
     }
 
@@ -3487,41 +3488,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadCharacters = document.getElementById('btnDownloadCharacters');
     if (btnDownloadCharacters) {
         btnDownloadCharacters.addEventListener('click', () => {
-            const characters = window.currentProjectData?.stage3_characters?.characters;
-            if (!characters || !characters.length) { alert('No characters have been generated yet.'); return; }
-            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
-            let text = `CHARACTERS: ${title.toUpperCase()}\n`;
-            characters.forEach(char => {
-                text += `\n${'='.repeat(60)}\n${char.name?.toUpperCase() || 'CHARACTER'} — ${char.role || ''}\n${'='.repeat(60)}\n\n`;
-                if (char.brief_summary) text += `${char.brief_summary}\n\n`;
-                const pc = char.psychological_core;
-                if (pc) {
-                    text += `PSYCHOLOGICAL CORE\n${'-'.repeat(30)}\n`;
-                    if (pc.ghost_and_wound) text += `Ghost & Wound: ${pc.ghost_and_wound}\n`;
-                    if (pc.the_lie) text += `The Lie: ${pc.the_lie}\n`;
-                    if (pc.fear) text += `Fear: ${pc.fear}\n`;
-                    if (pc.desire) text += `Desire: ${pc.desire}\n`;
-                    if (pc.psychological_need) text += `Psychological Need: ${pc.psychological_need}\n`;
-                    if (pc.moral_need) text += `Moral Need: ${pc.moral_need}\n`;
-                    text += '\n';
-                }
-                const vb = char.voice_and_behavior;
-                if (vb) {
-                    text += `VOICE & BEHAVIOR\n${'-'.repeat(30)}\n`;
-                    if (vb.speech_patterns) text += `Speech Patterns: ${vb.speech_patterns}\n`;
-                    if (vb.deflection_tactic) text += `Deflection Tactic: ${vb.deflection_tactic}\n`;
-                    if (vb.paradox) text += `Paradox: ${vb.paradox}\n`;
-                    text += '\n';
-                }
-                if (char.subtlety_guidelines) text += `SUBTLETY GUIDELINES\n${'-'.repeat(30)}\n${char.subtlety_guidelines}\n`;
-            });
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'characters');
-            a.click();
-            URL.revokeObjectURL(url);
+            if (!window.currentProjectData?.stage3_characters?.characters?.length) { alert('No characters have been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=characters`, btnDownloadCharacters);
         });
     }
 
@@ -3600,30 +3568,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadTreatment = document.getElementById('btnDownloadTreatment');
     if (btnDownloadTreatment) {
         btnDownloadTreatment.addEventListener('click', () => {
-            const treatment = window.currentProjectData?.stage5_treatment;
-            if (!treatment || !Object.values(treatment).some(v => v && typeof v === 'string' && v.trim())) {
-                alert('No treatment has been generated yet.');
-                return;
-            }
-            const sections = [
-                { label: 'TITLE, LOGLINE & CHARACTERS', key: 'title_logline_characters' },
-                { label: 'ACT I', key: 'act_1' },
-                { label: 'ACT II (PART 1)', key: 'act_2a' },
-                { label: 'ACT II (PART 2)', key: 'act_2b' },
-                { label: 'ACT III', key: 'act_3' }
-            ];
-            const text = sections
-                .filter(s => treatment[s.key] && treatment[s.key].trim())
-                .map(s => `${s.label}\n${'='.repeat(s.label.length)}\n\n${treatment[s.key].trim()}`)
-                .join('\n\n\n');
-            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'treatment';
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'treatment');
-            a.click();
-            URL.revokeObjectURL(url);
+            const t = window.currentProjectData?.stage5_treatment;
+            if (!t || !Object.values(t).some(v => v && typeof v === 'string' && v.trim())) { alert('No treatment has been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=treatment`, btnDownloadTreatment);
         });
     }
 
@@ -3645,6 +3592,15 @@ document.addEventListener('DOMContentLoaded', () => {
             a.download = makeFilename(title, 'draft', 'fountain');
             a.click();
             URL.revokeObjectURL(url);
+        });
+    }
+
+    const btnExportDraftPdf = document.getElementById('btnExportDraftPdf');
+    if (btnExportDraftPdf) {
+        btnExportDraftPdf.addEventListener('click', () => {
+            const scenes = getFlatScenes().filter(s => s.draft_text || s.humanized_draft_text);
+            if (!scenes.length) { alert('No scenes have been drafted yet.'); return; }
+            triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=draft`, btnExportDraftPdf);
         });
     }
 
@@ -3747,52 +3703,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnDownload = document.getElementById('btnDownloadCoverage');
         if (btnDownload) {
             btnDownload.onclick = () => {
-                const coverage = window.currentProjectData?.stage8_coverage;
-                if (!coverage) { alert('No coverage report available.'); return; }
-                const title = coverage.title || 'Untitled';
-                const sep = (char, len = 60) => char.repeat(len);
-                let text = `COVERAGE REPORT: ${title.toUpperCase()}\n${sep('=')}\n\n`;
-                text += `GENRE: ${coverage.genre || '—'}\n\n`;
-                text += `LOGLINE:\n${coverage.logline || '—'}\n\n`;
-                text += `${sep('-')}\n\nEVALUATION GRID\n${sep('-')}\n`;
-                const grid = coverage.evaluation_grid || {};
-                ['concept', 'structure', 'characterization', 'pacing', 'dialogue'].forEach(k => {
-                    text += `  ${(k.charAt(0).toUpperCase() + k.slice(1)).padEnd(20)} ${grid[k] || '—'}\n`;
-                });
-                text += `\n${sep('-')}\n\nNARRATIVE SYNOPSIS\n${sep('-')}\n\n`;
-                if (coverage.synopsis?.setup)      text += `SETUP:\n${coverage.synopsis.setup}\n\n`;
-                if (coverage.synopsis?.escalation) text += `ESCALATION:\n${coverage.synopsis.escalation}\n\n`;
-                if (coverage.synopsis?.resolution) text += `RESOLUTION:\n${coverage.synopsis.resolution}\n\n`;
-                text += `${sep('-')}\n\nAUTHENTICITY CHECK\n${sep('-')}\n`;
-                text += `Assessment: ${coverage.authenticity?.assessment || '—'}\n`;
-                const flags = coverage.authenticity?.red_flags || [];
-                if (flags.length > 0) {
-                    text += `\nAI Signals Detected:\n`;
-                    flags.forEach((f, i) => { text += `  ${i + 1}. ${f}\n`; });
-                } else {
-                    text += `No major red flags detected.\n`;
-                }
-                text += `\n${sep('-')}\n\nDEVELOPMENT NOTES\n${sep('-')}\n\nSTRENGTHS:\n`;
-                (coverage.strengths || []).forEach(s => { text += `  • ${s.headline}. ${s.detail}\n`; });
-                text += `\nWEAKNESSES:\n`;
-                (coverage.weaknesses || []).forEach(w => { text += `  • ${w.headline}. ${w.detail}\n`; });
-                text += `\n${sep('-')}\n\nMACRO TO-DO\n${sep('-')}\n`;
-                (window.currentMacroTodo || coverage.macro_todo || []).forEach(item => {
-                    text += `  ${item.priority}. ${item.task}\n`;
-                });
-                text += `\n${sep('-')}\n\nMICRO TO-DO\n${sep('-')}\n`;
-                (window.currentMicroTodo || coverage.micro_todo || []).forEach(item => {
-                    text += `  ${item.priority}. ${item.task}\n`;
-                });
-                text += `\n${sep('-')}\n\nFINAL RECOMMENDATION\n${sep('-')}\n`;
-                text += `${coverage.recommendation?.grade || '—'}\n\n${coverage.recommendation?.justification || ''}\n`;
-                const blob = new Blob([text], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = makeFilename(title, 'coverage');
-                a.click();
-                URL.revokeObjectURL(url);
+                if (!window.currentProjectData?.stage8_coverage) { alert('No coverage report available.'); return; }
+                triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=coverage`, btnDownload);
             };
         }
     }
@@ -4005,23 +3917,85 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── REUSABLE CHAT WINDOW ────────────────────────────────────────────────
 
     class ChatWindow {
-        constructor({ threadId, inputId, sendBtnId, onSend }) {
+        constructor({ threadId, inputId, sendBtnId, attachInputId, onSend }) {
             this.thread  = document.getElementById(threadId);
             this.input   = document.getElementById(inputId);
             this.sendBtn = document.getElementById(sendBtnId);
             this.history = [];
+            this.pendingFile = null;
+            this._chip = null;
+            this._attachInput = null;
+            if (attachInputId) this._wireAttach(document.getElementById(attachInputId));
             this._wireSend(onSend);
+        }
+
+        _wireAttach(attachInput) {
+            if (!attachInput) return;
+            this._attachInput = attachInput;
+            attachInput.addEventListener('change', e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                this.pendingFile = file;
+                this._showChip(file.name);
+            });
+        }
+
+        _showChip(name) {
+            this._removeChip();
+            const chip = document.createElement('div');
+            chip.className = 'chat-attach-chip';
+            const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            chip.innerHTML = `<span title="${esc(name)}">${esc(name)}</span><span class="chat-attach-chip-remove" title="Remove">✕</span>`;
+            chip.querySelector('.chat-attach-chip-remove').addEventListener('click', () => this._clearAttach());
+            this.input.parentElement.insertBefore(chip, this.input);
+            this._chip = chip;
+        }
+
+        _removeChip() {
+            if (this._chip) { this._chip.remove(); this._chip = null; }
+        }
+
+        _clearAttach() {
+            this.pendingFile = null;
+            if (this._attachInput) this._attachInput.value = '';
+            this._removeChip();
+        }
+
+        async _readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const bytes = new Uint8Array(e.target.result);
+                    let binary = '';
+                    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                    resolve(btoa(binary));
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
         }
 
         _wireSend(onSend) {
             const send = async () => {
                 const text = this.input.value.trim();
                 if (!text || this.sendBtn.disabled) return;
+
+                let attachment = null;
+                if (this.pendingFile) {
+                    try {
+                        const data = await this._readFileAsBase64(this.pendingFile);
+                        attachment = { name: this.pendingFile.name, mimeType: this.pendingFile.type || 'application/octet-stream', data };
+                    } catch (e) {
+                        console.error('File read error:', e);
+                    }
+                    this._clearAttach();
+                }
+
                 this.input.value = '';
                 this.input.style.height = 'auto';
                 this.append('user', text);
                 this.setDisabled(true);
-                try { await onSend(text, this.history); }
+                try { await onSend(text, this.history, attachment); }
                 finally { this.setDisabled(false); this.input.focus(); }
             };
             this.sendBtn.addEventListener('click', send);
@@ -4130,7 +4104,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let pendingNotes = '';
         const chat = new ChatWindow({
             threadId, inputId, sendBtnId,
-            onSend: async (_text, history) => {
+            attachInputId: `stage${stageId}-chat-attach`,
+            onSend: async (_text, history, attachment) => {
                 const showWorking = () => {
                     const el = document.createElement('div');
                     el.className = 'chat-message chat-message-working';
@@ -4161,7 +4136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await fetch('/api/brainstorm', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, stageId, messages: history })
+                        body: JSON.stringify({ projectId: activeProjectId, stageId, messages: history, ...(attachment && { attachment }) })
                     });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
@@ -4765,7 +4740,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 threadId:  'stage9-chat-thread',
                 inputId:   'stage9-chat-input',
                 sendBtnId: 'btnChatSend',
-                onSend: async (text, history) => {
+                attachInputId: 'stage9-chat-attach',
+                onSend: async (text, history, attachment) => {
                     if (stage9CurrentScene !== null) {
                         // Scene selected: feedback for that scene
                         const priorities = stage9GetPriorityList();
@@ -4778,7 +4754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch('/api/rewrite-scene-feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage9CurrentScene, priorityTask: task, userFeedback: text, currentText })
+                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage9CurrentScene, priorityTask: task, userFeedback: text, currentText, ...(attachment && { attachment }) })
                         });
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
@@ -4793,7 +4769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch('/api/brainstorm-rewrite', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false })
+                            body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
                         });
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
@@ -4996,18 +4972,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnDownload) {
             btnDownload.onclick = () => {
                 if (!stage9State) { alert('No rewrite data available.'); return; }
-                stage9FlushEditPanel();
-                const working = { ...stage9State.working, ...stage9Pending };
-                const scenes = Object.keys(working).map(n => parseInt(n)).sort((a, b) => a - b);
-                const text = scenes.map(n => working[n] || '').filter(Boolean).join('\n\n');
-                const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'Untitled';
-                const blob = new Blob([text], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = makeFilename(title, 'rewrite');
-                a.click();
-                URL.revokeObjectURL(url);
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnDownload);
             };
         }
 

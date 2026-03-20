@@ -1,0 +1,793 @@
+'use strict';
+
+/**
+ * PageOne Export Module
+ * Generates .docx and .pdf files from stage data.
+ */
+
+const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    AlignmentType, BorderStyle, WidthType, ShadingType, LevelFormat,
+    HeadingLevel, PageBreak
+} = require('docx');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const THIN_BORDER = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+const ALL_BORDERS = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
+const NO_BORDERS = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+};
+
+function ratingFill(r) {
+    switch ((r || '').toLowerCase()) {
+        case 'excellent': return 'C6EFCE';
+        case 'good':      return 'BDD7EE';
+        case 'fair':      return 'FFEB9C';
+        case 'poor':      return 'FFC7CE';
+        default:          return 'F8F9FA';
+    }
+}
+
+function ratingTextColor(r) {
+    switch ((r || '').toLowerCase()) {
+        case 'excellent': return '276221';
+        case 'good':      return '1F4E79';
+        case 'fair':      return '7D6608';
+        case 'poor':      return '9C1A1A';
+        default:          return '444444';
+    }
+}
+
+const h1 = (text) => new Paragraph({
+    children: [new TextRun({ text, bold: true, size: 28, font: 'Arial', color: '1A1A2E' })],
+    spacing: { before: 360, after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' } }
+});
+
+const h2 = (text) => new Paragraph({
+    children: [new TextRun({ text, bold: true, size: 24, font: 'Arial', color: '374151' })],
+    spacing: { before: 240, after: 80 }
+});
+
+const body = (text, opts = {}) => new Paragraph({
+    children: [new TextRun({ text, size: 22, font: 'Arial', italics: opts.italic || false, color: opts.color || '1F2937' })],
+    spacing: { before: 0, after: opts.spacingAfter !== undefined ? opts.spacingAfter : 120 }
+});
+
+const spacer = () => new Paragraph({ children: [new TextRun('')], spacing: { before: 0, after: 120 } });
+
+function twoColTable(leftText, rightText, leftWidth = 4680, rightWidth = 4680, shadeFill = null) {
+    return new Table({
+        width: { size: leftWidth + rightWidth, type: WidthType.DXA },
+        columnWidths: [leftWidth, rightWidth],
+        rows: [new TableRow({
+            children: [
+                new TableCell({
+                    borders: ALL_BORDERS,
+                    width: { size: leftWidth, type: WidthType.DXA },
+                    margins: { top: 80, bottom: 80, left: 160, right: 160 },
+                    children: [new Paragraph({ children: [new TextRun({ text: leftText, font: 'Arial', size: 22, bold: true })] })]
+                }),
+                new TableCell({
+                    borders: ALL_BORDERS,
+                    width: { size: rightWidth, type: WidthType.DXA },
+                    shading: shadeFill ? { fill: shadeFill, type: ShadingType.CLEAR } : undefined,
+                    margins: { top: 80, bottom: 80, left: 160, right: 160 },
+                    children: [new Paragraph({ children: [new TextRun({ text: rightText, font: 'Arial', size: 22 })] })]
+                })
+            ]
+        })]
+    });
+}
+
+function makeDoc(children) {
+    return new Document({
+        styles: {
+            default: { document: { run: { font: 'Arial', size: 22 } } }
+        },
+        numbering: {
+            config: [
+                {
+                    reference: 'bullets',
+                    levels: [{
+                        level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT,
+                        style: { paragraph: { indent: { left: 720, hanging: 360 } } }
+                    }]
+                },
+                {
+                    reference: 'numbers',
+                    levels: [{
+                        level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
+                        style: { paragraph: { indent: { left: 720, hanging: 360 } } }
+                    }]
+                }
+            ]
+        },
+        sections: [{
+            properties: {
+                page: {
+                    size: { width: 12240, height: 15840 },
+                    margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+                }
+            },
+            children
+        }]
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 8: Coverage Report → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateCoverageDocx(coverage) {
+    const title = coverage.title || 'Untitled';
+    const grid = coverage.evaluation_grid || {};
+    const gridCategories = ['concept', 'structure', 'characterization', 'pacing', 'dialogue'];
+
+    // Evaluation grid table rows
+    const gridRows = gridCategories.map(key => {
+        const rating = grid[key] || '—';
+        const fill = ratingFill(rating);
+        const txtColor = ratingTextColor(rating);
+        return new TableRow({
+            children: [
+                new TableCell({
+                    borders: ALL_BORDERS,
+                    width: { size: 4680, type: WidthType.DXA },
+                    margins: { top: 80, bottom: 80, left: 160, right: 160 },
+                    children: [new Paragraph({ children: [new TextRun({ text: key.charAt(0).toUpperCase() + key.slice(1), font: 'Arial', size: 22 })] })]
+                }),
+                new TableCell({
+                    borders: ALL_BORDERS,
+                    width: { size: 4680, type: WidthType.DXA },
+                    shading: { fill, type: ShadingType.CLEAR },
+                    margins: { top: 80, bottom: 80, left: 160, right: 160 },
+                    children: [new Paragraph({ children: [new TextRun({ text: rating, bold: true, font: 'Arial', size: 22, color: txtColor })] })]
+                })
+            ]
+        });
+    });
+
+    // Recommendation color
+    const grade = (coverage.recommendation?.grade || '').toUpperCase();
+    const gradeFill = grade === 'RECOMMEND' ? 'C6EFCE' : grade === 'CONSIDER' ? 'FFEB9C' : 'FFC7CE';
+    const gradeColor = grade === 'RECOMMEND' ? '276221' : grade === 'CONSIDER' ? '7D6608' : '9C1A1A';
+
+    const children = [
+        // ── Title block ──
+        new Paragraph({
+            children: [new TextRun({ text: 'SCRIPT COVERAGE REPORT', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: title.toUpperCase(), bold: true, size: 28, font: 'Arial', color: '374151' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 80 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: coverage.genre || '', size: 22, font: 'Arial', color: '6B7280', italics: true })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 480 }
+        }),
+
+        // ── Logline ──
+        h1('LOGLINE'),
+        body(coverage.logline || '—', { italic: true, spacingAfter: 360 }),
+
+        // ── Evaluation Grid ──
+        h1('EVALUATION GRID'),
+        new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [4680, 4680],
+            rows: gridRows
+        }),
+        spacer(),
+
+        // ── Synopsis ──
+        h1('NARRATIVE SYNOPSIS'),
+        h2('Setup'),
+        body(coverage.synopsis?.setup || '—'),
+        h2('Escalation'),
+        body(coverage.synopsis?.escalation || '—'),
+        h2('Resolution'),
+        body(coverage.synopsis?.resolution || '—'),
+
+        // ── Authenticity ──
+        h1('AUTHENTICITY CHECK'),
+        body(coverage.authenticity?.assessment || '—', { spacingAfter: 120 }),
+        ...(coverage.authenticity?.red_flags?.length
+            ? [
+                body('AI signals detected:', { spacingAfter: 60 }),
+                ...(coverage.authenticity.red_flags.map(f =>
+                    new Paragraph({
+                        numbering: { reference: 'bullets', level: 0 },
+                        children: [new TextRun({ text: f, font: 'Arial', size: 22 })]
+                    })
+                ))
+            ]
+            : [body('No major AI signals detected.')]
+        ),
+        spacer(),
+
+        // ── Strengths ──
+        h1('STRENGTHS'),
+        ...(coverage.strengths || []).flatMap(s => [
+            new Paragraph({ children: [new TextRun({ text: s.headline, bold: true, font: 'Arial', size: 22, color: '276221' })], spacing: { before: 120, after: 40 } }),
+            body(s.detail)
+        ]),
+        spacer(),
+
+        // ── Weaknesses ──
+        h1('WEAKNESSES'),
+        ...(coverage.weaknesses || []).flatMap(w => [
+            new Paragraph({ children: [new TextRun({ text: w.headline, bold: true, font: 'Arial', size: 22, color: '9C1A1A' })], spacing: { before: 120, after: 40 } }),
+            body(w.detail)
+        ]),
+        spacer(),
+
+        // ── Blueprint ──
+        h1('BLUEPRINT — MACRO'),
+        ...(coverage.macro_todo || []).map(item =>
+            new Paragraph({
+                numbering: { reference: 'numbers', level: 0 },
+                children: [new TextRun({ text: item.task, font: 'Arial', size: 22 })]
+            })
+        ),
+        spacer(),
+        h1('BLUEPRINT — MICRO'),
+        ...(coverage.micro_todo || []).map(item =>
+            new Paragraph({
+                numbering: { reference: 'numbers', level: 0 },
+                children: [new TextRun({ text: item.task, font: 'Arial', size: 22 })]
+            })
+        ),
+        spacer(),
+
+        // ── Recommendation ──
+        h1('FINAL RECOMMENDATION'),
+        new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [2340, 7020],
+            rows: [new TableRow({
+                children: [
+                    new TableCell({
+                        borders: ALL_BORDERS,
+                        width: { size: 2340, type: WidthType.DXA },
+                        shading: { fill: gradeFill, type: ShadingType.CLEAR },
+                        margins: { top: 120, bottom: 120, left: 160, right: 160 },
+                        children: [new Paragraph({
+                            children: [new TextRun({ text: grade, bold: true, font: 'Arial', size: 24, color: gradeColor })],
+                            alignment: AlignmentType.CENTER
+                        })]
+                    }),
+                    new TableCell({
+                        borders: ALL_BORDERS,
+                        width: { size: 7020, type: WidthType.DXA },
+                        margins: { top: 120, bottom: 120, left: 160, right: 160 },
+                        children: [new Paragraph({ children: [new TextRun({ text: coverage.recommendation?.justification || '', font: 'Arial', size: 22 })] })]
+                    })
+                ]
+            })]
+        }),
+    ];
+
+    const doc = makeDoc(children);
+    return await Packer.toBuffer(doc);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 2: Outline → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateOutlineDocx(outline, projectTitle) {
+    const acts = [
+        { label: 'ACT I', key: 'act_1' },
+        { label: 'ACT II', key: 'act_2' },
+        { label: 'ACT III', key: 'act_3' }
+    ];
+
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: 'OUTLINE', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: (projectTitle || 'Untitled').toUpperCase(), bold: true, size: 28, font: 'Arial', color: '374151' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+    ];
+
+    acts.forEach(({ label, key }) => {
+        const sequences = outline[key];
+        if (!sequences || !sequences.length) return;
+
+        children.push(h1(label));
+
+        sequences.forEach(seq => {
+            children.push(
+                new Paragraph({
+                    children: [new TextRun({ text: seq.sequence_number_and_title || '', bold: true, font: 'Arial', size: 24, color: '1D4ED8' })],
+                    spacing: { before: 240, after: 80 }
+                })
+            );
+            (seq.beats || []).forEach(beat => {
+                children.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: `[${beat.beat_label}]  `, bold: true, font: 'Arial', size: 20, color: '6B7280' }),
+                        new TextRun({ text: beat.description || '', font: 'Arial', size: 22 })
+                    ],
+                    spacing: { before: 80, after: 80 },
+                    indent: { left: 360 }
+                }));
+            });
+            children.push(spacer());
+        });
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 3: Characters → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateCharactersDocx(characters, projectTitle) {
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: 'CHARACTER PROFILES', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: (projectTitle || 'Untitled').toUpperCase(), bold: true, size: 28, font: 'Arial', color: '374151' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+    ];
+
+    (characters || []).forEach((char, idx) => {
+        if (idx > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
+
+        children.push(
+            new Paragraph({
+                children: [new TextRun({ text: (char.name || 'CHARACTER').toUpperCase(), bold: true, size: 32, font: 'Arial', color: '1A1A2E' })],
+                spacing: { after: 60 }
+            }),
+            new Paragraph({
+                children: [new TextRun({ text: char.role || '', size: 22, font: 'Arial', italics: true, color: '6B7280' })],
+                spacing: { after: 240 }
+            })
+        );
+
+        if (char.brief_summary) {
+            children.push(body(char.brief_summary, { spacingAfter: 240 }));
+        }
+
+        const sections = [
+            { label: 'PSYCHOLOGICAL CORE', obj: char.psychological_core, fields: [
+                ['Ghost & Wound', 'ghost_and_wound'], ['The Lie', 'the_lie'], ['Fear', 'fear'],
+                ['Desire', 'desire'], ['Psychological Need', 'psychological_need'], ['Moral Need', 'moral_need']
+            ]},
+            { label: 'VOICE & BEHAVIOR', obj: char.voice_and_behavior, fields: [
+                ['Speech Patterns', 'speech_patterns'], ['Behavioral Quirks', 'behavioral_quirks'],
+                ['Defense Mechanisms', 'defense_mechanisms']
+            ]},
+            { label: 'DRAMATIC FUNCTION', obj: char, fields: [
+                ['Character Arc', 'character_arc'], ['Role in Story', 'role_in_story'],
+                ['Key Relationships', 'key_relationships']
+            ]}
+        ];
+
+        sections.forEach(({ label, obj, fields }) => {
+            if (!obj) return;
+            const validFields = fields.filter(([, k]) => obj[k]);
+            if (!validFields.length) return;
+
+            children.push(h1(label));
+            validFields.forEach(([fieldLabel, key]) => {
+                const val = Array.isArray(obj[key]) ? obj[key].join(', ') : String(obj[key]);
+                children.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: `${fieldLabel}:  `, bold: true, font: 'Arial', size: 22, color: '374151' }),
+                        new TextRun({ text: val, font: 'Arial', size: 22 })
+                    ],
+                    spacing: { before: 80, after: 80 }
+                }));
+            });
+        });
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 5: Treatment → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateTreatmentDocx(treatment, projectTitle) {
+    const { title_logline_characters, act_1, act_2a, act_2b, act_3 } = treatment;
+
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: 'TREATMENT', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+    ];
+
+    // Title / logline / characters block (plain text, preserve formatting)
+    if (title_logline_characters) {
+        title_logline_characters.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) { children.push(spacer()); return; }
+            const isBold = /^(TITLE|GENRE|LOGLINE|CHARACTERS?|ACT\s)/i.test(trimmed);
+            children.push(new Paragraph({
+                children: [new TextRun({ text: trimmed, font: 'Arial', size: isBold ? 24 : 22, bold: isBold })],
+                spacing: { after: 60 }
+            }));
+        });
+        children.push(new Paragraph({ children: [new PageBreak()] }));
+    }
+
+    const actBlocks = [
+        { label: 'ACT I', content: act_1 },
+        { label: 'ACT IIA', content: act_2a },
+        { label: 'ACT IIB', content: act_2b },
+        { label: 'ACT III', content: act_3 },
+    ];
+
+    actBlocks.forEach(({ label, content }) => {
+        if (!content) return;
+        children.push(h1(label));
+        content.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) { children.push(spacer()); return; }
+            // Scene headings (INT./EXT. lines) get special formatting
+            const isSceneHeading = /^(INT\.|EXT\.|INT\.\/EXT\.)/.test(trimmed);
+            children.push(new Paragraph({
+                children: [new TextRun({ text: trimmed, font: isSceneHeading ? 'Courier New' : 'Arial', size: 22, bold: isSceneHeading, color: isSceneHeading ? '1D4ED8' : '1F2937' })],
+                spacing: { before: isSceneHeading ? 180 : 0, after: 60 }
+            }));
+        });
+        children.push(spacer());
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 7 / 9: Screenplay → .pdf  (Fountain parser + pdfkit)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseFountain(text) {
+    const lines = text.split('\n');
+    const elements = [];
+
+    let i = 0;
+    while (i < lines.length) {
+        const raw = lines[i];
+        const line = raw.trimEnd();
+        const trimmed = line.trim();
+
+        // Blank line
+        if (!trimmed) {
+            elements.push({ type: 'blank' });
+            i++;
+            continue;
+        }
+
+        // Forced scene heading: .INT...
+        if (trimmed.startsWith('.') && !trimmed.startsWith('..')) {
+            elements.push({ type: 'scene', text: trimmed.slice(1).trim() });
+            i++;
+            continue;
+        }
+
+        // Scene heading: INT./EXT.
+        if (/^(INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)/i.test(trimmed)) {
+            elements.push({ type: 'scene', text: trimmed });
+            i++;
+            continue;
+        }
+
+        // Transition: ends with TO: or specific keywords
+        if (/^(FADE\s+IN:|FADE\s+OUT\.|FADE\s+TO:|SMASH\s+CUT\s+TO:|CUT\s+TO:)$/i.test(trimmed) ||
+            trimmed.endsWith(' TO:') || trimmed === 'FADE OUT.') {
+            elements.push({ type: 'transition', text: trimmed });
+            i++;
+            continue;
+        }
+
+        // Forced transition: > at start
+        if (trimmed.startsWith('>') && !trimmed.endsWith('<')) {
+            elements.push({ type: 'transition', text: trimmed.slice(1).trim() });
+            i++;
+            continue;
+        }
+
+        // Centered text: > text <
+        if (trimmed.startsWith('>') && trimmed.endsWith('<')) {
+            elements.push({ type: 'centered', text: trimmed.slice(1, -1).trim() });
+            i++;
+            continue;
+        }
+
+        // Character cue: all caps (possibly with extensions like (V.O.), (O.S.))
+        // Must be preceded by blank line (or start of document), not followed by blank
+        const prevIsBlank = i === 0 || !lines[i - 1].trim();
+        const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
+        const isAllCaps = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed) && !trimmed.startsWith('!');
+        // Strip extension for the caps check
+        const cueBase = trimmed.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        const cueIsAllCaps = cueBase === cueBase.toUpperCase() && /[A-Z]/.test(cueBase);
+
+        if (cueIsAllCaps && prevIsBlank && nextLine) {
+            elements.push({ type: 'character', text: trimmed });
+            i++;
+            // Collect dialogue / parentheticals
+            while (i < lines.length) {
+                const dline = lines[i].trim();
+                if (!dline) break;
+                if (dline.startsWith('(') && dline.endsWith(')')) {
+                    elements.push({ type: 'parenthetical', text: dline });
+                } else {
+                    elements.push({ type: 'dialogue', text: dline });
+                }
+                i++;
+            }
+            continue;
+        }
+
+        // Action (default)
+        elements.push({ type: 'action', text: trimmed });
+        i++;
+    }
+
+    return elements;
+}
+
+async function generateScreenplayPdf(scenes, projectTitle) {
+    return new Promise((resolve, reject) => {
+        const PDFDocument = require('pdfkit');
+
+        const doc = new PDFDocument({
+            size: 'LETTER',
+            margin: 0,
+            info: { Title: projectTitle || 'Screenplay', Author: 'PageOne' }
+        });
+
+        const chunks = [];
+        doc.on('data', c => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        // Page dimensions
+        const PW = 612;  // 8.5"
+        const PH = 792;  // 11"
+
+        // Standard screenplay margins (in points)
+        const LEFT    = 108;  // 1.5"
+        const RIGHT   = 540;  // 7.5" (1" right margin)
+        const TOP     = 72;   // 1"
+        const BOTTOM  = 720;  // 10"
+
+        const CONTENT_W  = RIGHT - LEFT;  // 6"
+        const CHAR_X     = 266;           // 3.7" from left edge
+        const DIAL_X     = 180;           // 2.5"
+        const DIAL_W     = 252;           // 3.5"
+        const PAREN_X    = 223;           // 3.1"
+        const PAREN_W    = 180;           // 2.5"
+        const LINE_H     = 14;            // ~1 line at 12pt Courier
+        const FONT_SIZE  = 12;
+
+        doc.font('Courier').fontSize(FONT_SIZE);
+
+        let pageNum = 1;
+        let y = TOP;
+
+        function addPage() {
+            doc.addPage({ size: 'LETTER', margin: 0 });
+            pageNum++;
+            y = TOP;
+            // Page number top-right (starting page 2)
+            if (pageNum > 1) {
+                doc.font('Courier').fontSize(FONT_SIZE)
+                   .text(`${pageNum}.`, RIGHT - 30, TOP - 20, { width: 36, align: 'right' });
+            }
+        }
+
+        function checkPageBreak(needed = LINE_H) {
+            if (y + needed > BOTTOM) addPage();
+        }
+
+        function writeLine(text, x, maxW, opts = {}) {
+            checkPageBreak(LINE_H);
+            const options = { width: maxW, lineBreak: false, align: opts.align || 'left' };
+            doc.font(opts.font || 'Courier')
+               .fontSize(FONT_SIZE)
+               .text(text, x, y, options);
+            y += LINE_H;
+        }
+
+        function writeWrapped(text, x, maxW, opts = {}) {
+            // Estimate wrapped lines
+            const charsPerLine = Math.floor(maxW / 7.2); // Courier 12pt ~7.2pt per char
+            const words = text.split(' ');
+            let line = '';
+            const wrappedLines = [];
+            words.forEach(w => {
+                if ((line + ' ' + w).trim().length > charsPerLine) {
+                    wrappedLines.push(line.trim());
+                    line = w;
+                } else {
+                    line = (line + ' ' + w).trim();
+                }
+            });
+            if (line) wrappedLines.push(line);
+            wrappedLines.forEach(l => writeLine(l, x, maxW, opts));
+        }
+
+        // Title page
+        doc.font('Courier-Bold').fontSize(14)
+           .text((projectTitle || 'SCREENPLAY').toUpperCase(), 0, PH / 2 - 40, { width: PW, align: 'center' });
+        doc.font('Courier').fontSize(FONT_SIZE)
+           .text('Written by PageOne', 0, PH / 2 + 10, { width: PW, align: 'center' });
+
+        addPage();
+
+        // Collect all fountain text
+        const flatText = scenes.map(s => (s.humanized_draft_text || s.draft_text || '').trim()).join('\n\n');
+        if (!flatText.trim()) {
+            doc.end();
+            return;
+        }
+
+        const elements = parseFountain(flatText);
+        let prevType = null;
+
+        elements.forEach(el => {
+            switch (el.type) {
+                case 'blank':
+                    y += LINE_H * 0.5;
+                    break;
+
+                case 'scene':
+                    // Extra space before scene heading
+                    if (prevType && prevType !== 'blank') y += LINE_H;
+                    checkPageBreak(LINE_H * 3);
+                    doc.font('Courier-Bold').fontSize(FONT_SIZE);
+                    writeLine(el.text.toUpperCase(), LEFT, CONTENT_W, { font: 'Courier-Bold' });
+                    y += LINE_H * 0.5;
+                    break;
+
+                case 'action':
+                    writeWrapped(el.text, LEFT, CONTENT_W);
+                    break;
+
+                case 'character':
+                    y += LINE_H * 0.5;
+                    checkPageBreak(LINE_H * 3);
+                    writeLine(el.text.toUpperCase(), CHAR_X, CONTENT_W - (CHAR_X - LEFT));
+                    break;
+
+                case 'parenthetical':
+                    writeLine(el.text, PAREN_X, PAREN_W);
+                    break;
+
+                case 'dialogue':
+                    writeWrapped(el.text, DIAL_X, DIAL_W);
+                    break;
+
+                case 'transition':
+                    y += LINE_H * 0.5;
+                    writeLine(el.text.toUpperCase(), LEFT, CONTENT_W, { align: 'right' });
+                    y += LINE_H * 0.5;
+                    break;
+
+                case 'centered':
+                    writeLine(el.text, LEFT, CONTENT_W, { align: 'center' });
+                    break;
+            }
+            prevType = el.type;
+        });
+
+        // Final FADE OUT
+        y += LINE_H;
+        checkPageBreak(LINE_H);
+        writeLine('FADE OUT.', LEFT, CONTENT_W, { align: 'right' });
+
+        doc.end();
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 7: Draft → .docx  (formatted screenplay in Word)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateDraftDocx(scenes, projectTitle) {
+    const flatText = scenes.map(s => (s.humanized_draft_text || s.draft_text || '').trim()).join('\n\n');
+    const elements = parseFountain(flatText);
+
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: (projectTitle || 'Untitled').toUpperCase(), bold: true, size: 28, font: 'Courier New' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: 'Written by PageOne', size: 22, font: 'Courier New' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+        new Paragraph({ children: [new PageBreak()] }),
+    ];
+
+    elements.forEach(el => {
+        switch (el.type) {
+            case 'blank':
+                children.push(new Paragraph({ children: [new TextRun('')], spacing: { after: 0 } }));
+                break;
+            case 'scene':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text.toUpperCase(), font: 'Courier New', size: 22, bold: true })],
+                    spacing: { before: 240, after: 120 }
+                }));
+                break;
+            case 'action':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text, font: 'Courier New', size: 22 })],
+                    spacing: { before: 0, after: 60 }
+                }));
+                break;
+            case 'character':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text.toUpperCase(), font: 'Courier New', size: 22 })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 160, after: 0 }
+                }));
+                break;
+            case 'parenthetical':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text, font: 'Courier New', size: 22 })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 0, after: 0 }
+                }));
+                break;
+            case 'dialogue':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text, font: 'Courier New', size: 22 })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 0, after: 60 },
+                    indent: { left: 1440, right: 1440 }
+                }));
+                break;
+            case 'transition':
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: el.text.toUpperCase(), font: 'Courier New', size: 22 })],
+                    alignment: AlignmentType.RIGHT,
+                    spacing: { before: 120, after: 120 }
+                }));
+                break;
+        }
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+module.exports = {
+    generateCoverageDocx,
+    generateOutlineDocx,
+    generateCharactersDocx,
+    generateTreatmentDocx,
+    generateDraftDocx,
+    generateScreenplayPdf
+};

@@ -912,6 +912,47 @@ textarea.synopsis-input {
 .chat-send-btn:hover { opacity: 0.85; }
 .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.chat-attach-btn {
+    cursor: pointer;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    margin-bottom: 2px;
+}
+.chat-attach-btn:hover { color: #d1d5db; }
+
+.chat-attach-chip {
+    font-size: 0.7rem;
+    background: #1f2937;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #9ca3af;
+    padding: 2px 8px 2px 10px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 160px;
+}
+.chat-attach-chip span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chat-attach-chip-remove {
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 0.65rem;
+    line-height: 1;
+    margin-left: 2px;
+    flex-shrink: 0;
+}
+.chat-attach-chip-remove:hover { color: #f87171; }
+
 .chat-message {
     max-width: 88%;
     font-size: 0.85rem;

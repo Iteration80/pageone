@@ -3,6 +3,32 @@ const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
 
+/** Extracts plain text from a chat attachment ({ name, mimeType, data: base64 }). */
+async function extractAttachmentText(attachment) {
+    if (!attachment?.data) return '';
+    const buf = Buffer.from(attachment.data, 'base64');
+    const name = (attachment.name || '').toLowerCase();
+    const mime = (attachment.mimeType || '').toLowerCase();
+    try {
+        if (mime === 'text/plain' || name.endsWith('.txt')) {
+            return buf.toString('utf8');
+        }
+        if (mime === 'application/pdf' || name.endsWith('.pdf')) {
+            const pdfParse = require('pdf-parse');
+            const parsed = await pdfParse(buf);
+            return parsed.text;
+        }
+        if (name.endsWith('.docx') || mime.includes('wordprocessingml')) {
+            const mammoth = require('mammoth');
+            const result = await mammoth.extractRawText({ buffer: buf });
+            return result.value;
+        }
+    } catch (e) {
+        console.error('Attachment extraction error:', e.message);
+    }
+    return '';
+}
+
 // ─── Settings (BYOK + per-stage model config) ─────────────────────────────────
 const SETTINGS_PATH = path.join(__dirname, 'data', 'settings.json');
 let appSettings = {};
@@ -26,6 +52,15 @@ function getModelConfig(stageNum) {
     };
 }
 // ─────────────────────────────────────────────────────────────────────────────
+
+const {
+    generateCoverageDocx,
+    generateOutlineDocx,
+    generateCharactersDocx,
+    generateTreatmentDocx,
+    generateDraftDocx,
+    generateScreenplayPdf
+} = require('./agents/export');
 
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
@@ -528,7 +563,7 @@ app.post('/api/revise-draft', async (req, res) => {
 
 app.post('/api/generate-coverage', async (req, res) => {
     try {
-        const { projectId } = req.body;
+        const { projectId, source } = req.body;
         if (!projectId) return res.status(400).json({ error: "Missing projectId" });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -544,22 +579,35 @@ app.post('/api/generate-coverage', async (req, res) => {
             return res.status(400).json({ error: "Stage 7 must be approved before generating coverage" });
         }
 
-        const stage6Scenes = projectData.data?.stage6_scenes;
-        if (!stage6Scenes) {
-            return res.status(400).json({ error: "No scene blueprint found" });
-        }
+        let fullScriptText;
 
-        // Assemble full script from all scenes in order
-        const allScenes = [];
-        for (const seq of stage6Scenes) {
-            if (seq.scenes) allScenes.push(...seq.scenes);
-        }
-        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+        // When triggered from Stage 9 loopback, use the rewritten working copy
+        if (source === 'stage9' && projectData.data?.stage9_rewrites?.working) {
+            const working = projectData.data.stage9_rewrites.working;
+            fullScriptText = Object.keys(working)
+                .map(n => parseInt(n))
+                .sort((a, b) => a - b)
+                .map(n => (working[n] || '').trim())
+                .filter(Boolean)
+                .join('\n\n');
+        } else {
+            const stage6Scenes = projectData.data?.stage6_scenes;
+            if (!stage6Scenes) {
+                return res.status(400).json({ error: "No scene blueprint found" });
+            }
 
-        const fullScriptText = allScenes
-            .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
-            .filter(Boolean)
-            .join('\n\n');
+            // Assemble full script from all scenes in order
+            const allScenes = [];
+            for (const seq of stage6Scenes) {
+                if (seq.scenes) allScenes.push(...seq.scenes);
+            }
+            allScenes.sort((a, b) => a.scene_number - b.scene_number);
+
+            fullScriptText = allScenes
+                .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
+                .filter(Boolean)
+                .join('\n\n');
+        }
 
         if (!fullScriptText) {
             return res.status(400).json({ error: "No draft text found in scenes. Generate scene drafts first." });
@@ -655,7 +703,7 @@ app.post('/api/init-stage9', async (req, res) => {
 // General-purpose brainstorm: stages 1–7 chat assistant
 app.post('/api/brainstorm', async (req, res) => {
     try {
-        const { projectId, stageId, messages = [], sceneNumber } = req.body;
+        const { projectId, stageId, messages = [], sceneNumber, attachment } = req.body;
         if (!projectId || !stageId) return res.status(400).json({ error: 'Missing projectId or stageId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -711,6 +759,10 @@ app.post('/api/brainstorm', async (req, res) => {
 
         let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageNames[stageId]}\n${stageData}\n\n---\n\n`;
         if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
+        if (attachment) {
+            const fileText = await extractAttachmentText(attachment);
+            if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
+        }
         for (const msg of messages) {
             conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
         }
@@ -753,7 +805,7 @@ app.post('/api/brainstorm', async (req, res) => {
 // Conversational brainstorm: editorial assistant helps writer clarify rewrite direction
 app.post('/api/brainstorm-rewrite', async (req, res) => {
     try {
-        const { projectId, messages = [], isInit = false } = req.body;
+        const { projectId, messages = [], isInit = false, attachment } = req.body;
         if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -785,6 +837,10 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
 
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';
+        if (attachment && !isInit) {
+            const fileText = await extractAttachmentText(attachment);
+            if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
+        }
         if (isInit) {
             conversationPrompt += '[The writer has just entered the rewrite stage. Open the conversation by presenting the priorities and asking what they would like to address.]';
         } else {
@@ -1180,6 +1236,114 @@ app.delete('/api/projects/:id', async (req, res) => {
         res.status(500).json({ error: "Failed to delete project" });
     }
 });
+
+// ─── Export Endpoints ─────────────────────────────────────────────────────────
+
+async function loadProjectData(projectId) {
+    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+}
+
+// GET /api/export/docx/:projectId?stage=outline|characters|treatment|draft|coverage
+app.get('/api/export/docx/:projectId', async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const stage = req.query.stage || 'coverage';
+        const project = await loadProjectData(projectId);
+        const data = project.data || {};
+        const title = data.stage1_pitch?.pitch?.title || project.title || 'Untitled';
+        const safeName = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+        let buf, filename;
+
+        if (stage === 'coverage') {
+            if (!data.stage8_coverage) return res.status(400).json({ error: 'No coverage data found' });
+            buf = await generateCoverageDocx(data.stage8_coverage);
+            filename = `${safeName}_coverage.docx`;
+
+        } else if (stage === 'outline') {
+            const outline = data.stage2_outline?.outline;
+            if (!outline) return res.status(400).json({ error: 'No outline data found' });
+            buf = await generateOutlineDocx(outline, title);
+            filename = `${safeName}_outline.docx`;
+
+        } else if (stage === 'characters') {
+            const chars = data.stage3_characters?.characters;
+            if (!chars || !chars.length) return res.status(400).json({ error: 'No character data found' });
+            buf = await generateCharactersDocx(chars, title);
+            filename = `${safeName}_characters.docx`;
+
+        } else if (stage === 'treatment') {
+            if (!data.stage5_treatment) return res.status(400).json({ error: 'No treatment data found' });
+            buf = await generateTreatmentDocx(data.stage5_treatment, title);
+            filename = `${safeName}_treatment.docx`;
+
+        } else if (stage === 'draft') {
+            const scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);
+            const drafted = scenes.filter(s => s.draft_text || s.humanized_draft_text);
+            if (!drafted.length) return res.status(400).json({ error: 'No drafted scenes found' });
+            buf = await generateDraftDocx(drafted, title);
+            filename = `${safeName}_draft.docx`;
+
+        } else if (stage === 'rewrite') {
+            const working = data.stage9_rewrites?.working;
+            if (!working) return res.status(400).json({ error: 'No rewrite data found' });
+            // Convert working object to scene-like array for draft export
+            const fakescenes = Object.entries(working).map(([, txt]) => ({ humanized_draft_text: txt }));
+            buf = await generateDraftDocx(fakescenes, title);
+            filename = `${safeName}_rewrite.docx`;
+
+        } else {
+            return res.status(400).json({ error: `Unknown stage: ${stage}` });
+        }
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buf);
+    } catch (err) {
+        console.error('DOCX export error:', err);
+        res.status(500).json({ error: err.message || 'Export failed' });
+    }
+});
+
+// GET /api/export/pdf/:projectId?stage=draft|rewrite
+app.get('/api/export/pdf/:projectId', async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const stage = req.query.stage || 'draft';
+        const project = await loadProjectData(projectId);
+        const data = project.data || {};
+        const title = data.stage1_pitch?.pitch?.title || project.title || 'Untitled';
+        const safeName = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+        let scenes;
+        if (stage === 'rewrite') {
+            const working = data.stage9_rewrites?.working;
+            if (!working) return res.status(400).json({ error: 'No rewrite data found' });
+            scenes = Object.entries(working)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([, txt]) => ({ humanized_draft_text: txt }));
+        } else {
+            scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);
+            scenes = scenes.filter(s => s.draft_text || s.humanized_draft_text);
+        }
+
+        if (!scenes.length) return res.status(400).json({ error: 'No scenes to export' });
+
+        const buf = await generateScreenplayPdf(scenes, title);
+        const filename = `${safeName}_${stage}.pdf`;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buf);
+    } catch (err) {
+        console.error('PDF export error:', err);
+        res.status(500).json({ error: err.message || 'Export failed' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
