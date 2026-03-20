@@ -43,6 +43,16 @@ Full multi-provider settings system shipped. Key changes:
 - `.env` remains fully functional as fallback if no `settings.json` exists.
 - Settings changes take effect immediately (no restart needed) — `appSettings` is updated in-memory on POST.
 
+### 2026-03-19 — Skill file upgrades from avoid-ai-writing + obra/superpowers-skills collection
+
+Three skill files improved based on review of external skills collections:
+
+- **`skills/skill_humanizer.md`** — Priority 1 banned vocabulary expanded from 11 to 28 words (added screenplay-relevant Tier 1 AI vocabulary from avoid-ai-writing v2.2.0 with replacements). Priority 2 soft-intensifiers expanded. Three new priority categories added: Priority 6 (tourism/promotional language in action lines), Priority 7 (copula avoidance — serves as/boasts/features), Priority 8 (participial string analysis — "-ing, -ing, -ing" chains that interpret rather than show).
+
+- **`skills/skill_brainstorm.md`** — Two analytical techniques added inside Mode 2 (Brainstorm): **Inversion** (deploy when writer treats structural choice as unavoidable; inverts 2–3 core assumptions to reveal hidden dependencies) and **Collision-Zone Thinking** (deploy when writer feels locked in genre conventions; forces domain collision to surface fresh structural possibilities). Both include explicit trigger phrases, deployment criteria, and screenplay-specific examples.
+
+- **`skills/skill_stage8_coverage.md`** — Section 5 (Analytical Comments) restructured from single-voice to three named critical voices: **Story Analyst** (structural/character arc, existing coverage), **Dialogue Specialist** (voice distinctiveness, subtext, on-the-nose dialogue — must cite specific lines), **Devil's Advocate** (stress-tests praised elements — interrogates whether strengths actually hold). No schema or frontend changes; Devil's Advocate and Dialogue bullets are attributed via headline prefix.
+
 ### 2026-03-19 — Approve button state: consistent disabled/re-enable logic (Stages 2–6)
 Fixed `public/app.js` so the Approve button behaves identically across all stages:
 

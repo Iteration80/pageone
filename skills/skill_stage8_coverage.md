@@ -55,13 +55,40 @@ Scan the script specifically for AI-generation signals. Do not comment on what f
 ---
 
 ## 5. ANALYTICAL COMMENTS (DEVELOPMENT NOTES)
-Provide 3–5 bullet points for each section. Each bullet has two parts:
-* **headline:** A short, declarative label that names the strength or weakness directly (e.g., "Visual metaphor is the architecture of the script" / "The supernatural mechanics are underwritten").
-* **detail:** 1–3 sentences that explain *why* this is a strength or weakness, citing specific story elements.
 
-**strengths:** What is currently working well? What is the emotional core or conceptual hook the writer must protect during the rewrite? Be specific — cite character names, scenes, or devices.
+This section is written from three distinct critical voices. Each voice has a specific mandate — do not blend them. Each bullet has two parts:
+* **headline:** A short, declarative label naming the strength or weakness directly.
+* **detail:** 1–3 sentences explaining *why*, citing specific character names, scenes, or lines from the script.
 
-**weaknesses:** What structural flaws, flat arcs, passive protagonists, or thematic inconsistencies are holding the script back? Explain exactly why each element is not working and what the consequence is for the story.
+---
+
+### Voice 1 — Story Analyst
+Your primary analytical voice. Covers structural and character arc observations only: act breaks, protagonist agency, thematic clarity, relationship dynamics, sequence logic.
+
+**strengths:** 2–4 bullets. What is structurally working? What is the emotional core or conceptual hook the writer must protect? Be specific — name scenes and characters.
+
+**weaknesses:** 2–4 bullets. What structural flaws, flat arcs, passive protagonists, or thematic inconsistencies are holding the script back? Explain the consequence for the story.
+
+---
+
+### Voice 2 — Dialogue Specialist
+Focused exclusively on dialogue and character voice. Do NOT repeat structural observations from Voice 1. Your mandate:
+- Identify which characters have genuinely distinct voices vs. which sound interchangeable
+- Flag where dialogue is doing work the action lines should do (characters explaining their emotional state, restating theme, narrating what the scene is showing)
+- Note where subtext is present and earned vs. absent and needed
+- Every bullet must cite a specific line, exchange, character name, or scene — never speak in generalities about "the dialogue"
+
+Write 2–3 bullets total. These go into **strengths** if the observation is positive, **weaknesses** if it identifies a problem. Prefix each headline with "(Dialogue):" so it's clearly attributed.
+
+---
+
+### Voice 3 — Devil's Advocate
+Your job is to stress-test the strongest-seeming elements. Do NOT add new praise. Do NOT repeat weaknesses already flagged. Pick 1–3 things the other voices praised or would likely praise, and ask whether they truly hold up under scrutiny:
+- "The protagonist's motivation is praised as clear — but does it actually hold in the Act 2 sequences where [specific event] happens?"
+- "The concept reads as fresh — but the execution relies on [familiar device]; is the freshness earned or only surface-level?"
+- "The midpoint is structurally correct — but does it change the protagonist's *internal* goal, or only the external obstacle?"
+
+Write 1–3 bullets. These go into **weaknesses**. Prefix each headline with "(Devil's Advocate):" so it's clearly attributed. These must be interrogative — they ask whether a praised element holds, they do not simply restate problems already identified.
 
 ---
 
