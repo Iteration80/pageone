@@ -53,6 +53,14 @@ Three skill files improved based on review of external skills collections:
 
 - **`skills/skill_stage8_coverage.md`** — Section 5 (Analytical Comments) restructured from single-voice to three named critical voices: **Story Analyst** (structural/character arc, existing coverage), **Dialogue Specialist** (voice distinctiveness, subtext, on-the-nose dialogue — must cite specific lines), **Devil's Advocate** (stress-tests praised elements — interrogates whether strengths actually hold). No schema or frontend changes; Devil's Advocate and Dialogue bullets are attributed via headline prefix.
 
+### 2026-03-19 — Cross-stage chat persistence
+Stage assistant conversations are now persisted to the project file and shared across stages.
+
+- **`server.js`** — `/api/brainstorm`: after each exchange, full message array saved to `projectData.data.conversations.stageN`. Prior-stage conversations (last 20 messages each) injected into the system prompt so later-stage assistants have full context. `/api/brainstorm-rewrite` (Stage 9): same persistence on non-init calls.
+- **`public/app.js`** — `ChatWindow` class: added `restoreHistory(messages)` method that renders prior sessions with `— previous session —` / `— continuing —` separators and seeds `this.history`. Added `const stageChatWindows = {}` to hold all 7 instances; all `initStageChat()` calls now assign into it. `openProject()`: clears all chat windows on load, then restores any saved conversations from `projectData.data.conversations`.
+
+**Data shape:** `projectData.data.conversations = { stage1: [{role, content}, …], stage2: […], … }`
+
 ### 2026-03-19 — Approve button state: consistent disabled/re-enable logic (Stages 2–6)
 Fixed `public/app.js` so the Approve button behaves identically across all stages:
 

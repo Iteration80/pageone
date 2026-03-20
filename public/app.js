@@ -384,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             resultsContainer.innerHTML = ''; // Start clean
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
+            for (let s = 1; s <= 7; s++) { if (stageChatWindows[s]) stageChatWindows[s].clear(); }
 
             // Always default back to Stage 1 when opening a project
             switchStage(1);
@@ -513,6 +514,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (stage6Board) stage6Board.innerHTML = '';
                     if (stage6Workshop) stage6Workshop.classList.add('hidden');
+                }
+
+                // Restore persisted chat conversations
+                const savedConvos = projectDetails.data.conversations || {};
+                for (let s = 1; s <= 7; s++) {
+                    if (savedConvos[`stage${s}`]?.length && stageChatWindows[s]) {
+                        stageChatWindows[s].restoreHistory(savedConvos[`stage${s}`]);
+                    }
                 }
             } else {
                 updateStageNav(projectDetails.data);
@@ -3877,9 +3886,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return el;
         }
 
+        restoreHistory(messages) {
+            if (!messages?.length) return;
+            this.history = [...messages];
+            const sep = document.createElement('div');
+            sep.className = 'chat-message chat-message-system';
+            sep.textContent = '— previous session —';
+            this.thread.appendChild(sep);
+            const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            messages.forEach(m => {
+                const el = document.createElement('div');
+                el.className = `chat-message chat-message-${m.role === 'user' ? 'user' : 'ai'}`;
+                const paras = esc(m.content).split(/\n\n+/);
+                el.innerHTML = paras.map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+                this.thread.appendChild(el);
+            });
+            const sep2 = document.createElement('div');
+            sep2.className = 'chat-message chat-message-system';
+            sep2.textContent = '— continuing —';
+            this.thread.appendChild(sep2);
+            this.thread.scrollTop = this.thread.scrollHeight;
+        }
+
         clear() { this.thread.innerHTML = ''; this.history = []; }
         setDisabled(d) { this.sendBtn.disabled = d; this.input.disabled = d; }
     }
+
+    const stageChatWindows = {};
 
     // ─── STAGES 1–7 CHAT ─────────────────────────────────────────────────────
 
@@ -3980,7 +4013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage 1
-    initStageChat({
+    stageChatWindows[1] = initStageChat({
         stageId: 1,
         threadId: 'stage1-chat-thread',
         inputId: 'stage1-chat-input',
@@ -4021,7 +4054,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 2
-    initStageChat({
+    stageChatWindows[2] = initStageChat({
         stageId: 2,
         threadId: 'stage2-chat-thread',
         inputId: 'stage2-chat-input',
@@ -4042,7 +4075,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 3
-    initStageChat({
+    stageChatWindows[3] = initStageChat({
         stageId: 3,
         threadId: 'stage3-chat-thread',
         inputId: 'stage3-chat-input',
@@ -4063,7 +4096,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 4
-    initStageChat({
+    stageChatWindows[4] = initStageChat({
         stageId: 4,
         threadId: 'stage4-chat-thread',
         inputId: 'stage4-chat-input',
@@ -4087,7 +4120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 5
-    initStageChat({
+    stageChatWindows[5] = initStageChat({
         stageId: 5,
         threadId: 'stage5-chat-thread',
         inputId: 'stage5-chat-input',
@@ -4111,7 +4144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 6
-    initStageChat({
+    stageChatWindows[6] = initStageChat({
         stageId: 6,
         threadId: 'stage6-chat-thread',
         inputId: 'stage6-chat-input',
@@ -4131,7 +4164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Stage 7
-    initStageChat({
+    stageChatWindows[7] = initStageChat({
         stageId: 7,
         threadId: 'stage7-chat-thread',
         inputId: 'stage7-chat-input',

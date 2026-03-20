@@ -695,7 +695,22 @@ app.post('/api/brainstorm', async (req, res) => {
             default: return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
         }
 
+        // Build prior-stage conversation context
+        const savedConversations = projectData.data?.conversations || {};
+        const priorStageNames = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint', 7: 'Draft' };
+        let priorContext = '';
+        for (let s = 1; s < stageId; s++) {
+            const prior = savedConversations[`stage${s}`];
+            if (prior?.length) {
+                priorContext += `\n--- Stage ${s} (${priorStageNames[s]}) Conversations ---\n`;
+                for (const m of prior.slice(-20)) {
+                    priorContext += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+                }
+            }
+        }
+
         let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageNames[stageId]}\n${stageData}\n\n---\n\n`;
+        if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
         for (const msg of messages) {
             conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
         }
@@ -716,6 +731,18 @@ app.post('/api/brainstorm', async (req, res) => {
         });
         const result = JSON.parse(response.text);
         console.log(`Brainstorm stage${stageId}: suggest_plan=${result.suggest_plan} execute_immediately=${result.execute_immediately}`);
+
+        // Persist the full conversation (current session + new exchange) to project file
+        try {
+            const stageKey = `stage${stageId}`;
+            const convos = projectData.data.conversations || {};
+            convos[stageKey] = [...messages, { role: 'assistant', content: result.message }];
+            projectData.data.conversations = convos;
+            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        } catch (saveErr) {
+            console.error('Failed to persist conversation:', saveErr.message);
+        }
+
         res.json(result);
     } catch (error) {
         console.error('brainstorm error:', error.message);
@@ -793,6 +820,19 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
 
         const result = JSON.parse(response.text);
         console.log(`Brainstorm: suggest_plan=${result.suggest_plan}`);
+
+        // Persist stage 9 conversation
+        if (!isInit) {
+            try {
+                const convos = projectData.data.conversations || {};
+                convos['stage9'] = [...messages, { role: 'assistant', content: result.message }];
+                projectData.data.conversations = convos;
+                await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            } catch (saveErr) {
+                console.error('Failed to persist rewrite conversation:', saveErr.message);
+            }
+        }
+
         res.json(result);
     } catch (error) {
         console.error('brainstorm-rewrite error:', error.message);
