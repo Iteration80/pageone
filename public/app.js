@@ -421,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage2Approve) {
                         btnStage2Approve.textContent = 'Approved ✓';
                         btnStage2Approve.classList.add('approve-btn-green');
+                        btnStage2Approve.disabled = true;
                     }
                     toggleStage2EditMode(true);
 
@@ -1102,7 +1103,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
 
                     const ta = card.querySelector('textarea');
-                    ta.addEventListener('input', () => autoResize(ta));
+                    ta.addEventListener('input', () => {
+                        autoResize(ta);
+                        if (btnStage2Approve) {
+                            btnStage2Approve.textContent = 'Approve';
+                            btnStage2Approve.classList.remove('approve-btn-green');
+                            btnStage2Approve.disabled = false;
+                        }
+                    });
                     requestAnimationFrame(() => autoResize(ta));
 
                     // Hover/focus effects
@@ -1187,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Indicate success visually
             triggerBtn.textContent = 'Approved ✓';
             triggerBtn.classList.add('approve-btn-green');
+            triggerBtn.disabled = true;
 
             toggleStage2EditMode(true);
 
@@ -1197,7 +1206,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
             triggerBtn.textContent = originalText;
-        } finally {
             triggerBtn.disabled = false;
         }
     }
@@ -1467,7 +1475,13 @@ document.addEventListener('DOMContentLoaded', () => {
             card.querySelectorAll('.char-ta').forEach(ta => {
                 ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
                 ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                ta.addEventListener('input', () => autoResize(ta));
+                ta.addEventListener('input', () => {
+                    autoResize(ta);
+                    if (btnStage3Approve) {
+                        btnStage3Approve.textContent = 'Approve';
+                        btnStage3Approve.classList.remove('approve-btn-green');
+                    }
+                });
             });
 
             charactersContainer.appendChild(card);
@@ -1811,7 +1825,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     ta.setAttribute('data-field', f.key);
                     ta.value = f.value || '';
                     ta.style.cssText = 'width: 100%; background: transparent; border: none; resize: none; overflow: hidden; color: #d1d5db; font-family: inherit; font-size: 0.9rem; line-height: 1.6; padding: 4px 0; min-height: 24px;';
-                    ta.addEventListener('input', () => autoResize(ta));
+                    ta.addEventListener('input', () => {
+                        autoResize(ta);
+                        if (btnStage4Approve) {
+                            btnStage4Approve.textContent = 'Approve';
+                            btnStage4Approve.classList.remove('approve-btn-green');
+                        }
+                    });
                     ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
                     ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
                     card.appendChild(ta);
@@ -2580,9 +2600,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Add resize listeners to textareas
                 card.querySelectorAll('textarea').forEach(ta => {
-                    ta.addEventListener('input', () => autoResize(ta));
+                    ta.addEventListener('input', () => {
+                        autoResize(ta);
+                        if (btnStage6Approve) {
+                            btnStage6Approve.textContent = 'Approve';
+                            btnStage6Approve.classList.remove('approve-btn-green');
+                            btnStage6Approve.disabled = false;
+                        }
+                    });
                     // Initial resize
                     setTimeout(() => autoResize(ta), 0);
+                });
+                card.querySelectorAll('input[type="text"]').forEach(input => {
+                    input.addEventListener('input', () => {
+                        if (btnStage6Approve) {
+                            btnStage6Approve.textContent = 'Approve';
+                            btnStage6Approve.classList.remove('approve-btn-green');
+                            btnStage6Approve.disabled = false;
+                        }
+                    });
                 });
 
                 cardsContainer.appendChild(card);
@@ -2647,6 +2683,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage6Approve.textContent = 'Approve';
                 btnStage6Approve.classList.remove('approve-btn-green');
                 btnStage6Approve.classList.remove('hidden');
+                btnStage6Approve.disabled = false;
             }
             if (btnStage6Submit) {
                 btnStage6Submit.textContent = 'Submit';

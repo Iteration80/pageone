@@ -43,6 +43,20 @@ Full multi-provider settings system shipped. Key changes:
 - `.env` remains fully functional as fallback if no `settings.json` exists.
 - Settings changes take effect immediately (no restart needed) — `appSettings` is updated in-memory on POST.
 
+### 2026-03-19 — Approve button state: consistent disabled/re-enable logic (Stages 2–6)
+Fixed `public/app.js` so the Approve button behaves identically across all stages:
+
+- **After approval:** button shows "Approved ✓" (green), `disabled = true` — not clickable
+- **After any edit:** first keystroke/input resets button to "Approve →" (blue), `disabled = false`
+- **On page reload:** if stage data exists in project JSON, button is restored to disabled "Approved ✓"
+
+**Stages fixed:** 2, 3, 4, 6. Stage 5 was already correct (reference implementation). Stage 1 uses a slightly different `{ once: true }` pattern but behaves the same way. Stage 7+ has a different approval model.
+
+Root causes fixed per stage:
+- **Stage 2** — `finally` block was re-enabling button after successful approval; load-time hydration wasn't setting `disabled = true`; change-detection listener wasn't setting `disabled = false`
+- **Stages 3, 4** — textarea `input` listeners only called `autoResize()`, never reset the approve button
+- **Stage 6** — same as 3/4, plus `disabled = false` also needed on `renderStage6()` re-render (no `finally` block in approval handler left `disabled` stuck as `true` on nav-back)
+
 ### 2026-03-18 — Gemini model name made configurable
 All 19 hardcoded `'gemini-3.1-pro-preview'` strings across `agents/*.js` replaced with `process.env.GEMINI_MODEL`. (Superseded by per-stage model selection above.)
 
