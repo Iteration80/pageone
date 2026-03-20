@@ -107,6 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
         workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
 
+    // Version History navigation
+    const btnVersionHistory = document.getElementById('btnVersionHistory');
+    const versionHistoryWorkspace = document.getElementById('version-history-view');
+
     // Legacy / Convenience references for existing stages
     const navStage1 = navItems[1];
     const navStage2 = navItems[2];
@@ -711,8 +715,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         stage1FeedbackPanel?.classList.remove('hidden');
         toggleStage1EditMode(false);
-        const pitchDownloadRow = document.getElementById('pitchDownloadRow');
-        if (pitchDownloadRow) pitchDownloadRow.classList.remove('hidden');
     }
 
     function toggleStage1EditMode(isApproved) {
@@ -903,12 +905,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const notes = stage1Notes?.value ?? '';
 
         // Set nested payload for Stage 1 data
+        const stage1Snapshot = { pitch: finalData, notes: notes };
+        const versionHistory1 = captureVersionSnapshot(1, 'stage1_pitch', 'Pitch', stage1Snapshot);
         const payload = {
             data: {
-                stage1_pitch: {
-                    pitch: finalData,
-                    notes: notes
-                }
+                stage1_pitch: stage1Snapshot,
+                versionHistory: versionHistory1
             }
         };
 
@@ -989,7 +991,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function switchToVersionHistory() {
+        for (let i = 1; i <= 10; i++) {
+            navItems[i]?.classList.remove('active');
+            workspaces[i]?.classList.add('hidden');
+        }
+        versionHistoryWorkspace?.classList.remove('hidden');
+        btnVersionHistory?.classList.add('active');
+        renderVersionHistory();
+    }
+
     function switchStage(stageNum) {
+        // Hide version history if open
+        versionHistoryWorkspace?.classList.add('hidden');
+        btnVersionHistory?.classList.remove('active');
+
         // Deactivate all nav items and hide all workspace views
         for (let i = 1; i <= 10; i++) {
             navItems[i]?.classList.remove('active');
@@ -1038,6 +1054,156 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchStage(i);
             }
         });
+    }
+
+    // Version history icon click
+    btnVersionHistory?.addEventListener('click', () => {
+        if (activeProjectId) switchToVersionHistory();
+    });
+
+    // --- Version History Logic ---
+
+    function captureVersionSnapshot(stage, stageKey, stageName, snapshotData) {
+        const history = (window.currentProjectData?.versionHistory) || [];
+        const existingVersions = history.filter(v => v.stage === stage).length;
+        const entry = {
+            id: `${activeProjectId}_stage${stage}_v${existingVersions + 1}`,
+            stage, stageKey, stageName,
+            version: existingVersions + 1,
+            approvedAt: new Date().toISOString(),
+            snapshot: JSON.parse(JSON.stringify(snapshotData))
+        };
+        history.push(entry);
+        if (window.currentProjectData) window.currentProjectData.versionHistory = history;
+        return history;
+    }
+
+    function renderVersionHistory() {
+        const container = document.getElementById('version-history-list');
+        if (!container) return;
+
+        const history = window.currentProjectData?.versionHistory || [];
+        if (history.length === 0) {
+            container.innerHTML = '<p style="color:#6b7280;font-size:0.875rem;font-style:italic;padding-top:24px">No versions saved yet. Approve a stage to create the first version.</p>';
+            return;
+        }
+
+        const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Draft', 8:'Coverage', 9:'Rewrite' };
+        const grouped = {};
+        history.forEach(v => {
+            if (!grouped[v.stage]) grouped[v.stage] = [];
+            grouped[v.stage].push(v);
+        });
+
+        let html = '';
+        Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(stage => {
+            const versions = grouped[stage];
+            const stageName = stageNames[stage] || `Stage ${stage}`;
+            html += `<div style="margin-bottom:32px">`;
+            html += `<h3 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;margin-bottom:12px;font-weight:600">Stage ${stage}: ${stageName}</h3>`;
+            html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+            // Show newest first
+            [...versions].reverse().forEach(v => {
+                const date = new Date(v.approvedAt);
+                const dateStr = date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+                const timeStr = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+                html += `<div style="background:#111827;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                    <div>
+                        <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">Version ${v.version}</div>
+                        <div style="font-size:0.75rem;color:#6b7280;margin-top:2px">${dateStr} at ${timeStr}</div>
+                    </div>
+                    <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px;flex-shrink:0" onclick="window.restoreVersionById('${v.id}')">Restore</button>
+                </div>`;
+            });
+            html += `</div></div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    window.restoreVersionById = async function(versionId) {
+        const history = window.currentProjectData?.versionHistory || [];
+        const version = history.find(v => v.id === versionId);
+        if (!version) { alert('Version not found.'); return; }
+
+        const confirmed = confirm(`Restore Stage ${version.stage} (${version.stageName}) — Version ${version.version}?\n\nThe stage will reload with this version. You can review and re-approve from there.`);
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { [version.stageKey]: version.snapshot } })
+            });
+            if (!res.ok) throw new Error('Server error');
+            const updatedProject = await res.json();
+            window.currentProjectData = updatedProject.data;
+            updateStageNav(updatedProject.data);
+            rerenderStageAfterRestore(version.stage);
+            switchStage(version.stage);
+
+            // Confirm via version history chat
+            const chatWin = versionHistoryChatWindow;
+            if (chatWin) {
+                chatWin.append('ai', `Restored Stage ${version.stage} (${version.stageName}) to Version ${version.version}. Navigate to Stage ${version.stage} to review and re-approve.`);
+            }
+        } catch (err) {
+            console.error('Restore failed:', err);
+            alert('Failed to restore: ' + err.message);
+        }
+    };
+
+    function rerenderStageAfterRestore(stageNum) {
+        const data = window.currentProjectData;
+        switch (stageNum) {
+            case 1:
+                if (data.stage1_pitch) {
+                    renderPitches([data.stage1_pitch.pitch]);
+                    const card = resultsContainer.querySelector('.pitch-card');
+                    if (card) { handleApprove(card, 0); toggleStage1EditMode(true); }
+                    if (stage1Notes) stage1Notes.value = data.stage1_pitch.notes || '';
+                    const btn1 = document.getElementById('btn-stage1-approve');
+                    if (btn1) { btn1.textContent = 'Approve'; btn1.classList.remove('approve-btn-green'); btn1.disabled = false; }
+                }
+                break;
+            case 2:
+                if (data.stage2_outline?.outline) {
+                    renderOutline(data.stage2_outline.outline);
+                    if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); btnStage2Approve.disabled = false; }
+                    toggleStage2EditMode(false);
+                }
+                break;
+            case 3:
+                if (data.stage3_characters?.characters) {
+                    renderCharacters(data.stage3_characters.characters);
+                    if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); btnStage3Approve.disabled = false; }
+                    if (btnStage3Edit) btnStage3Edit.classList.add('hidden');
+                    if (btnStage3Revise) btnStage3Revise.classList.remove('hidden');
+                }
+                break;
+            case 4: {
+                const s4 = data.stage4_beats || data.stage4_treatment;
+                if (s4?.hybrid_beat_sheet) {
+                    renderTreatment(s4);
+                    if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); btnStage4Approve.disabled = false; }
+                    if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
+                    if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
+                }
+                break;
+            }
+            case 5:
+                if (data.stage5_treatment) {
+                    renderTreatmentStage5(data.stage5_treatment);
+                    if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); btnStage5Approve.disabled = false; }
+                }
+                break;
+            case 6:
+                if (data.stage6_scenes) {
+                    renderStage6(data.stage6_scenes);
+                    if (btnStage6Approve) { btnStage6Approve.textContent = 'Approve'; btnStage6Approve.classList.remove('approve-btn-green'); btnStage6Approve.disabled = false; }
+                }
+                break;
+            // Stages 7-9: initStage7/8/9() called automatically by switchStage()
+        }
     }
 
     // --- Stage 2 Logic ---
@@ -1090,8 +1256,6 @@ document.addEventListener('DOMContentLoaded', () => {
         act1Container.innerHTML = '';
         act2Container.innerHTML = '';
         act3Container.innerHTML = '';
-        const outlineDownloadRow = document.getElementById('outlineDownloadRow');
-        if (outlineDownloadRow) outlineDownloadRow.classList.remove('hidden');
 
         const renderSequences = (sequences, container) => {
             sequences.forEach(seq => {
@@ -1186,13 +1350,17 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerBtn.disabled = true;
         triggerBtn.classList.remove('approve-btn-green');
 
+        const stage2Snapshot = { outline: updatedOutline };
+        const versionHistory2 = captureVersionSnapshot(2, 'stage2_outline', 'Outline', stage2Snapshot);
+
         try {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: {
-                        stage2_outline: { outline: updatedOutline }
+                        stage2_outline: stage2Snapshot,
+                        versionHistory: versionHistory2
                     }
                 })
             });
@@ -1351,8 +1519,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
-        const charactersDownloadRow = document.getElementById('charactersDownloadRow');
-        if (charactersDownloadRow) charactersDownloadRow.classList.remove('hidden');
 
         // Sort: Protagonist first, Antagonist second, Supporting last
         const sorted = [...characters].sort((a, b) => {
@@ -1717,13 +1883,17 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage3Approve.disabled = true;
             btnStage3Approve.classList.remove('approve-btn-green');
 
+            const stage3Snapshot = { characters: currentCharacters };
+            const versionHistory3 = captureVersionSnapshot(3, 'stage3_characters', 'Characters', stage3Snapshot);
+
             try {
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: {
-                            stage3_characters: { characters: currentCharacters }
+                            stage3_characters: stage3Snapshot,
+                            versionHistory: versionHistory3
                         }
                     })
                 });
@@ -1779,8 +1949,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTreatment(treatmentData) {
         if (!treatmentContainer) return;
         treatmentContainer.innerHTML = '';
-        const beatsDownloadRow = document.getElementById('beatsDownloadRow');
-        if (beatsDownloadRow) beatsDownloadRow.classList.remove('hidden');
 
         // STC Genre Category label
         if (treatmentData.stc_genre_category) {
@@ -2146,12 +2314,14 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage4Approve.disabled = true;
             btnStage4Approve.classList.remove('approve-btn-green');
 
+            const versionHistory4 = captureVersionSnapshot(4, 'stage4_beats', 'Beats', currentS4Beats);
+
             try {
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data: { stage4_beats: currentS4Beats }
+                        data: { stage4_beats: currentS4Beats, versionHistory: versionHistory4 }
                     })
                 });
                 const updatedProject = await res.json();
@@ -2460,12 +2630,14 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage5Approve.disabled = true;
             btnStage5Approve.classList.remove('approve-btn-green');
 
+            const versionHistory5 = captureVersionSnapshot(5, 'stage5_treatment', 'Treatment', currentData);
+
             try {
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data: { stage5_treatment: currentData }
+                        data: { stage5_treatment: currentData, versionHistory: versionHistory5 }
                     })
                 });
                 const updatedProject = await res.json();
@@ -2870,12 +3042,14 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage6Approve.disabled = true;
             btnStage6Approve.textContent = 'Saving...';
 
+            const versionHistory6 = captureVersionSnapshot(6, 'stage6_scenes', 'Scenes', currentBlueprint);
+
             try {
                 const response = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data: { stage6_scenes: currentBlueprint }
+                        data: { stage6_scenes: currentBlueprint, versionHistory: versionHistory6 }
                     })
                 });
 
@@ -3131,11 +3305,13 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage7Approve.disabled = true;
             btnStage7Approve.textContent = 'Saving...';
 
+            const versionHistory7 = captureVersionSnapshot(7, 'stage7_approved', 'Draft', true);
+
             try {
                 const response = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: { stage7_approved: true, stage8_coverage: null } })
+                    body: JSON.stringify({ data: { stage7_approved: true, stage8_coverage: null, versionHistory: versionHistory7 } })
                 });
 
                 if (!response.ok) throw new Error('Failed to save project');
@@ -3494,10 +3670,12 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingDiv?.classList.remove('hidden');
             reportDiv?.classList.add('hidden');
             try {
+                const coverageSource = window.coverageSourceStage9 ? 'stage9' : 'stage6';
+                window.coverageSourceStage9 = false;
                 const response = await fetch('/api/generate-coverage', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId })
+                    body: JSON.stringify({ projectId: activeProjectId, source: coverageSource })
                 });
                 if (!response.ok) {
                     const err = await response.json();
@@ -3508,6 +3686,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
                 window.currentProjectData = projData.data;
+
+                const versionHistory8 = captureVersionSnapshot(8, 'stage8_coverage', 'Coverage', data.result);
+                await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: { versionHistory: versionHistory8 } })
+                });
+
                 updateStageNav(projData.data);
 
                 loadingDiv?.classList.add('hidden');
@@ -4214,6 +4400,146 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ─── VERSION HISTORY CHAT ────────────────────────────────────────────────
+
+    let versionHistoryChatWindow = null;
+
+    if (document.getElementById('version-history-chat-send')) {
+        const stageNumMap = { pitch:1, outline:2, characters:3, beats:4, treatment:5, scenes:6, draft:7, coverage:8, rewrite:9 };
+
+        versionHistoryChatWindow = new ChatWindow({
+            threadId: 'version-history-chat-thread',
+            inputId: 'version-history-chat-input',
+            sendBtnId: 'version-history-chat-send',
+            onSend: async (text) => {
+                const lower = text.toLowerCase();
+                // Pattern: "restore stage N version M" / "restore version M of stage N"
+                const m1 = lower.match(/restore\s+stage\s+(\d+)\s+(?:version\s+)?(\d+)/);
+                const m2 = lower.match(/restore\s+version\s+(\d+)\s+of\s+stage\s+(\d+)/);
+                const match = m1 ? { stage: parseInt(m1[1]), version: parseInt(m1[2]) }
+                             : m2 ? { stage: parseInt(m2[2]), version: parseInt(m2[1]) }
+                             : null;
+
+                if (match) {
+                    const history = window.currentProjectData?.versionHistory || [];
+                    const entry = history.find(v => v.stage === match.stage && v.version === match.version);
+                    if (!entry) {
+                        versionHistoryChatWindow.append('ai', `No version ${match.version} found for Stage ${match.stage}. Check the list above to see what's available.`);
+                        return;
+                    }
+                    versionHistoryChatWindow.append('ai', `Restoring Stage ${entry.stage} (${entry.stageName}) — Version ${entry.version}…`);
+                    await window.restoreVersionById(entry.id);
+                } else if (lower.includes('list') || lower.includes('what') || lower.includes('show') || lower.includes('versions')) {
+                    const history = window.currentProjectData?.versionHistory || [];
+                    if (!history.length) {
+                        versionHistoryChatWindow.append('ai', 'No versions saved yet. Versions are created automatically each time you approve a stage.');
+                        return;
+                    }
+                    const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Draft', 8:'Coverage', 9:'Rewrite' };
+                    const grouped = {};
+                    history.forEach(v => { (grouped[v.stage] = grouped[v.stage] || []).push(v); });
+                    let msg = 'Here are the saved versions:\n\n';
+                    Object.keys(grouped).sort((a,b) => a-b).forEach(s => {
+                        msg += `Stage ${s} (${stageNames[s] || s}):\n`;
+                        grouped[s].forEach(v => {
+                            const d = new Date(v.approvedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+                            msg += `  • Version ${v.version} — ${d}\n`;
+                        });
+                        msg += '\n';
+                    });
+                    msg += 'To restore one, say: "restore stage 4 version 1"';
+                    versionHistoryChatWindow.append('ai', msg);
+                } else {
+                    versionHistoryChatWindow.append('ai', 'I can help you restore previous versions. Try:\n• "restore stage 4 version 1"\n• "list all versions"\n• "show versions of stage 2"');
+                }
+            }
+        });
+
+        // Resize handle for version history chat panel
+        const vhHsplit = document.getElementById('version-history-hsplit');
+        const vhChatEl = document.getElementById('version-history-chat');
+        if (vhHsplit && vhChatEl) {
+            const savedVH = parseInt(localStorage.getItem('versionHistoryChatH') || '280');
+            vhChatEl.style.height = `${savedVH}px`;
+            vhHsplit.addEventListener('mousedown', e => {
+                e.preventDefault();
+                vhHsplit.classList.add('dragging');
+                const startY = e.clientY;
+                const startH = vhChatEl.offsetHeight;
+                const onMove = ev => {
+                    const newH = Math.min(600, Math.max(120, startH + (startY - ev.clientY)));
+                    vhChatEl.style.height = `${newH}px`;
+                    localStorage.setItem('versionHistoryChatH', newH);
+                };
+                const onUp = () => {
+                    vhHsplit.classList.remove('dragging');
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+
+        // Greet the user on first open
+        versionHistoryChatWindow.append('ai', 'Version History — I can help you restore any previous version. Type "list versions" to see what\'s saved, or say "restore stage 4 version 1" to restore directly.');
+    }
+
+    // ─── STAGE 9 LOOPBACK MODAL ──────────────────────────────────────────────
+
+    const stage9LoopbackModal = document.getElementById('stage9-loopback-modal');
+    const btnLoopbackCoverage = document.getElementById('btn-loopback-coverage');
+    const btnLoopbackPolish   = document.getElementById('btn-loopback-polish');
+
+    function setStage9ApproveConfirmed() {
+        const btn = document.getElementById('btnStage9Approve');
+        if (btn) {
+            btn.textContent = 'Approved ✓';
+            btn.classList.add('approve-btn-green');
+            btn.disabled = true;
+        }
+    }
+
+    if (btnLoopbackPolish) {
+        btnLoopbackPolish.addEventListener('click', () => {
+            stage9LoopbackModal?.classList.add('hidden');
+            setStage9ApproveConfirmed();
+            switchStage(10);
+        });
+    }
+
+    if (btnLoopbackCoverage) {
+        btnLoopbackCoverage.addEventListener('click', async () => {
+            stage9LoopbackModal?.classList.add('hidden');
+            setStage9ApproveConfirmed();
+
+            // Snapshot existing coverage before overwriting (if it exists)
+            if (window.currentProjectData?.stage8_coverage) {
+                const vhCov = captureVersionSnapshot(8, 'stage8_coverage', 'Coverage', window.currentProjectData.stage8_coverage);
+                await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: { versionHistory: vhCov } })
+                });
+            }
+
+            // Clear coverage so initStage8() regenerates it from Stage 9 working copy
+            await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage8_coverage: null, stage8_approved: false } })
+            });
+            if (window.currentProjectData) {
+                window.currentProjectData.stage8_coverage = null;
+                window.currentProjectData.stage8_approved = false;
+            }
+
+            // Re-run coverage on the Stage 9 rewritten draft
+            window.coverageSourceStage9 = true;
+            switchStage(8);
+        });
+    }
+
     // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
 
     // State
@@ -4281,6 +4607,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error((await res.json()).error);
             const data = await res.json();
             data.scenes.forEach(s => { if (s.modified) stage9Pending[s.scene_number] = s.proposed_text; });
+            resetStage9ApproveBtn();
             window.stage9CurrentPlan = null;
             const firstModified = data.scenes.find(s => s.modified);
             if (firstModified) stage9SelectScene(firstModified.scene_number);
@@ -4456,6 +4783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         stage9Pending[stage9CurrentScene] = data.proposed_text;
+                        resetStage9ApproveBtn();
                         stage9SelectScene(stage9CurrentScene);
                         renderStage9SceneList();
                         stage9Chat.append('ai', `Scene ${stage9CurrentScene} updated. Review the diff on the right.`);
@@ -4598,6 +4926,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Save textarea content → re-render with diff
                     if (stage9CurrentScene !== null) {
                         stage9Pending[stage9CurrentScene] = rightEdit.value;
+                        resetStage9ApproveBtn();
                         const origText     = stage9State.working[stage9CurrentScene] || '';
                         const proposedText = rightEdit.value;
                         const { rightAnnotations } = computeLineDiff(origText, proposedText);
@@ -4620,31 +4949,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ── Finalize Rewrite ──────────────────────────────────────────────────
-        const btnFinalize = document.getElementById('btnFinalizeRewrite');
-        if (btnFinalize) {
-            btnFinalize.onclick = async () => {
-                stage9FlushEditPanel();
-                if (Object.keys(stage9Pending).length > 0) {
-                    await fetch('/api/approve-rewrite-priority', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: stage9State.priority_idx })
-                    });
-                    Object.assign(stage9State.working, stage9Pending);
-                    stage9Pending = {};
-                }
-                await fetch('/api/finalize-stage9', {
+        async function finalizeStage9() {
+            stage9FlushEditPanel();
+            if (Object.keys(stage9Pending).length > 0) {
+                await fetch('/api/approve-rewrite-priority', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId })
+                    body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: stage9State.priority_idx })
                 });
-                const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                const projData = await projRes.json();
-                window.currentProjectData = projData.data;
-                updateStageNav(projData.data);
-                switchStage(10);
-            };
+                Object.assign(stage9State.working, stage9Pending);
+                stage9Pending = {};
+            }
+            await fetch('/api/finalize-stage9', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
+
+            const projRes = await fetch(`/api/projects/${activeProjectId}`);
+            const projData = await projRes.json();
+            window.currentProjectData = projData.data;
+
+            // Snapshot Stage 9
+            const versionHistory9 = captureVersionSnapshot(9, 'stage9_rewrites', 'Rewrite', projData.data.stage9_rewrites);
+            await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { versionHistory: versionHistory9 } })
+            });
+
+            updateStageNav(projData.data);
+
+            // Show loopback modal instead of jumping straight to Stage 10
+            const loopbackModal = document.getElementById('stage9-loopback-modal');
+            if (loopbackModal) loopbackModal.classList.remove('hidden');
         }
+
+        const btnFinalize = document.getElementById('btnFinalizeRewrite');
+        if (btnFinalize) btnFinalize.onclick = finalizeStage9;
+
+        const btnApprove9 = document.getElementById('btnStage9Approve');
+        if (btnApprove9) btnApprove9.addEventListener('click', finalizeStage9);
 
         // ── Download Rewrite ──────────────────────────────────────────────────
         const btnDownload = document.getElementById('btnDownloadRewrite');
@@ -4668,6 +5013,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ── Resize handles ────────────────────────────────────────────────────
         initStage9Resizers();
+    }
+
+    function resetStage9ApproveBtn() {
+        const btn = document.getElementById('btnStage9Approve');
+        if (btn && (btn.textContent.includes('Approved') || btn.disabled)) {
+            btn.textContent = 'Approve →';
+            btn.classList.remove('approve-btn-green');
+            btn.disabled = false;
+        }
     }
 
 });

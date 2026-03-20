@@ -63,6 +63,13 @@
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
                 </button>
+                <button id="btnVersionHistory" class="sidebar-home-btn" title="Version History">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                        <path d="M12 7v5l4 2"></path>
+                    </svg>
+                </button>
                 <button id="btnOpenSettings" class="sidebar-home-btn" title="Settings">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -76,7 +83,13 @@
                     <h1>Stage 1: Pitch Generation</h1>
                     <p>Brainstorm three distinct, high-concept movie pitch options.</p>
                 </div>
-                <button id="btn-stage1-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadPitch" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Pitch
+                    </button>
+                    <button id="btn-stage1-approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="workspace-scrollable">
                 <section class="prompt-section">
@@ -105,18 +118,6 @@
                     <span id="loadingTextStage1">Generating high-concept pitches...</span>
                 </div>
 
-                <!-- Download Pitch button (shown in workshop mode) -->
-                <div id="pitchDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-                    <button id="btnDownloadPitch" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download Pitch
-                    </button>
-                </div>
-
                 <!-- Pitch Results Container -->
                 <div id="resultsContainer" class="results-grid">
                     <!-- Cards will be injected here dynamically -->
@@ -143,25 +144,19 @@
                     <h1>Stage 2: Outline</h1>
                     <p>Expand your finalized pitch into a structured 8-sequence outline.</p>
                 </div>
-                <button id="btn-stage2-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadOutline" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Outline
+                    </button>
+                    <button id="btn-stage2-approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="workspace-scrollable">
                 <!-- Loading State for Outline -->
                 <div id="loadingStateOutline" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextStage2">Structuring story beats...</span>
-                </div>
-
-                <!-- Download Outline button (shown when outline exists) -->
-                <div id="outlineDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-top: 16px; margin-bottom: -8px;">
-                    <button id="btnDownloadOutline" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download Outline
-                    </button>
                 </div>
 
                 <!-- Outline Results Container (3-Act Structure) -->
@@ -210,25 +205,19 @@
                     <h1>Stage 3: Characters</h1>
                     <p>Develop deep, psychologically grounded character profiles based on your story.</p>
                 </div>
-                <button id="btn-stage3-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadCharacters" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Characters
+                    </button>
+                    <button id="btn-stage3-approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="workspace-scrollable">
                 <!-- Character cards injected here -->
                 <div id="loadingStateCharacters" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextStage3">Casting your characters...</span>
-                </div>
-
-                <!-- Download Characters button (shown when characters exist) -->
-                <div id="charactersDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-top: 24px; margin-bottom: -16px;">
-                    <button id="btnDownloadCharacters" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download Characters
-                    </button>
                 </div>
 
                 <div id="charactersContainer" class="hidden"
@@ -257,7 +246,13 @@
                     <h1>Stage 4: Beats</h1>
                     <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
                 </div>
-                <button id="btn-stage4-approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadBeats" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Beats
+                    </button>
+                    <button id="btn-stage4-approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="workspace-scrollable">
                 <div id="treatmentActions" class="action-row" style="margin-bottom: 24px;">
@@ -267,18 +262,6 @@
                 <div id="loadingStateTreatment" class="loading-state hidden">
                     <div class="spinner"></div>
                     <span id="loadingTextTreatment">Generating 15-Beat Sheet...</span>
-                </div>
-
-                <!-- Download Beats button (shown when beats exist) -->
-                <div id="beatsDownloadRow" class="hidden" style="display: flex; justify-content: flex-end; margin-top: 24px;">
-                    <button id="btnDownloadBeats" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download Beats
-                    </button>
                 </div>
 
                 <div id="treatmentContainer" class="hidden"
@@ -308,7 +291,13 @@
                     <h1>Stage 5: Treatment</h1>
                     <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
                 </div>
-                <button id="btnStage5Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadTreatment" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Treatment
+                    </button>
+                    <button id="btnStage5Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="workspace-scrollable">
                 <!-- Loading State for Treatment -->
@@ -327,17 +316,6 @@
                 <!-- Treatment Results Container -->
                 <div id="stage5TreatmentContainer" class="hidden"
                     style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px;">
-                    <!-- Download button -->
-                    <div style="display: flex; justify-content: flex-end;">
-                        <button id="btnDownloadTreatment" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Download Treatment
-                        </button>
-                    </div>
                     <!-- Title, Logline, Characters -->
                     <div class="field-group">
                         <label class="text-sm font-bold text-gray-400 mb-2 block uppercase tracking-wider">Title,
@@ -449,7 +427,13 @@
                     <h1>Stage 7: Draft</h1>
                     <p>Write the first draft of your screenplay using standard formatting.</p>
                 </div>
-                <button id="btnStage7Approve" class="primary-btn" style="margin-top:4px;font-size:0.8rem;white-space:nowrap;flex-shrink:0">Approve →</button>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadDraft" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Draft
+                    </button>
+                    <button id="btnStage7Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                </div>
             </header>
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
@@ -469,10 +453,6 @@
                             <div class="flex items-center space-x-3">
                                 <button id="btnGenerateAll" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors">
                                     Generate All Scenes
-                                </button>
-                                <button id="btnDownloadDraft" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                    Download Draft
                                 </button>
                                 <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Drafting Mode</div>
                             </div>
@@ -513,9 +493,18 @@
 
         <!-- Stage 8: Coverage -->
         <main id="stage-8-view" class="workspace hidden">
-            <header class="workspace-header">
-                <h1>Stage 8: Coverage</h1>
-                <p id="stage8-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 8: Coverage</h1>
+                    <p id="stage8-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
+                </div>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnDownloadCoverage" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Coverage
+                    </button>
+                    <button id="btnStage8Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Begin Rewrite →</button>
+                </div>
             </header>
 
             <!-- Loading State -->
@@ -531,17 +520,6 @@
                 <div id="stage8-content" class="max-w-3xl mx-auto px-8 pb-32 space-y-6"></div>
             </div>
 
-            <!-- Bottom Action Panel -->
-            <section id="stage8Workshop" class="feedback-panel">
-                <div class="feedback-panel-body">
-                    <div class="action-row action-row-split">
-                        <div class="action-group-right">
-                            <button id="btnDownloadCoverage" class="secondary-btn">Download Coverage</button>
-                            <button id="btnStage8Approve" class="primary-btn">Begin Rewrite →</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
         </main>
 
@@ -561,9 +539,18 @@
 
                 <!-- Stage Header -->
                 <div class="border-b border-white/10 bg-gray-950 shrink-0" style="padding: 28px 60px">
-                    <div class="workspace-header" style="padding:0;margin:0">
-                        <h1>Stage 9: Rewrite</h1>
-                        <p>Work with the assistant to address coverage priorities, scene by scene.</p>
+                    <div class="workspace-header" style="padding:0;margin:0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                        <div>
+                            <h1>Stage 9: Rewrite</h1>
+                            <p>Work with the assistant to address coverage priorities, scene by scene.</p>
+                        </div>
+                        <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                            <button id="btnDownloadRewrite" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download Rewrite
+                            </button>
+                            <button id="btnStage9Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
+                        </div>
                     </div>
                 </div>
 
@@ -571,10 +558,7 @@
                 <div id="stage9-done-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0 hidden">
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-sm text-green-400 font-semibold">All priority tasks addressed. Review the final rewrite below.</p>
-                        <div class="flex items-center gap-3">
-                            <button id="btnDownloadRewrite" class="secondary-btn">Download Rewrite</button>
-                            <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
-                        </div>
+                        <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
                     </div>
                 </div>
 
@@ -651,6 +635,32 @@
             <div class="workspace-scrollable">
             </div>
         </main>
+
+        <!-- Version History Workspace -->
+        <main id="version-history-view" class="workspace hidden">
+            <header class="workspace-header">
+                <div>
+                    <h1>Version History</h1>
+                    <p>Browse and restore previous approved versions of any stage.</p>
+                </div>
+            </header>
+            <div class="workspace-scrollable">
+                <div id="version-history-list" style="padding: 0 60px 40px">
+                    <p class="text-gray-500 text-sm italic" style="padding-top:24px">No versions saved yet. Approve a stage to create the first version.</p>
+                </div>
+            </div>
+            <div id="version-history-hsplit" class="resize-handle-h"></div>
+            <div id="version-history-chat" class="stage-chat">
+                <div class="chat-header">
+                    <span class="chat-header-label">Assistant</span>
+                </div>
+                <div id="version-history-chat-thread" class="chat-thread"></div>
+                <div class="chat-input-row">
+                    <textarea id="version-history-chat-input" class="chat-input" placeholder='Ask to restore a version, e.g. "restore Stage 4 version 1"' rows="1"></textarea>
+                    <button id="version-history-chat-send" class="chat-send-btn">Send</button>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Rename Project Modal -->
@@ -673,6 +683,18 @@
             <div class="modal-actions">
                 <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
                 <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage 9 Loopback Modal -->
+    <div id="stage9-loopback-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Rewrite Complete</h3>
+            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:24px">Your Stage 9 rewrite is finalized. What would you like to do next?</p>
+            <div class="modal-actions" style="flex-direction:column;gap:8px">
+                <button id="btn-loopback-coverage" class="primary-btn" style="width:100%">Run Stage 8 Coverage on New Draft</button>
+                <button id="btn-loopback-polish" class="secondary-btn" style="width:100%">Proceed to Stage 10 Polish →</button>
             </div>
         </div>
     </div>
