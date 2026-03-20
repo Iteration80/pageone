@@ -100,7 +100,7 @@ loadSettings();
 
 // Middleware
 app.use(express.static('public'));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 // API route
 app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
