@@ -4952,7 +4952,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const MODEL_OPTIONS = [
         { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
-        { value: 'gemini-2.0-flash-001',     label: 'Gemini 2.0 Flash' },
+        { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash' },
         { value: 'claude-opus-4-6',          label: 'Claude Opus 4.6' },
         { value: 'claude-sonnet-4-6',        label: 'Claude Sonnet 4.6' },
         { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
