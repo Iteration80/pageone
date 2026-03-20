@@ -783,7 +783,163 @@ async function generateDraftDocx(scenes, projectTitle) {
     return await Packer.toBuffer(makeDoc(children));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 1: Pitch → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generatePitchDocx(pitch) {
+    const title = pitch.title || 'Untitled';
+
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: title.toUpperCase(), bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: pitch.genre || '', size: 22, font: 'Arial', italics: true, color: '6B7280' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+    ];
+
+    const sections = [
+        { label: 'LOGLINE', value: pitch.logline },
+        { label: 'CORE THEME', value: pitch.core_theme },
+        { label: 'SYNOPSIS', value: pitch.synopsis },
+    ];
+
+    sections.forEach(({ label, value }) => {
+        if (!value) return;
+        children.push(h1(label));
+        // Multi-paragraph text
+        value.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) { children.push(spacer()); return; }
+            children.push(body(trimmed));
+        });
+        children.push(spacer());
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 4: Beat Sheet → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateBeatsDocx(beatsData, projectTitle) {
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: 'BEAT SHEET', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: (projectTitle || 'Untitled').toUpperCase(), bold: true, size: 28, font: 'Arial', color: '374151' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+    ];
+
+    if (beatsData.stc_genre_category) {
+        children.push(new Paragraph({
+            children: [new TextRun({ text: `STC Genre: ${beatsData.stc_genre_category}`, size: 22, font: 'Arial', italics: true, color: '6B7280' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }));
+    }
+
+    (beatsData.hybrid_beat_sheet || []).forEach(seq => {
+        const cleanTitle = (seq.sequence_title || '').replace(/^Sequence\s*\d+\s*:\s*/i, '');
+        children.push(h1(`SEQUENCE ${seq.sequence_number}: ${cleanTitle.toUpperCase()}`));
+
+        (seq.beats || []).forEach(beat => {
+            children.push(new Paragraph({
+                children: [new TextRun({ text: beat.beat_name || '', bold: true, font: 'Arial', size: 24, color: '1D4ED8' })],
+                spacing: { before: 200, after: 60 }
+            }));
+
+            const fields = [
+                { label: 'Genre Variation', key: 'genre_variation_notes' },
+                { label: 'Emotional Arc', key: 'emotional_arc' },
+                { label: 'Pacing', key: 'pacing_notes' },
+                { label: 'Action', key: 'detailed_action' },
+            ];
+            fields.forEach(({ label, key }) => {
+                if (!beat[key]) return;
+                children.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: `${label}:  `, bold: true, font: 'Arial', size: 20, color: '6B7280' }),
+                        new TextRun({ text: beat[key], font: 'Arial', size: 22 })
+                    ],
+                    spacing: { before: 40, after: 60 },
+                    indent: { left: 360 }
+                }));
+            });
+        });
+        children.push(spacer());
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 6: Scene Blueprint → .docx
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateScenesDocx(sequences, projectTitle) {
+    const children = [
+        new Paragraph({
+            children: [new TextRun({ text: 'SCENE BLUEPRINT', bold: true, size: 36, font: 'Arial', color: '1A1A2E' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 }
+        }),
+        new Paragraph({
+            children: [new TextRun({ text: (projectTitle || 'Untitled').toUpperCase(), bold: true, size: 28, font: 'Arial', color: '374151' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 480 }
+        }),
+    ];
+
+    sequences.forEach(seq => {
+        const seqLabel = `${seq.sequence_title || ''}${seq.total_estimated_pages ? `  (${seq.total_estimated_pages} pp.)` : ''}`;
+        children.push(h1(seqLabel));
+
+        (seq.scenes || []).forEach(scene => {
+            // Scene heading
+            children.push(new Paragraph({
+                children: [new TextRun({ text: `Scene ${scene.scene_number}: ${scene.scene_heading || ''}`, bold: true, font: 'Courier New', size: 22, color: '1D4ED8' })],
+                spacing: { before: 200, after: 60 }
+            }));
+
+            const fields = [
+                { label: 'Narrative', value: scene.narrative_action },
+                { label: 'Function', value: scene.dramaturgical_function },
+                { label: 'Est. Pages', value: scene.estimated_page_count != null ? String(scene.estimated_page_count) : null },
+            ];
+            fields.forEach(({ label, value }) => {
+                if (!value) return;
+                children.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: `${label}:  `, bold: true, font: 'Arial', size: 20, color: '6B7280' }),
+                        new TextRun({ text: value, font: 'Arial', size: 22 })
+                    ],
+                    spacing: { before: 0, after: 60 },
+                    indent: { left: 360 }
+                }));
+            });
+        });
+        children.push(spacer());
+    });
+
+    return await Packer.toBuffer(makeDoc(children));
+}
+
 module.exports = {
+    generatePitchDocx,
+    generateBeatsDocx,
+    generateScenesDocx,
     generateCoverageDocx,
     generateOutlineDocx,
     generateCharactersDocx,

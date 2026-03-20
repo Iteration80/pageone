@@ -3466,22 +3466,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadPitch = document.getElementById('btnDownloadPitch');
     if (btnDownloadPitch) {
         btnDownloadPitch.addEventListener('click', () => {
-            const pitch = window.currentProjectData?.stage1_pitch?.pitch;
-            if (!pitch) { alert('No pitch has been generated yet.'); return; }
-            const title = pitch.title || 'untitled';
-            let text = `PITCH: ${title.toUpperCase()}\n`;
-            text += `${'='.repeat(60)}\n\n`;
-            if (pitch.genre) text += `GENRE: ${pitch.genre}\n\n`;
-            if (pitch.logline) text += `LOGLINE:\n${pitch.logline}\n\n`;
-            if (pitch.core_theme) text += `CORE THEME:\n${pitch.core_theme}\n\n`;
-            if (pitch.synopsis) text += `SYNOPSIS:\n${pitch.synopsis}\n`;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'pitch');
-            a.click();
-            URL.revokeObjectURL(url);
+            if (!window.currentProjectData?.stage1_pitch?.pitch) { alert('No pitch has been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=pitch`, btnDownloadPitch);
         });
     }
 
@@ -3496,72 +3482,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadBeats = document.getElementById('btnDownloadBeats');
     if (btnDownloadBeats) {
         btnDownloadBeats.addEventListener('click', () => {
-            const data = window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment;
-            if (!data || !data.hybrid_beat_sheet) {
-                alert('No beats have been generated yet.');
-                return;
-            }
-            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'untitled';
-            let text = `BEAT SHEET: ${title.toUpperCase()}\n`;
-            if (data.stc_genre_category) text += `STC Genre: ${data.stc_genre_category}\n`;
-            text += '\n';
-            data.hybrid_beat_sheet.forEach(seq => {
-                const cleanTitle = (seq.sequence_title || '').replace(/^Sequence\s*\d+\s*:\s*/i, '');
-                text += `${'='.repeat(60)}\nSEQUENCE ${seq.sequence_number}: ${cleanTitle.toUpperCase()}\n${'='.repeat(60)}\n\n`;
-                (seq.beats || []).forEach(beat => {
-                    text += `--- ${beat.beat_name} ---\n\n`;
-                    if (beat.genre_variation_notes) text += `GENRE VARIATION NOTES:\n${beat.genre_variation_notes}\n\n`;
-                    if (beat.emotional_arc) text += `EMOTIONAL ARC:\n${beat.emotional_arc}\n\n`;
-                    if (beat.pacing_notes) text += `PACING NOTES:\n${beat.pacing_notes}\n\n`;
-                    if (beat.detailed_action) text += `DETAILED ACTION:\n${beat.detailed_action}\n\n`;
-                });
-            });
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'beats');
-            a.click();
-            URL.revokeObjectURL(url);
+            const d = window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment;
+            if (!d?.hybrid_beat_sheet) { alert('No beats have been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=beats`, btnDownloadBeats);
         });
     }
 
     const btnDownloadScenes = document.getElementById('btnDownloadScenes');
     if (btnDownloadScenes) {
         btnDownloadScenes.addEventListener('click', () => {
-            const data = window.currentProjectData?.stage6_scenes;
-            if (!data) {
-                alert('No scene blueprint has been generated yet.');
-                return;
-            }
-            const sequences = Array.isArray(data) ? data : (data.sequences || []);
-            if (sequences.length === 0) {
-                alert('No scene blueprint has been generated yet.');
-                return;
-            }
-            const lines = [];
-            sequences.forEach(seq => {
-                lines.push(`SEQUENCE ${seq.sequence_number}: ${seq.sequence_title}`);
-                lines.push('='.repeat(60));
-                lines.push(`Estimated Pages: ${seq.total_estimated_pages}`);
-                lines.push('');
-                (seq.scenes || []).forEach(scene => {
-                    lines.push(`Scene ${scene.scene_number}: ${scene.scene_heading}`);
-                    lines.push(`Narrative: ${scene.narrative_action}`);
-                    lines.push(`Function: ${scene.dramaturgical_function}`);
-                    lines.push(`Est. Pages: ${scene.estimated_page_count}`);
-                    lines.push('');
-                });
-                lines.push('');
-            });
-            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'scenes';
-            const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = makeFilename(title, 'scene_blueprint');
-            a.click();
-            URL.revokeObjectURL(url);
+            const d = window.currentProjectData?.stage6_scenes;
+            if (!d || !(Array.isArray(d) ? d : (d.sequences || [])).length) { alert('No scene blueprint has been generated yet.'); return; }
+            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=scenes`, btnDownloadScenes);
         });
     }
 

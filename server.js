@@ -54,6 +54,9 @@ function getModelConfig(stageNum) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const {
+    generatePitchDocx,
+    generateBeatsDocx,
+    generateScenesDocx,
     generateCoverageDocx,
     generateOutlineDocx,
     generateCharactersDocx,
@@ -1257,7 +1260,13 @@ app.get('/api/export/docx/:projectId', async (req, res) => {
 
         let buf, filename;
 
-        if (stage === 'coverage') {
+        if (stage === 'pitch') {
+            const pitch = data.stage1_pitch?.pitch;
+            if (!pitch) return res.status(400).json({ error: 'No pitch data found' });
+            buf = await generatePitchDocx(pitch);
+            filename = `${safeName}_pitch.docx`;
+
+        } else if (stage === 'coverage') {
             if (!data.stage8_coverage) return res.status(400).json({ error: 'No coverage data found' });
             buf = await generateCoverageDocx(data.stage8_coverage);
             filename = `${safeName}_coverage.docx`;
@@ -1278,6 +1287,19 @@ app.get('/api/export/docx/:projectId', async (req, res) => {
             if (!data.stage5_treatment) return res.status(400).json({ error: 'No treatment data found' });
             buf = await generateTreatmentDocx(data.stage5_treatment, title);
             filename = `${safeName}_treatment.docx`;
+
+        } else if (stage === 'beats') {
+            const beats = data.stage4_beats || data.stage4_treatment;
+            if (!beats?.hybrid_beat_sheet) return res.status(400).json({ error: 'No beat sheet data found' });
+            buf = await generateBeatsDocx(beats, title);
+            filename = `${safeName}_beats.docx`;
+
+        } else if (stage === 'scenes') {
+            const seqs = data.stage6_scenes;
+            if (!seqs || !seqs.length) return res.status(400).json({ error: 'No scene blueprint data found' });
+            const sequences = Array.isArray(seqs) ? seqs : (seqs.sequences || []);
+            buf = await generateScenesDocx(sequences, title);
+            filename = `${safeName}_scene_blueprint.docx`;
 
         } else if (stage === 'draft') {
             const scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);
