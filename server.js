@@ -927,7 +927,11 @@ app.post('/api/plan-rewrite', async (req, res) => {
 
         const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
-        const contextSection = conversationContext ? `\n\n## BRAINSTORM CONTEXT\n${conversationContext}` : '';
+        // Trim conversation context to last ~4000 chars to keep prompt manageable
+        const trimmedContext = conversationContext && conversationContext.length > 4000
+            ? '...\n' + conversationContext.slice(-4000)
+            : conversationContext;
+        const contextSection = trimmedContext ? `\n\n## BRAINSTORM CONTEXT\n${trimmedContext}` : '';
         const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
@@ -953,11 +957,14 @@ app.post('/api/plan-rewrite', async (req, res) => {
 
         const { generateContent } = require('./agents/ai-client');
         const modelCfg = getModelConfig(9);
+        console.log(`plan-rewrite: model=${modelCfg.model}, prompt=${prompt.length} chars, context=${(trimmedContext||'').length} chars`);
 
         // Retry up to 3 times on transient connection errors
         let response;
         for (let attempt = 1; attempt <= 3; attempt++) {
+            const t0 = Date.now();
             try {
+                console.log(`plan-rewrite attempt ${attempt}/3 starting...`);
                 response = await generateContent({
                     model: modelCfg.model,
                     geminiApiKey: modelCfg.geminiApiKey,
@@ -970,9 +977,10 @@ app.post('/api/plan-rewrite', async (req, res) => {
                         responseSchema: plannerSchema,
                     },
                 });
+                console.log(`plan-rewrite attempt ${attempt}/3 succeeded in ${((Date.now()-t0)/1000).toFixed(1)}s`);
                 break; // success
             } catch (err) {
-                console.warn(`plan-rewrite attempt ${attempt}/3 failed: ${err.message}`);
+                console.warn(`plan-rewrite attempt ${attempt}/3 failed after ${((Date.now()-t0)/1000).toFixed(1)}s: ${err.message}`);
                 if (attempt === 3) throw err;
                 await new Promise(r => setTimeout(r, 2000 * attempt));
             }

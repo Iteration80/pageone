@@ -62,6 +62,23 @@ Stage assistant conversations are now persisted to the project file and shared a
 
 **Data shape:** `projectData.data.conversations = { stage1: [{role, content}, …], stage2: […], … }`
 
+### 2026-03-20 — Stage 9 plan generation: socket timeout fix + diagnostics
+
+Fixed recurring "socket connection was closed unexpectedly" error during plan generation:
+
+- **`agents/ai-client.js`** — Added `httpOptions: { timeout: 300_000 }` to `GoogleGenAI` constructor. The global undici dispatcher does not reach the Google SDK's internal HTTP client; timeout must be set at the SDK level. Node 24's default is 60s, but plan generation on a full screenplay can take longer.
+- **`server.js`** — Added `undici` package with global dispatcher (300s timeout) as a safety net for other fetch calls. Trimmed `conversationContext` sent to planner to last 4000 chars to reduce prompt size. Added diagnostic logging (model, prompt size, attempt timing) to `/api/plan-rewrite`.
+- **Root cause of repeated failures:** A stale `bun` process was holding port 3000. Every `pkill -f "node server.js"` killed Node but left bun running, so all requests hit the old unfixed code. Fixed by explicitly killing the bun PID.
+
+**Operational note:** When restarting the server, always verify with `lsof -i :3000 -P | grep LISTEN` that `node` (not `bun`) is listening.
+
+### 2026-03-20 — Stage 9 UX: thinking dots + persistence + retry logic
+
+- **`public/app.js`** — Thinking dots (`setThinking`) now show on every Send across all stages (1–9), during plan generation, during Execute Plan, and during Approve & Continue. `stage9Pending` is restored from `stage9_rewrites.pending` on project load so rewrites survive page refresh. Guards added to prevent duplicate plan generation (`stage9GeneratingPlan`, `window.stage9CurrentPlan`).
+- **`server.js`** — `/api/rewrite-single-scene` persists each rewrite to `stage9_rewrites.pending` on disk as it completes. `/api/approve-rewrite-priority` clears pending from disk. `/api/plan-rewrite` has 3-attempt retry with exponential backoff.
+- **`agents/agent_9_rewrite.js`** — 3-attempt retry with exponential backoff. Prompt restructured: `PLANNED CHANGE FOR THIS SCENE` is now the PRIMARY instruction (was buried as secondary). Deletion short-circuited server-side before LLM call.
+- **`skills/skill_stage9_rewrite.md`** — Added `PROMPT SECTIONS` guide explaining primary vs background context. Added deletion instruction (`[SCENE DELETED]`).
+
 ### 2026-03-19 — Approve button state: consistent disabled/re-enable logic (Stages 2–6)
 Fixed `public/app.js` so the Approve button behaves identically across all stages:
 

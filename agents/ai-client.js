@@ -20,7 +20,7 @@ function detectProvider(model) {
 // ─── Gemini path ─────────────────────────────────────────────────────────────
 
 async function callGemini({ model, geminiApiKey, contents, config = {}, schema }) {
-    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { timeout: 300_000 } });
     const callConfig = { ...config };
 
     if (schema) {
