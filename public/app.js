@@ -178,7 +178,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stage 7 Elements
     const stage7View = document.getElementById('stage7-view');
-    const draftEditor = document.getElementById('draft-editor');
+    const draftEditorMount = document.getElementById('draft-editor-mount');
+    let stage7Editor = null;
+    let stage7SaveTimer = null;
+
+    function stage7FlushEditor() {
+        if (!stage7Editor || !stage7Editor.isDirty()) return;
+        const scenes = getFlatScenes();
+        const scene = scenes.find(s => s.scene_number === currentDraftSceneNumber);
+        if (!scene) return;
+        const newText = stage7Editor.toFountain();
+        scene.draft_text = newText;
+        stage7Editor.markClean();
+        // Persist to server (fire and forget)
+        if (activeProjectId && window.currentProjectData?.stage6_scenes) {
+            fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage6_scenes: window.currentProjectData.stage6_scenes } })
+            }).catch(err => console.error('Stage 7 auto-save failed:', err));
+        }
+    }
+
+    function stage7LoadEditor(fountainText) {
+        if (!draftEditorMount) return;
+        if (!stage7Editor) {
+            stage7Editor = new FountainEditor(draftEditorMount, {
+                onDirty: () => {
+                    clearTimeout(stage7SaveTimer);
+                    stage7SaveTimer = setTimeout(stage7FlushEditor, 2000);
+                }
+            });
+        }
+        stage7Editor.loadFountain(fountainText);
+    }
+
+    function stage7ShowPlaceholder(html) {
+        if (!draftEditorMount) return;
+        if (stage7Editor) { stage7Editor.destroy(); stage7Editor = null; }
+        draftEditorMount.innerHTML = html;
+    }
     const btnStage7Submit = document.getElementById('btnStage7Submit');
     const btnStage7Approve = document.getElementById('btnStage7Approve');
     const btnGenerateScene = document.getElementById('btnGenerateScene');
@@ -3129,11 +3168,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initStage7() {
-        if (!btnGenerateScene || !btnNextScene || !draftEditor) return;
+        if (!btnGenerateScene || !btnNextScene || !draftEditorMount) return;
 
         renderStage7Sidebar();
-
-        draftEditor.classList.add('font-mono');
 
         const scenes = getFlatScenes();
         const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
@@ -3147,10 +3184,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (currentSceneData && currentSceneData.draft_text) {
-            draftEditor.innerHTML = formatFountainToHTML(currentSceneData.draft_text);
+            stage7LoadEditor(currentSceneData.draft_text);
             btnNextScene.classList.remove('hidden');
         } else {
-            draftEditor.innerHTML = `<div class="text-gray-500 italic text-center mt-24">Ready to generate Scene ${currentDraftSceneNumber}...</div>`;
+            stage7ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Ready to generate Scene ${currentDraftSceneNumber}...</div>`);
             btnNextScene.classList.add('hidden');
         }
     }
@@ -3181,9 +3218,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json().catch(() => ({ result: '' }));
                 const draftText = data.result;
 
-                if (draftEditor) {
-                    draftEditor.innerHTML = formatFountainToHTML(draftText);
-                }
+                stage7LoadEditor(draftText);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
@@ -3204,6 +3239,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnNextScene) {
         btnNextScene.addEventListener('click', async () => {
+            // Flush any manual edits before locking
+            stage7FlushEditor();
             // Mark the current scene as locked and persist before advancing
             const scenes = getFlatScenes();
             const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
@@ -3261,9 +3298,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
 
-                if (draftEditor) {
-                    draftEditor.innerHTML = formatFountainToHTML(data.result);
-                }
+                stage7LoadEditor(data.result);
 
                 // Sync local project data
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -3297,6 +3332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage7Approve) {
         btnStage7Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
+            stage7FlushEditor(); // Save any pending manual edits
 
             const originalText = btnStage7Approve.textContent;
             btnStage7Approve.disabled = true;
@@ -3371,9 +3407,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentDraftSceneNumber = scene.scene_number;
                 btnGenerateAll.textContent = `✕ Cancel  (${completed}/${total})`;
 
-                if (draftEditor) {
-                    draftEditor.innerHTML = `<div class="text-gray-500 italic text-center mt-24">Generating Scene ${scene.scene_number} of ${getFlatScenes().length}...</div>`;
-                }
+                stage7ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Generating Scene ${scene.scene_number} of ${getFlatScenes().length}...</div>`);
                 renderStage7Sidebar();
 
                 try {
@@ -3390,9 +3424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const data = await response.json();
 
-                    if (draftEditor) {
-                        draftEditor.innerHTML = formatFountainToHTML(data.result);
-                    }
+                    stage7LoadEditor(data.result);
 
                     // Sync local project data so getFlatScenes() reflects the new draft_text
                     const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -3536,6 +3568,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Expose selectDraftScene on window from inside the closure so it has access
     // to currentDraftSceneNumber and initStage7 (both defined in this scope).
     window.selectDraftScene = function(sceneNumber) {
+        // Flush any unsaved edits from the current scene before switching
+        stage7FlushEditor();
         currentDraftSceneNumber = sceneNumber;
         initStage7();
     };
@@ -4295,7 +4329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
-            if (draftEditor) draftEditor.innerHTML = formatFountainToHTML(data.result);
+            stage7LoadEditor(data.result);
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
             window.currentProjectData = projData.data;
@@ -4865,9 +4899,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const priorities = stage9GetPriorityList();
                         const task = priorities[stage9State.priority_idx]?.task || '';
                         const editTA = document.getElementById('stage9-right-panel-edit');
-                        const currentText = (editTA && !editTA.classList.contains('hidden'))
-                            ? editTA.value
-                            : (stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '');
+                        let currentText;
+                        if (stage9ViewMode === 'formatted' && stage9Editor) {
+                            currentText = stage9Editor.toFountain();
+                        } else if (stage9ViewMode === 'source' && editTA) {
+                            currentText = editTA.value;
+                        } else {
+                            currentText = stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '';
+                        }
                         stage9Chat.setThinking(true);
                         const res = await fetch('/api/rewrite-scene-feedback', {
                             method: 'POST',
@@ -4966,17 +5005,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
+    let stage9Editor = null;
+    let stage9ViewMode = 'formatted'; // 'formatted' | 'source' | 'preview'
+
     function stage9DeselectScene() {
         stage9CurrentScene = null;
         const leftPanel = document.getElementById('stage9-left-panel');
+        const editorMount = document.getElementById('stage9-editor-mount');
         const rightView = document.getElementById('stage9-right-panel-view');
         const rightEdit = document.getElementById('stage9-right-panel-edit');
         if (leftPanel) leftPanel.innerHTML = '<p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>';
-        if (rightView) rightView.innerHTML = '<p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>';
+        if (editorMount) { editorMount.innerHTML = '<p class="text-gray-600 italic text-xs px-8 py-6">Start a conversation below to begin...</p>'; editorMount.classList.remove('hidden'); }
+        if (rightView) rightView.classList.add('hidden');
         if (rightEdit) { rightEdit.classList.add('hidden'); rightEdit.value = ''; }
-        if (rightView) rightView.classList.remove('hidden');
-        const btnToggle = document.getElementById('btnToggleEdit');
-        if (btnToggle) btnToggle.textContent = 'Edit Source';
+        if (stage9Editor) { stage9Editor.destroy(); stage9Editor = null; }
+        stage9ViewMode = 'formatted';
+        stage9UpdateToggleButtons();
         renderStage9SceneList();
     }
 
@@ -4989,83 +5033,130 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function stage9SelectScene(n) {
-        // Flush any current right-panel textarea edit into pending
-        if (stage9CurrentScene !== null) {
-            const editTA = document.getElementById('stage9-right-panel-edit');
-            if (editTA && !editTA.classList.contains('hidden')) {
-                stage9Pending[stage9CurrentScene] = editTA.value;
-            }
-        }
+        // Flush any current editor/textarea edit into pending
+        stage9FlushEditPanel();
         stage9CurrentScene = n;
 
         const origText     = stage9State.working[n] || '';
         const proposedText = stage9Pending[n] !== undefined ? stage9Pending[n] : origText;
         const leftPanel    = document.getElementById('stage9-left-panel');
+        const editorMount  = document.getElementById('stage9-editor-mount');
         const rightView    = document.getElementById('stage9-right-panel-view');
         const rightEdit    = document.getElementById('stage9-right-panel-edit');
 
+        // Left panel: show original with diff highlights if there are pending changes
         if (stage9Pending[n] !== undefined) {
-            const { leftAnnotations, rightAnnotations } = computeLineDiff(origText, proposedText);
+            const { leftAnnotations } = computeLineDiff(origText, proposedText);
             if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, leftAnnotations);
-            if (rightView)  rightView.innerHTML  = formatFountainToHTML(proposedText, rightAnnotations);
         } else {
             if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText);
-            if (rightView)  rightView.innerHTML  = formatFountainToHTML(origText);
         }
+
+        // Right panel: load into FountainEditor (formatted mode is default)
+        if (!stage9Editor && editorMount) {
+            stage9Editor = new FountainEditor(editorMount, {
+                onDirty: () => {
+                    if (stage9CurrentScene !== null) {
+                        stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();
+                        resetStage9ApproveBtn();
+                        renderStage9SceneList();
+                        // Update left panel diff
+                        const orig = stage9State.working[stage9CurrentScene] || '';
+                        const proposed = stage9Editor.toFountain();
+                        const { leftAnnotations } = computeLineDiff(orig, proposed);
+                        const lp = document.getElementById('stage9-left-panel');
+                        if (lp) lp.innerHTML = formatFountainToHTML(orig, leftAnnotations);
+                    }
+                }
+            });
+        }
+        if (stage9Editor) stage9Editor.loadFountain(proposedText);
         if (rightEdit) rightEdit.value = proposedText;
 
-        // Always return to rendered view when switching scenes
-        if (rightView) rightView.classList.remove('hidden');
+        // Reset to formatted view
+        stage9ViewMode = 'formatted';
+        if (editorMount) editorMount.classList.remove('hidden');
+        if (rightView) rightView.classList.add('hidden');
         if (rightEdit) rightEdit.classList.add('hidden');
-        const btnToggle = document.getElementById('btnToggleEdit');
-        if (btnToggle) btnToggle.textContent = 'Edit Source';
+        stage9UpdateToggleButtons();
 
         renderStage9SceneList();
     }
 
     function stage9FlushEditPanel() {
         if (stage9CurrentScene === null) return;
-        const editTA = document.getElementById('stage9-right-panel-edit');
-        if (editTA && !editTA.classList.contains('hidden')) {
-            stage9Pending[stage9CurrentScene] = editTA.value;
+        if (stage9ViewMode === 'formatted' && stage9Editor) {
+            stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();
+        } else if (stage9ViewMode === 'source') {
+            const editTA = document.getElementById('stage9-right-panel-edit');
+            if (editTA) stage9Pending[stage9CurrentScene] = editTA.value;
         }
     }
 
-    function stage9WireButtons() {
-        // ── Toggle Edit Source ────────────────────────────────────────────────
-        const btnToggle = document.getElementById('btnToggleEdit');
-        if (btnToggle) {
-            btnToggle.onclick = () => {
-                const rightView = document.getElementById('stage9-right-panel-view');
-                const rightEdit = document.getElementById('stage9-right-panel-edit');
-                if (!rightView || !rightEdit) return;
+    function stage9UpdateToggleButtons() {
+        const btnF = document.getElementById('btnToggleFormatted');
+        const btnS = document.getElementById('btnToggleSource');
+        const btnP = document.getElementById('btnTogglePreview');
+        const active = 'text-blue-400 bg-blue-900/30';
+        const inactive = 'text-gray-500 hover:text-gray-300';
+        if (btnF) { btnF.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'formatted' ? active : inactive}`; }
+        if (btnS) { btnS.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'source' ? active : inactive}`; }
+        if (btnP) { btnP.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'preview' ? active : inactive}`; }
+    }
 
-                const editVisible = !rightEdit.classList.contains('hidden');
-                if (editVisible) {
-                    // Save textarea content → re-render with diff
-                    if (stage9CurrentScene !== null) {
-                        stage9Pending[stage9CurrentScene] = rightEdit.value;
-                        resetStage9ApproveBtn();
-                        const origText     = stage9State.working[stage9CurrentScene] || '';
-                        const proposedText = rightEdit.value;
-                        const { rightAnnotations } = computeLineDiff(origText, proposedText);
-                        rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
-                        // Also refresh left with removed annotations
-                        const { leftAnnotations } = computeLineDiff(origText, proposedText);
-                        const leftPanel = document.getElementById('stage9-left-panel');
-                        if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, leftAnnotations);
-                        renderStage9SceneList();
-                    }
-                    rightEdit.classList.add('hidden');
-                    rightView.classList.remove('hidden');
-                    btnToggle.textContent = 'Edit Source';
+    function stage9WireButtons() {
+        // ── 3-way toggle: Formatted | Source | Preview ────────────────────────
+        function stage9SwitchView(mode) {
+            stage9FlushEditPanel(); // flush current mode first
+            stage9ViewMode = mode;
+
+            const editorMount = document.getElementById('stage9-editor-mount');
+            const rightView   = document.getElementById('stage9-right-panel-view');
+            const rightEdit   = document.getElementById('stage9-right-panel-edit');
+            if (!editorMount || !rightView || !rightEdit) return;
+
+            const origText     = stage9CurrentScene !== null ? (stage9State.working[stage9CurrentScene] || '') : '';
+            const proposedText = stage9CurrentScene !== null
+                ? (stage9Pending[stage9CurrentScene] !== undefined ? stage9Pending[stage9CurrentScene] : origText)
+                : '';
+
+            editorMount.classList.add('hidden');
+            rightView.classList.add('hidden');
+            rightEdit.classList.add('hidden');
+
+            if (mode === 'formatted') {
+                editorMount.classList.remove('hidden');
+                if (stage9Editor) stage9Editor.loadFountain(proposedText);
+            } else if (mode === 'source') {
+                rightEdit.classList.remove('hidden');
+                rightEdit.value = proposedText;
+            } else if (mode === 'preview') {
+                rightView.classList.remove('hidden');
+                if (stage9Pending[stage9CurrentScene] !== undefined) {
+                    const { rightAnnotations } = computeLineDiff(origText, proposedText);
+                    rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
                 } else {
-                    rightView.classList.add('hidden');
-                    rightEdit.classList.remove('hidden');
-                    btnToggle.textContent = 'Preview';
+                    rightView.innerHTML = formatFountainToHTML(proposedText);
                 }
-            };
+            }
+
+            // Update left panel diff
+            if (stage9CurrentScene !== null && stage9Pending[stage9CurrentScene] !== undefined) {
+                const { leftAnnotations } = computeLineDiff(origText, proposedText);
+                const leftPanel = document.getElementById('stage9-left-panel');
+                if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, leftAnnotations);
+            }
+
+            stage9UpdateToggleButtons();
+            renderStage9SceneList();
         }
+
+        const btnF = document.getElementById('btnToggleFormatted');
+        const btnS = document.getElementById('btnToggleSource');
+        const btnP = document.getElementById('btnTogglePreview');
+        if (btnF) btnF.onclick = () => stage9SwitchView('formatted');
+        if (btnS) btnS.onclick = () => stage9SwitchView('source');
+        if (btnP) btnP.onclick = () => stage9SwitchView('preview');
 
         // ── Finalize Rewrite ──────────────────────────────────────────────────
         async function finalizeStage9() {

@@ -1532,3 +1532,166 @@ textarea.synopsis-input {
 #stage-7-view .stage7-blueprint-sidebar {
     padding: 0 !important; /* Reset padding to handle header padding separately */
 }
+
+/* ─── Fountain Editor (fe-*) ──────────────────────────────────────────────── */
+
+.fe-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #1a1d27;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    z-index: 10;
+    border-radius: 4px 4px 0 0;
+}
+
+.fe-current-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e5e7eb;
+    background: #2a2d3a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.fe-current-type:hover {
+    background: #3a3d4a;
+}
+.fe-current-type::after {
+    content: "▾";
+    font-size: 0.65rem;
+    opacity: 0.5;
+}
+
+.fe-type-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 16px;
+    background: #1e2130;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 4px;
+    min-width: 240px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+.fe-type-dropdown.hidden {
+    display: none;
+}
+
+.fe-type-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.fe-type-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.fe-type-option.fe-type-active {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+.fe-type-option kbd {
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: #6b7280;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fe-toolbar-hint {
+    font-size: 0.7rem;
+    color: #4b5563;
+    margin-left: auto;
+}
+
+/* Editing surface */
+.fe-surface {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #e5e7eb;
+    padding: 48px;
+    min-height: 400px;
+    outline: none;
+}
+.fe-surface:focus {
+    outline: none;
+}
+
+/* Element type styles — match .f-* rules from read-only view */
+.fe-scene-heading {
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: #f3f4f6;
+}
+
+.fe-action {
+    margin-bottom: 1rem;
+}
+
+.fe-character {
+    text-align: center;
+    text-transform: uppercase;
+    margin-top: 1.5rem;
+    margin-bottom: 0.25rem;
+    width: 50%;
+    margin-left: auto;
+    margin-right: auto;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.fe-parenthetical {
+    width: 30%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.fe-dialogue {
+    width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 1rem;
+}
+
+.fe-transition {
+    text-align: right;
+    text-transform: uppercase;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+/* Active line subtle highlight */
+.fe-surface > div:focus-within,
+.fe-surface > div.fe-active {
+    border-left: 2px solid rgba(59, 130, 246, 0.4);
+    padding-left: 8px;
+    margin-left: -10px;
+}

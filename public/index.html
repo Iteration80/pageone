@@ -485,16 +485,7 @@
                                 <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Drafting Mode</div>
                             </div>
                         </div>
-                        <div id="draft-editor" class="draft-editor max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm p-12 mt-8 mb-24 min-h-[1100px] focus:outline-none" contenteditable="true">
-                            <div class="f-slugline">INT. COFFEE SHOP - DAY</div>
-                            <div class="f-action">The morning light filters through the dusty windows. JOHNNY (30s, tired) sips his espresso with trembling hands.</div>
-                            <div class="f-character">JOHNNY</div>
-                            <div class="f-dialogue">I don't know if I can do this today.</div>
-                            <div class="f-parenthetical">(to the barista)</div>
-                            <div class="f-dialogue">Another one. Double shot.</div>
-                            <div class="f-slugline">EXT. BUSY STREET - CONTINUOUS</div>
-                            <div class="f-action">Johnny stumbles out of the shop and into the chaotic flow of pedestrians.</div>
-                        </div>
+                        <div id="draft-editor-mount" class="draft-editor max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm mt-8 mb-24 min-h-[1100px]"></div>
                     </div>
                 </div>
 
@@ -619,16 +610,24 @@
                         <div id="stage9-right-container" class="flex flex-col overflow-hidden" style="flex-basis:50%">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0 flex items-center justify-between">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
-                                <button id="btnToggleEdit" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Edit Source</button>
+                                <div class="flex items-center gap-2">
+                                    <button id="btnToggleFormatted" class="text-xs px-2 py-1 rounded transition-colors text-blue-400 bg-blue-900/30">Formatted</button>
+                                    <button id="btnToggleSource" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Source</button>
+                                    <button id="btnTogglePreview" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Preview</button>
+                                </div>
                             </div>
                             <div id="stage9-rewrite-loading" class="hidden items-center justify-center flex-1 gap-3">
                                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                 <p class="text-gray-500 text-xs">Executing rewrite plan...</p>
                             </div>
-                            <!-- Rendered view (default) -->
+                            <!-- Formatted editor (default) -->
+                            <div id="stage9-editor-mount"
+                                class="flex-1 overflow-y-auto bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                <p class="text-gray-600 italic text-xs px-8 py-6">Start a conversation below to begin...</p>
+                            </div>
+                            <!-- Read-only rendered view with diff (hidden by default) -->
                             <div id="stage9-right-panel-view"
-                                class="flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                                <p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>
+                                class="hidden flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                             </div>
                             <!-- Raw edit textarea (hidden by default) -->
                             <textarea id="stage9-right-panel-edit"
@@ -775,6 +774,7 @@
         </div>
     </div>
 
+    <script src="fountain-editor.js"></script>
     <script src="app.js"></script>
 </body>
 
