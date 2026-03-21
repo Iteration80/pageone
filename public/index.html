@@ -23,6 +23,10 @@
                 <button id="btnOpenSettingsHub" class="icon-btn" title="Settings" style="padding:8px">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
+                <button id="importScriptBtn" class="secondary-btn" style="display:flex;align-items:center;gap:6px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Import Script
+                </button>
                 <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
             </div>
         </header>
@@ -32,6 +36,34 @@
                 <!-- Project cards injected here -->
             </div>
         </main>
+    </div>
+
+    <!-- Import Script Modal -->
+    <div id="importModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:440px">
+            <h3>Import Script</h3>
+            <p style="color:#9ca3af;font-size:0.85rem;margin-top:8px">Upload an existing screenplay to start with coverage and rewrite.</p>
+            <div style="margin-top:20px">
+                <label style="font-size:0.8rem;color:#d1d5db;display:block;margin-bottom:6px">Title (optional)</label>
+                <input id="importTitle" type="text" placeholder="Auto-detected from file" class="modal-input" style="width:100%;padding:8px 12px;background:#1f2937;border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f3f4f6;font-size:0.85rem">
+            </div>
+            <div style="margin-top:16px">
+                <label style="font-size:0.8rem;color:#d1d5db;display:block;margin-bottom:6px">Script File</label>
+                <input id="importFileInput" type="file" accept=".fountain,.fdx,.pdf" style="display:none">
+                <div id="importDropZone" style="border:2px dashed rgba(255,255,255,0.15);border-radius:8px;padding:32px 16px;text-align:center;cursor:pointer;transition:border-color 0.2s">
+                    <p id="importDropLabel" style="color:#6b7280;font-size:0.85rem">.fountain &nbsp; .fdx &nbsp; .pdf<br><span style="font-size:0.75rem;color:#4b5563">Click or drag to upload</span></p>
+                </div>
+            </div>
+            <div id="importProgress" class="hidden" style="margin-top:16px;text-align:center">
+                <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" style="display:inline-block;width:20px;height:20px"></div>
+                <p style="color:#9ca3af;font-size:0.8rem;margin-top:8px">Parsing screenplay...</p>
+            </div>
+            <div id="importError" class="hidden" style="margin-top:12px;color:#f87171;font-size:0.8rem"></div>
+            <div class="modal-actions" style="margin-top:24px">
+                <button id="cancelImportBtn" class="secondary-btn">Cancel</button>
+                <button id="submitImportBtn" class="primary-btn" disabled>Import</button>
+            </div>
+        </div>
     </div>
 
     <!-- Main App Container (Hidden by default until a project is selected) -->

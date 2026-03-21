@@ -1326,6 +1326,59 @@ app.post('/api/projects', async (req, res) => {
     }
 });
 
+// POST import script → create project with Stage 6/7 pre-populated
+app.post('/api/import-script', upload.single('scriptFile'), async (req, res) => {
+    try {
+        const { parseFountain, parseFdx, parsePdfScript, buildStage6FromScenes } = require('./utils/script-import');
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+        const ext = (file.originalname || '').split('.').pop().toLowerCase();
+        const userTitle = req.body.title?.trim() || '';
+
+        let parsed;
+        if (ext === 'fountain') {
+            const text = file.buffer.toString('utf-8');
+            parsed = parseFountain(text);
+        } else if (ext === 'fdx') {
+            const xml = file.buffer.toString('utf-8');
+            parsed = parseFdx(xml);
+        } else if (ext === 'pdf') {
+            parsed = await parsePdfScript(file.buffer, getModelConfig(1));
+        } else {
+            return res.status(400).json({ error: `Unsupported file type: .${ext}. Use .fountain, .fdx, or .pdf` });
+        }
+
+        if (!parsed.scenes || parsed.scenes.length === 0) {
+            return res.status(400).json({ error: 'No scenes found in the uploaded file' });
+        }
+
+        const title = userTitle || parsed.title || 'Imported Script';
+        const stage6Scenes = buildStage6FromScenes(parsed.scenes);
+
+        const id = Date.now().toString();
+        const newProject = {
+            id,
+            title,
+            data: {
+                stage6_scenes: stage6Scenes,
+                stage7_approved: true,
+                imported: true,
+                importedFrom: file.originalname || 'unknown'
+            }
+        };
+
+        const filePath = path.join(DATA_DIR, `${id}.json`);
+        await fs.writeFile(filePath, JSON.stringify(newProject, null, 2));
+
+        console.log(`Imported script "${title}": ${parsed.scenes.length} scenes, ${stage6Scenes.length} sequences`);
+        res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
+    } catch (error) {
+        console.error('Import script error:', error);
+        res.status(500).json({ error: error.message || 'Failed to import script' });
+    }
+});
+
 // PUT update project
 app.put('/api/projects/:id', async (req, res) => {
     try {

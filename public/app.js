@@ -415,6 +415,90 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ── Import Script ────────────────────────────────────────────────────────
+    const importModal = document.getElementById('importModal');
+    const importFileInput = document.getElementById('importFileInput');
+    const importDropZone = document.getElementById('importDropZone');
+    const importDropLabel = document.getElementById('importDropLabel');
+    const importTitleInput = document.getElementById('importTitle');
+    const importProgress = document.getElementById('importProgress');
+    const importError = document.getElementById('importError');
+    const submitImportBtn = document.getElementById('submitImportBtn');
+    let importSelectedFile = null;
+
+    document.getElementById('importScriptBtn')?.addEventListener('click', () => {
+        importModal?.classList.remove('hidden');
+        importSelectedFile = null;
+        if (importFileInput) importFileInput.value = '';
+        if (importTitleInput) importTitleInput.value = '';
+        if (importDropLabel) importDropLabel.innerHTML = '.fountain &nbsp; .fdx &nbsp; .pdf<br><span style="font-size:0.75rem;color:#4b5563">Click or drag to upload</span>';
+        importProgress?.classList.add('hidden');
+        importError?.classList.add('hidden');
+        if (submitImportBtn) submitImportBtn.disabled = true;
+    });
+
+    document.getElementById('cancelImportBtn')?.addEventListener('click', () => {
+        importModal?.classList.add('hidden');
+    });
+    importModal?.addEventListener('click', (e) => {
+        if (e.target === importModal) importModal.classList.add('hidden');
+    });
+
+    importDropZone?.addEventListener('click', () => importFileInput?.click());
+    importDropZone?.addEventListener('dragover', (e) => { e.preventDefault(); importDropZone.style.borderColor = 'rgba(59,130,246,0.5)'; });
+    importDropZone?.addEventListener('dragleave', () => { importDropZone.style.borderColor = 'rgba(255,255,255,0.15)'; });
+    importDropZone?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        importDropZone.style.borderColor = 'rgba(255,255,255,0.15)';
+        if (e.dataTransfer.files.length > 0) handleImportFile(e.dataTransfer.files[0]);
+    });
+    importFileInput?.addEventListener('change', () => {
+        if (importFileInput.files.length > 0) handleImportFile(importFileInput.files[0]);
+    });
+
+    function handleImportFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['fountain', 'fdx', 'pdf'].includes(ext)) {
+            importError.textContent = `Unsupported file type: .${ext}. Use .fountain, .fdx, or .pdf`;
+            importError.classList.remove('hidden');
+            return;
+        }
+        importSelectedFile = file;
+        importError?.classList.add('hidden');
+        if (importDropLabel) importDropLabel.innerHTML = `<span style="color:#60a5fa">${file.name}</span><br><span style="font-size:0.75rem;color:#4b5563">${(file.size / 1024).toFixed(1)} KB</span>`;
+        if (submitImportBtn) submitImportBtn.disabled = false;
+    }
+
+    submitImportBtn?.addEventListener('click', async () => {
+        if (!importSelectedFile) return;
+        importProgress?.classList.remove('hidden');
+        importError?.classList.add('hidden');
+        submitImportBtn.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('scriptFile', importSelectedFile);
+            if (importTitleInput?.value.trim()) formData.append('title', importTitleInput.value.trim());
+
+            const res = await fetch('/api/import-script', { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Import failed');
+            }
+            const data = await res.json();
+            importModal?.classList.add('hidden');
+            // Open the project and navigate to Stage 8
+            window.importedProjectTarget = 8;
+            window.location.hash = `project-${data.projectId}`;
+        } catch (error) {
+            importError.textContent = error.message;
+            importError?.classList.remove('hidden');
+            submitImportBtn.disabled = false;
+        } finally {
+            importProgress?.classList.add('hidden');
+        }
+    });
+
     async function openProject(projectId) {
         activeProjectId = projectId;
         projectsHub.classList.add('hidden');
@@ -431,8 +515,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
             for (let s = 1; s <= 7; s++) { if (stageChatWindows[s]) stageChatWindows[s].clear(); }
 
-            // Always default back to Stage 1 when opening a project
-            switchStage(1);
+            // Navigate to target stage (Stage 8 for imported projects, Stage 1 otherwise)
+            const targetStage = window.importedProjectTarget || 1;
+            window.importedProjectTarget = null;
+            switchStage(targetStage);
 
             if (projectDetails.data && projectDetails.data.stage1_pitch) {
                 const { pitch, notes } = projectDetails.data.stage1_pitch;
