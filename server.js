@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { setGlobalDispatcher, Agent } = require('undici');
+setGlobalDispatcher(new Agent({ headersTimeout: 300_000, bodyTimeout: 300_000 }));
 const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
@@ -951,18 +953,30 @@ app.post('/api/plan-rewrite', async (req, res) => {
 
         const { generateContent } = require('./agents/ai-client');
         const modelCfg = getModelConfig(9);
-        const response = await generateContent({
-            model: modelCfg.model,
-            geminiApiKey: modelCfg.geminiApiKey,
-            anthropicApiKey: modelCfg.anthropicApiKey,
-            contents: prompt,
-            config: {
-                systemInstruction: plannerSop,
-                temperature: 0.2,
-                responseMimeType: 'application/json',
-                responseSchema: plannerSchema,
-            },
-        });
+
+        // Retry up to 3 times on transient connection errors
+        let response;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                response = await generateContent({
+                    model: modelCfg.model,
+                    geminiApiKey: modelCfg.geminiApiKey,
+                    anthropicApiKey: modelCfg.anthropicApiKey,
+                    contents: prompt,
+                    config: {
+                        systemInstruction: plannerSop,
+                        temperature: 0.2,
+                        responseMimeType: 'application/json',
+                        responseSchema: plannerSchema,
+                    },
+                });
+                break; // success
+            } catch (err) {
+                console.warn(`plan-rewrite attempt ${attempt}/3 failed: ${err.message}`);
+                if (attempt === 3) throw err;
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+            }
+        }
 
         const plan = JSON.parse(response.text);
         console.log(`Stage 9 plan: ${plan.affected_scenes.length} scenes affected.`);
@@ -1062,6 +1076,11 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         const deletionPattern = /\b(delete|remove)\b.*\b(scene|entirely)\b/i;
         if (plannedChange && deletionPattern.test(plannedChange)) {
             console.log(`Stage 9: deleting scene ${sceneNumber} (per plan)`);
+            // Persist deletion to disk immediately
+            const stage9 = projectData.data.stage9_rewrites || {};
+            stage9.pending = stage9.pending || {};
+            stage9.pending[sceneNumber] = '';
+            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
             return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
         }
 
@@ -1075,6 +1094,15 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         );
 
         const modified = proposed.trim() !== sceneText.trim();
+
+        // Persist pending rewrite to disk immediately so it survives page refresh
+        if (modified) {
+            const stage9 = projectData.data.stage9_rewrites || {};
+            stage9.pending = stage9.pending || {};
+            stage9.pending[sceneNumber] = proposed;
+            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        }
+
         res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: proposed, modified });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
@@ -1098,6 +1126,7 @@ app.post('/api/approve-rewrite-priority', async (req, res) => {
                 stage9.working[sceneNum] = text;
             }
         }
+        stage9.pending = {};  // Clear pending — now merged into working
         stage9.priority_idx = newPriorityIdx;
         projectData.data.stage9_rewrites = stage9;
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));

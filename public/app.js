@@ -4087,6 +4087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 let data;
+                chat.setThinking(true);
                 try {
                     const res = await fetch('/api/brainstorm', {
                         method: 'POST',
@@ -4095,14 +4096,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                        chat.setThinking(false);
                         chat.append('ai', 'Error: ' + (err.error || `Server error ${res.status}`));
                         return;
                     }
                     data = await res.json();
                 } catch (err) {
+                    chat.setThinking(false);
                     chat.append('ai', 'Error: ' + err.message);
                     return;
                 }
+                chat.setThinking(false);
                 chat.append('ai', data.message);
                 if (data.suggest_plan && data.execute_immediately) {
                     // Clear directive — execute revision immediately, no confirmation needed
@@ -4504,6 +4508,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const task = priorities[stage9State.priority_idx]?.task;
         if (!task) { stage9Chat.append('system', 'No active priority task.'); stage9GeneratingPlan = false; return; }
         stage9Chat.append('system', 'Generating rewrite plan...');
+        stage9Chat.setThinking(true);
         const conversationContext = stage9Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
         try {
             const res = await fetch('/api/plan-rewrite', {
@@ -4519,6 +4524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             stage9Chat.append('system', 'Planning failed: ' + err.message);
         } finally {
+            stage9Chat.setThinking(false);
             stage9GeneratingPlan = false;
         }
     }
@@ -4537,6 +4543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay?.classList.add('flex');
         if (rightView) rightView.classList.add('hidden');
         if (stage9Chat) stage9Chat.setDisabled(true);
+        if (stage9Chat) stage9Chat.setThinking(true);
 
         try {
             for (let i = 0; i < scenes.length; i++) {
@@ -4583,6 +4590,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingOverlay?.classList.add('hidden');
             loadingOverlay?.classList.remove('flex');
             if (rightView) rightView.classList.remove('hidden');
+            if (stage9Chat) stage9Chat.setThinking(false);
             if (stage9Chat) stage9Chat.setDisabled(false);
             stage9ExecutingPlan = false;
         }
@@ -4617,6 +4625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Clear chat and re-open with next priority
                 stage9Chat?.clear();
                 stage9Chat?.setDisabled(true);
+                stage9Chat?.setThinking(true);
                 try {
                     const initRes = await fetch('/api/brainstorm-rewrite', {
                         method: 'POST',
@@ -4626,6 +4635,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const initData = await initRes.json();
                     stage9Chat?.append('ai', initData.message);
                 } finally {
+                    stage9Chat?.setThinking(false);
                     stage9Chat?.setDisabled(false);
                 }
             }
@@ -4705,7 +4715,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 macro_todo:   data.macro_todo || [],
                 micro_todo:   data.micro_todo  || [],
             };
-            stage9Pending = {};
+            // Restore any pending rewrites that were saved to disk (survives page refresh)
+            stage9Pending = data.stage9_rewrites.pending || {};
             stage9ApprovedScenes = {};
 
             loading?.classList.add('hidden');
@@ -4714,6 +4725,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStage9SceneList();
             renderStage9TaskBanner();
             stage9WireButtons();
+
+            // If pending rewrites were restored from disk, select the first one
+            const pendingKeys = Object.keys(stage9Pending).map(Number);
+            if (pendingKeys.length > 0) {
+                stage9SelectScene(pendingKeys[0]);
+                renderStage9SceneList();
+            }
 
             // Initialize chat window
             stage9Chat = new ChatWindow({
@@ -4730,12 +4748,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const currentText = (editTA && !editTA.classList.contains('hidden'))
                             ? editTA.value
                             : (stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '');
-                        stage9Chat.append('system', `Rewriting scene ${stage9CurrentScene}...`);
+                        stage9Chat.setThinking(true);
                         const res = await fetch('/api/rewrite-scene-feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage9CurrentScene, priorityTask: task, userFeedback: text, currentText, ...(attachment && { attachment }) })
                         });
+                        stage9Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         stage9Pending[stage9CurrentScene] = data.proposed_text;
@@ -4746,11 +4765,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         // No scene selected: planning brainstorm
                         const msgs = history.filter(m => m.role !== 'system');
+                        stage9Chat.setThinking(true);
                         const res = await fetch('/api/brainstorm-rewrite', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
                         });
+                        stage9Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         stage9Chat.append('ai', data.message);

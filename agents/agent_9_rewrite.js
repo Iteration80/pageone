@@ -39,21 +39,27 @@ ${priorityTask}
 ${sceneText}
     `;
 
-    try {
-        const response = await generateContent({
-            model, geminiApiKey, anthropicApiKey,
-            contents: prompt,
-            config: {
-                systemInstruction: sop,
-                temperature: 0.5,
-                thinkingConfig: { thinkingLevel: 'LOW' },
+    // Retry up to 3 times on transient connection errors
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const response = await generateContent({
+                model, geminiApiKey, anthropicApiKey,
+                contents: prompt,
+                config: {
+                    systemInstruction: sop,
+                    temperature: 0.5,
+                    thinkingConfig: { thinkingLevel: 'LOW' },
+                }
+            });
+            return response.text.trim();
+        } catch (error) {
+            console.warn(`Rewrite agent attempt ${attempt}/3 for scene ${sceneContext.sceneNumber}: ${error.message}`);
+            if (attempt === 3) {
+                console.error(`Rewrite agent error for scene ${sceneContext.sceneNumber}: ${error.message}`);
+                return sceneText;
             }
-        });
-        return response.text.trim();
-    } catch (error) {
-        console.error(`Rewrite agent error for scene ${sceneContext.sceneNumber}:`, error.message);
-        // Graceful fallback: return original scene unchanged
-        return sceneText;
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
     }
 };
 
