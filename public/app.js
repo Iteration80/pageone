@@ -4478,6 +4478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let stage9CurrentScene = null;  // currently selected scene_number
     let stage9ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
     let stage9Chat = null;      // ChatWindow instance
+    let stage9ExecutingPlan = false; // guard against double-click on Execute Plan
 
     function stage9RenderPlanCard(plan) {
         const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4490,7 +4491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div class="chat-plan-card">
             <p class="chat-plan-rationale">${esc(plan.rationale)}</p>
             <div class="chat-plan-scenes">${scenes}</div>
-            <button id="btnExecutePlanInChat" class="primary-btn" style="margin-top:10px;font-size:0.8rem;">Execute Plan →</button>
+            <button id="btnExecutePlanInChat" class="primary-btn" style="margin-top:10px;font-size:0.8rem;">Execute Plan</button>
         </div>`;
     }
 
@@ -4518,34 +4519,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function stage9ExecutePlan(plan) {
-        if (!plan) return;
+        if (!plan || stage9ExecutingPlan) return;
+        stage9ExecutingPlan = true;
+
         const priorities = stage9GetPriorityList();
         const task = priorities[stage9State.priority_idx]?.task || '';
-        const affectedSceneNumbers = (plan.affected_scenes || []).map(s => s.scene_number);
+        const scenes = plan.affected_scenes || [];
+
         const loadingOverlay = document.getElementById('stage9-rewrite-loading');
         const rightView = document.getElementById('stage9-right-panel-view');
         loadingOverlay?.classList.remove('hidden');
         loadingOverlay?.classList.add('flex');
         if (rightView) rightView.classList.add('hidden');
         if (stage9Chat) stage9Chat.setDisabled(true);
+
         try {
-            const res = await fetch('/api/rewrite-for-priority', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId, priorityTask: task, affectedSceneNumbers })
-            });
-            if (!res.ok) throw new Error((await res.json()).error);
-            const data = await res.json();
-            data.scenes.forEach(s => { if (s.modified) stage9Pending[s.scene_number] = s.proposed_text; });
+            for (let i = 0; i < scenes.length; i++) {
+                const s = scenes[i];
+                if (stage9Chat) stage9Chat.append('system', `Rewriting scene ${s.scene_number} (${i + 1}/${scenes.length})...`);
+
+                const res = await fetch('/api/rewrite-single-scene', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: activeProjectId,
+                        sceneNumber: s.scene_number,
+                        priorityTask: task,
+                        plannedChange: s.planned_change
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    if (stage9Chat) stage9Chat.append('system', `Scene ${s.scene_number} failed: ${err.error}`);
+                    continue;
+                }
+                const data = await res.json();
+                if (data.modified) {
+                    stage9Pending[data.scene_number] = data.proposed_text;
+                    renderStage9SceneList();
+                }
+            }
+
             resetStage9ApproveBtn();
             window.stage9CurrentPlan = null;
-            const firstModified = data.scenes.find(s => s.modified);
-            if (firstModified) stage9SelectScene(firstModified.scene_number);
-            else if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
+
+            const modCount = Object.keys(stage9Pending).length;
+            const firstModified = Object.keys(stage9Pending).map(Number)[0];
+            if (firstModified) stage9SelectScene(firstModified);
             renderStage9SceneList();
-            const modCount = data.scenes.filter(s => s.modified).length;
+
             if (stage9Chat) stage9Chat.append('ai', `Rewrites applied to ${modCount} scene(s). Review the diffs above — use the scene list on the right to jump between changed scenes.\n\nWhen you're happy with the changes, approve to move on to the next priority.`, {
-                actions: [{ label: 'Approve & Continue →', onClick: stage9ApproveAndContinue }]
+                actions: [{ label: 'Approve & Continue', onClick: stage9ApproveAndContinue }]
             });
         } catch (err) {
             console.error('Execute plan failed:', err);
@@ -4555,6 +4579,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingOverlay?.classList.remove('flex');
             if (rightView) rightView.classList.remove('hidden');
             if (stage9Chat) stage9Chat.setDisabled(false);
+            stage9ExecutingPlan = false;
         }
     }
 

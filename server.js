@@ -1029,6 +1029,52 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
     }
 });
 
+// Rewrite a single scene for a planned priority task
+app.post('/api/rewrite-single-scene', async (req, res) => {
+    try {
+        const { projectId, sceneNumber, priorityTask, plannedChange } = req.body;
+        if (!projectId || !sceneNumber || !priorityTask) {
+            return res.status(400).json({ error: 'Missing projectId, sceneNumber, or priorityTask' });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const working = projectData.data?.stage9_rewrites?.working || {};
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
+        // Find scene metadata from stage 6
+        const stage6Scenes = projectData.data?.stage6_scenes || [];
+        let sceneMeta = null;
+        for (const seq of stage6Scenes) {
+            if (seq.scenes) {
+                sceneMeta = seq.scenes.find(s => s.scene_number === sceneNumber);
+                if (sceneMeta) break;
+            }
+        }
+
+        const sceneText = working[sceneNumber] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
+        const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
+
+        console.log(`Stage 9: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
+
+        const proposed = await rewriteScene(
+            sceneText, priorityTask,
+            { title, sceneNumber, slugline },
+            plannedChange || '',
+            getModelConfig(9)
+        );
+
+        const modified = proposed.trim() !== sceneText.trim();
+        res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: proposed, modified });
+    } catch (error) {
+        console.error('rewrite-single-scene error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Save approved pending changes and advance priority index
 app.post('/api/approve-rewrite-priority', async (req, res) => {
     try {
