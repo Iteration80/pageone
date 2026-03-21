@@ -593,7 +593,7 @@ app.post('/api/generate-coverage', async (req, res) => {
                 .map(n => parseInt(n))
                 .sort((a, b) => a - b)
                 .map(n => (working[n] || '').trim())
-                .filter(Boolean)
+                .filter(t => t && t !== '[SCENE DELETED]')
                 .join('\n\n');
         } else {
             const stage6Scenes = projectData.data?.stage6_scenes;
@@ -847,7 +847,13 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
         }
         if (isInit) {
-            conversationPrompt += '[The writer has just entered the rewrite stage. Open the conversation by presenting the priorities and asking what they would like to address.]';
+            const doneCount = allPriorities.filter(p => p.done).length;
+            if (doneCount > 0) {
+                const nextPriority = allPriorities.find(p => !p.done);
+                conversationPrompt += `[The writer just completed rewrite priority ${doneCount} and approved the changes. ${nextPriority ? `The next priority is: ${nextPriority.label}: ${nextPriority.task}. Briefly acknowledge the progress and move straight into discussing this next priority — what it involves and which scenes are likely affected. Do NOT re-list all priorities.` : 'All priorities have been addressed.'}]`;
+            } else {
+                conversationPrompt += '[The writer has just entered the rewrite stage. Open the conversation by presenting the priorities and asking what they would like to address.]';
+            }
         } else {
             for (const msg of messages) {
                 const label = msg.role === 'user' ? 'WRITER' : 'YOU';
@@ -920,10 +926,10 @@ app.post('/api/plan-rewrite', async (req, res) => {
         for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
         allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-        // Send scene headings + brief narrative summaries (not full draft text) to keep payload small
+        // Send scene headings only — the planner just needs to know which scenes exist
         const sceneList = allScenes
-            .map(s => `SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${s.narrative_action || ''}`)
-            .join('\n\n');
+            .map(s => `SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}`)
+            .join('\n');
 
         const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
@@ -959,32 +965,20 @@ app.post('/api/plan-rewrite', async (req, res) => {
         const modelCfg = getModelConfig(9);
         console.log(`plan-rewrite: model=${modelCfg.model}, prompt=${prompt.length} chars, context=${(trimmedContext||'').length} chars`);
 
-        // Retry up to 3 times on transient connection errors
-        let response;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            const t0 = Date.now();
-            try {
-                console.log(`plan-rewrite attempt ${attempt}/3 starting...`);
-                response = await generateContent({
-                    model: modelCfg.model,
-                    geminiApiKey: modelCfg.geminiApiKey,
-                    anthropicApiKey: modelCfg.anthropicApiKey,
-                    contents: prompt,
-                    config: {
-                        systemInstruction: plannerSop,
-                        temperature: 0.2,
-                        responseMimeType: 'application/json',
-                        responseSchema: plannerSchema,
-                    },
-                });
-                console.log(`plan-rewrite attempt ${attempt}/3 succeeded in ${((Date.now()-t0)/1000).toFixed(1)}s`);
-                break; // success
-            } catch (err) {
-                console.warn(`plan-rewrite attempt ${attempt}/3 failed after ${((Date.now()-t0)/1000).toFixed(1)}s: ${err.message}`);
-                if (attempt === 3) throw err;
-                await new Promise(r => setTimeout(r, 2000 * attempt));
-            }
-        }
+        const t0 = Date.now();
+        const response = await generateContent({
+            model: modelCfg.model,
+            geminiApiKey: modelCfg.geminiApiKey,
+            anthropicApiKey: modelCfg.anthropicApiKey,
+            contents: prompt,
+            config: {
+                systemInstruction: plannerSop,
+                temperature: 0.2,
+                responseMimeType: 'application/json',
+                responseSchema: plannerSchema,
+            },
+        });
+        console.log(`plan-rewrite succeeded in ${((Date.now()-t0)/1000).toFixed(1)}s`);
 
         const plan = JSON.parse(response.text);
         console.log(`Stage 9 plan: ${plan.affected_scenes.length} scenes affected.`);
@@ -1080,8 +1074,8 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         const sceneText = working[sceneNumber] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
         const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
 
-        // Short-circuit: if the plan says to delete/remove this scene, skip the LLM
-        const deletionPattern = /\b(delete|remove)\b.*\b(scene|entirely)\b/i;
+        // Short-circuit: if the plan says to delete/remove/omit this scene, skip the LLM
+        const deletionPattern = /\b(delete|remove|omit|cut|eliminate)\b.*\b(scene|entirely|completely)\b/i;
         if (plannedChange && deletionPattern.test(plannedChange)) {
             console.log(`Stage 9: deleting scene ${sceneNumber} (per plan)`);
             // Persist deletion to disk immediately
@@ -1438,6 +1432,7 @@ app.get('/api/export/pdf/:projectId', async (req, res) => {
             if (!working) return res.status(400).json({ error: 'No rewrite data found' });
             scenes = Object.entries(working)
                 .sort(([a], [b]) => Number(a) - Number(b))
+                .filter(([, txt]) => txt && txt.trim() !== '[SCENE DELETED]')
                 .map(([, txt]) => ({ humanized_draft_text: txt }));
         } else {
             scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);

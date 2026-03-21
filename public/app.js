@@ -4990,12 +4990,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnApprove9 = document.getElementById('btnStage9Approve');
         if (btnApprove9) btnApprove9.addEventListener('click', finalizeStage9);
 
-        // ── Download Rewrite ──────────────────────────────────────────────────
-        const btnDownload = document.getElementById('btnDownloadRewrite');
-        if (btnDownload) {
-            btnDownload.onclick = () => {
+        // ── Download Rewrite (.fountain + PDF) ─────────────────────────────────
+        const btnFountain = document.getElementById('btnDownloadRewriteFountain');
+        if (btnFountain) {
+            btnFountain.onclick = () => {
+                if (!stage9State?.working) { alert('No rewrite data available.'); return; }
+                const entries = Object.keys(stage9State.working).map(Number).sort((a, b) => a - b);
+                const fountainText = entries.map(n => (stage9State.working[n] || '').trim()).filter(t => t && t !== '[SCENE DELETED]').join('\n\n');
+                const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
+                const blob = new Blob([fountainText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = makeFilename(title, 'rewrite', 'fountain');
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        }
+
+        const btnPdf = document.getElementById('btnDownloadRewritePdf');
+        if (btnPdf) {
+            btnPdf.onclick = () => {
                 if (!stage9State) { alert('No rewrite data available.'); return; }
-                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnDownload);
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnPdf);
             };
         }
 
