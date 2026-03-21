@@ -465,10 +465,10 @@
             </header>
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
-                <div class="flex-1 bg-gray-900 overflow-y-auto draft-editor-container scrollbar-hide">
-                    <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto">
-                        <!-- Generation Control Bar -->
-                        <div class="max-w-4xl mx-auto flex items-center justify-between mb-4">
+                <div class="flex-1 bg-gray-900 draft-editor-container flex flex-col overflow-hidden">
+                    <!-- Sticky Header: control bar + formatting toolbar -->
+                    <div id="stage7-sticky-header" class="bg-gray-950 border-b border-white/10 flex-shrink-0">
+                        <div class="max-w-4xl mx-auto flex items-center justify-between px-10 py-3">
                             <div class="flex items-center space-x-3">
                                 <button id="btnGenerateScene" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
@@ -485,6 +485,10 @@
                                 <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Drafting Mode</div>
                             </div>
                         </div>
+                        <div id="stage7-toolbar-slot"></div>
+                    </div>
+                    <!-- Scrollable editor area -->
+                    <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto scrollbar-hide">
                         <div id="draft-editor-mount" class="draft-editor max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm mt-8 mb-24 min-h-[1100px]"></div>
                     </div>
                 </div>
@@ -616,6 +620,7 @@
                                     <button id="btnTogglePreview" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Preview</button>
                                 </div>
                             </div>
+                            <div id="stage9-toolbar-slot" class="shrink-0"></div>
                             <div id="stage9-rewrite-loading" class="hidden items-center justify-center flex-1 gap-3">
                                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                 <p class="text-gray-500 text-xs">Executing rewrite plan...</p>

@@ -203,11 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function stage7LoadEditor(fountainText) {
         if (!draftEditorMount) return;
         if (!stage7Editor) {
+            const toolbarSlot = document.getElementById('stage7-toolbar-slot');
             stage7Editor = new FountainEditor(draftEditorMount, {
                 onDirty: () => {
                     clearTimeout(stage7SaveTimer);
                     stage7SaveTimer = setTimeout(stage7FlushEditor, 2000);
-                }
+                },
+                externalToolbarSlot: toolbarSlot
             });
         }
         stage7Editor.loadFountain(fountainText);
@@ -5054,7 +5056,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Right panel: load into FountainEditor (formatted mode is default)
         if (!stage9Editor && editorMount) {
+            const s9ToolbarSlot = document.getElementById('stage9-toolbar-slot');
             stage9Editor = new FountainEditor(editorMount, {
+                externalToolbarSlot: s9ToolbarSlot,
                 onDirty: () => {
                     if (stage9CurrentScene !== null) {
                         stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();

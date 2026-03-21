@@ -1441,7 +1441,7 @@ textarea.synopsis-input {
 }
 
 .draft-editor-container {
-    padding-bottom: 200px; /* Space for sticky footer */
+    padding-bottom: 0;
 }
 
 .draft-editor {
@@ -1542,9 +1542,23 @@ textarea.synopsis-input {
     padding: 8px 16px;
     background: #1a1d27;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 10;
+}
+
+#stage7-sticky-header {
+    z-index: 20;
+    overflow: visible;
+}
+
+#stage7-toolbar-slot:empty,
+#stage9-toolbar-slot:empty {
+    display: none;
+}
+
+#stage9-toolbar-slot {
+    z-index: 20;
+    overflow: visible;
 }
 
 .fe-current-type {

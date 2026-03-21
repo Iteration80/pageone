@@ -108,7 +108,7 @@ function parseFountainToElements(text) {
                 const dline = lines[i].trim();
                 if (!dline) break;
                 if (dline.startsWith('(') && dline.endsWith(')')) {
-                    elements.push({ type: 'parenthetical', text: dline.slice(1, -1).trim() });
+                    elements.push({ type: 'parenthetical', text: dline });
                 } else {
                     elements.push({ type: 'dialogue', text: dline });
                 }
@@ -139,6 +139,7 @@ class FountainEditor {
         this.container = containerEl;
         this.readOnly = opts.readOnly || false;
         this.onDirty = opts.onDirty || null;
+        this.externalToolbarSlot = opts.externalToolbarSlot || null;
         this._dirty = false;
         this._lastCleanText = '';
 
@@ -148,7 +149,12 @@ class FountainEditor {
         // Toolbar (only if editable)
         if (!this.readOnly) {
             this.toolbar = this._buildToolbar();
-            this.container.appendChild(this.toolbar);
+            if (this.externalToolbarSlot) {
+                this.externalToolbarSlot.innerHTML = '';
+                this.externalToolbarSlot.appendChild(this.toolbar);
+            } else {
+                this.container.appendChild(this.toolbar);
+            }
         }
 
         // Editing surface
@@ -271,6 +277,18 @@ class FountainEditor {
     setElementType(type) {
         const active = this.getActiveElement();
         if (!active) return;
+        const oldType = active.type;
+        const text = active.el.textContent;
+
+        // Auto-wrap/unwrap parenthetical text
+        if (type === 'parenthetical' && oldType !== 'parenthetical') {
+            const stripped = text.replace(/^\s*\(?\s*/, '').replace(/\s*\)?\s*$/, '');
+            if (stripped) active.el.textContent = `(${stripped})`;
+        } else if (type !== 'parenthetical' && oldType === 'parenthetical') {
+            const stripped = text.replace(/^\s*\(\s*/, '').replace(/\s*\)\s*$/, '');
+            if (stripped) active.el.textContent = stripped;
+        }
+
         this._applyType(active.el, type);
         this._onInput();
         this._updateToolbar();
@@ -287,6 +305,9 @@ class FountainEditor {
 
     destroy() {
         this.container.innerHTML = '';
+        if (this.externalToolbarSlot) {
+            this.externalToolbarSlot.innerHTML = '';
+        }
     }
 
     // ─── Toolbar ─────────────────────────────────────────────────────────────
