@@ -4723,8 +4723,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
-                        const opts = data.suggest_plan ? { withPlanBtn: () => stage9GeneratePlan() } : {};
-                        stage9Chat.append('ai', data.message, opts);
+                        stage9Chat.append('ai', data.message);
+                        if (data.suggest_plan) stage9GeneratePlan();
                     }
                 }
             });

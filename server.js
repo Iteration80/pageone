@@ -918,14 +918,15 @@ app.post('/api/plan-rewrite', async (req, res) => {
         for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
         allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-        const fullScript = allScenes
-            .map(s => `## SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${working[s.scene_number] || s.humanized_draft_text || s.draft_text || ''}`)
-            .join('\n\n---\n\n');
+        // Send scene headings + brief narrative summaries (not full draft text) to keep payload small
+        const sceneList = allScenes
+            .map(s => `SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${s.narrative_action || ''}`)
+            .join('\n\n');
 
         const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
         const contextSection = conversationContext ? `\n\n## BRAINSTORM CONTEXT\n${conversationContext}` : '';
-        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## FULL SCREENPLAY\n${fullScript}`;
+        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -948,10 +949,12 @@ app.post('/api/plan-rewrite', async (req, res) => {
             required: ['rationale', 'affected_scenes'],
         };
 
-        const { GoogleGenAI } = require('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        const { generateContent } = require('./agents/ai-client');
+        const modelCfg = getModelConfig(9);
+        const response = await generateContent({
+            model: modelCfg.model,
+            geminiApiKey: modelCfg.geminiApiKey,
+            anthropicApiKey: modelCfg.anthropicApiKey,
             contents: prompt,
             config: {
                 systemInstruction: plannerSop,
