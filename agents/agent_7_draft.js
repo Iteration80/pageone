@@ -54,7 +54,7 @@ Do not include any introductory or concluding text.
             }
         });
 
-        return response.text;
+        return { result: response.text, usage: response.usage };
     } catch (error) {
         console.error('Error in agent_7_draft:', error);
         throw error;

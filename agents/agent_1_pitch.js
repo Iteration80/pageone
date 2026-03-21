@@ -59,11 +59,12 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
 
     // CRITICAL SDK SYNTAX: Extract the text using const rawText = response.text; (no parentheses).
     const rawText = response.text;
+    const { usage } = response;
 
     // Strip any markdown (```json) using regex, and JSON.parse it before returning the clean object
     const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    return JSON.parse(cleanedText);
+    return { result: JSON.parse(cleanedText), usage };
 };
 
 module.exports = { agent1Pitch };

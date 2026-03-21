@@ -29,6 +29,35 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-03-21 — Sticky toolbar + parenthetical auto-wrap (Stage 7 & 9)
+
+Fixed the FountainEditor formatting toolbar scrolling out of view when editing long scenes.
+
+- **`public/index.html`** — Stage 7: restructured DOM so the generation control bar (Generate Scene, Lock & Next, Generate All) and the formatting toolbar live in a fixed `#stage7-sticky-header` above the scroll container. Stage 9: added `#stage9-toolbar-slot` between the "Proposed Rewrite" header and the scrollable editor mount.
+- **`public/fountain-editor.js`** — `constructor()` accepts new `externalToolbarSlot` option; when provided, the toolbar mounts into that external element instead of inside the editor container. `destroy()` clears both the container and the external slot. `setElementType()` now auto-wraps text in `()` when switching to parenthetical and strips them when switching away. Parser keeps `()` in parenthetical text so they display in the editor (serializer already normalizes).
+- **`public/app.js`** — `stage7LoadEditor()` and Stage 9's `FountainEditor` instantiation both pass their respective toolbar slot elements via `externalToolbarSlot`.
+- **`public/style.css`** — `.fe-toolbar` uses `position: relative` (anchor for absolute dropdown). Removed stale `padding-bottom: 200px` from `.draft-editor-container`. Added `overflow: visible` on sticky headers so dropdowns aren't clipped. `#stage7-toolbar-slot:empty` and `#stage9-toolbar-slot:empty` collapse when no editor is active.
+
+**Architecture note:** The `externalToolbarSlot` pattern keeps FountainEditor reusable — any future stage can choose inline (default) or external toolbar mounting.
+
+### 2026-03-21 — Professional screenplay formatting editor (Stage 7 & 9)
+
+New `public/fountain-editor.js` (~400 lines) provides a shared WYSIWYG screenplay editor with professional formatting controls, used in both Stage 7 (Draft) and Stage 9 (Rewrite).
+
+- **`FountainEditor` class** — `contenteditable` surface where each line is a `<div>` with `data-element` type and CSS class. `loadFountain(text)` parses Fountain markup into typed elements; `toFountain()` serializes back. Round-trips cleanly with all existing export/diff/coverage flows.
+- **Element types**: Scene Heading, Action, Character, Parenthetical, Dialogue, Transition — styled to match professional screenwriting software (ArcStudio Pro reference).
+- **Toolbar**: Compact bar with current-type dropdown button and keyboard shortcut badges. `⌘1–6` sets element type, `Tab` cycles contextually (e.g., Character→Dialogue→Action), `Enter` auto-advances to the next logical type.
+- **Stage 7 integration**: Replaced static `contenteditable` div with FountainEditor. Added 2-second debounced auto-save via `onDirty` callback — fixes long-standing bug where manual edits were lost on scene navigation.
+- **Stage 9 integration**: FountainEditor loads in "Formatted" mode (default). 3-way toggle: Formatted (WYSIWYG) | Source (raw textarea) | Preview (read-only diff). `stage9FlushEditPanel()` handles both editor and textarea.
+- **Version History**: Removed assistant chat panel, added View (preview modal) and Download (.txt) buttons. `snapshotToText()` renders all stage types including evaluation grid, analytical comments, and blueprint.
+
+### 2026-03-21 — Deleted scenes filtered from coverage and exports
+
+`[SCENE DELETED]` markers (15-char truthy strings) were passing `.filter(Boolean)` and leaking into coverage agent input, PDF exports, and .fountain downloads.
+
+- **`server.js`** — Coverage loopback and PDF export filter out `[SCENE DELETED]` explicitly.
+- **`public/app.js`** — Fountain export adds `.filter(t => t && t !== '[SCENE DELETED]')`.
+
 ### 2026-03-19 — BYOK Settings + Per-Stage Model Selection
 Full multi-provider settings system shipped. Key changes:
 

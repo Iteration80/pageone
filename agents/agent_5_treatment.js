@@ -59,7 +59,7 @@ Please apply the note surgically and return the full updated treatment in JSON f
             schema: treatmentSchema
         });
 
-        return JSON.parse(result.text);
+        return { result: JSON.parse(result.text), usage: result.usage };
     }
 
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)
@@ -73,12 +73,15 @@ BEATS (Sequences 1-2): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave others empty.`;
 
+    const usageList = [];
+
     const result1 = await generateContent({
         model, geminiApiKey, anthropicApiKey,
         contents: [step1Prompt],
         config: baseConfig,
         schema: treatmentSchema
     });
+    usageList.push(result1.usage);
     const parsed1 = JSON.parse(result1.text);
 
     // Step 2: Act IIA (Sequences 3 & 4)
@@ -100,6 +103,7 @@ Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
         config: baseConfig,
         schema: treatmentSchema
     });
+    usageList.push(result2.usage);
     const parsed2 = JSON.parse(result2.text);
 
     // Step 3: Act IIB (Sequences 5 & 6)
@@ -120,6 +124,7 @@ Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
         config: baseConfig,
         schema: treatmentSchema
     });
+    usageList.push(result3.usage);
     const parsed3 = JSON.parse(result3.text);
 
     // Step 4: Act III (Sequences 7 & 8)
@@ -140,14 +145,18 @@ Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
         config: baseConfig,
         schema: treatmentSchema
     });
+    usageList.push(result4.usage);
     const finalParsed = JSON.parse(result4.text);
 
     return {
-        title_logline_characters: parsed1.title_logline_characters,
-        act_1: parsed1.act_1,
-        act_2a: parsed2.act_2a,
-        act_2b: parsed3.act_2b,
-        act_3: finalParsed.act_3
+        result: {
+            title_logline_characters: parsed1.title_logline_characters,
+            act_1: parsed1.act_1,
+            act_2a: parsed2.act_2a,
+            act_2b: parsed3.act_2b,
+            act_3: finalParsed.act_3
+        },
+        usageList
     };
 };
 

@@ -53,6 +53,31 @@ function getModelConfig(stageNum) {
         anthropicApiKey: appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY
     };
 }
+/** Append API usage record to the project's apiUsage array. */
+async function trackUsage(projectId, usageOrList) {
+    if (!projectId || !usageOrList) return;
+    try {
+        const usages = Array.isArray(usageOrList) ? usageOrList : [usageOrList];
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const project = JSON.parse(raw);
+        if (!project.data) project.data = {};
+        if (!project.data.apiUsage) project.data.apiUsage = [];
+        const now = Date.now();
+        for (const u of usages) {
+            if (!u || !u.model) continue;
+            project.data.apiUsage.push({
+                timestamp: now,
+                model: u.model,
+                inputTokens: u.inputTokens || 0,
+                outputTokens: u.outputTokens || 0,
+            });
+        }
+        await fs.writeFile(filePath, JSON.stringify(project, null, 2));
+    } catch (err) {
+        console.error('trackUsage error:', err.message);
+    }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 const {
@@ -168,7 +193,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         const parsedBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
 
         console.log("Generating Stage 2 Outline...");
-        const outlineData = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfig(2));
+        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfig(2));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -176,6 +201,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usage);
 
         res.json({ result: outlineData });
     } catch (error) {
@@ -212,7 +238,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         const parsedChars = currentCharacters ? (typeof currentCharacters === 'string' ? JSON.parse(currentCharacters) : currentCharacters) : null;
 
         console.log("Generating Stage 3 Characters...");
-        const characterData = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfig(3));
+        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfig(3));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
@@ -220,6 +246,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usage);
 
         res.json({ result: characterData });
     } catch (error) {
@@ -265,7 +292,7 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
 
     try {
         console.log("Generating Stage 4 Beats...");
-        const beatsResult = await agent4Beats(
+        const { result: beatsResult, usage } = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
             (label) => send({ type: 'progress', label }),
             getModelConfig(4)
@@ -278,6 +305,7 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usage);
 
         send({ type: 'complete', result: beatsResult });
     } catch (error) {
@@ -324,19 +352,20 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
 
     try {
         console.log("Generating Stage 5 Chained Treatment...");
-        const result = await agent5Treatment(
+        const { result: treatmentResult, usageList } = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notes,
             (step, total, label) => send({ type: 'progress', step, total, label }),
             getModelConfig(5)
         );
 
         projectData.data = projectData.data || {};
-        projectData.data.stage5_treatment = result;
+        projectData.data.stage5_treatment = treatmentResult;
         notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result });
+        send({ type: 'complete', result: treatmentResult });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message);
         send({ type: 'error', message: error.message || 'Failed to generate treatment' });
@@ -384,7 +413,7 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
         }
 
-        const allSequences = await generateStage6Scenes(
+        const { result: allSequences, usageList } = await generateStage6Scenes(
             pitch, characters, beats, treatment,
             (current, total) => send({ type: 'progress', current, total }),
             sourceAuthorityBlock,
@@ -395,6 +424,7 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
         projectData.data.stage6_scenes = allSequences;
         stampGenerated(projectData, 'stage6_scenes');
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usageList);
 
         send({ type: 'complete', result: allSequences });
     } catch (error) {
@@ -427,13 +457,14 @@ app.post('/api/revise-stage6', async (req, res) => {
         }
 
         console.log("Revising Stage 6 Scene Blueprint...");
-        const updatedBlueprint = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfig(6));
+        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfig(6));
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
         stampRevised(projectData, 'stage6_scenes');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usage);
 
         res.json({ result: updatedBlueprint });
     } catch (error) {
@@ -487,16 +518,17 @@ app.post('/api/generate-draft', async (req, res) => {
         };
 
         console.log(`Generating draft for Scene ${sceneNumber}...`);
-        const draftText = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7));
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7));
 
         console.log(`Humanizing draft for Scene ${sceneNumber}...`);
-        const humanizedText = await humanizeDraft(draftText);
+        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
 
         // Save both the raw draft and the humanized version
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
         res.json({ result: humanizedText });
     } catch (error) {
@@ -546,16 +578,17 @@ app.post('/api/revise-draft', async (req, res) => {
         };
 
         console.log(`Revising draft for Scene ${sceneNumber}...`);
-        const draftText = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7));
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7));
 
         console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
-        const humanizedText = await humanizeDraft(draftText);
+        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
         targetedScene.locked = false; // Unlock scene after revision
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
         res.json({ result: humanizedText });
     } catch (error) {
@@ -628,13 +661,14 @@ app.post('/api/generate-coverage', async (req, res) => {
         };
 
         console.log(`Generating Stage 8 Coverage for project ${projectId}...`);
-        const coverageResult = await agent8Coverage(fullScriptText, projectContext, getModelConfig(8));
+        const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfig(8));
 
         projectData.data = projectData.data || {};
         projectData.data.stage8_coverage = coverageResult;
         stampGenerated(projectData, 'stage8_coverage');
 
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usageList);
 
         res.json({ result: coverageResult });
     } catch (error) {
@@ -788,6 +822,12 @@ app.post('/api/brainstorm', async (req, res) => {
         });
         const result = JSON.parse(response.text);
         console.log(`Brainstorm stage${stageId}: suggest_plan=${result.suggest_plan} execute_immediately=${result.execute_immediately}`);
+        const brainstormUsage = {
+            model: 'gemini-3-flash-preview',
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+        };
+        trackUsage(projectId, brainstormUsage);
 
         // Persist the full conversation (current session + new exchange) to project file
         try {
@@ -834,8 +874,8 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             .join('\n\n---\n\n');
 
         const allPriorities = [
-            ...macroTodo.map((t, i) => ({ label: `MACRO ${i + 1}`, task: t.task || t, done: i < priorityIdx })),
-            ...microTodo.map((t, i) => ({ label: `MICRO ${i + 1}`, task: t.task || t, done: (macroTodo.length + i) < priorityIdx })),
+            ...macroTodo.map((t, i) => ({ label: `MACRO TO-DO P${i + 1}`, task: t.task || t, done: i < priorityIdx })),
+            ...microTodo.map((t, i) => ({ label: `MICRO TO-DO P${i + 1}`, task: t.task || t, done: (macroTodo.length + i) < priorityIdx })),
         ];
         const priorityList = allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n');
         const contextBlock = `## PROJECT: ${title}\n\n## STAGE 8 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
@@ -850,9 +890,9 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             const doneCount = allPriorities.filter(p => p.done).length;
             if (doneCount > 0) {
                 const nextPriority = allPriorities.find(p => !p.done);
-                conversationPrompt += `[The writer just completed rewrite priority ${doneCount} and approved the changes. ${nextPriority ? `The next priority is: ${nextPriority.label}: ${nextPriority.task}. Briefly acknowledge the progress and move straight into discussing this next priority — what it involves and which scenes are likely affected. Do NOT re-list all priorities.` : 'All priorities have been addressed.'}]`;
+                conversationPrompt += `[The writer just completed ${doneCount} of ${allPriorities.length} rewrite priorities and approved the changes. ${nextPriority ? `The next priority is: ${nextPriority.label}: ${nextPriority.task}. Briefly acknowledge progress (mention the count, e.g. "${doneCount} of ${allPriorities.length} done"), then present the next priority using its exact label and task text. Move straight into discussing what this priority involves and which scenes are likely affected. Do NOT re-list all priorities.` : 'All priorities have been addressed.'}]`;
             } else {
-                conversationPrompt += '[The writer has just entered the rewrite stage. Open the conversation by presenting the priorities and asking what they would like to address.]';
+                conversationPrompt += '[The writer has just entered the rewrite stage. Present the coverage priorities EXACTLY as listed below — use the same labels (MACRO TO-DO P1, P2... and MICRO TO-DO P1, P2...) and the same task descriptions verbatim. Group them under MACRO TO-DO and MICRO TO-DO headings. Mark completed items as done. Then ask the writer which priority they\'d like to tackle first.]';
             }
         } else {
             for (const msg of messages) {
@@ -887,6 +927,12 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
 
         const result = JSON.parse(response.text);
         console.log(`Brainstorm: suggest_plan=${result.suggest_plan}`);
+        const brainstormUsage = {
+            model: 'gemini-3-flash-preview',
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+        };
+        trackUsage(projectId, brainstormUsage);
 
         // Persist stage 9 conversation
         if (!isInit) {
@@ -982,6 +1028,7 @@ app.post('/api/plan-rewrite', async (req, res) => {
 
         const plan = JSON.parse(response.text);
         console.log(`Stage 9 plan: ${plan.affected_scenes.length} scenes affected.`);
+        if (response.usage) trackUsage(projectId, response.usage);
         res.json(plan);
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
@@ -1024,7 +1071,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }, '', getModelConfig(9)).then(proposed => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed }));
+                }, '', getModelConfig(9)).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
 
@@ -1037,6 +1084,9 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
             const fallback = working[s.scene_number] || '';
             return { scene_number: s.scene_number, original_text: fallback, proposed_text: fallback, modified: false };
         });
+
+        const usages = results.filter(r => r.status === 'fulfilled' && r.value.usage).map(r => r.value.usage);
+        trackUsage(projectId, usages);
 
         res.json({ scenes });
     } catch (error) {
@@ -1088,7 +1138,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
 
         console.log(`Stage 9: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
 
-        const proposed = await rewriteScene(
+        const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
             { title, sceneNumber, slugline },
             plannedChange || '',
@@ -1105,6 +1155,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
         }
 
+        trackUsage(projectId, usage);
         res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: proposed, modified });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
@@ -1152,7 +1203,8 @@ app.post('/api/rewrite-scene-feedback', async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const proposed_text = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(9));
+        const { result: proposed_text, usage } = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(9));
+        trackUsage(projectId, usage);
         res.json({ proposed_text });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);

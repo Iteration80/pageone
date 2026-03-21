@@ -6,7 +6,7 @@
  *   - "gemini-*"  → Google GenAI SDK
  *   - "claude-*"  → Anthropic SDK
  *
- * All callers receive { text: string } regardless of provider.
+ * All callers receive { text: string, usage: { model, inputTokens, outputTokens } } regardless of provider.
  */
 
 const { GoogleGenAI } = require('@google/genai');
@@ -30,8 +30,13 @@ async function callGemini({ model, geminiApiKey, contents, config = {}, schema }
 
     const response = await ai.models.generateContent({ model, contents, config: callConfig });
     const rawText = response.text;
+    const usage = {
+        model,
+        inputTokens: response.usageMetadata?.promptTokenCount || 0,
+        outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+    };
     // Strip any markdown fences just in case
-    return { text: rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim() };
+    return { text: rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim(), usage };
 }
 
 // ─── Anthropic path ───────────────────────────────────────────────────────────
@@ -98,8 +103,13 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     });
 
     const rawText = response.content.find(b => b.type === 'text')?.text ?? '';
+    const usage = {
+        model,
+        inputTokens: response.usage?.input_tokens || 0,
+        outputTokens: response.usage?.output_tokens || 0,
+    };
     // Strip any markdown fences Claude might add
-    return { text: rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim() };
+    return { text: rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim(), usage };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -114,7 +124,7 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
  * @param {object}  config         - { systemInstruction, temperature, thinkingConfig, tools, ... }
  * @param {object}  schema         - JSON schema object (optional); enforced natively on Gemini,
  *                                   injected as system prompt instruction on Claude
- * @returns {{ text: string }}
+ * @returns {{ text: string, usage: { model: string, inputTokens: number, outputTokens: number } }}
  */
 async function generateContent({ model, geminiApiKey, anthropicApiKey, contents, config, schema }) {
     const provider = detectProvider(model);

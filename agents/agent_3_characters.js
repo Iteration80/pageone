@@ -75,7 +75,7 @@ Please apply the note surgically and return the full updated character list in J
             schema: characterSchema
         });
 
-        return JSON.parse(response.text);
+        return { result: JSON.parse(response.text), usage: response.usage };
     }
 
     const systemInstruction = charactersSOP;
@@ -109,7 +109,7 @@ Please apply the note surgically and return the full updated character list in J
         schema: characterSchema
     });
 
-    return JSON.parse(response.text);
+    return { result: JSON.parse(response.text), usage: response.usage };
 };
 
 module.exports = { agent3Characters };

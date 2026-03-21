@@ -43,7 +43,7 @@ Please apply the note surgically and return the full updated pitch in JSON forma
 
         const rawText = response.text;
         const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return JSON.parse(cleanedText);
+        return { result: JSON.parse(cleanedText), usage: response.usage };
     }
 
     const contents = [];
@@ -65,7 +65,7 @@ Please apply the note surgically and return the full updated pitch in JSON forma
     // Strip any markdown (```json) using regex, and JSON.parse it before returning the clean object
     const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    return JSON.parse(cleanedText);
+    return { result: JSON.parse(cleanedText), usage: response.usage };
 };
 
 module.exports = { agent1Refine };

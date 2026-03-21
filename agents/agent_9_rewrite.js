@@ -51,7 +51,7 @@ ${sceneText}
                     thinkingConfig: { thinkingLevel: 'LOW' },
                 }
             });
-            return response.text.trim();
+            return { result: response.text.trim(), usage: response.usage };
         } catch (error) {
             console.warn(`Rewrite agent attempt ${attempt}/3 for scene ${sceneContext.sceneNumber}: ${error.message}`);
             if (attempt === 3) {

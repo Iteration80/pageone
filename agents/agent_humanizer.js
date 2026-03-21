@@ -37,7 +37,13 @@ ${draftText}
             }
         });
 
-        return response.text;
+        const usage = {
+            model: HUMANIZER_MODEL,
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+        };
+
+        return { result: response.text, usage };
     } catch (error) {
         console.error('Error in agent_humanizer:', error);
         // On failure, return the original draft text so the pipeline does not break

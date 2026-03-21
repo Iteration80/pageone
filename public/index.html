@@ -73,6 +73,12 @@
                 <button id="btnOpenSettings" class="sidebar-home-btn" title="Settings">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
+                <button id="btnProjectSpend" class="sidebar-home-btn" title="Project Spend">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                </button>
             </div>
         </aside>
 
@@ -615,9 +621,8 @@
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0 flex items-center justify-between">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
                                 <div class="flex items-center gap-2">
-                                    <button id="btnToggleFormatted" class="text-xs px-2 py-1 rounded transition-colors text-blue-400 bg-blue-900/30">Formatted</button>
-                                    <button id="btnToggleSource" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Source</button>
-                                    <button id="btnTogglePreview" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Preview</button>
+                                    <button id="btnTogglePreview" class="text-xs px-2 py-1 rounded transition-colors text-blue-400 bg-blue-900/30">Preview</button>
+                                    <button id="btnToggleFormatted" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Edit</button>
                                 </div>
                             </div>
                             <div id="stage9-toolbar-slot" class="shrink-0"></div>
@@ -625,19 +630,16 @@
                                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                 <p class="text-gray-500 text-xs">Executing rewrite plan...</p>
                             </div>
-                            <!-- Formatted editor (default) -->
+                            <!-- Editor (hidden by default, shown in Edit mode) -->
                             <div id="stage9-editor-mount"
-                                class="flex-1 overflow-y-auto bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                class="hidden flex-1 overflow-y-auto bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                                 <p class="text-gray-600 italic text-xs px-8 py-6">Start a conversation below to begin...</p>
                             </div>
-                            <!-- Read-only rendered view with diff (hidden by default) -->
+                            <!-- Preview with diff highlights (default) -->
                             <div id="stage9-right-panel-view"
-                                class="hidden flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                class="flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                <p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>
                             </div>
-                            <!-- Raw edit textarea (hidden by default) -->
-                            <textarea id="stage9-right-panel-edit"
-                                class="hidden flex-1 w-full bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed p-6 resize-none border-none focus:outline-none scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
-                                placeholder="Edit raw Fountain text here..."></textarea>
                         </div>
                     </div>
 
@@ -775,6 +777,17 @@
             <div class="modal-actions" style="margin-top:24px">
                 <button id="cancelSettingsBtn" class="secondary-btn">Cancel</button>
                 <button id="saveSettingsBtn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spend Modal -->
+    <div id="spendModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:480px;max-height:80vh;overflow-y:auto">
+            <h3>Project Spend</h3>
+            <div id="spend-modal-content" style="margin-top:16px"></div>
+            <div class="modal-actions" style="margin-top:24px">
+                <button id="closeSpendBtn" class="secondary-btn">Close</button>
             </div>
         </div>
     </div>

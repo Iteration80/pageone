@@ -116,7 +116,7 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
         },
         schema: coverageSchema
     });
-    return JSON.parse(response.text);
+    return { parsed: JSON.parse(response.text), usage: response.usage };
 };
 
 /**
@@ -140,7 +140,12 @@ const consolidateCoverage = async (results, geminiApiKey) => {
             responseSchema: coverageSchema,
         }
     });
-    return JSON.parse(response.text);
+    const usage = {
+        model: 'gemini-3-flash-preview',
+        inputTokens: response.usageMetadata?.promptTokenCount || 0,
+        outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+    };
+    return { parsed: JSON.parse(response.text), usage };
 };
 
 /**
@@ -190,13 +195,17 @@ ${fullScriptText}
         throw new Error('All 3 coverage analyses failed.');
     }
 
+    const usageList = successes.map(s => s.usage);
+
     if (successes.length === 1) {
         console.log('Coverage: only 1 run succeeded — returning single result.');
-        return successes[0];
+        return { result: successes[0].parsed, usageList };
     }
 
     console.log(`Coverage: ${successes.length} runs succeeded — consolidating...`);
-    return await consolidateCoverage(successes, modelConfig.geminiApiKey || process.env.GEMINI_API_KEY);
+    const consolidated = await consolidateCoverage(successes.map(s => s.parsed), modelConfig.geminiApiKey || process.env.GEMINI_API_KEY);
+    usageList.push(consolidated.usage);
+    return { result: consolidated.parsed, usageList };
 };
 
 module.exports = { agent8Coverage };

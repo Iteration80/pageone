@@ -70,7 +70,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             schema: treatmentSchema
         });
 
-        return JSON.parse(response.text);
+        return { result: JSON.parse(response.text), usage: response.usage };
     }
 
     if (onProgress) onProgress('Generating 15-Beat Sheet...');
@@ -119,6 +119,7 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
     });
 
     const parsed = JSON.parse(response.text);
+    const { usage } = response;
 
     // Validate the response has the expected structure
     if (!parsed.hybrid_beat_sheet || !Array.isArray(parsed.hybrid_beat_sheet) || parsed.hybrid_beat_sheet.length === 0) {
@@ -131,7 +132,7 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
         throw new Error('Treatment generation returned sequences with no beats. Please retry.');
     }
 
-    return parsed;
+    return { result: parsed, usage };
 };
 
 module.exports = { agent4Beats };

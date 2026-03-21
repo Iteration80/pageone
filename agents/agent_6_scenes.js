@@ -85,6 +85,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
 
     // --- Iterative Loop ---
     let allSequences = [];
+    const usageList = [];
     let previousSequenceClimax = 'N/A - Start of Film';
 
     let globalSceneIndex = 1;
@@ -128,6 +129,7 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must s
             });
 
             const parsedSeq = JSON.parse(result.text);
+            usageList.push(result.usage);
             parsedSeq.sequence_number = i;
 
             // Enforce globally unique scene numbers across all sequences
@@ -158,7 +160,7 @@ OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must s
 
     // --- Concatenate ---
     // allSequences is the master Scene Blueprint document (array of 8 objects).
-    return allSequences;
+    return { result: allSequences, usageList };
 };
 
 module.exports = { generateStage6Scenes };

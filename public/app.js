@@ -4900,12 +4900,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Scene selected: feedback for that scene
                         const priorities = stage9GetPriorityList();
                         const task = priorities[stage9State.priority_idx]?.task || '';
-                        const editTA = document.getElementById('stage9-right-panel-edit');
                         let currentText;
                         if (stage9ViewMode === 'formatted' && stage9Editor) {
                             currentText = stage9Editor.toFountain();
-                        } else if (stage9ViewMode === 'source' && editTA) {
-                            currentText = editTA.value;
                         } else {
                             currentText = stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '';
                         }
@@ -5008,20 +5005,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let stage9Editor = null;
-    let stage9ViewMode = 'formatted'; // 'formatted' | 'source' | 'preview'
+    let stage9ViewMode = 'preview'; // 'preview' | 'formatted'
 
     function stage9DeselectScene() {
         stage9CurrentScene = null;
         const leftPanel = document.getElementById('stage9-left-panel');
         const editorMount = document.getElementById('stage9-editor-mount');
         const rightView = document.getElementById('stage9-right-panel-view');
-        const rightEdit = document.getElementById('stage9-right-panel-edit');
         if (leftPanel) leftPanel.innerHTML = '<p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>';
-        if (editorMount) { editorMount.innerHTML = '<p class="text-gray-600 italic text-xs px-8 py-6">Start a conversation below to begin...</p>'; editorMount.classList.remove('hidden'); }
-        if (rightView) rightView.classList.add('hidden');
-        if (rightEdit) { rightEdit.classList.add('hidden'); rightEdit.value = ''; }
+        if (editorMount) editorMount.classList.add('hidden');
+        if (rightView) { rightView.classList.remove('hidden'); rightView.innerHTML = '<p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>'; }
         if (stage9Editor) { stage9Editor.destroy(); stage9Editor = null; }
-        stage9ViewMode = 'formatted';
+        stage9ViewMode = 'preview';
         stage9UpdateToggleButtons();
         renderStage9SceneList();
     }
@@ -5044,7 +5039,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const leftPanel    = document.getElementById('stage9-left-panel');
         const editorMount  = document.getElementById('stage9-editor-mount');
         const rightView    = document.getElementById('stage9-right-panel-view');
-        const rightEdit    = document.getElementById('stage9-right-panel-edit');
 
         // Left panel: show original with diff highlights if there are pending changes
         if (stage9Pending[n] !== undefined) {
@@ -5054,7 +5048,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText);
         }
 
-        // Right panel: load into FountainEditor (formatted mode is default)
+        // Right panel: default to preview (diff) view
+        if (stage9Pending[n] !== undefined) {
+            const { rightAnnotations } = computeLineDiff(origText, proposedText);
+            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
+        } else {
+            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText);
+        }
+
+        // Ensure editor is loaded (for Edit mode, lazily created)
         if (!stage9Editor && editorMount) {
             const s9ToolbarSlot = document.getElementById('stage9-toolbar-slot');
             stage9Editor = new FountainEditor(editorMount, {
@@ -5075,13 +5077,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         if (stage9Editor) stage9Editor.loadFountain(proposedText);
-        if (rightEdit) rightEdit.value = proposedText;
 
-        // Reset to formatted view
-        stage9ViewMode = 'formatted';
-        if (editorMount) editorMount.classList.remove('hidden');
-        if (rightView) rightView.classList.add('hidden');
-        if (rightEdit) rightEdit.classList.add('hidden');
+        // Default to preview view
+        stage9ViewMode = 'preview';
+        if (editorMount) editorMount.classList.add('hidden');
+        if (rightView) rightView.classList.remove('hidden');
         stage9UpdateToggleButtons();
 
         renderStage9SceneList();
@@ -5089,35 +5089,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function stage9FlushEditPanel() {
         if (stage9CurrentScene === null) return;
-        if (stage9ViewMode === 'formatted' && stage9Editor) {
+        // Only flush editor text to pending if this scene already has pending changes
+        // (prevents overwriting original text with editor-normalized version)
+        if (stage9ViewMode === 'formatted' && stage9Editor && stage9Pending[stage9CurrentScene] !== undefined) {
             stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();
-        } else if (stage9ViewMode === 'source') {
-            const editTA = document.getElementById('stage9-right-panel-edit');
-            if (editTA) stage9Pending[stage9CurrentScene] = editTA.value;
         }
     }
 
     function stage9UpdateToggleButtons() {
         const btnF = document.getElementById('btnToggleFormatted');
-        const btnS = document.getElementById('btnToggleSource');
         const btnP = document.getElementById('btnTogglePreview');
         const active = 'text-blue-400 bg-blue-900/30';
         const inactive = 'text-gray-500 hover:text-gray-300';
-        if (btnF) { btnF.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'formatted' ? active : inactive}`; }
-        if (btnS) { btnS.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'source' ? active : inactive}`; }
         if (btnP) { btnP.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'preview' ? active : inactive}`; }
+        if (btnF) { btnF.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'formatted' ? active : inactive}`; }
     }
 
     function stage9WireButtons() {
-        // ── 3-way toggle: Formatted | Source | Preview ────────────────────────
+        // ── Toggle: Preview | Edit ────────────────────────────────────────────
         function stage9SwitchView(mode) {
             stage9FlushEditPanel(); // flush current mode first
             stage9ViewMode = mode;
 
             const editorMount = document.getElementById('stage9-editor-mount');
             const rightView   = document.getElementById('stage9-right-panel-view');
-            const rightEdit   = document.getElementById('stage9-right-panel-edit');
-            if (!editorMount || !rightView || !rightEdit) return;
+            if (!editorMount || !rightView) return;
 
             const origText     = stage9CurrentScene !== null ? (stage9State.working[stage9CurrentScene] || '') : '';
             const proposedText = stage9CurrentScene !== null
@@ -5126,15 +5122,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             editorMount.classList.add('hidden');
             rightView.classList.add('hidden');
-            rightEdit.classList.add('hidden');
 
             if (mode === 'formatted') {
                 editorMount.classList.remove('hidden');
                 if (stage9Editor) stage9Editor.loadFountain(proposedText);
-            } else if (mode === 'source') {
-                rightEdit.classList.remove('hidden');
-                rightEdit.value = proposedText;
-            } else if (mode === 'preview') {
+            } else {
+                // Preview mode (default)
                 rightView.classList.remove('hidden');
                 if (stage9Pending[stage9CurrentScene] !== undefined) {
                     const { rightAnnotations } = computeLineDiff(origText, proposedText);
@@ -5156,10 +5149,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const btnF = document.getElementById('btnToggleFormatted');
-        const btnS = document.getElementById('btnToggleSource');
         const btnP = document.getElementById('btnTogglePreview');
         if (btnF) btnF.onclick = () => stage9SwitchView('formatted');
-        if (btnS) btnS.onclick = () => stage9SwitchView('source');
         if (btnP) btnP.onclick = () => stage9SwitchView('preview');
 
         // ── Finalize Rewrite ──────────────────────────────────────────────────
@@ -5369,6 +5360,96 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close modal when clicking the overlay backdrop
     settingsModal?.addEventListener('click', (e) => {
         if (e.target === settingsModal) closeSettingsModal();
+    });
+
+    // ─── Project Spend Modal ────────────────────────────────────────────────
+
+    const MODEL_PRICING = {
+        'gemini-3.1-pro-preview':      { input: 1.25 / 1e6, output: 10.0 / 1e6, label: 'Gemini 3.1 Pro' },
+        'gemini-2.5-pro-preview-05-06':{ input: 1.25 / 1e6, output: 10.0 / 1e6, label: 'Gemini 2.5 Pro' },
+        'gemini-3-flash-preview':      { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 3 Flash' },
+        'gemini-2.0-flash':            { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
+        'gemini-2.0-flash-001':        { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
+        'claude-opus-4-6':             { input: 15.0 / 1e6, output: 75.0 / 1e6, label: 'Claude Opus 4.6' },
+        'claude-sonnet-4-6':           { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 4.6' },
+        'claude-haiku-4-5-20251001':   { input: 0.80 / 1e6, output: 4.0 / 1e6,  label: 'Claude Haiku 4.5' },
+    };
+
+    const spendModal = document.getElementById('spendModal');
+
+    function openSpendModal() {
+        const content = document.getElementById('spend-modal-content');
+        if (!content) return;
+
+        const usage = window.currentProjectData?.data?.apiUsage || [];
+
+        if (!usage.length) {
+            content.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;text-align:center;padding:24px 0">No usage data yet. Generate some content to start tracking costs.</p>';
+            spendModal?.classList.remove('hidden');
+            return;
+        }
+
+        // Aggregate by model
+        const byModel = {};
+        for (const u of usage) {
+            const key = u.model || 'unknown';
+            if (!byModel[key]) byModel[key] = { inputTokens: 0, outputTokens: 0, calls: 0 };
+            byModel[key].inputTokens += u.inputTokens || 0;
+            byModel[key].outputTokens += u.outputTokens || 0;
+            byModel[key].calls += 1;
+        }
+
+        // Calculate costs
+        let totalCost = 0;
+        const rows = Object.entries(byModel).map(([model, data]) => {
+            const pricing = MODEL_PRICING[model] || { input: 0, output: 0 };
+            const cost = (data.inputTokens * pricing.input) + (data.outputTokens * pricing.output);
+            totalCost += cost;
+            const label = MODEL_PRICING[model]?.label || model;
+            return { label, model, ...data, cost };
+        }).sort((a, b) => b.cost - a.cost);
+
+        let html = `<div style="text-align:center;margin-bottom:20px">
+            <div style="font-size:2rem;font-weight:700;color:#e5e7eb">$${totalCost.toFixed(2)}</div>
+            <div style="font-size:0.75rem;color:#6b7280;margin-top:4px">${usage.length} API calls</div>
+        </div>`;
+
+        html += `<table style="width:100%;font-size:0.8rem;border-collapse:collapse">
+            <thead>
+                <tr style="color:#9ca3af;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08)">
+                    <th style="padding:8px 4px">Model</th>
+                    <th style="padding:8px 4px;text-align:right">Input</th>
+                    <th style="padding:8px 4px;text-align:right">Output</th>
+                    <th style="padding:8px 4px;text-align:right">Cost</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        for (const r of rows) {
+            const fmtTokens = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toString();
+            html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                <td style="padding:8px 4px;color:#d1d5db">${r.label}</td>
+                <td style="padding:8px 4px;text-align:right;color:#9ca3af">${fmtTokens(r.inputTokens)}</td>
+                <td style="padding:8px 4px;text-align:right;color:#9ca3af">${fmtTokens(r.outputTokens)}</td>
+                <td style="padding:8px 4px;text-align:right;color:#e5e7eb;font-weight:600">$${r.cost.toFixed(2)}</td>
+            </tr>`;
+        }
+
+        html += '</tbody></table>';
+        html += '<p style="font-size:0.65rem;color:#4b5563;margin-top:12px;text-align:center">Costs are estimates based on published API pricing.</p>';
+
+        content.innerHTML = html;
+        spendModal?.classList.remove('hidden');
+    }
+
+    function closeSpendModal() {
+        spendModal?.classList.add('hidden');
+    }
+
+    document.getElementById('btnProjectSpend')?.addEventListener('click', openSpendModal);
+    document.getElementById('closeSpendBtn')?.addEventListener('click', closeSpendModal);
+    spendModal?.addEventListener('click', (e) => {
+        if (e.target === spendModal) closeSpendModal();
     });
 
 

@@ -75,8 +75,9 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         });
 
         const rawText = response.text;
+        const { usage } = response;
         const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return JSON.parse(cleanedText);
+        return { result: JSON.parse(cleanedText), usage };
     }
 
     const systemInstruction = outlineSOP;
@@ -110,9 +111,10 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
     });
 
     const rawText = response.text;
+    const { usage } = response;
     const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    return JSON.parse(cleanedText);
+    return { result: JSON.parse(cleanedText), usage };
 };
 
 module.exports = { agent2Outline };

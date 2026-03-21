@@ -103,7 +103,7 @@ OBJECTIVE: Apply the feedback to the blueprint. Return the FULL updated JSON arr
             }
         });
 
-        return updatedData;
+        return { result: updatedData, usage: result.usage };
     } catch (error) {
         console.error('Error in Stage 6 Revision Agent:', error);
         throw error;
