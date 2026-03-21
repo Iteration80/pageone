@@ -4495,11 +4495,14 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }
 
+    let stage9GeneratingPlan = false;
+
     async function stage9GeneratePlan() {
-        if (!stage9Chat) return;
+        if (!stage9Chat || stage9GeneratingPlan || window.stage9CurrentPlan) return;
+        stage9GeneratingPlan = true;
         const priorities = stage9GetPriorityList();
         const task = priorities[stage9State.priority_idx]?.task;
-        if (!task) { stage9Chat.append('system', 'No active priority task.'); return; }
+        if (!task) { stage9Chat.append('system', 'No active priority task.'); stage9GeneratingPlan = false; return; }
         stage9Chat.append('system', 'Generating rewrite plan...');
         const conversationContext = stage9Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
         try {
@@ -4515,6 +4518,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage9ExecutePlan(plan));
         } catch (err) {
             stage9Chat.append('system', 'Planning failed: ' + err.message);
+        } finally {
+            stage9GeneratingPlan = false;
         }
     }
 
@@ -4749,7 +4754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         stage9Chat.append('ai', data.message);
-                        if (data.suggest_plan) stage9GeneratePlan();
+                        if (data.suggest_plan && !window.stage9CurrentPlan && !stage9ExecutingPlan) stage9GeneratePlan();
                     }
                 }
             });

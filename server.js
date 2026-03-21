@@ -1058,6 +1058,13 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         const sceneText = working[sceneNumber] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
         const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
 
+        // Short-circuit: if the plan says to delete/remove this scene, skip the LLM
+        const deletionPattern = /\b(delete|remove)\b.*\b(scene|entirely)\b/i;
+        if (plannedChange && deletionPattern.test(plannedChange)) {
+            console.log(`Stage 9: deleting scene ${sceneNumber} (per plan)`);
+            return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
+        }
+
         console.log(`Stage 9: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
 
         const proposed = await rewriteScene(

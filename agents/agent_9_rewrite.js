@@ -23,17 +23,17 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
 
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_rewrite.md'), 'utf8');
 
-    const feedbackSection = userFeedback
-        ? `\n## ADDITIONAL WRITER NOTES\n${userFeedback}\n`
+    const plannedChangeSection = userFeedback
+        ? `\n## PLANNED CHANGE FOR THIS SCENE\n${userFeedback}\n`
         : '';
 
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-
-## REWRITE TASK
+${plannedChangeSection}
+## PRIORITY CONTEXT
 ${priorityTask}
-${feedbackSection}
+
 ## SCENE ${sceneContext.sceneNumber}${sceneContext.slugline ? ` — ${sceneContext.slugline}` : ''}
 
 ${sceneText}
