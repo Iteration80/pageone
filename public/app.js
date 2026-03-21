@@ -3621,6 +3621,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!response.ok) throw new Error('Failed to save');
                     const updated = await response.json();
                     updateStageNav(updated.data);
+                    btnApprove.textContent = 'Rewrite Started ✓';
+                    btnApprove.classList.add('approve-btn-green');
+                    btnApprove.disabled = true;
                     // Always restart Stage 9 from P1 when entering from Begin Rewrite
                     window.stage9ResetOnInit = true;
                     switchStage(9);
@@ -3629,6 +3632,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('An error occurred. Please try again.');
                 }
             };
+        }
+
+        // Restore approved state if already approved
+        if (btnApprove && window.currentProjectData?.stage8_approved) {
+            btnApprove.textContent = 'Rewrite Started ✓';
+            btnApprove.classList.add('approve-btn-green');
+            btnApprove.disabled = true;
         }
 
         // Wire up Download Coverage button
@@ -4002,6 +4012,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         clear() { this.thread.innerHTML = ''; this.history = []; }
         setDisabled(d) { this.sendBtn.disabled = d; this.input.disabled = d; }
+
+        setThinking(active) {
+            const existing = this.thread.querySelector('.chat-thinking');
+            if (active && !existing) {
+                const el = document.createElement('div');
+                el.className = 'chat-bubble ai-bubble chat-thinking';
+                el.innerHTML = '<span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>';
+                this.thread.appendChild(el);
+                this.thread.scrollTop = this.thread.scrollHeight;
+            } else if (!active && existing) {
+                existing.remove();
+            }
+        }
     }
 
     const stageChatWindows = {};
@@ -4552,8 +4575,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.currentProjectData?.stage9_rewrites) {
                 window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
             }
-            if (stage9CurrentScene !== null) stage9SelectScene(stage9CurrentScene);
-            renderStage9SceneList();
+            stage9DeselectScene();
 
             const priorities = stage9GetPriorityList();
             if (newIdx >= priorities.length) {
@@ -4663,10 +4685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStage9TaskBanner();
             stage9WireButtons();
 
-            // Auto-select first scene
-            const firstScene = Object.keys(stage9State.working)[0];
-            if (firstScene) stage9SelectScene(parseInt(firstScene));
-
             // Initialize chat window
             stage9Chat = new ChatWindow({
                 threadId:  'stage9-chat-thread',
@@ -4713,6 +4731,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Fetch AI opening message (presents Stage 8 priorities)
             try {
+                stage9Chat.setThinking(true);
                 stage9Chat.setDisabled(true);
                 const initRes = await fetch('/api/brainstorm-rewrite', {
                     method: 'POST',
@@ -4726,6 +4745,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 console.warn('Chat init failed:', e.message);
             } finally {
+                stage9Chat.setThinking(false);
                 stage9Chat.setDisabled(false);
             }
         } catch (err) {
@@ -4775,7 +4795,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    window.stage9SelectSceneBtn = function(n) { stage9SelectScene(n); };
+    function stage9DeselectScene() {
+        stage9CurrentScene = null;
+        const leftPanel = document.getElementById('stage9-left-panel');
+        const rightView = document.getElementById('stage9-right-panel-view');
+        const rightEdit = document.getElementById('stage9-right-panel-edit');
+        if (leftPanel) leftPanel.innerHTML = '<p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>';
+        if (rightView) rightView.innerHTML = '<p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>';
+        if (rightEdit) { rightEdit.classList.add('hidden'); rightEdit.value = ''; }
+        if (rightView) rightView.classList.remove('hidden');
+        const btnToggle = document.getElementById('btnToggleEdit');
+        if (btnToggle) btnToggle.textContent = 'Edit Source';
+        renderStage9SceneList();
+    }
+
+    window.stage9SelectSceneBtn = function(n) {
+        if (n === stage9CurrentScene) {
+            stage9DeselectScene();
+        } else {
+            stage9SelectScene(n);
+        }
+    };
 
     function stage9SelectScene(n) {
         // Flush any current right-panel textarea edit into pending
@@ -4915,7 +4955,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetStage9ApproveBtn() {
         const btn = document.getElementById('btnStage9Approve');
         if (btn && (btn.textContent.includes('Approved') || btn.disabled)) {
-            btn.textContent = 'Approve →';
+            btn.textContent = 'Approve';
             btn.classList.remove('approve-btn-green');
             btn.disabled = false;
         }
