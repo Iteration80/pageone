@@ -1112,7 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">Version ${v.version}</div>
                         <div style="font-size:0.75rem;color:#6b7280;margin-top:2px">${dateStr} at ${timeStr}</div>
                     </div>
-                    <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px;flex-shrink:0" onclick="window.restoreVersionById('${v.id}')">Restore</button>
+                    <div style="display:flex;gap:8px;flex-shrink:0">
+                        <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px" onclick="window.previewVersionById('${v.id}')">View</button>
+                        <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px" onclick="window.restoreVersionById('${v.id}')">Restore</button>
+                    </div>
                 </div>`;
             });
             html += `</div></div>`;
@@ -1140,12 +1143,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStageNav(updatedProject.data);
             rerenderStageAfterRestore(version.stage);
             switchStage(version.stage);
-
-            // Confirm via version history chat
-            const chatWin = versionHistoryChatWindow;
-            if (chatWin) {
-                chatWin.append('ai', `Restored Stage ${version.stage} (${version.stageName}) to Version ${version.version}. Navigate to Stage ${version.stage} to review and re-approve.`);
-            }
         } catch (err) {
             console.error('Restore failed:', err);
             alert('Failed to restore: ' + err.message);
@@ -4336,87 +4333,210 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─── VERSION HISTORY CHAT ────────────────────────────────────────────────
 
-    let versionHistoryChatWindow = null;
+    // ─── Version Preview Modal ────────────────────────────────────────────────
+    const versionPreviewModal = document.getElementById('version-preview-modal');
+    const versionPreviewTitle = document.getElementById('version-preview-title');
+    const versionPreviewBody  = document.getElementById('version-preview-body');
+    const versionPreviewClose = document.getElementById('version-preview-close');
+    const versionPreviewDownload = document.getElementById('version-preview-download');
+    const versionPreviewRestore  = document.getElementById('version-preview-restore');
+    let currentPreviewVersion = null;
 
-    if (document.getElementById('version-history-chat-send')) {
-        const stageNumMap = { pitch:1, outline:2, characters:3, beats:4, treatment:5, scenes:6, draft:7, coverage:8, rewrite:9 };
+    function snapshotToText(version) {
+        const snap = version.snapshot;
+        if (!snap) return '(empty snapshot)';
+        const stage = version.stage;
 
-        versionHistoryChatWindow = new ChatWindow({
-            threadId: 'version-history-chat-thread',
-            inputId: 'version-history-chat-input',
-            sendBtnId: 'version-history-chat-send',
-            onSend: async (text) => {
-                const lower = text.toLowerCase();
-                // Pattern: "restore stage N version M" / "restore version M of stage N"
-                const m1 = lower.match(/restore\s+stage\s+(\d+)\s+(?:version\s+)?(\d+)/);
-                const m2 = lower.match(/restore\s+version\s+(\d+)\s+of\s+stage\s+(\d+)/);
-                const match = m1 ? { stage: parseInt(m1[1]), version: parseInt(m1[2]) }
-                             : m2 ? { stage: parseInt(m2[2]), version: parseInt(m2[1]) }
-                             : null;
+        // Helper: render array of {headline, detail} items
+        const bulletList = (arr) => (arr || []).map(item => {
+            if (typeof item === 'string') return `• ${item}`;
+            return `• ${item.headline || item.label || ''}: ${item.detail || item.task || item.description || ''}`;
+        }).join('\n');
 
-                if (match) {
-                    const history = window.currentProjectData?.versionHistory || [];
-                    const entry = history.find(v => v.stage === match.stage && v.version === match.version);
-                    if (!entry) {
-                        versionHistoryChatWindow.append('ai', `No version ${match.version} found for Stage ${match.stage}. Check the list above to see what's available.`);
-                        return;
-                    }
-                    versionHistoryChatWindow.append('ai', `Restoring Stage ${entry.stage} (${entry.stageName}) — Version ${entry.version}…`);
-                    await window.restoreVersionById(entry.id);
-                } else if (lower.includes('list') || lower.includes('what') || lower.includes('show') || lower.includes('versions')) {
-                    const history = window.currentProjectData?.versionHistory || [];
-                    if (!history.length) {
-                        versionHistoryChatWindow.append('ai', 'No versions saved yet. Versions are created automatically each time you approve a stage.');
-                        return;
-                    }
-                    const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Draft', 8:'Coverage', 9:'Rewrite' };
-                    const grouped = {};
-                    history.forEach(v => { (grouped[v.stage] = grouped[v.stage] || []).push(v); });
-                    let msg = 'Here are the saved versions:\n\n';
-                    Object.keys(grouped).sort((a,b) => a-b).forEach(s => {
-                        msg += `Stage ${s} (${stageNames[s] || s}):\n`;
-                        grouped[s].forEach(v => {
-                            const d = new Date(v.approvedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-                            msg += `  • Version ${v.version} — ${d}\n`;
-                        });
-                        msg += '\n';
-                    });
-                    msg += 'To restore one, say: "restore stage 4 version 1"';
-                    versionHistoryChatWindow.append('ai', msg);
-                } else {
-                    versionHistoryChatWindow.append('ai', 'I can help you restore previous versions. Try:\n• "restore stage 4 version 1"\n• "list all versions"\n• "show versions of stage 2"');
-                }
-            }
-        });
-
-        // Resize handle for version history chat panel
-        const vhHsplit = document.getElementById('version-history-hsplit');
-        const vhChatEl = document.getElementById('version-history-chat');
-        if (vhHsplit && vhChatEl) {
-            const savedVH = parseInt(localStorage.getItem('versionHistoryChatH') || '280');
-            vhChatEl.style.height = `${savedVH}px`;
-            vhHsplit.addEventListener('mousedown', e => {
-                e.preventDefault();
-                vhHsplit.classList.add('dragging');
-                const startY = e.clientY;
-                const startH = vhChatEl.offsetHeight;
-                const onMove = ev => {
-                    const newH = Math.min(600, Math.max(120, startH + (startY - ev.clientY)));
-                    vhChatEl.style.height = `${newH}px`;
-                    localStorage.setItem('versionHistoryChatH', newH);
-                };
-                const onUp = () => {
-                    vhHsplit.classList.remove('dragging');
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                };
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-            });
+        // Stage 1 — Pitch
+        if (stage === 1) {
+            const p = snap.pitch || snap;
+            let out = '';
+            if (p.title) out += `TITLE: ${p.title}\n\n`;
+            if (p.genre) out += `GENRE: ${p.genre}\n`;
+            if (p.tone) out += `TONE: ${p.tone}\n`;
+            if (p.setting) out += `SETTING: ${p.setting}\n`;
+            if (p.logline) out += `\nLOGLINE:\n${p.logline}\n`;
+            if (p.synopsis) out += `\nSYNOPSIS:\n${p.synopsis}\n`;
+            if (snap.notes) out += `\nNOTES:\n${snap.notes}\n`;
+            return out.trim() || JSON.stringify(snap, null, 2);
         }
 
-        // Greet the user on first open
-        versionHistoryChatWindow.append('ai', 'Version History — I can help you restore any previous version. Type "list versions" to see what\'s saved, or say "restore stage 4 version 1" to restore directly.');
+        // Stage 2 — Outline (string)
+        if (stage === 2 && typeof snap === 'string') return snap;
+
+        // Stage 3 — Characters (array of objects)
+        if (stage === 3 && Array.isArray(snap)) {
+            return snap.map(c => {
+                let out = `${c.name || 'Unnamed'}`;
+                if (c.role) out += ` (${c.role})`;
+                out += '\n';
+                if (c.description) out += `  ${c.description}\n`;
+                if (c.arc) out += `  Arc: ${c.arc}\n`;
+                if (c.backstory) out += `  Backstory: ${c.backstory}\n`;
+                return out;
+            }).join('\n');
+        }
+
+        // Stage 4 — Beats (array of objects with beat_number)
+        if (stage === 4 && Array.isArray(snap)) {
+            return snap.map(b => `Beat ${b.beat_number}: ${b.beat_name || ''}\n  ${b.description || ''}`).join('\n\n');
+        }
+
+        // Stage 5 — Treatment (array of sequences / scenes)
+        if (stage === 5) {
+            const seqs = Array.isArray(snap) ? snap : Object.values(snap);
+            return seqs.map(seq => {
+                let out = `=== ${seq.sequence_title || 'Sequence'} ===\n`;
+                if (seq.scenes) {
+                    out += seq.scenes.map(s =>
+                        `  Scene ${s.scene_number}: ${s.scene_heading || s.slugline || ''}\n    ${s.narrative_action || s.description || ''}`
+                    ).join('\n\n');
+                }
+                return out;
+            }).join('\n\n');
+        }
+
+        // Stage 6 — Scenes (array-like of sequences)
+        if (stage === 6) {
+            const seqs = Array.isArray(snap) ? snap : Object.values(snap);
+            const allScenes = seqs.flatMap(seq => seq.scenes || []).sort((a, b) => a.scene_number - b.scene_number);
+            return allScenes.map(s => {
+                const heading = s.scene_heading || s.slugline || '';
+                const body = s.humanized_draft_text || s.draft_text || s.narrative_action || '';
+                return `SCENE ${s.scene_number}: ${heading}\n${body.trim()}`;
+            }).filter(Boolean).join('\n\n---\n\n');
+        }
+
+        // Stage 7 — approval flag
+        if (stage === 7) {
+            return '(Stage 7 approval marker — the full draft text is stored in the Stage 6 scenes snapshot.)';
+        }
+
+        // Stage 8 — Coverage
+        if (stage === 8 && snap.evaluation_grid) {
+            let out = '';
+            if (snap.title) out += `TITLE: ${snap.title}\n`;
+            if (snap.genre) out += `GENRE: ${snap.genre}\n`;
+            if (snap.logline) out += `\nLOGLINE:\n${snap.logline}\n`;
+
+            out += '\n━━━ EVALUATION GRID ━━━\n';
+            for (const [key, val] of Object.entries(snap.evaluation_grid)) {
+                out += `  ${key}: ${typeof val === 'object' ? JSON.stringify(val) : val}\n`;
+            }
+
+            if (snap.recommendation) {
+                out += `\n━━━ RECOMMENDATION ━━━\n`;
+                out += `  Grade: ${snap.recommendation.grade || ''}\n`;
+                if (snap.recommendation.justification) out += `  ${snap.recommendation.justification}\n`;
+            }
+
+            if (snap.synopsis) {
+                out += `\n━━━ SYNOPSIS ━━━\n`;
+                if (typeof snap.synopsis === 'string') {
+                    out += snap.synopsis + '\n';
+                } else {
+                    for (const [phase, text] of Object.entries(snap.synopsis)) {
+                        out += `  ${phase.toUpperCase()}: ${text}\n\n`;
+                    }
+                }
+            }
+
+            if (snap.strengths?.length) {
+                out += `━━━ STRENGTHS ━━━\n${bulletList(snap.strengths)}\n\n`;
+            }
+            if (snap.weaknesses?.length) {
+                out += `━━━ WEAKNESSES ━━━\n${bulletList(snap.weaknesses)}\n\n`;
+            }
+
+            if (snap.authenticity) {
+                out += `━━━ AUTHENTICITY ━━━\n`;
+                if (snap.authenticity.assessment) out += `  ${snap.authenticity.assessment}\n`;
+                if (snap.authenticity.red_flags?.length) {
+                    out += `  Red flags:\n${snap.authenticity.red_flags.map(f => `    • ${typeof f === 'string' ? f : f.detail || JSON.stringify(f)}`).join('\n')}\n`;
+                }
+                out += '\n';
+            }
+
+            if (snap.analytical_comments) {
+                out += `━━━ ANALYTICAL COMMENTS ━━━\n`;
+                if (Array.isArray(snap.analytical_comments)) {
+                    out += snap.analytical_comments.map(c => typeof c === 'string' ? `• ${c}` : `• ${c.voice || ''}: ${c.text || c.detail || JSON.stringify(c)}`).join('\n');
+                } else if (typeof snap.analytical_comments === 'string') {
+                    out += snap.analytical_comments;
+                }
+                out += '\n\n';
+            }
+
+            if (snap.macro_todo?.length) {
+                out += `━━━ MACRO TO-DO ━━━\n`;
+                out += snap.macro_todo.map((t, i) => `${i + 1}. [P${t.priority || i + 1}] ${t.task || t}`).join('\n');
+                out += '\n\n';
+            }
+            if (snap.micro_todo?.length) {
+                out += `━━━ MICRO TO-DO ━━━\n`;
+                out += snap.micro_todo.map((t, i) => `${i + 1}. [P${t.priority || i + 1}] ${t.task || t}`).join('\n');
+                out += '\n';
+            }
+
+            return out.trim();
+        }
+
+        // Fallback — structured JSON
+        if (typeof snap === 'string') return snap;
+        if (typeof snap === 'object') return JSON.stringify(snap, null, 2);
+        return String(snap);
+    }
+
+    window.previewVersionById = function(versionId) {
+        const history = window.currentProjectData?.versionHistory || [];
+        const version = history.find(v => v.id === versionId);
+        if (!version) { alert('Version not found.'); return; }
+
+        currentPreviewVersion = version;
+        const date = new Date(version.approvedAt);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+        versionPreviewTitle.textContent = `Stage ${version.stage}: ${version.stageName} — Version ${version.version} (${dateStr} at ${timeStr})`;
+        versionPreviewBody.textContent = snapshotToText(version);
+        versionPreviewModal?.classList.remove('hidden');
+    };
+
+    if (versionPreviewClose) {
+        versionPreviewClose.onclick = () => versionPreviewModal?.classList.add('hidden');
+    }
+    if (versionPreviewModal) {
+        versionPreviewModal.onclick = (e) => { if (e.target === versionPreviewModal) versionPreviewModal.classList.add('hidden'); };
+    }
+    if (versionPreviewRestore) {
+        versionPreviewRestore.onclick = () => {
+            if (currentPreviewVersion) {
+                versionPreviewModal?.classList.add('hidden');
+                window.restoreVersionById(currentPreviewVersion.id);
+            }
+        };
+    }
+    if (versionPreviewDownload) {
+        versionPreviewDownload.onclick = () => {
+            if (!currentPreviewVersion) return;
+            const text = snapshotToText(currentPreviewVersion);
+            const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'project';
+            const safeName = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const filename = `${safeName}_stage${currentPreviewVersion.stage}_v${currentPreviewVersion.version}.txt`;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
     }
 
     // ─── STAGE 9 LOOPBACK MODAL ──────────────────────────────────────────────
