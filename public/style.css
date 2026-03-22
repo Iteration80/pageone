@@ -699,6 +699,22 @@ textarea.synopsis-input {
     margin-top: 8px;
 }
 
+#regen-stage-select {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--card-border);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    min-width: 160px;
+    appearance: auto;
+}
+#regen-stage-select:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
 .secondary-btn {
     background-color: transparent;
     color: var(--text-primary);

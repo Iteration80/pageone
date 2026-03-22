@@ -2247,12 +2247,189 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Stage 3 Re-Generation Options Modal ---
+    const stage3RegenModal = document.getElementById('stage3-regen-modal');
+    const regenStageSelect = document.getElementById('regen-stage-select');
+    const btnRegenSkip = document.getElementById('btn-regen-skip');
+    const btnRegenSurgical = document.getElementById('btn-regen-surgical');
+    const btnRegenFull = document.getElementById('btn-regen-full');
+
+    function diffCharacters(oldChars, newChars) {
+        const changes = [];
+        for (const nc of newChars) {
+            const oc = oldChars.find(c => c.name === nc.name);
+            if (!oc) { changes.push(`Added new character: ${nc.name} (${nc.role})`); continue; }
+            if (oc.role !== nc.role) changes.push(`${nc.name}: role changed from "${oc.role}" to "${nc.role}"`);
+            // Psychological core
+            const pOld = oc.psychological_core || {};
+            const pNew = nc.psychological_core || {};
+            for (const k of ['ghost_and_wound', 'the_lie', 'fear', 'desire', 'psychological_need', 'moral_need', 'paradox']) {
+                if ((pOld[k] || '') !== (pNew[k] || '')) changes.push(`${nc.name}: ${k.replace(/_/g, ' ')} updated`);
+            }
+            // Voice tags
+            const vOld = oc.voice_and_behavior || {};
+            const vNew = nc.voice_and_behavior || {};
+            if (vOld.voice_tag !== vNew.voice_tag) changes.push(`${nc.name}: voice_tag changed from "${vOld.voice_tag || ''}" to "${vNew.voice_tag || ''}"`);
+            if (vOld.pressure_tag !== vNew.pressure_tag) changes.push(`${nc.name}: pressure_tag changed from "${vOld.pressure_tag || ''}" to "${vNew.pressure_tag || ''}"`);
+            if (vOld.humor_tag !== vNew.humor_tag) changes.push(`${nc.name}: humor_tag changed from "${vOld.humor_tag || ''}" to "${vNew.humor_tag || ''}"`);
+            // Arc
+            const aOld = oc.arc || {};
+            const aNew = nc.arc || {};
+            if (aOld.core_drive !== aNew.core_drive) changes.push(`${nc.name}: core_drive changed from "${aOld.core_drive || ''}" to "${aNew.core_drive || ''}"`);
+            if (aOld.direction !== aNew.direction) changes.push(`${nc.name}: arc direction changed from "${aOld.direction || ''}" to "${aNew.direction || ''}"`);
+            // Ticks
+            if ((oc.ticks?.enabled || false) !== (nc.ticks?.enabled || false)) changes.push(`${nc.name}: ticks ${nc.ticks?.enabled ? 'added' : 'removed'}`);
+        }
+        for (const oc of oldChars) {
+            if (!newChars.find(c => c.name === oc.name)) changes.push(`Removed character: ${oc.name}`);
+        }
+        return changes;
+    }
+
+    function showStage3RegenModal() {
+        if (!stage3RegenModal || !regenStageSelect) return;
+        // Populate dropdown with stages that have existing data
+        const d = window.currentProjectData?.data || {};
+        const stageMap = [
+            { val: 4, label: '4 — Beats', key: 'stage4_beats' },
+            { val: 5, label: '5 — Treatment', key: 'stage5_treatment' },
+            { val: 6, label: '6 — Scenes', key: 'stage6_scenes' },
+            { val: 7, label: '7 — Draft', key: 'stage7_draft' },
+            { val: 8, label: '8 — Coverage', key: 'stage8_coverage' },
+            { val: 9, label: '9 — Rewrite', key: 'stage9_rewrites' },
+        ];
+        regenStageSelect.innerHTML = '';
+        let highestPopulated = 4;
+        for (const s of stageMap) {
+            if (d[s.key] || s.val === 4) {
+                const opt = document.createElement('option');
+                opt.value = s.val;
+                opt.textContent = s.label;
+                regenStageSelect.appendChild(opt);
+                if (d[s.key]) highestPopulated = s.val;
+            }
+        }
+        regenStageSelect.value = highestPopulated;
+        // Enable/disable surgical button based on whether Stage 4 data exists
+        if (btnRegenSurgical) btnRegenSurgical.disabled = !d.stage4_beats;
+        stage3RegenModal.classList.remove('hidden');
+    }
+
+    function closeStage3RegenModal() {
+        if (stage3RegenModal) stage3RegenModal.classList.add('hidden');
+    }
+
+    // Backdrop click closes modal
+    if (stage3RegenModal) {
+        stage3RegenModal.addEventListener('click', (e) => {
+            if (e.target === stage3RegenModal) closeStage3RegenModal();
+        });
+    }
+
+    // "Apply & Go To Stage…"
+    if (btnRegenSkip) {
+        btnRegenSkip.addEventListener('click', () => {
+            const targetStage = parseInt(regenStageSelect?.value || '4', 10);
+            closeStage3RegenModal();
+            switchStage(targetStage);
+        });
+    }
+
+    // "Re-generate Stage 4 (surgical)"
+    if (btnRegenSurgical) {
+        btnRegenSurgical.addEventListener('click', async () => {
+            closeStage3RegenModal();
+            // Build diff notes from last approved version
+            const history = window.currentProjectData?.versionHistory || [];
+            const stage3Versions = history.filter(v => v.stage === 3);
+            const prevSnapshot = stage3Versions.length >= 2
+                ? stage3Versions[stage3Versions.length - 2].snapshot
+                : stage3Versions[stage3Versions.length - 1]?.snapshot;
+            const currentChars = window.currentProjectData?.data?.stage3_characters?.characters || [];
+            const prevChars = prevSnapshot?.characters || [];
+            const changes = diffCharacters(prevChars, currentChars);
+            const notes = changes.length > 0
+                ? 'Character profile changes (update affected beats while preserving overall structure):\n' + changes.join('\n')
+                : 'Minor character updates — preserve existing beat structure as much as possible.';
+
+            switchStage(4);
+
+            // Run surgical revision via the existing revision endpoint
+            const currentBeats = window.currentProjectData?.data?.stage4_beats;
+            if (!currentBeats) {
+                autoGenerateTreatment();
+                return;
+            }
+            // Show loading state
+            if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
+            if (stage4Workshop) stage4Workshop.classList.add('hidden');
+            if (treatmentContainer) { treatmentContainer.innerHTML = ''; treatmentContainer.classList.add('hidden'); }
+            if (treatmentActions) treatmentActions.classList.add('hidden');
+            if (loadingTextTreatment) loadingTextTreatment.textContent = 'Surgically updating beats...';
+
+            try {
+                const formData = new FormData();
+                formData.append('projectId', activeProjectId);
+                formData.append('currentBeats', JSON.stringify(currentBeats));
+                formData.append('notes', notes);
+
+                const response = await fetch('/api/generate-stage4-beats', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const event = JSON.parse(line.slice(6));
+                        if (event.type === 'progress') {
+                            if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
+                        } else if (event.type === 'complete') {
+                            renderTreatment(event.result);
+                            if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
+                            const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                            const projData = await projRes.json();
+                            updateStageNav(projData.data);
+                        } else if (event.type === 'error') {
+                            throw new Error(event.message);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error during surgical beat update:', err);
+                alert('Error during surgical beat update. You can retry from Stage 4.');
+                if (treatmentActions) treatmentActions.classList.remove('hidden');
+            } finally {
+                if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
+            }
+        });
+    }
+
+    // "Re-generate Stage 4 (full)"
+    if (btnRegenFull) {
+        btnRegenFull.addEventListener('click', () => {
+            closeStage3RegenModal();
+            switchStage(4);
+            autoGenerateTreatment();
+        });
+    }
+
     if (btnStage3Approve) {
         btnStage3Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
 
             const currentCharacters = scrapeCharacters();
             const originalText = btnStage3Approve.textContent;
+
+            // Detect re-approval: check if Stage 3 already has a version in history
+            const existingHistory = (window.currentProjectData?.versionHistory) || [];
+            const isReApproval = existingHistory.filter(v => v.stage === 3).length > 0;
 
             btnStage3Approve.textContent = 'Saving...';
             btnStage3Approve.disabled = true;
@@ -2282,9 +2459,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                 if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
 
-                // Auto-transition to Stage 4: Treatment
-                switchStage(4);
-                autoGenerateTreatment();
+                if (isReApproval) {
+                    // Show options modal instead of auto-advancing
+                    showStage3RegenModal();
+                } else {
+                    // First approval: auto-transition to Stage 4
+                    switchStage(4);
+                    autoGenerateTreatment();
+                }
             } catch (err) {
                 console.error(err);
                 alert("Error saving approved characters.");

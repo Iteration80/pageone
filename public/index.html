@@ -824,6 +824,28 @@
         </div>
     </div>
 
+    <!-- Stage 3 Re-Generation Options Modal -->
+    <div id="stage3-regen-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:520px">
+            <h3>Characters Updated</h3>
+            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:20px">
+                Your character changes have been saved. How would you like to proceed?
+            </p>
+            <div class="modal-actions" style="flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:12px;width:100%">
+                    <button id="btn-regen-skip" class="primary-btn" style="flex:1">Apply &amp; Go To Stage…</button>
+                    <select id="regen-stage-select"></select>
+                </div>
+                <button id="btn-regen-surgical" class="secondary-btn" style="width:100%">
+                    Re-generate Stage 4 (surgical — preserve structure)
+                </button>
+                <button id="btn-regen-full" class="secondary-btn" style="width:100%">
+                    Re-generate Stage 4 (full)
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="fountain-editor.js"></script>
     <script src="app.js"></script>
 </body>
