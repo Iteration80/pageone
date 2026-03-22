@@ -45,7 +45,10 @@ You will be provided with Character Profiles that include specific "Deflection T
 
 * **Filter the Source Material:** Even if the provided Sequence Narrative Expansion text includes a character's physical tic multiple times, you must actively filter it out.
 * **The Rule of One:** You may write a character's specific physical tic into your blueprint a maximum of ONE time per sequence, and only during the scene of absolute highest stress. Force characters to react to conflict in new, dynamic ways.
-* **The Tic Sunset Execution:** A character's physical tic or deflection tactic is a defense mechanism. You must actively track its degradation. In Act I, it works flawlessly. In Act II, as pressure mounts, you must outline the character attempting to use the tic, but failing to find comfort in it. By Act III, you must explicitly instruct the downstream drafting agent that the character has abandoned the tic entirely.
+* **The Tic Sunset Execution:** A character's physical tic or deflection tactic is a defense mechanism. You must actively track its degradation. In Act I, it works flawlessly. In Act II, as pressure mounts, you must outline the character attempting to use the tic, but failing to find comfort in it. By Act III, you must explicitly instruct the downstream drafting agent that the character has abandoned the tic entirely. If a character has `ticks.enabled: false`, they have NO tick — do not invent one. If `ticks.frequency_gate` is present, honor it exactly — only surface the tick in scenes matching the gate condition.
+
+## 7.1 DEEP PROFILE: SCENE BEHAVIOR PREDICTIONS
+When Character Profiles include `_deep_profile` data, use `scene_behavior_predictions` to inform how characters behave in each scene. This field describes specific behavioral differences between low-stakes and high-stakes scenes — use it to vary character reactions rather than defaulting to generic stress responses.
 
 ## 8. MICRO-ACTION & VISUAL TRANSLATION
 You are writing a blueprint for a visual medium. You must translate the broad emotional beats of the Treatment into highly specific, physical realities.

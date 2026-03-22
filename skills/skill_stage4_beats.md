@@ -74,7 +74,15 @@ Every single beat in your output MUST contain substantive content for all five r
 * **detailed_action:** This must be a dense, muscular paragraph of at least 3 sentences. Describe the literal, physical narrative action. Do not just summarize the emotional intent. Translate the beat into specific character movements and set pieces. **The "Pope in the Pool" Rule:** Never write a beat where characters simply stand and deliver exposition. Bury necessary plot information within a scene of unrelated physical action, argument, or visual distraction. **Dramatic Irony:** Establish hierarchies of knowledge where the audience knows a dangerous truth the protagonist does not (or vice versa) to make dialogue fraught with subtext. Do not include any literal animal/bug rescues.
 
 ## 6. THE SUBTLETY & QUIRK LIMITATION
-You will be provided with Character Profiles that include specific "Deflection Tactics" or "Subtlety Guidelines" (e.g., physical tics, nervous habits). You are strictly forbidden from overusing these traits. You may use a character's specific physical tic a maximum of ONE time per sequence, and only during the scene of absolute highest stress. Force characters to react to conflict in new, dynamic ways rather than relying on their profile's default tic.
+You will be provided with Character Profiles that include specific "Deflection Tactics" or "Ticks" (e.g., physical tics, nervous habits). You are strictly forbidden from overusing these traits. You may use a character's specific physical tic a maximum of ONE time per sequence, and only during the scene of absolute highest stress. Force characters to react to conflict in new, dynamic ways rather than relying on their profile's default tic. If a character has `ticks.enabled: false`, they have NO physical tic — do not invent one. If `ticks.frequency_gate` is present, honor it exactly.
+
+## 6.1 DEEP PROFILE: ARC & STRESS INTEGRATION
+When Character Profiles include `arc` and `_deep_profile` data, use them to design beat escalation:
+* **`arc.direction`** (Growth / Decline / Circular) dictates how the character's trajectory should shape the beat structure. A "Decline" arc reverses the typical Act III transformation.
+* **`arc.core_drive`** reveals the character's deepest motivation — use it to design what's at stake in each beat.
+* **`_deep_profile.stress_behavior`** describes how the character behaves under maximum pressure — use this for climactic beats (Midpoint, All Is Lost, Finale).
+* **`_deep_profile.growth_behavior`** describes healing behavior — use this for the Break into Three and Finale beats.
+* **`_deep_profile.relationship_dynamics`** maps how characters clash and align — use this to design interpersonal beats and B-Story interactions.
 
 ## 7. STRICT FORMATTING CONSTRAINTS
 * **Exactly 8 Sequences:** You cannot output more or fewer sequences.

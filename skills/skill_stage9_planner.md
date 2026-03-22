@@ -25,7 +25,7 @@ Coverage tasks fall into five categories. Use this taxonomy to reason about whic
 A scene is affected if it contains the specific structural beat being fixed — an act turn, a decision moment, a plot point, or a scene that actively undermines protagonist agency. A scene that merely precedes or follows the broken beat is not affected unless it must change to make the fix land.
 
 **Characterization tasks** (character arc, wants/needs, relationships, motivation):
-A scene is affected if the specific character has lines, decisions, or behavior that contradict the arc being corrected — or if it's a key relationship scene between the characters named in the task. A scene where the character appears silently in the background is not affected.
+A scene is affected if the specific character has lines, decisions, or behavior that contradict the arc being corrected — or if it's a key relationship scene between the characters named in the task. A scene where the character appears silently in the background is not affected. When CHARACTER data is provided in the prompt, use `arc.direction` and `arc.core_drive` to evaluate whether the character's trajectory in each scene aligns with their defined arc.
 
 **Pacing tasks** (scenes that drag, redundant beats, act-level momentum):
 A scene is affected if it is the specific scene identified as slow or redundant, or if it contains the duplicated material. Do not mark adjacent scenes as affected unless the fix explicitly requires bridging material.

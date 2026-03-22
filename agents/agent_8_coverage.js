@@ -160,6 +160,17 @@ const consolidateCoverage = async (results, geminiApiKey) => {
 const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage8_coverage.md'), 'utf8');
 
+    // Build character profiles section if available
+    const chars = projectContext.characters || [];
+    const charSection = chars.length > 0
+        ? `\n\nCharacter Profiles:\n${chars.map(c => {
+            const dp = c._deep_profile || {};
+            return `- ${c.name} (${c.role}): ${c.brief_summary || ''}
+  Voice: ${c.voice_and_behavior?.voice_tag || 'unknown'} | Pressure: ${c.voice_and_behavior?.pressure_tag || 'unknown'} | Humor: ${c.voice_and_behavior?.humor_tag || 'unknown'}
+  Arc: ${c.arc?.core_drive || 'unknown'} → ${c.arc?.direction || 'unknown'}${dp.dialogue_fingerprint ? `\n  Dialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
+        }).join('\n')}`
+        : '';
+
     const prompt = `
 ## PROJECT CONTEXT
 Title: ${projectContext.title || 'Untitled'}
@@ -167,7 +178,7 @@ Genre: ${projectContext.genre || 'Unknown'}
 Logline: ${projectContext.logline || 'Not provided'}
 
 Synopsis:
-${projectContext.synopsis || 'Not provided'}
+${projectContext.synopsis || 'Not provided'}${charSection}
 
 ---
 

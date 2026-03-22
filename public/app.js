@@ -1640,9 +1640,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 3 Logic: Characters ---
 
+    // Cache for _deep_profile data (hidden from UI, preserved across scrape cycles)
+    let _deepProfileCache = {};
+
+    // Tag option lists
+    const CHAR_TAG_OPTIONS = {
+        voice_tag: ['Sparse & precise', 'Warm & meandering', 'Sharp & confrontational', 'Measured & diplomatic', 'Stream-of-consciousness', 'Performative & deflecting', 'Blunt & clipped', 'Lyrical & indirect'],
+        pressure_tag: ['Withdraws', 'Controls', 'Lashes out', 'People-pleases', 'Dissociates', 'Doubles down', 'Goes numb', 'Deflects with humor'],
+        humor_tag: ['Dry wit', 'Self-deprecating', 'Dark / gallows', 'Physical', 'Deflection', 'None'],
+        core_drive: ['To be right', 'To be needed', 'To succeed', 'To be unique', 'To understand', 'To be safe', 'To be free', 'To be in control', 'To keep peace'],
+    };
+
+    function markStage3Dirty() {
+        if (btnStage3Approve) {
+            btnStage3Approve.textContent = 'Approve';
+            btnStage3Approve.classList.remove('approve-btn-green');
+            btnStage3Approve.disabled = false;
+        }
+    }
+
+    // Close any open tag dropdowns
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.char-tag-pill-wrap')) {
+            document.querySelectorAll('.char-tag-dropdown').forEach(dd => dd.classList.add('hidden'));
+        }
+    });
+
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
+        _deepProfileCache = {};
 
         // Sort: Protagonist first, Antagonist second, Supporting last
         const sorted = [...characters].sort((a, b) => {
@@ -1658,6 +1685,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sorted.forEach((char, index) => {
             const role = char.role || '';
             const roleLower = role.toLowerCase();
+
+            // Cache _deep_profile
+            if (char._deep_profile) {
+                _deepProfileCache[char.name || `char_${index}`] = char._deep_profile;
+            }
 
             // Role-based border colour
             let borderColor, badgeBg, badgeColor;
@@ -1721,6 +1753,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
+            // Build tag pill helper
+            const tagPill = (label, dataField, value, optionsKey) => {
+                const options = CHAR_TAG_OPTIONS[optionsKey] || [];
+                const current = escapeHtml(value || 'Select...');
+                const optionsHtml = options.map(o =>
+                    `<button class="char-tag-option" data-value="${escapeHtml(o)}">${escapeHtml(o)}</button>`
+                ).join('');
+                return `
+                    <div class="char-tag-pill-wrap" style="position: relative;">
+                        <div style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 3px;">${label}</div>
+                        <button class="char-tag-pill" data-field="${dataField}" data-value="${escapeHtml(value || '')}">${current}</button>
+                        <div class="char-tag-dropdown hidden">
+                            ${optionsHtml}
+                            <div style="border-top: 1px solid #374151; margin-top: 2px; padding-top: 4px;">
+                                <input class="char-tag-custom-input" placeholder="Custom..." />
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            // Ticks section — strip downstream warning from display (re-appended on scrape)
+            const TICK_WARNING_RE = /\s*WARNING TO DOWNSTREAM AGENTS:.*$/s;
+            const ticksEnabled = char.ticks?.enabled === true;
+            const tickDesc = char.ticks?.description || '';
+            const tickGateRaw = char.ticks?.frequency_gate || '';
+            const tickGate = tickGateRaw.replace(TICK_WARNING_RE, '').trim();
+            // Backward compat: fall back to subtlety_guidelines
+            const legacySubtlety = (!char.ticks && char.subtlety_guidelines) ? char.subtlety_guidelines : '';
+
+            // Arc direction toggle
+            const arcDir = char.arc?.direction || 'Growth';
+            const arcDrive = char.arc?.core_drive || '';
+            const dirOptions = ['Growth', 'Decline', 'Circular'];
+
             card.innerHTML = `
                 <!-- LEFT COLUMN: Identity -->
                 <div style="border-right: 1px solid #1f2937; padding-right: 24px;">
@@ -1740,6 +1807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <!-- RIGHT COLUMN: Deep Dive -->
                 <div>
+                    <!-- PSYCHOLOGICAL CORE -->
                     <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Psychological Core</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
                         ${field('Ghost & Wound', 'psychological_core.ghost_and_wound', char.psychological_core?.ghost_and_wound)}
@@ -1749,39 +1817,185 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${field('Psychological Need', 'psychological_core.psychological_need', char.psychological_core?.psychological_need)}
                         ${field('Moral Need', 'psychological_core.moral_need', char.psychological_core?.moral_need)}
                     </div>
+                    ${field('Paradox', 'psychological_core.paradox', char.psychological_core?.paradox || char.voice_and_behavior?.paradox)}
 
+                    <!-- VOICE & BEHAVIOR -->
                     <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
                     <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Voice &amp; Behavior</div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+                        ${tagPill('Voice', 'voice_and_behavior.voice_tag', char.voice_and_behavior?.voice_tag, 'voice_tag')}
+                        ${tagPill('Pressure', 'voice_and_behavior.pressure_tag', char.voice_and_behavior?.pressure_tag, 'pressure_tag')}
+                        ${tagPill('Humor', 'voice_and_behavior.humor_tag', char.voice_and_behavior?.humor_tag, 'humor_tag')}
+                    </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
                         ${field('Speech Patterns', 'voice_and_behavior.speech_patterns', char.voice_and_behavior?.speech_patterns)}
                         ${field('Deflection Tactic', 'voice_and_behavior.deflection_tactic', char.voice_and_behavior?.deflection_tactic)}
-                        ${field('Paradox', 'voice_and_behavior.paradox', char.voice_and_behavior?.paradox)}
                     </div>
 
+                    <!-- ARC -->
                     <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
-                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (90/10 Rule)</div>
-                    <textarea
-                        rows="1"
-                        class="char-input char-ta"
-                        data-index="${index}"
-                        data-field="subtlety_guidelines"
-                        style="${taStyle}"
-                    >${escapeHtml(char.subtlety_guidelines || '')}</textarea>
+                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Arc</div>
+                    <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+                        ${tagPill('Core Drive', 'arc.core_drive', arcDrive, 'core_drive')}
+                        <div>
+                            <div style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 3px;">Direction</div>
+                            <div class="char-arc-toggle" data-field="arc.direction">
+                                ${dirOptions.map(d => `<button class="char-arc-btn${d === arcDir ? ' active' : ''}" data-value="${d}">${d}</button>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TICKS -->
+                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                    <div class="char-ticks-section" data-enabled="${ticksEnabled}">
+                        <div class="char-ticks-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <span class="char-ticks-arrow">${ticksEnabled ? '▼' : '▶'}</span>
+                            <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;">Ticks</div>
+                            ${!ticksEnabled ? '<button class="char-ticks-add-btn" style="font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;">Add Tick</button>' : ''}
+                        </div>
+                        <div class="char-ticks-body" style="margin-top: 8px; ${ticksEnabled ? '' : 'display: none;'}">
+                            ${ticksEnabled ? `
+                                ${field('Description', 'ticks.description', tickDesc)}
+                                ${field('Frequency Gate', 'ticks.frequency_gate', tickGate)}
+                                <button class="char-ticks-remove-btn" style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer; margin-top: 4px;">Remove Tick</button>
+                            ` : `
+                                <div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>
+                            `}
+                        </div>
+                    </div>
+                    ${legacySubtlety ? `
+                        <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                        <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (legacy)</div>
+                        <div style="color: #9ca3af; font-size: 0.82rem; font-style: italic; padding: 4px 6px;">${escapeHtml(legacySubtlety)}</div>
+                    ` : ''}
                 </div>
             `;
+
+            // --- Event listeners ---
 
             // Hover/focus effect on transparent textareas
             card.querySelectorAll('.char-ta').forEach(ta => {
                 ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
                 ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                ta.addEventListener('input', () => {
-                    autoResize(ta);
-                    if (btnStage3Approve) {
-                        btnStage3Approve.textContent = 'Approve';
-                        btnStage3Approve.classList.remove('approve-btn-green');
-                    }
+                ta.addEventListener('input', () => { autoResize(ta); markStage3Dirty(); });
+            });
+
+            // Tag pill click → toggle dropdown
+            card.querySelectorAll('.char-tag-pill').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Close all other dropdowns first
+                    document.querySelectorAll('.char-tag-dropdown').forEach(dd => dd.classList.add('hidden'));
+                    const dd = pill.nextElementSibling;
+                    dd.classList.toggle('hidden');
                 });
             });
+
+            // Tag option click → update pill
+            card.querySelectorAll('.char-tag-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const wrap = opt.closest('.char-tag-pill-wrap');
+                    const pill = wrap.querySelector('.char-tag-pill');
+                    pill.dataset.value = opt.dataset.value;
+                    pill.textContent = opt.dataset.value;
+                    wrap.querySelector('.char-tag-dropdown').classList.add('hidden');
+                    markStage3Dirty();
+                });
+            });
+
+            // Custom tag input → Enter to apply
+            card.querySelectorAll('.char-tag-custom-input').forEach(input => {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && input.value.trim()) {
+                        const wrap = input.closest('.char-tag-pill-wrap');
+                        const pill = wrap.querySelector('.char-tag-pill');
+                        pill.dataset.value = input.value.trim();
+                        pill.textContent = input.value.trim();
+                        wrap.querySelector('.char-tag-dropdown').classList.add('hidden');
+                        input.value = '';
+                        markStage3Dirty();
+                    }
+                });
+                input.addEventListener('click', (e) => e.stopPropagation());
+            });
+
+            // Arc direction toggle
+            card.querySelectorAll('.char-arc-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    card.querySelectorAll('.char-arc-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    markStage3Dirty();
+                });
+            });
+
+            // Ticks header toggle
+            const ticksHeader = card.querySelector('.char-ticks-header');
+            const ticksSection = card.querySelector('.char-ticks-section');
+            const ticksBody = card.querySelector('.char-ticks-body');
+            const ticksArrow = card.querySelector('.char-ticks-arrow');
+            if (ticksHeader) {
+                ticksHeader.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('char-ticks-add-btn')) return; // handled separately
+                    const isOpen = ticksBody.style.display !== 'none';
+                    ticksBody.style.display = isOpen ? 'none' : '';
+                    ticksArrow.textContent = isOpen ? '▶' : '▼';
+                });
+            }
+
+            // Add Tick button
+            const addTickBtn = card.querySelector('.char-ticks-add-btn');
+            if (addTickBtn) {
+                addTickBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    ticksSection.dataset.enabled = 'true';
+                    ticksBody.innerHTML = `
+                        ${field('Description', 'ticks.description', '')}
+                        ${field('Frequency Gate', 'ticks.frequency_gate', '')}
+                        <button class="char-ticks-remove-btn" style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer; margin-top: 4px;">Remove Tick</button>
+                    `;
+                    ticksBody.style.display = '';
+                    ticksArrow.textContent = '▼';
+                    addTickBtn.remove();
+                    // Attach listeners to new textareas
+                    ticksBody.querySelectorAll('.char-ta').forEach(ta => {
+                        ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                        ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+                        ta.addEventListener('input', () => { autoResize(ta); markStage3Dirty(); });
+                    });
+                    // Attach remove listener
+                    ticksBody.querySelector('.char-ticks-remove-btn')?.addEventListener('click', () => {
+                        ticksSection.dataset.enabled = 'false';
+                        ticksBody.innerHTML = '<div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>';
+                        ticksBody.style.display = 'none';
+                        ticksArrow.textContent = '▶';
+                        // Re-add the Add Tick button
+                        const newAddBtn = document.createElement('button');
+                        newAddBtn.className = 'char-ticks-add-btn';
+                        newAddBtn.style.cssText = 'font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;';
+                        newAddBtn.textContent = 'Add Tick';
+                        ticksHeader.appendChild(newAddBtn);
+                        markStage3Dirty();
+                    });
+                    markStage3Dirty();
+                });
+            }
+
+            // Remove Tick button (for initially enabled ticks)
+            const removeTickBtn = card.querySelector('.char-ticks-remove-btn');
+            if (removeTickBtn) {
+                removeTickBtn.addEventListener('click', () => {
+                    ticksSection.dataset.enabled = 'false';
+                    ticksBody.innerHTML = '<div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>';
+                    ticksBody.style.display = 'none';
+                    ticksArrow.textContent = '▶';
+                    const newAddBtn = document.createElement('button');
+                    newAddBtn.className = 'char-ticks-add-btn';
+                    newAddBtn.style.cssText = 'font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;';
+                    newAddBtn.textContent = 'Add Tick';
+                    ticksHeader.appendChild(newAddBtn);
+                    markStage3Dirty();
+                });
+            }
 
             charactersContainer.appendChild(card);
         });
@@ -1800,15 +2014,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentCharacters = [];
 
         charCards.forEach((card) => {
+            const charName = card.dataset.charName || '';
             const charObj = {
-                name: card.dataset.charName || '',
+                name: charName,
                 role: card.dataset.charRole || '',
                 brief_summary: '',
-                psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '' },
-                voice_and_behavior: { speech_patterns: '', deflection_tactic: '', paradox: '' },
-                subtlety_guidelines: ''
+                psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '', paradox: '' },
+                voice_and_behavior: { voice_tag: '', pressure_tag: '', humor_tag: '', speech_patterns: '', deflection_tactic: '' },
+                arc: { core_drive: '', direction: 'Growth' },
+                ticks: { enabled: false, description: '', frequency_gate: '' },
             };
 
+            // Scrape textareas
             const inputs = card.querySelectorAll('.char-input');
             inputs.forEach(input => {
                 const f = input.getAttribute('data-field');
@@ -1819,10 +2036,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     charObj.psychological_core[f.split('.')[1]] = val;
                 } else if (f.startsWith('voice_and_behavior.')) {
                     charObj.voice_and_behavior[f.split('.')[1]] = val;
-                } else if (f === 'subtlety_guidelines') {
-                    charObj.subtlety_guidelines = val;
+                } else if (f.startsWith('ticks.')) {
+                    charObj.ticks[f.split('.')[1]] = val;
                 }
             });
+
+            // Scrape tag pills
+            card.querySelectorAll('.char-tag-pill').forEach(pill => {
+                const f = pill.getAttribute('data-field');
+                const val = pill.dataset.value || '';
+                if (f.startsWith('voice_and_behavior.')) {
+                    charObj.voice_and_behavior[f.split('.')[1]] = val;
+                } else if (f === 'arc.core_drive') {
+                    charObj.arc.core_drive = val;
+                }
+            });
+
+            // Scrape arc direction toggle
+            const activeArcBtn = card.querySelector('.char-arc-btn.active');
+            if (activeArcBtn) {
+                charObj.arc.direction = activeArcBtn.dataset.value || 'Growth';
+            }
+
+            // Scrape ticks enabled state + re-append downstream warning to frequency_gate
+            const ticksSection = card.querySelector('.char-ticks-section');
+            if (ticksSection) {
+                charObj.ticks.enabled = ticksSection.dataset.enabled === 'true';
+                if (charObj.ticks.enabled && charObj.ticks.frequency_gate) {
+                    const TICK_WARNING = 'WARNING TO DOWNSTREAM AGENTS: This tick must be used a maximum of ONCE per sequence, and only during the scene of absolute highest stress within that sequence.';
+                    if (!charObj.ticks.frequency_gate.includes('WARNING TO DOWNSTREAM AGENTS')) {
+                        charObj.ticks.frequency_gate = charObj.ticks.frequency_gate.trim() + ' ' + TICK_WARNING;
+                    }
+                }
+            }
+
+            // Re-attach _deep_profile from cache
+            if (_deepProfileCache[charName]) {
+                charObj._deep_profile = _deepProfileCache[charName];
+            }
 
             currentCharacters.push(charObj);
         });

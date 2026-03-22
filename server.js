@@ -878,7 +878,12 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             ...microTodo.map((t, i) => ({ label: `MICRO TO-DO P${i + 1}`, task: t.task || t, done: (macroTodo.length + i) < priorityIdx })),
         ];
         const priorityList = allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n');
-        const contextBlock = `## PROJECT: ${title}\n\n## STAGE 8 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
+        const characters = projectData.data?.stage3_characters?.characters || [];
+        const charSummary = characters.length > 0
+            ? characters.map(c => `${c.name} (${c.role}): ${c.brief_summary || ''}`).join('\n')
+            : '';
+        const charBlock = charSummary ? `\n\n## CHARACTERS\n${charSummary}` : '';
+        const contextBlock = `## PROJECT: ${title}${charBlock}\n\n## STAGE 8 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
 
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';
@@ -984,7 +989,11 @@ app.post('/api/plan-rewrite', async (req, res) => {
             ? '...\n' + conversationContext.slice(-4000)
             : conversationContext;
         const contextSection = trimmedContext ? `\n\n## BRAINSTORM CONTEXT\n${trimmedContext}` : '';
-        const prompt = `## PROJECT\nTitle: ${title}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const characters = projectData.data?.stage3_characters?.characters || [];
+        const charBlock = characters.length > 0
+            ? `\n\n## CHARACTERS\n${characters.map(c => `${c.name} (${c.role}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`).join('\n')}`
+            : '';
+        const prompt = `## PROJECT\nTitle: ${title}${charBlock}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -1138,9 +1147,18 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
 
         console.log(`Stage 9: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
 
+        // Build character context for this scene
+        const characters = projectData.data?.stage3_characters?.characters || [];
+        const charProfiles = characters.length > 0
+            ? characters.map(c => {
+                const dp = c._deep_profile || {};
+                return `${c.name} (${c.role}): voice=${c.voice_and_behavior?.voice_tag || 'unknown'}, pressure=${c.voice_and_behavior?.pressure_tag || 'unknown'}${dp.dialogue_fingerprint ? `\nDialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
+            }).join('\n\n')
+            : '';
+
         const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
-            { title, sceneNumber, slugline },
+            { title, sceneNumber, slugline, characters: charProfiles },
             plannedChange || '',
             getModelConfig(9)
         );

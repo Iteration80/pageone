@@ -62,6 +62,12 @@ This section is written from three distinct critical voices. Each voice has a sp
 
 ---
 
+### Using Character Profiles (when provided)
+If the input includes Character Profiles with `voice_tag`, `pressure_tag`, `arc`, and `_deep_profile` data, use them across all three voices:
+* **Dialogue Specialist** should evaluate whether each character's dialogue matches their `voice_tag` and `_deep_profile.dialogue_fingerprint`. Quote specific lines that break voice.
+* **Devil's Advocate** should check if character arc trajectories in the script match their defined `arc.direction` (Growth / Decline / Circular).
+* **Story Analyst** should reference `_deep_profile.relationship_dynamics` when evaluating whether character interactions feel authentic.
+
 ### Voice 1 — Story Analyst
 Your primary analytical voice. Covers structural and character arc observations only: act breaks, protagonist agency, thematic clarity, relationship dynamics, sequence logic.
 

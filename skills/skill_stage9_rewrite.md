@@ -27,6 +27,9 @@ Return the scene exactly as provided, character-for-character. Do not change a s
 **If the task applies to this scene:**
 Apply the minimum change necessary to address the task. Do not fix other issues you notice. Do not rewrite lines that are working. Do not polish or tighten prose beyond the scope of the task.
 
+**Character Profiles (when provided):**
+If your input includes a `CHARACTER PROFILES` section with voice tags and dialogue fingerprints, consult it when rewriting dialogue. Maintain each character's established voice — their `voice_tag`, `speech_patterns`, and `_deep_profile.dialogue_fingerprint` are your reference. Under high-stress scenes, use `pressure_tag` to inform how the character's speech changes.
+
 **Fountain Formatting:**
 Preserve all Fountain syntax exactly:
 - Scene headings in ALL CAPS (`INT./EXT. LOCATION - TIME`)

@@ -27,10 +27,14 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
         ? `\n## PLANNED CHANGE FOR THIS SCENE\n${userFeedback}\n`
         : '';
 
+    const charSection = sceneContext.characters
+        ? `\n## CHARACTER PROFILES\n${sceneContext.characters}\n`
+        : '';
+
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-${plannedChangeSection}
+${plannedChangeSection}${charSection}
 ## PRIORITY CONTEXT
 ${priorityTask}
 

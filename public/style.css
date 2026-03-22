@@ -1709,3 +1709,114 @@ textarea.synopsis-input {
     padding-left: 8px;
     margin-left: -10px;
 }
+
+/* ── Stage 3: Tag Pills ──────────────────────────────── */
+
+.char-tag-pill {
+    display: inline-block;
+    background: #1f2937;
+    color: #d1d5db;
+    border: 1px solid #374151;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+    line-height: 1.4;
+}
+.char-tag-pill:hover {
+    border-color: #4b5563;
+    background: #283548;
+}
+
+.char-tag-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 4px;
+    margin-top: 4px;
+    min-width: 200px;
+    max-height: 260px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.char-tag-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #d1d5db;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: inherit;
+}
+.char-tag-option:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
+.char-tag-custom-input {
+    width: 100%;
+    background: transparent;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    color: #d1d5db;
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    outline: none;
+    font-family: inherit;
+}
+.char-tag-custom-input:focus {
+    border-color: #2563eb;
+}
+
+/* ── Stage 3: Arc Direction Toggle ────────────────────── */
+
+.char-arc-toggle {
+    display: inline-flex;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.char-arc-btn {
+    background: transparent;
+    color: #9ca3af;
+    border: none;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid #374151;
+}
+.char-arc-btn:last-child {
+    border-right: none;
+}
+.char-arc-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: #d1d5db;
+}
+.char-arc-btn.active {
+    background: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+    font-weight: 600;
+}
+
+/* ── Stage 3: Ticks Section ───────────────────────────── */
+
+.char-ticks-arrow {
+    font-size: 0.7rem;
+    color: #6b7280;
+    user-select: none;
+}

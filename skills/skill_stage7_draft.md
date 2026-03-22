@@ -33,3 +33,11 @@ You must format the scene using standard screenplay conventions so the frontend 
 * **The Subtext & Silence Constraint:** Characters must never state their thematic thesis or exact emotions out loud. Avoid all "on-the-nose" dialogue. When a character is emotionally devastated, cornered, or shocked, force them to use SILENCE, a subject-change, or an Action Beat rather than explaining how they feel.
 * **Fragmented & Punchy Rhythm:** Real people do not speak in perfect, grammatically complete paragraphs. They speak in fragments, trail off, and interrupt each other. You must limit dialogue blocks to 1 to 3 sentences maximum. Force characters to interrupt one another using em-dashes (--).
 * **Distinct Voices:** Each character must speak in a distinctly different voice based on their profile, ensuring a proper "orchestration" of opposing worldviews.
+
+## 5.1 DEEP PROFILE: DIALOGUE FINGERPRINT (PRIMARY GUIDANCE)
+When Character Profiles include `_deep_profile.dialogue_fingerprint`, treat it as your PRIMARY technical reference for writing that character's dialogue. The fingerprint contains concrete rules: preferred sentence length, vocabulary domain, question style, interruption tendency, topics they avoid, and filler words. Follow these rules precisely.
+
+Additionally:
+* **`voice_and_behavior.voice_tag`** sets the broad creative direction for how the character sounds.
+* **`voice_and_behavior.pressure_tag`** dictates how the character's speech changes under duress — consult it for high-tension scenes.
+* **`ticks.frequency_gate`** — If present, only surface the character's tic in scenes matching this condition. If `ticks.enabled: false`, the character has NO tic.

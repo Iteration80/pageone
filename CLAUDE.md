@@ -40,6 +40,41 @@ Fixed the FountainEditor formatting toolbar scrolling out of view when editing l
 
 **Architecture note:** The `externalToolbarSlot` pattern keeps FountainEditor reusable — any future stage can choose inline (default) or external toolbar mounting.
 
+### 2026-03-21 — Import existing screenplay for rewrite
+
+New "Import Script" feature on the project hub allows importing an existing `.fountain`, `.fdx` (Final Draft), or `.pdf` screenplay. The script is parsed into scenes, Stage 6/7 data is populated, and the user lands directly at Stage 8 (Coverage) to begin the rewrite workflow.
+
+- **`utils/script-import.js`** (new) — `parseFountain(text)` splits by scene headings, extracts title from Fountain title page. `parseFdx(xmlString)` parses Final Draft XML via `xml-js`, converts paragraph types to Fountain format. `parsePdfScript(pdfBuffer, modelConfig)` extracts text via `pdf-parse` then uses AI to identify scene boundaries. `buildStage6FromScenes(scenes)` groups scenes into ~8 sequences by page-count distribution.
+- **`server.js`** — `POST /api/import-script` endpoint (multipart via multer). Detects file type, runs appropriate parser, creates project with `stage6_scenes` + `stage7_approved: true` + `imported: true`. No AI calls needed for `.fountain`/`.fdx` (deterministic parsing).
+- **`public/index.html`** — "Import Script" button on hub header. Import modal with drag-and-drop file zone, optional title field, progress spinner.
+- **`public/app.js`** — Full import UI flow (modal, file selection, upload). After import, `window.importedProjectTarget = 8` navigates directly to Stage 8. `openProject()` reads this flag to skip Stage 1.
+
+**Architecture notes:**
+- Imported projects have `data.imported = true` and `data.importedFrom = filename` for identification.
+- Stages 1–5 are empty on imported projects — they show as incomplete in sidebar but don't block coverage or rewrite.
+- Coverage only needs `stage6_scenes` with `draft_text` populated — no dependency on earlier stages.
+- `humanized_draft_text = draft_text` on import (no humanization needed for human-written scripts).
+
+### 2026-03-21 — Stage 9 rewrite UX: priority labels, preview default, diff fix
+
+Three improvements to the Stage 9 rewrite workflow:
+
+1. **Brainstorm priority labels** — `server.js` labels changed from `MACRO 1` to `MACRO TO-DO P1` (matching UI). Init prompt tightened to require verbatim priority presentation. After-approval prompt includes progress count ("3 of 12 done"). `skills/skill_brainstorm.md` Mode 3 rewritten to require exact labels and task text under MACRO TO-DO / MICRO TO-DO headings.
+
+2. **Preview as default view** — Stage 9 right panel now defaults to "Preview" mode (read-only with green diff highlights) instead of "Formatted" (editor). "Source" mode removed entirely. Two tabs remain: "Preview" and "Edit". Editor is lazily created when user switches to Edit mode.
+
+3. **Diff highlight fix** — `stage9FlushEditPanel()` now only writes to `stage9Pending` if the scene already had pending changes. Previously it unconditionally overwrote pending text with editor-normalized output on every scene navigation, which could collapse diffs on revisited scenes.
+
+### 2026-03-21 — Project cost tracking + spend modal
+
+Token usage tracked per API call across all models. Each project stores its own usage history.
+
+- **`agents/ai-client.js`** — Both `callGemini()` and `callClaude()` return `{ text, usage: { model, inputTokens, outputTokens } }`.
+- **All 12 agent files** — Updated to return `{ result, usage }` or `{ result, usageList }`.
+- **`server.js`** — `trackUsage(projectId, usageOrList)` helper appends to `project.data.apiUsage[]`. All 15 AI endpoints call it after each generation.
+- **`public/app.js`** — `MODEL_PRICING` table with per-token costs for all supported models. `openSpendModal()` aggregates usage by model, calculates costs, renders breakdown table. "$" button in sidebar footer opens the modal.
+- **`public/index.html`** — Spend modal + "$" icon button in sidebar.
+
 ### 2026-03-21 — Professional screenplay formatting editor (Stage 7 & 9)
 
 New `public/fountain-editor.js` (~400 lines) provides a shared WYSIWYG screenplay editor with professional formatting controls, used in both Stage 7 (Draft) and Stage 9 (Rewrite).
