@@ -831,16 +831,43 @@
             <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:20px">
                 Your character changes have been saved. How would you like to proceed?
             </p>
-            <div class="modal-actions" style="flex-direction:column;gap:8px">
-                <div style="display:flex;align-items:center;gap:12px;width:100%">
-                    <button id="btn-regen-skip" class="primary-btn" style="flex:1">Apply &amp; Go To Stage…</button>
-                    <select id="regen-stage-select"></select>
-                </div>
-                <button id="btn-regen-surgical" class="secondary-btn" style="width:100%">
-                    Re-generate Stage 4 (surgical — preserve structure)
+            <div class="modal-actions" style="flex-direction:column;gap:10px">
+                <button id="btn-regen-to-stage9" class="primary-btn" style="width:100%">
+                    Send to Stage 9 Rewrite →
                 </button>
-                <button id="btn-regen-full" class="secondary-btn" style="width:100%">
-                    Re-generate Stage 4 (full)
+                <div style="display:flex;align-items:center;gap:12px;margin:4px 0">
+                    <hr style="flex:1;border:none;border-top:1px solid rgba(255,255,255,0.1)">
+                    <span style="color:#6b7280;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">or re-generate beats</span>
+                    <hr style="flex:1;border:none;border-top:1px solid rgba(255,255,255,0.1)">
+                </div>
+                <div style="display:flex;gap:8px;width:100%">
+                    <button id="btn-regen-surgical" class="secondary-btn" style="flex:1">
+                        Surgical
+                    </button>
+                    <button id="btn-regen-full" class="secondary-btn" style="flex:1">
+                        Full
+                    </button>
+                </div>
+                <p id="regen-surgical-disabled-msg" class="hidden" style="color:#6b7280;font-size:0.75rem;margin:0;text-align:center">
+                    Surgical mode requires existing Stage 4 data.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Re-Approval Modal (reused by Stages 2, 4, 5, 6) -->
+    <div id="generic-regen-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:480px">
+            <h3 id="generic-regen-title">Stage Updated</h3>
+            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:20px">
+                Your changes have been saved. How would you like to proceed?
+            </p>
+            <div class="modal-actions" style="flex-direction:column;gap:8px">
+                <button id="btn-generic-regen-full" class="secondary-btn" style="width:100%">
+                    Re-generate <span id="generic-regen-next-label">Next Stage</span>
+                </button>
+                <button id="btn-generic-skip" class="primary-btn" style="width:100%">
+                    Continue without re-generating →
                 </button>
             </div>
         </div>

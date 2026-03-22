@@ -29,6 +29,17 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-03-22 — Re-approval flow: stale warnings, universal regen options, Stage 3→9 shortcut
+
+When any stage is re-approved after edits, the app now detects re-approval (via `versionHistory`) and offers a choice instead of blindly auto-regenerating the next stage.
+
+- **Stale stage warnings** — `updateStageNav()` reads `_meta.stale` from each stage's data and shows an amber dot in the sidebar. `switchStage()` displays a dismissable banner ("This stage may be outdated") at the top of stale workspaces. Staleness is stamped server-side via a new `stampRevisedStage` field accepted by `PUT /api/projects/:id`, which calls the existing `stampRevised()` from `utils/stageMetadata.js`.
+- **Stage 3 re-approval modal** — Two options: (A) "Send to Stage 9 Rewrite" stores a `characterChangeContext` diff on the project and navigates to Stage 9, where `/api/brainstorm-rewrite` init detects it and generates a character-change-aware opening message; (B) "Re-generate Stage 4 Beats" with Surgical (diff-driven notes, preserves structure) or Full sub-options.
+- **Universal re-approval (Stages 2, 4, 5, 6)** — Generic modal offers "Re-generate [Next Stage]" or "Continue without re-generating". Uses callback pattern (`showGenericRegenModal()`) reusable across all stages.
+- **`utils/stageMetadata.js`** — No changes needed; existing `stampRevised()`/`stampGenerated()` infrastructure was already complete but unused by the frontend until now.
+
+**Files:** `public/app.js` (updateStageNav, switchStage, all approve handlers, modal logic), `public/index.html` (two modals), `public/style.css` (stale indicators), `server.js` (stampRevisedStage in PUT, characterChangeContext in brainstorm-rewrite init).
+
 ### 2026-03-21 — Sticky toolbar + parenthetical auto-wrap (Stage 7 & 9)
 
 Fixed the FountainEditor formatting toolbar scrolling out of view when editing long scenes.

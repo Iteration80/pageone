@@ -1076,6 +1076,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Navigation Logic ---
+    // Stage number → data key mapping for staleness checks
+    const STAGE_DATA_KEYS = {
+        1: 'stage1_pitch', 2: 'stage2_outline', 3: 'stage3_characters',
+        4: 'stage4_beats', 5: 'stage5_treatment', 6: 'stage6_scenes',
+        7: 'stage7_approved', 8: 'stage8_coverage', 9: 'stage9_rewrites'
+    };
+
+    // Find the most recently revised upstream stage (for stale banner message)
+    function findRevisedUpstream(stageNum) {
+        const d = window.currentProjectData || {};
+        for (let i = stageNum - 1; i >= 1; i--) {
+            const key = STAGE_DATA_KEYS[i];
+            if (key && d[key]?._meta?.manually_revised_at) {
+                return STAGE_LABELS[i];
+            }
+        }
+        return null;
+    }
+
     function updateStageNav(data) {
         window.currentProjectData = data;
         function toggle(navEl, isDone, num) {
@@ -1115,6 +1134,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     navItems[i]?.classList.add('disabled');
                 }
             }
+
+            // Stale stage indicator
+            const stageKey = STAGE_DATA_KEYS[i];
+            const isStale = stageKey && data[stageKey]?._meta?.stale === true;
+            if (navItems[i]) {
+                navItems[i].classList.toggle('stage-stale', !!isStale);
+            }
         }
     }
 
@@ -1128,6 +1154,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVersionHistory();
     }
 
+    // Stage labels for user-facing messages
+    const STAGE_LABELS = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scenes', 7: 'Draft', 8: 'Coverage', 9: 'Rewrite' };
+
     function switchStage(stageNum) {
         // Hide version history if open
         versionHistoryWorkspace?.classList.add('hidden');
@@ -1139,12 +1168,28 @@ document.addEventListener('DOMContentLoaded', () => {
             workspaces[i]?.classList.add('hidden');
         }
 
+        // Remove any existing stale banners
+        document.querySelectorAll('.stale-stage-banner').forEach(el => el.remove());
+
         // Activate the requested stage
         const activeNav = navItems[stageNum];
         const activeWorkspace = workspaces[stageNum];
 
         if (activeNav) activeNav.classList.add('active');
         if (activeWorkspace) activeWorkspace.classList.remove('hidden');
+
+        // Show stale banner if this stage is outdated
+        const stageKey = STAGE_DATA_KEYS[stageNum];
+        const stageData = stageKey && window.currentProjectData?.[stageKey];
+        if (stageData?._meta?.stale === true && activeWorkspace) {
+            // Find which upstream stage was revised
+            const upstreamLabel = findRevisedUpstream(stageNum);
+            const banner = document.createElement('div');
+            banner.className = 'stale-stage-banner';
+            banner.innerHTML = `<span>⚠ This stage may be outdated${upstreamLabel ? ` — ${upstreamLabel} was updated after this was generated` : ''}.</span><button class="stale-dismiss-btn" title="Dismiss">✕</button>`;
+            banner.querySelector('.stale-dismiss-btn').addEventListener('click', () => banner.remove());
+            activeWorkspace.insertBefore(banner, activeWorkspace.firstChild);
+        }
 
         // Special handling for Stages 3 & 4 autoResize (as previously fixed)
         if (stageNum === 3) {
@@ -1470,6 +1515,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const updatedOutline = scrapeOutline();
         const originalText = triggerBtn.textContent;
 
+        const existingHistory = (window.currentProjectData?.versionHistory) || [];
+        const isReApproval = existingHistory.filter(v => v.stage === 2).length > 0;
+
         triggerBtn.textContent = 'Saving...';
         triggerBtn.disabled = true;
         triggerBtn.classList.remove('approve-btn-green');
@@ -1478,31 +1526,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const versionHistory2 = captureVersionSnapshot(2, 'stage2_outline', 'Outline', stage2Snapshot);
 
         try {
+            const putBody = {
+                data: {
+                    stage2_outline: stage2Snapshot,
+                    versionHistory: versionHistory2
+                }
+            };
+            if (isReApproval) putBody.stampRevisedStage = 'stage2_outline';
+
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data: {
-                        stage2_outline: stage2Snapshot,
-                        versionHistory: versionHistory2
-                    }
-                })
+                body: JSON.stringify(putBody)
             });
             const updatedProject = await res.json();
 
-            // Update Navigation UI
             updateStageNav(updatedProject.data);
 
-            // Indicate success visually
             triggerBtn.textContent = 'Approved ✓';
             triggerBtn.classList.add('approve-btn-green');
             triggerBtn.disabled = true;
 
             toggleStage2EditMode(true);
 
-            // Auto-trigger Stage 3 Characters
-            switchStage(3);
-            autoGenerateCharacters();
+            if (isReApproval) {
+                showGenericRegenModal('Outline', 'Stage 3 Characters',
+                    () => { switchStage(3); autoGenerateCharacters(); },
+                    () => { switchStage(3); }
+                );
+            } else {
+                switchStage(3);
+                autoGenerateCharacters();
+            }
         } catch (err) {
             console.error("Failed to save outline:", err);
             alert("Error saving outline.");
@@ -2249,10 +2304,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 3 Re-Generation Options Modal ---
     const stage3RegenModal = document.getElementById('stage3-regen-modal');
-    const regenStageSelect = document.getElementById('regen-stage-select');
-    const btnRegenSkip = document.getElementById('btn-regen-skip');
+    const btnRegenToStage9 = document.getElementById('btn-regen-to-stage9');
     const btnRegenSurgical = document.getElementById('btn-regen-surgical');
     const btnRegenFull = document.getElementById('btn-regen-full');
+    const regenSurgicalDisabledMsg = document.getElementById('regen-surgical-disabled-msg');
 
     function diffCharacters(oldChars, newChars) {
         const changes = [];
@@ -2260,24 +2315,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const oc = oldChars.find(c => c.name === nc.name);
             if (!oc) { changes.push(`Added new character: ${nc.name} (${nc.role})`); continue; }
             if (oc.role !== nc.role) changes.push(`${nc.name}: role changed from "${oc.role}" to "${nc.role}"`);
-            // Psychological core
             const pOld = oc.psychological_core || {};
             const pNew = nc.psychological_core || {};
             for (const k of ['ghost_and_wound', 'the_lie', 'fear', 'desire', 'psychological_need', 'moral_need', 'paradox']) {
                 if ((pOld[k] || '') !== (pNew[k] || '')) changes.push(`${nc.name}: ${k.replace(/_/g, ' ')} updated`);
             }
-            // Voice tags
             const vOld = oc.voice_and_behavior || {};
             const vNew = nc.voice_and_behavior || {};
             if (vOld.voice_tag !== vNew.voice_tag) changes.push(`${nc.name}: voice_tag changed from "${vOld.voice_tag || ''}" to "${vNew.voice_tag || ''}"`);
             if (vOld.pressure_tag !== vNew.pressure_tag) changes.push(`${nc.name}: pressure_tag changed from "${vOld.pressure_tag || ''}" to "${vNew.pressure_tag || ''}"`);
             if (vOld.humor_tag !== vNew.humor_tag) changes.push(`${nc.name}: humor_tag changed from "${vOld.humor_tag || ''}" to "${vNew.humor_tag || ''}"`);
-            // Arc
             const aOld = oc.arc || {};
             const aNew = nc.arc || {};
             if (aOld.core_drive !== aNew.core_drive) changes.push(`${nc.name}: core_drive changed from "${aOld.core_drive || ''}" to "${aNew.core_drive || ''}"`);
             if (aOld.direction !== aNew.direction) changes.push(`${nc.name}: arc direction changed from "${aOld.direction || ''}" to "${aNew.direction || ''}"`);
-            // Ticks
             if ((oc.ticks?.enabled || false) !== (nc.ticks?.enabled || false)) changes.push(`${nc.name}: ticks ${nc.ticks?.enabled ? 'added' : 'removed'}`);
         }
         for (const oc of oldChars) {
@@ -2286,32 +2337,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return changes;
     }
 
+    function getCharacterDiffNotes() {
+        const history = window.currentProjectData?.versionHistory || [];
+        const stage3Versions = history.filter(v => v.stage === 3);
+        const prevSnapshot = stage3Versions.length >= 2
+            ? stage3Versions[stage3Versions.length - 2].snapshot
+            : stage3Versions[stage3Versions.length - 1]?.snapshot;
+        const currentChars = window.currentProjectData?.stage3_characters?.characters || [];
+        const prevChars = prevSnapshot?.characters || [];
+        return diffCharacters(prevChars, currentChars);
+    }
+
     function showStage3RegenModal() {
-        if (!stage3RegenModal || !regenStageSelect) return;
-        // Populate dropdown with stages that have existing data
-        const d = window.currentProjectData?.data || {};
-        const stageMap = [
-            { val: 4, label: '4 — Beats', key: 'stage4_beats' },
-            { val: 5, label: '5 — Treatment', key: 'stage5_treatment' },
-            { val: 6, label: '6 — Scenes', key: 'stage6_scenes' },
-            { val: 7, label: '7 — Draft', key: 'stage7_draft' },
-            { val: 8, label: '8 — Coverage', key: 'stage8_coverage' },
-            { val: 9, label: '9 — Rewrite', key: 'stage9_rewrites' },
-        ];
-        regenStageSelect.innerHTML = '';
-        let highestPopulated = 4;
-        for (const s of stageMap) {
-            if (d[s.key] || s.val === 4) {
-                const opt = document.createElement('option');
-                opt.value = s.val;
-                opt.textContent = s.label;
-                regenStageSelect.appendChild(opt);
-                if (d[s.key]) highestPopulated = s.val;
-            }
-        }
-        regenStageSelect.value = highestPopulated;
-        // Enable/disable surgical button based on whether Stage 4 data exists
-        if (btnRegenSurgical) btnRegenSurgical.disabled = !d.stage4_beats;
+        if (!stage3RegenModal) return;
+        const d = window.currentProjectData || {};
+        const hasStage4 = !!d.stage4_beats;
+        const hasStage9 = !!d.stage9_rewrites;
+        // Show/hide Stage 9 button based on whether Stage 9 data exists
+        if (btnRegenToStage9) btnRegenToStage9.classList.toggle('hidden', !hasStage9);
+        // Enable/disable surgical button
+        if (btnRegenSurgical) btnRegenSurgical.disabled = !hasStage4;
+        if (regenSurgicalDisabledMsg) regenSurgicalDisabledMsg.classList.toggle('hidden', hasStage4);
         stage3RegenModal.classList.remove('hidden');
     }
 
@@ -2319,19 +2365,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stage3RegenModal) stage3RegenModal.classList.add('hidden');
     }
 
-    // Backdrop click closes modal
     if (stage3RegenModal) {
         stage3RegenModal.addEventListener('click', (e) => {
             if (e.target === stage3RegenModal) closeStage3RegenModal();
         });
     }
 
-    // "Apply & Go To Stage…"
-    if (btnRegenSkip) {
-        btnRegenSkip.addEventListener('click', () => {
-            const targetStage = parseInt(regenStageSelect?.value || '4', 10);
+    // "Send to Stage 9 Rewrite"
+    if (btnRegenToStage9) {
+        btnRegenToStage9.addEventListener('click', async () => {
             closeStage3RegenModal();
-            switchStage(targetStage);
+            // Store character change context for Stage 9 init
+            const changes = getCharacterDiffNotes();
+            if (changes.length > 0) {
+                try {
+                    await fetch(`/api/projects/${activeProjectId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: { characterChangeContext: changes.join('\n') } })
+                    });
+                } catch (e) { console.error('Failed to save character change context:', e); }
+            }
+            switchStage(9);
         });
     }
 
@@ -2339,28 +2394,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnRegenSurgical) {
         btnRegenSurgical.addEventListener('click', async () => {
             closeStage3RegenModal();
-            // Build diff notes from last approved version
-            const history = window.currentProjectData?.versionHistory || [];
-            const stage3Versions = history.filter(v => v.stage === 3);
-            const prevSnapshot = stage3Versions.length >= 2
-                ? stage3Versions[stage3Versions.length - 2].snapshot
-                : stage3Versions[stage3Versions.length - 1]?.snapshot;
-            const currentChars = window.currentProjectData?.data?.stage3_characters?.characters || [];
-            const prevChars = prevSnapshot?.characters || [];
-            const changes = diffCharacters(prevChars, currentChars);
+            const changes = getCharacterDiffNotes();
             const notes = changes.length > 0
                 ? 'Character profile changes (update affected beats while preserving overall structure):\n' + changes.join('\n')
                 : 'Minor character updates — preserve existing beat structure as much as possible.';
 
             switchStage(4);
 
-            // Run surgical revision via the existing revision endpoint
-            const currentBeats = window.currentProjectData?.data?.stage4_beats;
-            if (!currentBeats) {
-                autoGenerateTreatment();
-                return;
-            }
-            // Show loading state
+            const currentBeats = window.currentProjectData?.stage4_beats;
+            if (!currentBeats) { autoGenerateTreatment(); return; }
+
             if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
             if (stage4Workshop) stage4Workshop.classList.add('hidden');
             if (treatmentContainer) { treatmentContainer.innerHTML = ''; treatmentContainer.classList.add('hidden'); }
@@ -2420,6 +2463,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Generic Re-Approval Modal (Stages 2, 4, 5, 6) ---
+    const genericRegenModal = document.getElementById('generic-regen-modal');
+    const genericRegenTitle = document.getElementById('generic-regen-title');
+    const genericRegenNextLabel = document.getElementById('generic-regen-next-label');
+    const btnGenericRegenFull = document.getElementById('btn-generic-regen-full');
+    const btnGenericSkip = document.getElementById('btn-generic-skip');
+
+    let _genericRegenCallbacks = { onRegen: null, onSkip: null };
+
+    function showGenericRegenModal(stageName, nextStageName, onRegen, onSkip) {
+        if (!genericRegenModal) { onRegen(); return; } // fallback if modal missing
+        if (genericRegenTitle) genericRegenTitle.textContent = `${stageName} Updated`;
+        if (genericRegenNextLabel) genericRegenNextLabel.textContent = nextStageName;
+        _genericRegenCallbacks = { onRegen, onSkip };
+        genericRegenModal.classList.remove('hidden');
+    }
+
+    function closeGenericRegenModal() {
+        if (genericRegenModal) genericRegenModal.classList.add('hidden');
+    }
+
+    if (genericRegenModal) {
+        genericRegenModal.addEventListener('click', (e) => {
+            if (e.target === genericRegenModal) {
+                closeGenericRegenModal();
+                if (_genericRegenCallbacks.onSkip) _genericRegenCallbacks.onSkip();
+            }
+        });
+    }
+    if (btnGenericRegenFull) {
+        btnGenericRegenFull.addEventListener('click', () => {
+            closeGenericRegenModal();
+            if (_genericRegenCallbacks.onRegen) _genericRegenCallbacks.onRegen();
+        });
+    }
+    if (btnGenericSkip) {
+        btnGenericSkip.addEventListener('click', () => {
+            closeGenericRegenModal();
+            if (_genericRegenCallbacks.onSkip) _genericRegenCallbacks.onSkip();
+        });
+    }
+
     if (btnStage3Approve) {
         btnStage3Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
@@ -2439,15 +2524,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const versionHistory3 = captureVersionSnapshot(3, 'stage3_characters', 'Characters', stage3Snapshot);
 
             try {
+                const putBody = {
+                    data: {
+                        stage3_characters: stage3Snapshot,
+                        versionHistory: versionHistory3
+                    }
+                };
+                // On re-approval, stamp downstream stages as stale
+                if (isReApproval) putBody.stampRevisedStage = 'stage3_characters';
+
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: {
-                            stage3_characters: stage3Snapshot,
-                            versionHistory: versionHistory3
-                        }
-                    })
+                    body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
                 updateStageNav(updatedProject.data);
@@ -2867,6 +2956,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentS4Beats = scrapeTreatment();
             const originalText = btnStage4Approve.textContent;
 
+            const existingHistory = (window.currentProjectData?.versionHistory) || [];
+            const isReApproval = existingHistory.filter(v => v.stage === 4).length > 0;
+
             btnStage4Approve.textContent = 'Saving...';
             btnStage4Approve.disabled = true;
             btnStage4Approve.classList.remove('approve-btn-green');
@@ -2874,12 +2966,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const versionHistory4 = captureVersionSnapshot(4, 'stage4_beats', 'Beats', currentS4Beats);
 
             try {
+                const putBody = {
+                    data: { stage4_beats: currentS4Beats, versionHistory: versionHistory4 }
+                };
+                if (isReApproval) putBody.stampRevisedStage = 'stage4_beats';
+
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: { stage4_beats: currentS4Beats, versionHistory: versionHistory4 }
-                    })
+                    body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
                 updateStageNav(updatedProject.data);
@@ -2887,13 +2982,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage4Approve.textContent = 'Approved ✓';
                 btnStage4Approve.classList.add('approve-btn-green');
 
-                // Toggle back to edit mode
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
 
-                // Auto-transition to Stage 5: Treatment
-                switchStage(5);
-                autoGenerateTreatmentStage5();
+                if (isReApproval) {
+                    showGenericRegenModal('Beats', 'Stage 5 Treatment',
+                        () => { switchStage(5); autoGenerateTreatmentStage5(); },
+                        () => { switchStage(5); }
+                    );
+                } else {
+                    switchStage(5);
+                    autoGenerateTreatmentStage5();
+                }
             } catch (err) {
                 console.error(err);
                 alert('Error saving approved treatment.');
@@ -3183,6 +3283,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentData = scrapeTreatmentStage5();
             const originalText = btnStage5Approve.textContent;
 
+            const existingHistory = (window.currentProjectData?.versionHistory) || [];
+            const isReApproval = existingHistory.filter(v => v.stage === 5).length > 0;
+
             btnStage5Approve.textContent = 'Saving...';
             btnStage5Approve.disabled = true;
             btnStage5Approve.classList.remove('approve-btn-green');
@@ -3190,12 +3293,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const versionHistory5 = captureVersionSnapshot(5, 'stage5_treatment', 'Treatment', currentData);
 
             try {
+                const putBody = {
+                    data: { stage5_treatment: currentData, versionHistory: versionHistory5 }
+                };
+                if (isReApproval) putBody.stampRevisedStage = 'stage5_treatment';
+
                 const res = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: { stage5_treatment: currentData, versionHistory: versionHistory5 }
-                    })
+                    body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
                 updateStageNav(updatedProject.data);
@@ -3206,9 +3312,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 btnStage5Revise.classList.add('hidden');
 
-                // Auto-transition to Stage 6: Scene Blueprint
-                switchStage(6);
-                generateStage6();
+                if (isReApproval) {
+                    showGenericRegenModal('Treatment', 'Stage 6 Scenes',
+                        () => { switchStage(6); generateStage6(); },
+                        () => { switchStage(6); }
+                    );
+                } else {
+                    switchStage(6);
+                    generateStage6();
+                }
             } catch (err) {
                 console.error(err);
                 btnStage5Approve.textContent = originalText;
@@ -3596,43 +3708,52 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentBlueprint = scrapeStage6();
             const originalText = btnStage6Approve.textContent;
 
+            const existingHistory = (window.currentProjectData?.versionHistory) || [];
+            const isReApproval = existingHistory.filter(v => v.stage === 6).length > 0;
+
             btnStage6Approve.disabled = true;
             btnStage6Approve.textContent = 'Saving...';
 
             const versionHistory6 = captureVersionSnapshot(6, 'stage6_scenes', 'Scenes', currentBlueprint);
 
             try {
+                const putBody = {
+                    data: { stage6_scenes: currentBlueprint, versionHistory: versionHistory6 }
+                };
+                if (isReApproval) putBody.stampRevisedStage = 'stage6_scenes';
+
                 const response = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: { stage6_scenes: currentBlueprint, versionHistory: versionHistory6 }
-                    })
+                    body: JSON.stringify(putBody)
                 });
 
                 if (!response.ok) throw new Error('Failed to save project');
 
                 btnStage6Approve.textContent = 'Approved ✓';
                 btnStage6Approve.classList.add('approve-btn-green');
-                
-                // Fetch updated project for nav status
+
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
                 updateStageNav(projData.data);
 
-                // Apply completion UI to Stage 6
                 if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
                 if (btnStage6Revise) btnStage6Revise.classList.remove('hidden');
 
-                // Apply completed styling to sidebar (already handled by updateStageNav, but being explicit about the active transition)
                 const stage6NavItem = navItems[6];
                 if (stage6NavItem) {
                     stage6NavItem.classList.add('completed');
                 }
 
-                // Programmatically switch to Stage 7
-                switchStage(7);
-                initStage7();
+                if (isReApproval) {
+                    showGenericRegenModal('Scenes', 'Stage 7 Draft',
+                        () => { switchStage(7); initStage7(); },
+                        () => { switchStage(7); }
+                    );
+                } else {
+                    switchStage(7);
+                    initStage7();
+                }
 
             } catch (error) {
                 console.error('Stage 6 approval failed:', error);

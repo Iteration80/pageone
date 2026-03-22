@@ -892,12 +892,21 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
         }
         if (isInit) {
+            // Check for character change context (from Stage 3 re-approval → Stage 9 flow)
+            const charChangeCtx = projectData.data?.characterChangeContext;
+            if (charChangeCtx) {
+                conversationPrompt += `[The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Here are the specific changes:\n${charChangeCtx}\n\nAcknowledge these character changes, briefly explain how they might affect the current draft (which scenes/moments would be most impacted), and ask if the writer wants to generate a rewrite plan focused on implementing these character updates across the screenplay. Keep it conversational and concise.]`;
+                // Clear the flag so it doesn't re-trigger
+                delete projectData.data.characterChangeContext;
+                await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            } else {
             const doneCount = allPriorities.filter(p => p.done).length;
             if (doneCount > 0) {
                 const nextPriority = allPriorities.find(p => !p.done);
                 conversationPrompt += `[The writer just completed ${doneCount} of ${allPriorities.length} rewrite priorities and approved the changes. ${nextPriority ? `The next priority is: ${nextPriority.label}: ${nextPriority.task}. Briefly acknowledge progress (mention the count, e.g. "${doneCount} of ${allPriorities.length} done"), then present the next priority using its exact label and task text. Move straight into discussing what this priority involves and which scenes are likely affected. Do NOT re-list all priorities.` : 'All priorities have been addressed.'}]`;
             } else {
                 conversationPrompt += '[The writer has just entered the rewrite stage. Present the coverage priorities EXACTLY as listed below — use the same labels (MACRO TO-DO P1, P2... and MICRO TO-DO P1, P2...) and the same task descriptions verbatim. Group them under MACRO TO-DO and MICRO TO-DO headings. Mark completed items as done. Then ask the writer which priority they\'d like to tackle first.]';
+            }
             }
         } else {
             for (const msg of messages) {
@@ -1421,6 +1430,13 @@ app.put('/api/projects/:id', async (req, res) => {
         }
 
         const updatedProject = { ...projectData, ...updates, data: mergedData };
+
+        // If the client signals a stage was revised, stamp staleness on downstream stages
+        if (updates.stampRevisedStage) {
+            stampRevised(updatedProject, updates.stampRevisedStage);
+            delete updatedProject.stampRevisedStage; // Don't persist the flag itself
+        }
+
         await fs.writeFile(filePath, JSON.stringify(updatedProject, null, 2));
 
         res.json(updatedProject);
