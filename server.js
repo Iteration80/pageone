@@ -854,6 +854,14 @@ app.post('/api/brainstorm', async (req, res) => {
         for (const msg of messages) {
             conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
         }
+        // Cadence enforcement: nudge model to stop asking questions after enough exchanges
+        const userExchangeCount = messages.filter(m => m.role === 'user').length;
+        if (userExchangeCount >= 5) {
+            conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now summarize the direction and offer to proceed. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming in their last message. Set suggest_plan: true if you have enough to work with.\n\n`;
+        } else if (userExchangeCount >= 4) {
+            conversationPrompt += `\n\n## CADENCE REMINDER\nThis is exchange ${userExchangeCount}. Per your operating rules, summarize the direction so far and offer the writer a clear choice: proceed with generation or keep honing the direction.\n\n`;
+        }
+
         conversationPrompt += 'Continue the conversation as the editorial assistant.';
 
         const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
@@ -962,6 +970,15 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
                 const label = msg.role === 'user' ? 'WRITER' : 'YOU';
                 conversationPrompt += `${label}: ${msg.content}\n\n`;
             }
+
+            // Cadence enforcement: higher threshold for Stage 10 to accommodate Priority Deliberation
+            const userExchangeCount = messages.filter(m => m.role === 'user').length;
+            if (userExchangeCount >= 7) {
+                conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now summarize the direction and offer to proceed with a rewrite plan. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming. Set suggest_plan: true.\n\n`;
+            } else if (userExchangeCount >= 6) {
+                conversationPrompt += `\n\n## CADENCE REMINDER\nThis is exchange ${userExchangeCount}. Consider whether you have enough to propose a rewrite plan. Summarize direction and offer to proceed.\n\n`;
+            }
+
             conversationPrompt += 'Continue the conversation as the editorial assistant.';
         }
 

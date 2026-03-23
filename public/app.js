@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switchStage(targetStage);
 
             if (projectDetails.data && projectDetails.data.stage1_pitch) {
-                const { pitch, notes } = projectDetails.data.stage1_pitch;
+                const { pitch, notes, approved: wasApproved } = projectDetails.data.stage1_pitch;
 
                 // Render a single pitch card with the saved data
                 renderPitches([pitch]);
@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Auto-approve and go into workshop view
                 const cardElement = resultsContainer.querySelector('.pitch-card');
                 if (cardElement) {
-                    handleApprove(cardElement, 0);
+                    handleApprove(cardElement, 0, { skipSave: true });
 
                     // Pre-fill notes
                     if (stage1Notes && notes) {
@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // Show Approved state only if the pitch was actually approved
-                    if (projectDetails.data.stage1_pitch.approved !== false) {
+                    if (wasApproved) {
                         toggleStage1EditMode(true);
                     }
 
@@ -571,13 +571,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (projectDetails.data.stage2_outline && projectDetails.data.stage2_outline.outline) {
                     renderOutline(projectDetails.data.stage2_outline.outline);
 
-                    // Outline is approved — override the unapproved state set by renderOutline
-                    if (btnStage2Approve) {
+                    // Only show Approved if next stage (Characters) has data
+                    const stage2WasApproved = !!(projectDetails.data.stage3_characters && projectDetails.data.stage3_characters.characters);
+                    if (stage2WasApproved && btnStage2Approve) {
                         btnStage2Approve.textContent = 'Approved ✓';
                         btnStage2Approve.classList.add('approve-btn-green');
                         btnStage2Approve.disabled = true;
                     }
-                    toggleStage2EditMode(true);
+                    if (stage2WasApproved) toggleStage2EditMode(true);
 
                     // Pre-fill notes
                     if (stage2Notes && projectDetails.data.stage2_outline.notes) {
@@ -594,12 +595,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hydrate Stage 3 Characters if exists
                 if (projectDetails.data.stage3_characters && projectDetails.data.stage3_characters.characters) {
                     renderCharacters(projectDetails.data.stage3_characters.characters);
-                    if (btnStage3Approve) {
+                    // Only show Approved if next stage (Beats) has data
+                    const stage3WasApproved = !!((projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment) && (projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment).hybrid_beat_sheet);
+                    if (stage3WasApproved && btnStage3Approve) {
                         btnStage3Approve.textContent = 'Approved ✓';
                         btnStage3Approve.classList.add('approve-btn-green');
                     }
-                    if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
-                    if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
+                    if (stage3WasApproved && btnStage3Edit) btnStage3Edit.classList.remove('hidden');
+                    if (stage3WasApproved && btnStage3Revise) btnStage3Revise.classList.add('hidden');
 
                     // Pre-fill notes
                     if (stage3Notes && projectDetails.data.stage3_characters.notes) {
@@ -615,12 +618,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if ((projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment) && (projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment).hybrid_beat_sheet) {
                     const stage4Data = projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment;
                     renderTreatment(stage4Data);
-                    if (btnStage4Approve) {
+                    // Only show Approved if next stage (Treatment) has data
+                    const stage4WasApproved = !!projectDetails.data.stage5_treatment;
+                    if (stage4WasApproved && btnStage4Approve) {
                         btnStage4Approve.textContent = 'Approved ✓';
                         btnStage4Approve.classList.add('approve-btn-green');
                     }
-                    if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
-                    if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
+                    if (stage4WasApproved && btnStage4Edit) btnStage4Edit.classList.remove('hidden');
+                    if (stage4WasApproved && btnStage4Revise) btnStage4Revise.classList.add('hidden');
 
                     if (stage4Notes && stage4Data.notes) {
                         stage4Notes.value = stage4Data.notes;
@@ -635,12 +640,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hydrate Stage 5 Treatment if exists
                 if (projectDetails.data.stage5_treatment) {
                     renderTreatmentStage5(projectDetails.data.stage5_treatment);
-                    if (btnStage5Approve) {
+                    // Only show Approved if next stage (Scenes) has data
+                    const stage5WasApproved = !!projectDetails.data.stage6_scenes;
+                    if (stage5WasApproved && btnStage5Approve) {
                         btnStage5Approve.textContent = 'Approved ✓';
                         btnStage5Approve.classList.add('approve-btn-green');
                     }
-                    if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
-                    if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
+                    if (stage5WasApproved && btnStage5Edit) btnStage5Edit.classList.remove('hidden');
+                    if (stage5WasApproved && btnStage5Revise) btnStage5Revise.classList.add('hidden');
 
                     if (stage5Notes && projectDetails.data.stage5_treatment.notes) {
                         stage5Notes.value = projectDetails.data.stage5_treatment.notes;
@@ -848,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function handleApprove(selectedCard, index) {
+    function handleApprove(selectedCard, index, { skipSave = false } = {}) {
         // Grab the edited data from the card
         const fields = selectedCard.querySelectorAll('.editable-field');
         const approvedData = {};
@@ -859,7 +866,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Persist the selected pitch and auto-rename project to pitch title
-        if (activeProjectId) {
+        // skipSave = true when restoring from project load (don't overwrite approved state)
+        if (activeProjectId && !skipSave) {
             const pitchData = { pitch: approvedData, approved: false };
             if (window.currentProjectData) window.currentProjectData.stage1_pitch = pitchData;
             const payload = { data: { stage1_pitch: pitchData } };
@@ -1392,7 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.stage1_pitch) {
                     renderPitches([data.stage1_pitch.pitch]);
                     const card = resultsContainer.querySelector('.pitch-card');
-                    if (card) { handleApprove(card, 0); toggleStage1EditMode(true); }
+                    if (card) { handleApprove(card, 0, { skipSave: true }); toggleStage1EditMode(true); }
                     if (stage1Notes) stage1Notes.value = data.stage1_pitch.notes || '';
                     const btn1 = document.getElementById('btn-stage1-approve');
                     if (btn1) { btn1.textContent = 'Approve'; btn1.classList.remove('approve-btn-green'); btn1.disabled = false; }
