@@ -10,10 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const w = textarea.offsetWidth;
         textarea.style.width = w + 'px';
         textarea.style.overflow = 'auto';
+        textarea.style.minHeight = '0px';
         textarea.style.height = '0px';
         const h = Math.max(textarea.scrollHeight, 24);
         textarea.style.height = h + 'px';
         textarea.style.overflow = 'hidden';
+        textarea.style.minHeight = '';
         textarea.style.width = '100%';
     }
 
@@ -1261,8 +1263,13 @@ document.addEventListener('DOMContentLoaded', () => {
             activeWorkspace.insertBefore(banner, activeWorkspace.firstChild);
         }
 
-        // Special handling for Stages 3 & 4 autoResize (as previously fixed)
-        if (stageNum === 3) {
+        // Auto-resize textareas when switching to a stage (they may have been
+        // rendered while the workspace was hidden, giving scrollHeight of 0)
+        if (stageNum === 2) {
+            setTimeout(() => {
+                document.querySelectorAll('.beat-description').forEach(ta => autoResize(ta));
+            }, 50);
+        } else if (stageNum === 3) {
             setTimeout(() => {
                 document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
             }, 50);
@@ -1544,6 +1551,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('outlineContainer').classList.remove('hidden');
         stage2Workshop?.classList.remove('hidden');
+
+        // Also resize immediately if the container is already visible
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.beat-description').forEach(ta => autoResize(ta));
+        });
 
         toggleStage2EditMode(false);
     }
