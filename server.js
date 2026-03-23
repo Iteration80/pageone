@@ -159,7 +159,7 @@ app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
         // Validation removed to allow random pitch generation if both are empty
 
         console.log("Generating pitch options...");
-        const result = await agent1Pitch(prompt, pdfFile, getModelConfig(1));
+        const { result, usage } = await agent1Pitch(prompt, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing agent:", error);
@@ -180,7 +180,7 @@ app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
         const parsedPitch = typeof currentPitch === 'string' ? JSON.parse(currentPitch) : currentPitch;
 
         console.log("Revising pitch...");
-        const result = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile, getModelConfig(1));
+        const { result, usage } = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing refine agent:", error);

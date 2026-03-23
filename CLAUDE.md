@@ -29,6 +29,20 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-03-22 — Stage 1 UX polish + pitch generation bugfix + brainstorm cadence
+
+Several Stage 1 improvements and fixes:
+
+- **Button states on fresh projects** — Approve and Export Pitch buttons are now hidden/grayed out when no pitch data exists. They appear when a pitch is selected for workshopping. Prevents stale green "Approved ✓" state leaking between projects.
+- **STAGE_DATA_KEYS TDZ crash** — `const STAGE_DATA_KEYS` was declared after `handleHashChange()` was called, causing a temporal dead zone error that broke the hub project list. Moved declaration above the call site.
+- **Pitch generation response format** — `/api/execute` and `/api/refine-pitch` endpoints were returning `{ result: { result, usage } }` (double-nested) instead of `{ result }` after the cost tracking migration. Destructured the agent return value.
+- **Pitch data persistence on selection** — Selecting a pitch card to workshop now immediately saves it to the project file, so the brainstorm assistant has context. Previously only DOM state was updated.
+- **Auto-rename on pitch selection** — Project is automatically renamed to the selected pitch's title.
+- **Assistant chat hidden before pitch selection** — Stage 1 chat window and resize handle are hidden until a pitch is selected for workshopping (no purpose before that). Shown on selection or when loading a project with existing pitch data.
+- **Brainstorm clarification cadence** — `skills/skill_brainstorm.md` Mode 2: after ~3 clarifying exchanges, assistant now pauses to summarize and offer to move forward or keep brainstorming (soft limit, not rigid counter).
+
+**Files:** `public/app.js` (openProject reset, handleApprove persist+rename+chat reveal, handleHashChange reset), `public/index.html` (Stage 1 chat hidden by default), `server.js` (destructure agent returns), `skills/skill_brainstorm.md` (clarification cadence).
+
 ### 2026-03-22 — Stage 7 Style UI: layout consistency + UX enhancements
 
 Restructured Stage 7 (Style) workspace to match the standard layout pattern used by all other stages (1-6, 8-10).

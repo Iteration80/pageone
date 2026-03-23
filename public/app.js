@@ -529,6 +529,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnExportPitch.style.opacity = hasStage1Data ? '' : '0.4';
                 btnExportPitch.style.pointerEvents = hasStage1Data ? '' : 'none';
             }
+            // Hide Stage 1 chat until a pitch is selected (show if project already has pitch data)
+            const s1chat = document.getElementById('stage1-chat');
+            const s1split = document.getElementById('stage1-hsplit');
+            if (s1chat) s1chat.style.display = hasStage1Data ? '' : 'none';
+            if (s1split) s1split.style.display = hasStage1Data ? '' : 'none';
 
             // Navigate to target stage (Stage 9 for imported projects, Stage 1 otherwise)
             const targetStage = window.importedProjectTarget || 1;
@@ -702,6 +707,11 @@ document.addEventListener('DOMContentLoaded', () => {
             promptInput.value = '';
             stage1FeedbackPanel?.classList.add('hidden');
             document.querySelector('.prompt-section')?.classList.remove('hidden');
+            // Re-hide Stage 1 chat until a pitch is selected
+            const s1chat = document.getElementById('stage1-chat');
+            const s1split = document.getElementById('stage1-hsplit');
+            if (s1chat) s1chat.style.display = 'none';
+            if (s1split) s1split.style.display = 'none';
             if (stage1Notes) stage1Notes.value = '';
             if (stage2Notes) stage2Notes.value = '';
             if (stage3Notes) stage3Notes.value = '';
@@ -846,6 +856,19 @@ document.addEventListener('DOMContentLoaded', () => {
             approvedData[key] = field.value;
         });
 
+        // Persist the selected pitch and auto-rename project to pitch title
+        if (activeProjectId) {
+            const pitchData = { pitch: approvedData };
+            if (window.currentProjectData) window.currentProjectData.stage1_pitch = pitchData;
+            const payload = { data: { stage1_pitch: pitchData } };
+            if (approvedData.title) payload.title = approvedData.title;
+            fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(err => console.error('Failed to save selected pitch:', err));
+        }
+
         // Clear the other two cards from the screen
         const allCards = document.querySelectorAll('.pitch-card');
         allCards.forEach(card => {
@@ -865,6 +888,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.style.display = 'none';
 
         stage1FeedbackPanel?.classList.remove('hidden');
+
+        // Show the assistant chat window
+        const stage1Chat = document.getElementById('stage1-chat');
+        const stage1Hsplit = document.getElementById('stage1-hsplit');
+        if (stage1Chat) stage1Chat.style.display = '';
+        if (stage1Hsplit) stage1Hsplit.style.display = '';
 
         // Show header buttons now that a pitch is selected
         if (btnStage1Approve) btnStage1Approve.style.display = '';
