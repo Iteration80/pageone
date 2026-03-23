@@ -515,6 +515,21 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
             for (const w of Object.values(stageChatWindows)) { if (w) w.clear(); }
 
+            // Reset Stage 1 buttons to default state (prevents stale state from previous project)
+            const btnExportPitch = document.getElementById('btnDownloadPitch');
+            const hasStage1Data = !!(projectDetails.data && projectDetails.data.stage1_pitch);
+            if (btnStage1Approve) {
+                btnStage1Approve.textContent = 'Approve →';
+                btnStage1Approve.classList.remove('approve-btn-green');
+                btnStage1Approve.disabled = !hasStage1Data;
+                btnStage1Approve.style.display = hasStage1Data ? '' : 'none';
+            }
+            if (btnExportPitch) {
+                btnExportPitch.disabled = !hasStage1Data;
+                btnExportPitch.style.opacity = hasStage1Data ? '' : '0.4';
+                btnExportPitch.style.pointerEvents = hasStage1Data ? '' : 'none';
+            }
+
             // Navigate to target stage (Stage 9 for imported projects, Stage 1 otherwise)
             const targetStage = window.importedProjectTarget || 1;
             window.importedProjectTarget = null;
@@ -664,6 +679,13 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.hash = ''; // Revert to hub on error
         }
     }
+
+    // Stage number → data key mapping (must be declared before handleHashChange runs)
+    const STAGE_DATA_KEYS = {
+        1: 'stage1_pitch', 2: 'stage2_outline', 3: 'stage3_characters',
+        4: 'stage4_beats', 5: 'stage5_treatment', 6: 'stage6_scenes',
+        7: 'stage7_style', 8: 'stage7_approved', 9: 'stage8_coverage', 10: 'stage9_rewrites'
+    };
 
     function handleHashChange() {
         const hash = window.location.hash;
@@ -843,6 +865,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.style.display = 'none';
 
         stage1FeedbackPanel?.classList.remove('hidden');
+
+        // Show header buttons now that a pitch is selected
+        if (btnStage1Approve) btnStage1Approve.style.display = '';
+        const btnExportPitch = document.getElementById('btnDownloadPitch');
+        if (btnExportPitch) {
+            btnExportPitch.disabled = false;
+            btnExportPitch.style.opacity = '';
+            btnExportPitch.style.pointerEvents = '';
+        }
+
         toggleStage1EditMode(false);
     }
 
@@ -865,6 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnStage1Revise) btnStage1Revise.classList.add('hidden');
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
             if (btnStage1Approve) {
+                btnStage1Approve.style.display = '';
                 btnStage1Approve.textContent = 'Approved ✓';
                 btnStage1Approve.classList.add('approve-btn-green');
                 btnStage1Approve.disabled = true;
@@ -883,6 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (btnStage1Edit) btnStage1Edit.classList.add('hidden');
             if (btnStage1Approve) {
+                btnStage1Approve.style.display = '';
                 btnStage1Approve.classList.remove('hidden');
                 btnStage1Approve.textContent = 'Approve';
                 btnStage1Approve.classList.remove('approve-btn-green');
@@ -1078,12 +1112,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Navigation Logic ---
-    // Stage number → data key mapping for staleness checks
-    const STAGE_DATA_KEYS = {
-        1: 'stage1_pitch', 2: 'stage2_outline', 3: 'stage3_characters',
-        4: 'stage4_beats', 5: 'stage5_treatment', 6: 'stage6_scenes',
-        7: 'stage7_style', 8: 'stage7_approved', 9: 'stage8_coverage', 10: 'stage9_rewrites'
-    };
 
     // Find the most recently revised upstream stage (for stale banner message)
     function findRevisedUpstream(stageNum) {
