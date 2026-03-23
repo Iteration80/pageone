@@ -26,20 +26,29 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 
 ---
 
-## Pending Implementation
-
-Stage 7 Style — ready to implement in phases. Execute in order, verify each before starting the next:
-
-1. `specs/stage7-phase-1a-server-rename.md` — server-side rename (server.js, agent/skill file renames, settings)
-2. `specs/stage7-phase-1b-frontend-rename.md` — frontend nav rename (index.html, app.js navigation + stage switching)
-3. `specs/stage7-phase-1c-systems-rename.md` — re-approval flow, chat persistence, import target, toolbar slots
-4. `specs/stage7-phase-2-style-feature.md` — new Style stage (agent, skill, UI, endpoints, style storage)
-5. `specs/stage7-phase-3-thread-style.md` — thread style into Draft + Rewrite agents
-
----
-
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-03-22 — Stage 7 Style UI: layout consistency + UX enhancements
+
+Restructured Stage 7 (Style) workspace to match the standard layout pattern used by all other stages (1-6, 8-10).
+
+- **Layout restructure** — Replaced vertical left/right split (content left, chat right) with the standard horizontal top/bottom layout: scrollable workspace content above, resizable chat footer below with drag handle. Removed nested flex wrappers; `workspace-scrollable`, `resize-handle-h`, and `stage-chat` are now direct children of `<main>`, matching Stage 1's DOM structure. Added Stage 7 to the chat resize handler loop (was missing).
+- **Collapsible style card** — Style card body (400-600 words of directives) is now hidden by default behind a "Show Full Details" toggle. Summary card (name, tonal line, references) stays visible, keeping the workspace clean.
+- **"Continue without style" option** — New `#stage7-no-style` prompt with "Continue without a style →" link. Sets `stage7_style_skipped: true` on the project and navigates to Stage 8. Nav completion logic already recognized this flag.
+- **Scene-based style suggestion** — When entering Stage 7 with scenes ready and an empty chat, the assistant auto-posts an offer to analyze the story and suggest a style direction, bootstrapping the conversation naturally.
+
+**Files:** `public/index.html` (Stage 7 DOM restructure), `public/app.js` (resize loop, initStage7, stage7DisplayStyle, event listeners).
+
+### 2026-03-22 — Stage 7 Style: full implementation (Phases 1–3)
+
+New 10-stage pipeline with Style as Stage 7. Stages renumbered: Draft→8, Coverage→9, Rewrite/Planner→10.
+
+- **Phases 1a–1c (rename)** — All agent files (`agent_7_draft.js`→`agent_8_draft.js`, etc.), skill files, server endpoints, frontend nav, re-approval flow, chat persistence, import target, and toolbar slots updated to reflect new numbering.
+- **Phase 2 (Style feature)** — New `agents/agent_7_style.js` and `skills/skill_stage7_style.md`. Style generation UI in Stage 7 workspace with reference filmmaker selection, custom directive input, and live scene preview. Styles stored as markdown in `data/styles/[slug].md`. Projects reference style via `stage7_style` slug field.
+- **Phase 3 (threading)** — `agent_8_draft.js` and `agent_10_rewrite.js` accept `styleContent` parameter. `server.js` adds `loadProjectStyle()` helper that reads the project's selected style file. Threaded into 5 endpoints: `generate-draft`, `revise-draft`, `rewrite-single-scene`, `rewrite-for-priority`, `plan-rewrite`. Planner gets style-awareness context (don't treat style as a problem). Skill SOPs updated with style directive guidance. Style is injected between SOP rules and project context (Draft) or between planned change and priority context (Rewrite), matching the precedence order in the spec. Missing/deleted style files handled gracefully with console warning and optional UI notice.
+
+**Files:** `agents/agent_7_style.js` (new), `agents/agent_8_draft.js`, `agents/agent_9_coverage.js`, `agents/agent_10_rewrite.js`, `skills/skill_stage7_style.md` (new), `skills/skill_stage8_draft.md`, `skills/skill_stage9_coverage.md`, `skills/skill_stage10_planner.md`, `skills/skill_stage10_rewrite.md`, `server.js`, `public/app.js`, `public/index.html`, `public/style.css`, `utils/stageMetadata.js`.
 
 ### 2026-03-22 — Re-approval flow: stale warnings, universal regen options, Stage 3→9 shortcut
 

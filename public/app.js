@@ -4996,7 +4996,22 @@ document.addEventListener('DOMContentLoaded', () => {
             stage7LoadExistingStyle(data.stage7_style);
         } else {
             styleCard?.classList.add('hidden');
+            document.getElementById('stage7-no-style')?.classList.remove('hidden');
             if (btnApprove) btnApprove.disabled = true;
+
+            // If scenes exist and chat is empty, offer style analysis
+            const hasScenes = data.stage6_scenes &&
+                (data.stage6_scenes.sequences?.length > 0 ||
+                 data.stage6_scenes.scenes?.length > 0);
+            if (hasScenes && !data.stage7_style_skipped) {
+                const chat = stageChatWindows[7];
+                if (chat && (!chat.history || chat.history.length === 0)) {
+                    setTimeout(() => {
+                        chat.append('ai',
+                            'I can see your scenes are ready. Want me to analyze your story and suggest a style direction? Or use Quick Start / My Styles above to define your own.');
+                    }, 300);
+                }
+            }
         }
     }
 
@@ -5037,7 +5052,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fmEnd > 0) body = body.slice(fmEnd + 3).trim();
         bodyEl.textContent = body;
 
+        // Reset collapsible body
+        const bodyWrap = document.getElementById('stage7-style-body-wrap');
+        const toggleBtn = document.getElementById('stage7-style-toggle');
+        if (bodyWrap) bodyWrap.classList.add('hidden');
+        if (toggleBtn) toggleBtn.textContent = 'Show Full Details ▾';
+
         card.classList.remove('hidden');
+        document.getElementById('stage7-no-style')?.classList.add('hidden');
         document.getElementById('stage7-loading')?.classList.add('hidden');
         if (btnApprove) {
             btnApprove.disabled = false;
@@ -5259,6 +5281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnStage7Preview')?.addEventListener('click', () => stage7PreviewScene());
     document.getElementById('btnStage7Regenerate')?.addEventListener('click', () => {
         document.getElementById('stage7-style-card')?.classList.add('hidden');
+        document.getElementById('stage7-no-style')?.classList.remove('hidden');
         document.getElementById('btnStage7Approve').disabled = true;
         document.getElementById('btnStage7Approve').textContent = 'Approve →';
         document.getElementById('btnStage7Approve').classList.remove('approve-btn-green');
@@ -5266,6 +5289,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('btnStage7ClosePreview')?.addEventListener('click', () => {
         document.getElementById('stage7-preview-panel')?.classList.add('hidden');
+    });
+    // Style card body expand/collapse
+    document.getElementById('stage7-style-toggle')?.addEventListener('click', () => {
+        const wrap = document.getElementById('stage7-style-body-wrap');
+        const btn = document.getElementById('stage7-style-toggle');
+        if (!wrap || !btn) return;
+        const hidden = wrap.classList.toggle('hidden');
+        btn.textContent = hidden ? 'Show Full Details ▾' : 'Hide Details ▴';
+    });
+    // Continue without style
+    document.getElementById('btnStage7Skip')?.addEventListener('click', async () => {
+        if (!activeProjectId) return;
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage7_style: null, stage7_style_skipped: true } })
+            });
+            if (!res.ok) throw new Error('Skip failed');
+            const updated = await res.json();
+            window.currentProjectData = updated.data;
+            updateStageNav(updated.data);
+            switchStage(8);
+        } catch (err) {
+            console.error('Skip style error:', err);
+        }
     });
 
     // Quick Start pill toggle
@@ -5298,7 +5347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ─── STAGE CHAT RESIZERS (Stages 1–6, 8) ──────────────────────────────────
-    for (const s of [1, 2, 3, 4, 5, 6, 8]) {
+    for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const hsplit = document.getElementById(`stage${s}-hsplit`);
         const chatEl = document.getElementById(`stage${s}-chat`);
         if (!hsplit || !chatEl) continue;
