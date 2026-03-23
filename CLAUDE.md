@@ -29,6 +29,19 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-03-22 — Post-audit fixes: 9 stale references from Stage 7 renumbering
+
+Cleaned up leftover references after the Stage 7 (Style) renumbering that shifted Draft→8, Coverage→9, Rewrite→10.
+
+- **`utils/stageMetadata.js` STAGE_ORDER** — Removed nonexistent `stage7_draft`, added `stage8_coverage` and `stage9_rewrites`. Staleness cascade now works through the full pipeline.
+- **Settings modal STAGE_LABELS** — Was showing 9 stages (missing Style, wrong labels for 7–9). Now shows all 10 with correct names.
+- **Stage 3 re-approval button ID** — HTML had `btn-regen-to-stage9` but JS expected `btn-regen-to-stage10`. Aligned both to `btn-regen-to-stage10`.
+- **`getModelConfig()` stage numbers** — Draft was calling `getModelConfig(7)` instead of `(8)`, coverage `(8)` instead of `(9)`, rewrite `(9)` instead of `(10)`. Per-stage model selection in Settings now maps correctly.
+- **Skill SOP text** — `skill_stage9_coverage.md`: "Stage 9 Rewrite" → "Stage 10 Rewrite". `skill_stage10_rewrite.md`: "Stage 8 Coverage" → "Stage 9 Coverage".
+- **Minor** — `s9ToolbarSlot` → `s10ToolbarSlot`, console log "Stage 8 Coverage" → "Stage 9 Coverage", comment "stages 1–9" → "stages 1–10".
+
+**Files:** `utils/stageMetadata.js`, `public/app.js`, `public/index.html`, `server.js`, `skills/skill_stage9_coverage.md`, `skills/skill_stage10_rewrite.md`.
+
 ### 2026-03-22 — Stage 1 UX polish + pitch generation bugfix + brainstorm cadence
 
 Several Stage 1 improvements and fixes:
