@@ -20,7 +20,8 @@ const STAGE_ORDER = [
     'stage5_treatment',
     'stage6_scenes',
     'stage7_style',
-    'stage7_draft',
+    'stage8_coverage',
+    'stage9_rewrites',
 ];
 
 /**

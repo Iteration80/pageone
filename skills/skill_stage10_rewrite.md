@@ -78,7 +78,7 @@ Apply these rules to any dialogue you write or modify:
 
 ## AI SIGNAL WATCH-LIST — DO NOT INTRODUCE
 
-When making changes, actively avoid reintroducing these patterns that Stage 8 Coverage flagged as AI-generation signals:
+When making changes, actively avoid reintroducing these patterns that Stage 9 Coverage flagged as AI-generation signals:
 
 - **Stacked intensifiers in action lines:** "weaponized confidence," "a sensory assault of whispered violence" — these are generated, not written
 - **`SMASH CUT TO:` as a rhythmic crutch** — only use transitions when they carry dramatic weight

@@ -45,7 +45,7 @@ async function loadSettings() {
     }
 }
 
-/** Returns the model + API keys to use for a given stage number (1–9). */
+/** Returns the model + API keys to use for a given stage number (1–10). */
 function getModelConfig(stageNum) {
     return {
         model: appSettings.stageModels?.[`stage${stageNum}`] || process.env.GEMINI_MODEL,
@@ -540,7 +540,7 @@ app.post('/api/generate-draft', async (req, res) => {
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNumber}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7), styleContent);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(8), styleContent);
 
         console.log(`Humanizing draft for Scene ${sceneNumber}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -601,7 +601,7 @@ app.post('/api/revise-draft', async (req, res) => {
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNumber}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7), styleContent);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(8), styleContent);
 
         console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -683,8 +683,8 @@ app.post('/api/generate-coverage', async (req, res) => {
             characters: projectData.data?.stage3_characters?.characters || []
         };
 
-        console.log(`Generating Stage 8 Coverage for project ${projectId}...`);
-        const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfig(8));
+        console.log(`Generating Stage 9 Coverage for project ${projectId}...`);
+        const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfig(9));
 
         projectData.data = projectData.data || {};
         projectData.data.stage8_coverage = coverageResult;
@@ -1079,7 +1079,7 @@ app.post('/api/plan-rewrite', async (req, res) => {
         };
 
         const { generateContent } = require('./agents/ai-client');
-        const modelCfg = getModelConfig(9);
+        const modelCfg = getModelConfig(10);
         console.log(`plan-rewrite: model=${modelCfg.model}, prompt=${prompt.length} chars, context=${(trimmedContext||'').length} chars`);
 
         const t0 = Date.now();
@@ -1143,7 +1143,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }, '', getModelConfig(9), styleContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
+                }, '', getModelConfig(10), styleContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
 
@@ -1224,7 +1224,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             sceneText, priorityTask,
             { title, sceneNumber, slugline, characters: charProfiles },
             plannedChange || '',
-            getModelConfig(9),
+            getModelConfig(10),
             styleContent
         );
 
@@ -1286,7 +1286,7 @@ app.post('/api/rewrite-scene-feedback', async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const { result: proposed_text, usage } = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(9));
+        const { result: proposed_text, usage } = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(10));
         trackUsage(projectId, usage);
         res.json({ proposed_text });
     } catch (error) {

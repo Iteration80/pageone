@@ -2368,7 +2368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 3 Re-Generation Options Modal ---
     const stage3RegenModal = document.getElementById('stage3-regen-modal');
-    const btnRegenToStage10 = document.getElementById('btn-regen-to-stage9');
+    const btnRegenToStage10 = document.getElementById('btn-regen-to-stage10');
     const btnRegenSurgical = document.getElementById('btn-regen-surgical');
     const btnRegenFull = document.getElementById('btn-regen-full');
     const regenSurgicalDisabledMsg = document.getElementById('regen-surgical-disabled-msg');
@@ -6125,9 +6125,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ensure editor is loaded (for Edit mode, lazily created)
         if (!stage10Editor && editorMount) {
-            const s9ToolbarSlot = document.getElementById('stage10-toolbar-slot');
+            const s10ToolbarSlot = document.getElementById('stage10-toolbar-slot');
             stage10Editor = new FountainEditor(editorMount, {
-                externalToolbarSlot: s9ToolbarSlot,
+                externalToolbarSlot: s10ToolbarSlot,
                 onDirty: () => {
                     if (stage10CurrentScene !== null) {
                         stage10Pending[stage10CurrentScene] = stage10Editor.toFountain();
@@ -6341,7 +6341,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const STAGE_LABELS = [
         [1, 'Pitch'], [2, 'Outline'], [3, 'Characters'], [4, 'Beats'],
-        [5, 'Treatment'], [6, 'Scenes'], [7, 'Draft'], [8, 'Coverage'], [9, 'Rewrite']
+        [5, 'Treatment'], [6, 'Scenes'], [7, 'Style'], [8, 'Draft'],
+        [9, 'Coverage'], [10, 'Rewrite']
     ];
 
     const settingsModal = document.getElementById('settingsModal');
