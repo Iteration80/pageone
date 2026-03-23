@@ -100,11 +100,31 @@ const { agent4Beats } = require('./agents/agent_4_beats');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
-const { generateSceneDraft } = require('./agents/agent_7_draft');
+const { generateSceneDraft } = require('./agents/agent_8_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
-const { agent8Coverage } = require('./agents/agent_8_coverage');
-const { rewriteScene } = require('./agents/agent_9_rewrite');
+const { agent8Coverage } = require('./agents/agent_9_coverage');
+const { rewriteScene } = require('./agents/agent_10_rewrite');
+const { generateStyleFile, parseStyleFile } = require('./agents/agent_7_style');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
+
+const STYLES_DIR = path.join(__dirname, 'data', 'styles');
+
+/**
+ * Load the style file for a project, if one is set and exists.
+ * Returns { styleContent, styleWarning } where styleContent is the markdown
+ * string (or null) and styleWarning is a UI-facing notice (or null).
+ */
+async function loadProjectStyle(projectData) {
+    const slug = projectData.data?.stage7_style;
+    if (!slug || slug === 'none') return { styleContent: null, styleWarning: null };
+    try {
+        const content = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
+        return { styleContent: content, styleWarning: null };
+    } catch {
+        console.warn(`Style file "${slug}.md" not found — drafting without style directives.`);
+        return { styleContent: null, styleWarning: `The style "${slug}" is no longer available. Drafting without style directives.` };
+    }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -118,6 +138,7 @@ const DATA_DIR = path.join(__dirname, 'data', 'projects');
 async function initDb() {
     try {
         await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.mkdir(STYLES_DIR, { recursive: true });
     } catch (err) {
         console.error("Failed to create data directory:", err);
     }
@@ -517,8 +538,9 @@ app.post('/api/generate-draft', async (req, res) => {
             characters: projectData.data.stage3_characters?.characters || []
         };
 
+        const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNumber}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7));
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(7), styleContent);
 
         console.log(`Humanizing draft for Scene ${sceneNumber}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -530,9 +552,9 @@ app.post('/api/generate-draft', async (req, res) => {
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
         trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
-        res.json({ result: humanizedText });
+        res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
     } catch (error) {
-        console.error('Stage 7 Draft Generation Error:', error.message);
+        console.error('Stage 8 Draft Generation Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to generate scene draft" });
     }
 });
@@ -577,8 +599,9 @@ app.post('/api/revise-draft', async (req, res) => {
             characters: projectData.data.stage3_characters?.characters || []
         };
 
+        const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNumber}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7));
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(7), styleContent);
 
         console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -590,14 +613,14 @@ app.post('/api/revise-draft', async (req, res) => {
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
         trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
-        res.json({ result: humanizedText });
+        res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
     } catch (error) {
-        console.error('Stage 7 Draft Revision Error:', error.message);
+        console.error('Stage 8 Draft Revision Error:', error.message);
         res.status(500).json({ error: error.message || "Failed to revise scene draft" });
     }
 });
 
-// --- Stage 8: Coverage --- //
+// --- Stage 9: Coverage --- //
 
 app.post('/api/generate-coverage', async (req, res) => {
     try {
@@ -614,13 +637,13 @@ app.post('/api/generate-coverage', async (req, res) => {
         }
 
         if (!projectData.data?.stage7_approved) {
-            return res.status(400).json({ error: "Stage 7 must be approved before generating coverage" });
+            return res.status(400).json({ error: "Stage 8 Draft must be approved before generating coverage" });
         }
 
         let fullScriptText;
 
-        // When triggered from Stage 9 loopback, use the rewritten working copy
-        if (source === 'stage9' && projectData.data?.stage9_rewrites?.working) {
+        // When triggered from Stage 10 loopback, use the rewritten working copy
+        if (source === 'stage10' && projectData.data?.stage9_rewrites?.working) {
             const working = projectData.data.stage9_rewrites.working;
             fullScriptText = Object.keys(working)
                 .map(n => parseInt(n))
@@ -677,9 +700,9 @@ app.post('/api/generate-coverage', async (req, res) => {
     }
 });
 
-// --- Stage 9: Rewrite Routes --- //
+// --- Stage 10: Rewrite Routes --- //
 
-// Initialize stage9_rewrites from Stage 7 humanized text
+// Initialize stage9_rewrites from Stage 8 humanized text
 app.post('/api/init-stage9', async (req, res) => {
     try {
         const { projectId, reset } = req.body;
@@ -753,7 +776,8 @@ app.post('/api/brainstorm', async (req, res) => {
 
         const stageNames = {
             1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
-            4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint', 7: 'Draft'
+            4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint',
+            7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite'
         };
 
         let stageData;
@@ -769,13 +793,38 @@ app.post('/api/brainstorm', async (req, res) => {
             }
             case 6: stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2); break;
             case 7: {
-                const scenes = [];
-                for (const seq of (projectData.data?.stage6_scenes || [])) {
-                    if (seq.scenes) scenes.push(...seq.scenes);
+                // Style stage — provide current style file content if one exists
+                const styleSlug = projectData.data?.stage7_style;
+                if (styleSlug) {
+                    try {
+                        const styleContent = require('fs').readFileSync(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
+                        stageData = `Current style file (${styleSlug}):\n${styleContent}`;
+                    } catch { stageData = 'No style file loaded yet.'; }
+                } else {
+                    stageData = 'No style selected yet. Help the writer define their style.';
                 }
-                const scene = scenes.find(s => s.scene_number === sceneNumber) || scenes[0];
-                stageData = scene
-                    ? `Scene ${scene.scene_number}: ${scene.scene_heading || scene.slugline || ''}\n${scene.humanized_draft_text || scene.draft_text || ''}`
+                // Include scene summaries for context-aware suggestions
+                const s6 = projectData.data?.stage6_scenes || [];
+                if (s6.length > 0) {
+                    const sceneSummaries = [];
+                    for (const seq of s6) {
+                        if (seq.scenes) for (const sc of seq.scenes) {
+                            sceneSummaries.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} — ${sc.narrative_action || ''}`);
+                        }
+                    }
+                    if (sceneSummaries.length) stageData += `\n\nStory scenes for context:\n${sceneSummaries.join('\n')}`;
+                }
+                break;
+            }
+            case 8: {
+                // Draft stage — load scene text for chat context
+                const draftScenes = [];
+                for (const seq of (projectData.data?.stage6_scenes || [])) {
+                    if (seq.scenes) draftScenes.push(...seq.scenes);
+                }
+                const draftScene = draftScenes.find(s => s.scene_number === sceneNumber) || draftScenes[0];
+                stageData = draftScene
+                    ? `Scene ${draftScene.scene_number}: ${draftScene.scene_heading || draftScene.slugline || ''}\n${draftScene.humanized_draft_text || draftScene.draft_text || ''}`
                     : 'No scene selected.';
                 break;
             }
@@ -784,7 +833,7 @@ app.post('/api/brainstorm', async (req, res) => {
 
         // Build prior-stage conversation context
         const savedConversations = projectData.data?.conversations || {};
-        const priorStageNames = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint', 7: 'Draft' };
+        const priorStageNames = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint', 7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite' };
         let priorContext = '';
         for (let s = 1; s < stageId; s++) {
             const prior = savedConversations[`stage${s}`];
@@ -883,7 +932,7 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             ? characters.map(c => `${c.name} (${c.role}): ${c.brief_summary || ''}`).join('\n')
             : '';
         const charBlock = charSummary ? `\n\n## CHARACTERS\n${charSummary}` : '';
-        const contextBlock = `## PROJECT: ${title}${charBlock}\n\n## STAGE 8 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
+        const contextBlock = `## PROJECT: ${title}${charBlock}\n\n## STAGE 9 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
 
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';
@@ -892,7 +941,7 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
             if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
         }
         if (isInit) {
-            // Check for character change context (from Stage 3 re-approval → Stage 9 flow)
+            // Check for character change context (from Stage 3 re-approval → Stage 10 flow)
             const charChangeCtx = projectData.data?.characterChangeContext;
             if (charChangeCtx) {
                 conversationPrompt += `[The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Here are the specific changes:\n${charChangeCtx}\n\nAcknowledge these character changes, briefly explain how they might affect the current draft (which scenes/moments would be most impacted), and ask if the writer wants to generate a rewrite plan focused on implementing these character updates across the screenplay. Keep it conversational and concise.]`;
@@ -948,7 +997,7 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
         };
         trackUsage(projectId, brainstormUsage);
 
-        // Persist stage 9 conversation
+        // Persist stage 10 conversation (data key stays stage9 — don't rename data keys)
         if (!isInit) {
             try {
                 const convos = projectData.data.conversations || {};
@@ -991,7 +1040,7 @@ app.post('/api/plan-rewrite', async (req, res) => {
             .map(s => `SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}`)
             .join('\n');
 
-        const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage9_planner.md'), 'utf8');
+        const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage10_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
         // Trim conversation context to last ~4000 chars to keep prompt manageable
         const trimmedContext = conversationContext && conversationContext.length > 4000
@@ -1002,7 +1051,11 @@ app.post('/api/plan-rewrite', async (req, res) => {
         const charBlock = characters.length > 0
             ? `\n\n## CHARACTERS\n${characters.map(c => `${c.name} (${c.role}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`).join('\n')}`
             : '';
-        const prompt = `## PROJECT\nTitle: ${title}${charBlock}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const { styleContent: plannerStyleContent } = await loadProjectStyle(projectData);
+        const styleNote = plannerStyleContent
+            ? `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`
+            : '';
+        const prompt = `## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -1045,7 +1098,7 @@ app.post('/api/plan-rewrite', async (req, res) => {
         console.log(`plan-rewrite succeeded in ${((Date.now()-t0)/1000).toFixed(1)}s`);
 
         const plan = JSON.parse(response.text);
-        console.log(`Stage 9 plan: ${plan.affected_scenes.length} scenes affected.`);
+        console.log(`Stage 10 plan: ${plan.affected_scenes.length} scenes affected.`);
         if (response.usage) trackUsage(projectId, response.usage);
         res.json(plan);
     } catch (error) {
@@ -1080,7 +1133,8 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
             ? allScenes.filter(s => affectedSceneNumbers.includes(s.scene_number))
             : allScenes;
 
-        console.log(`Stage 9: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."`);
+        const { styleContent } = await loadProjectStyle(projectData);
+        console.log(`Stage 10: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."`);
 
         const results = await Promise.allSettled(
             scopedScenes.map(s => {
@@ -1089,7 +1143,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }, '', getModelConfig(9)).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
+                }, '', getModelConfig(9), styleContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
 
@@ -1145,7 +1199,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         // Short-circuit: if the plan says to delete/remove/omit this scene, skip the LLM
         const deletionPattern = /\b(delete|remove|omit|cut|eliminate)\b.*\b(scene|entirely|completely)\b/i;
         if (plannedChange && deletionPattern.test(plannedChange)) {
-            console.log(`Stage 9: deleting scene ${sceneNumber} (per plan)`);
+            console.log(`Stage 10: deleting scene ${sceneNumber} (per plan)`);
             // Persist deletion to disk immediately
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
@@ -1154,7 +1208,8 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
         }
 
-        console.log(`Stage 9: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
+        const { styleContent } = await loadProjectStyle(projectData);
+        console.log(`Stage 10: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
 
         // Build character context for this scene
         const characters = projectData.data?.stage3_characters?.characters || [];
@@ -1169,7 +1224,8 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             sceneText, priorityTask,
             { title, sceneNumber, slugline, characters: charProfiles },
             plannedChange || '',
-            getModelConfig(9)
+            getModelConfig(9),
+            styleContent
         );
 
         const modified = proposed.trim() !== sceneText.trim();
@@ -1239,8 +1295,8 @@ app.post('/api/rewrite-scene-feedback', async (req, res) => {
     }
 });
 
-// Mark Stage 9 as approved/finalized
-app.post('/api/finalize-stage9', async (req, res) => {
+// Mark Stage 10 as approved/finalized
+app.post('/api/finalize-stage10', async (req, res) => {
     try {
         const { projectId } = req.body;
         if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
@@ -1255,7 +1311,208 @@ app.post('/api/finalize-stage9', async (req, res) => {
         await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
         res.json({ success: true });
     } catch (error) {
-        console.error('finalize-stage9 error:', error.message);
+        console.error('finalize-stage10 error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Stage 7: Style Routes --- //
+
+// Generate a style skill file from chat/form input
+app.post('/api/generate-stage7-style', upload.array('sampleFiles', 5), async (req, res) => {
+    try {
+        const { projectId, mode, description, formData: formDataRaw, conversationHistory: convRaw } = req.body;
+        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        const formData = formDataRaw ? (typeof formDataRaw === 'string' ? JSON.parse(formDataRaw) : formDataRaw) : null;
+        const conversationHistory = convRaw ? (typeof convRaw === 'string' ? JSON.parse(convRaw) : convRaw) : [];
+
+        // Extract text from uploaded sample files
+        const sampleTexts = [];
+        if (req.files?.length) {
+            for (const file of req.files) {
+                const ext = (file.originalname || '').split('.').pop().toLowerCase();
+                if (ext === 'pdf') {
+                    const pdfParse = require('pdf-parse');
+                    const parsed = await pdfParse(file.buffer);
+                    sampleTexts.push(parsed.text);
+                } else {
+                    sampleTexts.push(file.buffer.toString('utf-8'));
+                }
+            }
+        }
+
+        // Build scene summaries for context
+        let sceneSummaries = '';
+        const s6 = projectData.data?.stage6_scenes || [];
+        if (s6.length > 0) {
+            const lines = [];
+            for (const seq of s6) {
+                if (seq.scenes) for (const sc of seq.scenes) {
+                    lines.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} — ${sc.narrative_action || ''}`);
+                }
+            }
+            sceneSummaries = lines.join('\n');
+        }
+
+        console.log(`Generating Stage 7 Style for project ${projectId} (mode: ${mode || 'chat'})...`);
+        const { result: styleContent, usage } = await generateStyleFile({
+            description: description || '',
+            formData,
+            sampleTexts,
+            sceneSummaries,
+            conversationHistory
+        }, getModelConfig(7));
+
+        // Parse the generated style to extract metadata
+        const { meta } = parseStyleFile(styleContent);
+        const slug = (meta.name || formData?.name || 'custom-style')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+        // Save style file
+        await fs.writeFile(path.join(STYLES_DIR, `${slug}.md`), styleContent);
+
+        // Update project
+        projectData.data = projectData.data || {};
+        projectData.data.stage7_style = slug;
+        stampGenerated(projectData, 'stage7_style');
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        trackUsage(projectId, usage);
+
+        res.json({ slug, content: styleContent, meta });
+    } catch (error) {
+        console.error('generate-stage7-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Preview a scene drafted in a specific style
+app.post('/api/preview-style-scene', async (req, res) => {
+    try {
+        const { projectId, styleSlug, sceneIndex = 0 } = req.body;
+        if (!projectId || !styleSlug) return res.status(400).json({ error: 'Missing projectId or styleSlug' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        // Load style file
+        let styleContent;
+        try {
+            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
+        } catch {
+            return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+        }
+
+        // Get the target scene
+        const allScenes = [];
+        for (const seq of (projectData.data?.stage6_scenes || [])) {
+            if (seq.scenes) allScenes.push(...seq.scenes);
+        }
+        allScenes.sort((a, b) => a.scene_number - b.scene_number);
+        const scene = allScenes[sceneIndex] || allScenes[0];
+        if (!scene) return res.status(400).json({ error: 'No scenes found in project' });
+
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const projectContext = {
+            synopsis: pitch?.synopsis || '',
+            characters: projectData.data?.stage3_characters?.characters || []
+        };
+
+        // Use the Draft agent with style directives injected
+        const draftSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage8_draft.md'), 'utf8');
+        const prompt = `${draftSop}
+
+## STYLE DIRECTIVES
+Apply the following style to this scene:
+${styleContent}
+
+## PROJECT CONTEXT
+SYNOPSIS: ${projectContext.synopsis || 'Not provided'}
+CHARACTER PROFILES: ${JSON.stringify(projectContext.characters, null, 2)}
+
+## SCENE BLUEPRINT
+SCENE NUMBER: ${scene.scene_number}
+SLUGLINE: ${scene.scene_heading || scene.slugline || ''}
+NARRATIVE ACTION: ${scene.narrative_action || ''}
+DRAMATURGICAL FUNCTION: ${scene.dramaturgical_function || ''}
+
+## INSTRUCTIONS
+Write a preview draft of this scene using the style directives above.
+Output ONLY the raw Fountain-formatted text. No code blocks, no introductory text.`;
+
+        const { generateContent } = require('./agents/ai-client');
+        const mc = getModelConfig(7);
+        const response = await generateContent({
+            model: mc.model, geminiApiKey: mc.geminiApiKey, anthropicApiKey: mc.anthropicApiKey,
+            contents: prompt,
+            config: { temperature: 0.7 }
+        });
+
+        trackUsage(projectId, response.usage);
+        res.json({ sceneNumber: scene.scene_number, previewText: response.text });
+    } catch (error) {
+        console.error('preview-style-scene error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// List all available styles
+app.get('/api/styles', async (req, res) => {
+    try {
+        let files;
+        try { files = await fs.readdir(STYLES_DIR); } catch { files = []; }
+        const styles = [];
+        for (const file of files) {
+            if (!file.endsWith('.md')) continue;
+            const slug = file.replace(/\.md$/, '');
+            try {
+                const raw = await fs.readFile(path.join(STYLES_DIR, file), 'utf-8');
+                const { meta } = parseStyleFile(raw);
+                styles.push({ slug, name: meta.name || slug, tonal_summary: meta.tonal_summary || '', references: meta.references || [], created: meta.created || '' });
+            } catch {
+                styles.push({ slug, name: slug, tonal_summary: '', references: [], created: '' });
+            }
+        }
+        res.json({ styles });
+    } catch (error) {
+        console.error('list styles error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Select an existing style for a project
+app.post('/api/select-style', async (req, res) => {
+    try {
+        const { projectId, styleSlug } = req.body;
+        if (!projectId || !styleSlug) return res.status(400).json({ error: 'Missing projectId or styleSlug' });
+
+        // Verify style exists
+        try {
+            await fs.access(path.join(STYLES_DIR, `${styleSlug}.md`));
+        } catch {
+            return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+
+        projectData.data = projectData.data || {};
+        projectData.data.stage7_style = styleSlug;
+        stampGenerated(projectData, 'stage7_style');
+        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+
+        // Load and return the style content
+        const styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
+        const { meta } = parseStyleFile(styleContent);
+        res.json({ slug: styleSlug, content: styleContent, meta });
+    } catch (error) {
+        console.error('select-style error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1389,6 +1646,7 @@ app.post('/api/import-script', upload.single('scriptFile'), async (req, res) => 
             title,
             data: {
                 stage6_scenes: stage6Scenes,
+                stage7_style_skipped: true,
                 stage7_approved: true,
                 imported: true,
                 importedFrom: file.originalname || 'unknown'

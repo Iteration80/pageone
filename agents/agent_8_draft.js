@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Stage 7: The Draft Agent
+ * Stage 8: The Draft Agent
  * Generates one scene at a time based on the blueprint and project context.
  */
-const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null, modelConfig = {}) => {
+const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null, modelConfig = {}, styleContent = null) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
@@ -14,8 +14,12 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
     } = modelConfig;
 
     // Read the Screenwriting SOP rules
-    const rulesPath = path.join(__dirname, '../skills/skill_stage7_draft.md');
+    const rulesPath = path.join(__dirname, '../skills/skill_stage8_draft.md');
     const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
+
+    const styleSection = styleContent
+        ? `\n## STYLE DIRECTIVES\nThe following directives describe the writing style for this project.\nTreat them as primary craft instructions when making decisions about dialogue rhythm,\naction detail, tonal register, pacing, and voice.\n\n${styleContent}\n`
+        : '';
 
     const revisionSection = revisionNotes
         ? `\n## REVISION NOTES\nApply the following notes to the existing draft while preserving the core scene structure and blueprint:\n${revisionNotes}\n\n## EXISTING DRAFT\n${sceneData.draft_text || 'No existing draft.'}\n`
@@ -23,7 +27,7 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
 
     const prompt = `
 ${screenwritingRules}
-
+${styleSection}
 ## PROJECT CONTEXT
 SYNOPSIS:
 ${projectContext.synopsis || 'Not provided'}
@@ -56,7 +60,7 @@ Do not include any introductory or concluding text.
 
         return { result: response.text, usage: response.usage };
     } catch (error) {
-        console.error('Error in agent_7_draft:', error);
+        console.error('Error in agent_8_draft:', error);
         throw error;
     }
 };

@@ -14,7 +14,7 @@ const HUMANIZER_MODEL = 'gemini-3-flash-preview';
  * Raises perplexity and burstiness to reduce AI detection signals.
  * Does NOT change story beats, character decisions, or plot events.
  *
- * @param {string} draftText - Raw Fountain text from Stage 7
+ * @param {string} draftText - Raw Fountain text from Stage 8
  * @returns {Promise<string>} - Humanized Fountain text
  */
 const humanizeDraft = async (draftText) => {

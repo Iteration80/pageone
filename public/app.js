@@ -176,56 +176,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage6FileNameDisplay = document.getElementById('stage6FileNameDisplay');
 
 
-    // Stage 7 Elements
-    const stage7View = document.getElementById('stage7-view');
+    // Stage 8 Elements
+    const stage8View = document.getElementById('stage-8-view');
     const draftEditorMount = document.getElementById('draft-editor-mount');
-    let stage7Editor = null;
-    let stage7SaveTimer = null;
+    let stage8Editor = null;
+    let stage8SaveTimer = null;
 
-    function stage7FlushEditor() {
-        if (!stage7Editor || !stage7Editor.isDirty()) return;
+    function stage8FlushEditor() {
+        if (!stage8Editor || !stage8Editor.isDirty()) return;
         const scenes = getFlatScenes();
         const scene = scenes.find(s => s.scene_number === currentDraftSceneNumber);
         if (!scene) return;
-        const newText = stage7Editor.toFountain();
+        const newText = stage8Editor.toFountain();
         scene.draft_text = newText;
-        stage7Editor.markClean();
+        stage8Editor.markClean();
         // Persist to server (fire and forget)
         if (activeProjectId && window.currentProjectData?.stage6_scenes) {
             fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: { stage6_scenes: window.currentProjectData.stage6_scenes } })
-            }).catch(err => console.error('Stage 7 auto-save failed:', err));
+            }).catch(err => console.error('Stage 8 auto-save failed:', err));
         }
     }
 
-    function stage7LoadEditor(fountainText) {
+    function stage8LoadEditor(fountainText) {
         if (!draftEditorMount) return;
-        if (!stage7Editor) {
-            const toolbarSlot = document.getElementById('stage7-toolbar-slot');
-            stage7Editor = new FountainEditor(draftEditorMount, {
+        if (!stage8Editor) {
+            const toolbarSlot = document.getElementById('stage8-toolbar-slot');
+            stage8Editor = new FountainEditor(draftEditorMount, {
                 onDirty: () => {
-                    clearTimeout(stage7SaveTimer);
-                    stage7SaveTimer = setTimeout(stage7FlushEditor, 2000);
+                    clearTimeout(stage8SaveTimer);
+                    stage8SaveTimer = setTimeout(stage8FlushEditor, 2000);
                 },
                 externalToolbarSlot: toolbarSlot
             });
         }
-        stage7Editor.loadFountain(fountainText);
+        stage8Editor.loadFountain(fountainText);
     }
 
-    function stage7ShowPlaceholder(html) {
+    function stage8ShowPlaceholder(html) {
         if (!draftEditorMount) return;
-        if (stage7Editor) { stage7Editor.destroy(); stage7Editor = null; }
+        if (stage8Editor) { stage8Editor.destroy(); stage8Editor = null; }
         draftEditorMount.innerHTML = html;
     }
-    const btnStage7Submit = document.getElementById('btnStage7Submit');
-    const btnStage7Approve = document.getElementById('btnStage7Approve');
+    const btnStage8Submit = document.getElementById('btnStage8Submit');
+    const btnStage8Approve = document.getElementById('btnStage8Approve');
     const btnGenerateScene = document.getElementById('btnGenerateScene');
     const btnNextScene = document.getElementById('btnNextScene');
     const btnGenerateAll = document.getElementById('btnGenerateAll');
-    const stage7Notes = document.getElementById('stage7-notes');
+    const stage8Notes = document.getElementById('stage8-notes');
 
 
     // Textarea/Notes auto-resize listeners
@@ -487,8 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const data = await res.json();
             importModal?.classList.add('hidden');
-            // Open the project and navigate to Stage 8
-            window.importedProjectTarget = 8;
+            // Open the project and navigate to Stage 9 (Coverage)
+            window.importedProjectTarget = 9;
             window.location.hash = `project-${data.projectId}`;
         } catch (error) {
             importError.textContent = error.message;
@@ -513,9 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             resultsContainer.innerHTML = ''; // Start clean
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
-            for (let s = 1; s <= 7; s++) { if (stageChatWindows[s]) stageChatWindows[s].clear(); }
+            for (const w of Object.values(stageChatWindows)) { if (w) w.clear(); }
 
-            // Navigate to target stage (Stage 8 for imported projects, Stage 1 otherwise)
+            // Navigate to target stage (Stage 9 for imported projects, Stage 1 otherwise)
             const targetStage = window.importedProjectTarget || 1;
             window.importedProjectTarget = null;
             switchStage(targetStage);
@@ -648,10 +648,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Restore persisted chat conversations
+                // Data keys don't change — map old conversation keys to new UI stage numbers
                 const savedConvos = projectDetails.data.conversations || {};
-                for (let s = 1; s <= 7; s++) {
-                    if (savedConvos[`stage${s}`]?.length && stageChatWindows[s]) {
-                        stageChatWindows[s].restoreHistory(savedConvos[`stage${s}`]);
+                const CONVO_TO_CHAT = { stage1: 1, stage2: 2, stage3: 3, stage4: 4, stage5: 5, stage6: 6, stage7: 7, stage8: 8 };
+                for (const [key, chatIdx] of Object.entries(CONVO_TO_CHAT)) {
+                    if (savedConvos[key]?.length && stageChatWindows[chatIdx]) {
+                        stageChatWindows[chatIdx].restoreHistory(savedConvos[key]);
                     }
                 }
             } else {
@@ -1080,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const STAGE_DATA_KEYS = {
         1: 'stage1_pitch', 2: 'stage2_outline', 3: 'stage3_characters',
         4: 'stage4_beats', 5: 'stage5_treatment', 6: 'stage6_scenes',
-        7: 'stage7_approved', 8: 'stage8_coverage', 9: 'stage9_rewrites'
+        7: 'stage7_style', 8: 'stage7_approved', 9: 'stage8_coverage', 10: 'stage9_rewrites'
     };
 
     // Find the most recently revised upstream stage (for stale banner message)
@@ -1116,9 +1118,10 @@ document.addEventListener('DOMContentLoaded', () => {
             4: !!(data.stage4_beats || data.stage4_treatment),
             5: !!data.stage5_treatment,
             6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0)),
-            7: !!data.stage7_approved,
-            8: !!data.stage8_coverage,
-            9: !!data.stage9_rewrites?.approved
+            7: !!(data.stage7_style || data.stage7_style_skipped),
+            8: !!data.stage7_approved,
+            9: !!data.stage8_coverage,
+            10: !!data.stage9_rewrites?.approved
         };
 
         for (let i = 1; i <= 10; i++) {
@@ -1155,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage labels for user-facing messages
-    const STAGE_LABELS = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scenes', 7: 'Draft', 8: 'Coverage', 9: 'Rewrite' };
+    const STAGE_LABELS = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scenes', 7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite' };
 
     function switchStage(stageNum) {
         // Hide version history if open
@@ -1214,6 +1217,8 @@ document.addEventListener('DOMContentLoaded', () => {
             initStage8();
         } else if (stageNum === 9) {
             initStage9();
+        } else if (stageNum === 10) {
+            initStage10();
         }
     }
 
@@ -1260,7 +1265,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Draft', 8:'Coverage', 9:'Rewrite' };
+        const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Style', 8:'Draft', 9:'Coverage', 10:'Rewrite' };
         const grouped = {};
         history.forEach(v => {
             if (!grouped[v.stage]) grouped[v.stage] = [];
@@ -1371,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage6Approve) { btnStage6Approve.textContent = 'Approve'; btnStage6Approve.classList.remove('approve-btn-green'); btnStage6Approve.disabled = false; }
                 }
                 break;
-            // Stages 7-9: initStage7/8/9() called automatically by switchStage()
+            // Stages 8-10: initStage8/9/10() called automatically by switchStage()
         }
     }
 
@@ -2304,7 +2309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 3 Re-Generation Options Modal ---
     const stage3RegenModal = document.getElementById('stage3-regen-modal');
-    const btnRegenToStage9 = document.getElementById('btn-regen-to-stage9');
+    const btnRegenToStage10 = document.getElementById('btn-regen-to-stage9');
     const btnRegenSurgical = document.getElementById('btn-regen-surgical');
     const btnRegenFull = document.getElementById('btn-regen-full');
     const regenSurgicalDisabledMsg = document.getElementById('regen-surgical-disabled-msg');
@@ -2352,9 +2357,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!stage3RegenModal) return;
         const d = window.currentProjectData || {};
         const hasStage4 = !!d.stage4_beats;
-        const hasStage9 = !!d.stage9_rewrites;
-        // Show/hide Stage 9 button based on whether Stage 9 data exists
-        if (btnRegenToStage9) btnRegenToStage9.classList.toggle('hidden', !hasStage9);
+        const hasStage10 = !!d.stage9_rewrites;
+        // Show/hide Stage 10 button based on whether Stage 10 data exists
+        if (btnRegenToStage10) btnRegenToStage10.classList.toggle('hidden', !hasStage10);
         // Enable/disable surgical button
         if (btnRegenSurgical) btnRegenSurgical.disabled = !hasStage4;
         if (regenSurgicalDisabledMsg) regenSurgicalDisabledMsg.classList.toggle('hidden', hasStage4);
@@ -2371,11 +2376,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // "Send to Stage 9 Rewrite"
-    if (btnRegenToStage9) {
-        btnRegenToStage9.addEventListener('click', async () => {
+    // "Send to Stage 10 Rewrite"
+    if (btnRegenToStage10) {
+        btnRegenToStage10.addEventListener('click', async () => {
             closeStage3RegenModal();
-            // Store character change context for Stage 9 init
+            // Store character change context for Stage 10 init
             const changes = getCharacterDiffNotes();
             if (changes.length > 0) {
                 try {
@@ -2386,7 +2391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } catch (e) { console.error('Failed to save character change context:', e); }
             }
-            switchStage(9);
+            switchStage(10);
         });
     }
 
@@ -3746,13 +3751,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (isReApproval) {
-                    showGenericRegenModal('Scenes', 'Stage 7 Draft',
-                        () => { switchStage(7); initStage7(); },
-                        () => { switchStage(7); }
+                    showGenericRegenModal('Scenes', 'Stage 8 Draft',
+                        () => { switchStage(8); initStage8(); },
+                        () => { switchStage(8); }
                     );
                 } else {
-                    switchStage(7);
-                    initStage7();
+                    switchStage(8);
+                    initStage8();
                 }
 
             } catch (error) {
@@ -3764,12 +3769,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Stage 7 Logic: Draft ---
+    // --- Stage 8 Logic: Draft ---
 
     // Renders only the scene TOC sidebar, leaving the editor and buttons untouched.
-    // Called by both initStage7() and the batch generation loop.
-    function renderStage7Sidebar() {
-        const toc = document.getElementById('stage7-toc');
+    // Called by both initStage8() and the batch generation loop.
+    function renderStage8Sidebar() {
+        const toc = document.getElementById('stage8-toc');
         if (!toc) return;
 
         toc.innerHTML = '';
@@ -3809,10 +3814,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function initStage7() {
+    function initStage8() {
         if (!btnGenerateScene || !btnNextScene || !draftEditorMount) return;
 
-        renderStage7Sidebar();
+        renderStage8Sidebar();
 
         const scenes = getFlatScenes();
         const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
@@ -3826,10 +3831,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (currentSceneData && currentSceneData.draft_text) {
-            stage7LoadEditor(currentSceneData.draft_text);
+            stage8LoadEditor(currentSceneData.draft_text);
             btnNextScene.classList.remove('hidden');
         } else {
-            stage7ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Ready to generate Scene ${currentDraftSceneNumber}...</div>`);
+            stage8ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Ready to generate Scene ${currentDraftSceneNumber}...</div>`);
             btnNextScene.classList.add('hidden');
         }
     }
@@ -3860,7 +3865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json().catch(() => ({ result: '' }));
                 const draftText = data.result;
 
-                stage7LoadEditor(draftText);
+                stage8LoadEditor(draftText);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
@@ -3870,7 +3875,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnNextScene) btnNextScene.classList.remove('hidden');
 
             } catch (error) {
-                console.error('Stage 7 draft generation failed:', error);
+                console.error('Stage 8 draft generation failed:', error);
                 alert(`Error: ${error.message}`);
             } finally {
                 btnGenerateScene.textContent = originalText;
@@ -3882,7 +3887,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnNextScene) {
         btnNextScene.addEventListener('click', async () => {
             // Flush any manual edits before locking
-            stage7FlushEditor();
+            stage8FlushEditor();
             // Mark the current scene as locked and persist before advancing
             const scenes = getFlatScenes();
             const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
@@ -3905,22 +3910,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             currentDraftSceneNumber++;
-            initStage7();
+            initStage8();
         });
     }
 
-    if (btnStage7Submit) {
-        btnStage7Submit.addEventListener('click', async () => {
+    if (btnStage8Submit) {
+        btnStage8Submit.addEventListener('click', async () => {
             if (!activeProjectId) return;
-            const feedback = stage7Notes?.value.trim();
+            const feedback = stage8Notes?.value.trim();
             if (!feedback) {
                 alert("Please enter revision notes in the feedback box before submitting.");
                 return;
             }
 
-            const originalText = btnStage7Submit.textContent;
-            btnStage7Submit.disabled = true;
-            btnStage7Submit.textContent = 'Revising...';
+            const originalText = btnStage8Submit.textContent;
+            btnStage8Submit.disabled = true;
+            btnStage8Submit.textContent = 'Revising...';
 
             try {
                 const response = await fetch('/api/revise-draft', {
@@ -3940,7 +3945,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
 
-                stage7LoadEditor(data.result);
+                stage8LoadEditor(data.result);
 
                 // Sync local project data
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -3948,39 +3953,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.currentProjectData = projData.data;
 
                 // Clear feedback notes
-                if (stage7Notes) {
-                    stage7Notes.value = '';
-                    stage7Notes.style.height = 'auto';
+                if (stage8Notes) {
+                    stage8Notes.value = '';
+                    stage8Notes.style.height = 'auto';
                 }
 
                 // Show "Next" button since we now have a draft
                 if (btnNextScene) btnNextScene.classList.remove('hidden');
 
-                btnStage7Submit.textContent = 'Revised ✓';
+                btnStage8Submit.textContent = 'Revised ✓';
                 setTimeout(() => {
-                    btnStage7Submit.textContent = originalText;
-                    btnStage7Submit.disabled = false;
+                    btnStage8Submit.textContent = originalText;
+                    btnStage8Submit.disabled = false;
                 }, 2000);
 
             } catch (error) {
-                console.error('Stage 7 revision failed:', error);
+                console.error('Stage 8 revision failed:', error);
                 alert(`Error: ${error.message}`);
-                btnStage7Submit.textContent = originalText;
-                btnStage7Submit.disabled = false;
+                btnStage8Submit.textContent = originalText;
+                btnStage8Submit.disabled = false;
             }
         });
     }
 
-    if (btnStage7Approve) {
-        btnStage7Approve.addEventListener('click', async () => {
+    if (btnStage8Approve) {
+        btnStage8Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
-            stage7FlushEditor(); // Save any pending manual edits
+            stage8FlushEditor(); // Save any pending manual edits
 
-            const originalText = btnStage7Approve.textContent;
-            btnStage7Approve.disabled = true;
-            btnStage7Approve.textContent = 'Saving...';
+            const originalText = btnStage8Approve.textContent;
+            btnStage8Approve.disabled = true;
+            btnStage8Approve.textContent = 'Saving...';
 
-            const versionHistory7 = captureVersionSnapshot(7, 'stage7_approved', 'Draft', true);
+            const versionHistory7 = captureVersionSnapshot(8, 'stage7_approved', 'Draft', true);
 
             try {
                 const response = await fetch(`/api/projects/${activeProjectId}`, {
@@ -3994,20 +3999,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const updatedProject = await response.json();
                 updateStageNav(updatedProject.data);
 
-                btnStage7Approve.textContent = 'Approved ✓';
-                btnStage7Approve.classList.add('approve-btn-green');
+                btnStage8Approve.textContent = 'Approved ✓';
+                btnStage8Approve.classList.add('approve-btn-green');
 
-                // Clear stale coverage so Stage 8 re-generates
+                // Clear stale coverage so Stage 9 re-generates
                 if (window.currentProjectData) delete window.currentProjectData.stage8_coverage;
 
-                // Advance to Stage 8
-                switchStage(8);
+                // Advance to Stage 9
+                switchStage(9);
 
             } catch (error) {
-                console.error('Stage 7 approval failed:', error);
+                console.error('Stage 8 approval failed:', error);
                 alert('An error occurred while saving.');
-                btnStage7Approve.textContent = originalText;
-                btnStage7Approve.disabled = false;
+                btnStage8Approve.textContent = originalText;
+                btnStage8Approve.disabled = false;
             }
         });
     }
@@ -4049,8 +4054,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentDraftSceneNumber = scene.scene_number;
                 btnGenerateAll.textContent = `✕ Cancel  (${completed}/${total})`;
 
-                stage7ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Generating Scene ${scene.scene_number} of ${getFlatScenes().length}...</div>`);
-                renderStage7Sidebar();
+                stage8ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Generating Scene ${scene.scene_number} of ${getFlatScenes().length}...</div>`);
+                renderStage8Sidebar();
 
                 try {
                     const response = await fetch('/api/generate-draft', {
@@ -4066,14 +4071,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const data = await response.json();
 
-                    stage7LoadEditor(data.result);
+                    stage8LoadEditor(data.result);
 
                     // Sync local project data so getFlatScenes() reflects the new draft_text
                     const projRes = await fetch(`/api/projects/${activeProjectId}`);
                     const projData = await projRes.json();
                     window.currentProjectData = projData.data;
 
-                    renderStage7Sidebar();
+                    renderStage8Sidebar();
                     completed++;
 
                 } catch (error) {
@@ -4089,7 +4094,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Finished or cancelled — restore UI
             isBatchGenerating = false;
             btnGenerateAll.textContent = 'Generate All Scenes';
-            initStage7(); // Full re-render to restore button states
+            initStage8(); // Full re-render to restore button states
         });
     }
 
@@ -4208,19 +4213,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Expose selectDraftScene on window from inside the closure so it has access
-    // to currentDraftSceneNumber and initStage7 (both defined in this scope).
+    // to currentDraftSceneNumber and initStage8 (both defined in this scope).
     window.selectDraftScene = function(sceneNumber) {
         // Flush any unsaved edits from the current scene before switching
-        stage7FlushEditor();
+        stage8FlushEditor();
         currentDraftSceneNumber = sceneNumber;
-        initStage7();
+        initStage8();
     };
 
-    // --- Stage 8: Coverage ---
+    // --- Stage 9: Coverage ---
 
-    async function initStage8() {
-        const loadingDiv  = document.getElementById('stage8-loading');
-        const reportDiv   = document.getElementById('stage8-report');
+    async function initStage9() {
+        const loadingDiv  = document.getElementById('stage9-loading');
+        const reportDiv   = document.getElementById('stage9-report');
         const coverageData = window.currentProjectData?.stage8_coverage;
 
         if (coverageData) {
@@ -4231,8 +4236,8 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingDiv?.classList.remove('hidden');
             reportDiv?.classList.add('hidden');
             try {
-                const coverageSource = window.coverageSourceStage9 ? 'stage9' : 'stage6';
-                window.coverageSourceStage9 = false;
+                const coverageSource = window.coverageSourceStage10 ? 'stage9' : 'stage6';
+                window.coverageSourceStage10 = false;
                 const response = await fetch('/api/generate-coverage', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4248,7 +4253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projData = await projRes.json();
                 window.currentProjectData = projData.data;
 
-                const versionHistory8 = captureVersionSnapshot(8, 'stage8_coverage', 'Coverage', data.result);
+                const versionHistory8 = captureVersionSnapshot(9, 'stage8_coverage', 'Coverage', data.result);
                 await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -4264,19 +4269,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Coverage generation failed:', error);
                 loadingDiv?.classList.add('hidden');
                 reportDiv?.classList.remove('hidden');
-                const container = document.getElementById('stage8-content');
+                const container = document.getElementById('stage9-content');
                 if (container) {
                     container.innerHTML = `
                         <div class="text-center mt-24">
                             <p class="text-red-400 text-sm mb-4">Failed to generate coverage: ${error.message}</p>
-                            <button onclick="window.retryStage8Coverage()" class="primary-btn">Try Again</button>
+                            <button onclick="window.retryStage9Coverage()" class="primary-btn">Try Again</button>
                         </div>`;
                 }
             }
         }
 
         // Wire up Begin Rewrite button
-        const btnApprove = document.getElementById('btnStage8Approve');
+        const btnApprove = document.getElementById('btnStage9Approve');
         if (btnApprove) {
             btnApprove.onclick = async () => {
                 try {
@@ -4297,11 +4302,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnApprove.textContent = 'Rewrite Started ✓';
                     btnApprove.classList.add('approve-btn-green');
                     btnApprove.disabled = true;
-                    // Always restart Stage 9 from P1 when entering from Begin Rewrite
-                    window.stage9ResetOnInit = true;
-                    switchStage(9);
+                    // Always restart Stage 10 from P1 when entering from Begin Rewrite
+                    window.stage10ResetOnInit = true;
+                    switchStage(10);
                 } catch (err) {
-                    console.error('Stage 8 approval failed:', err);
+                    console.error('Stage 9 approval failed:', err);
                     alert('An error occurred. Please try again.');
                 }
             };
@@ -4325,7 +4330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCoverageReport(data) {
-        const container = document.getElementById('stage8-content');
+        const container = document.getElementById('stage9-content');
         if (!container || !data) return;
 
         // Support both new (macro_todo/micro_todo) and legacy (priority_todo) schemas
@@ -4431,7 +4436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Macro To-Do</h3>
                     <span class="text-xs text-gray-500">Structural · Plot · Character · Pacing</span>
                 </div>
-                <div id="stage8-macro-todo-list" class="space-y-2"></div>
+                <div id="stage9-macro-todo-list" class="space-y-2"></div>
             </div>
 
             <div class="p-6 rounded-lg bg-white/5 border border-white/10">
@@ -4439,7 +4444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase">Micro To-Do</h3>
                     <span class="text-xs text-gray-500">Scene · Dialogue · Polish</span>
                 </div>
-                <div id="stage8-micro-todo-list" class="space-y-2"></div>
+                <div id="stage9-micro-todo-list" class="space-y-2"></div>
             </div>
 
             <div class="p-6 rounded-lg bg-white/5 border border-white/10">
@@ -4455,7 +4460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderTodoList(items, list) {
-        const containerId = list === 'micro' ? 'stage8-micro-todo-list' : 'stage8-macro-todo-list';
+        const containerId = list === 'micro' ? 'stage9-micro-todo-list' : 'stage9-macro-todo-list';
         const container = document.getElementById(containerId);
         if (!container) return;
         if (!items || items.length === 0) {
@@ -4525,8 +4530,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTodoList(arr, list);
     };
 
-    window.retryStage8Coverage = function() {
-        initStage8();
+    window.retryStage9Coverage = function() {
+        initStage9();
     };
 
     // ─── REUSABLE CHAT WINDOW ────────────────────────────────────────────────
@@ -4722,7 +4727,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision }) {
+    function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
         // Guard: skip silently if any required element is missing
         if (!document.getElementById(sendBtnId) || !document.getElementById(inputId) || !document.getElementById(threadId)) {
             console.warn(`initStageChat: missing element(s) for stage ${stageId}`);
@@ -4732,7 +4737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let pendingNotes = '';
         const chat = new ChatWindow({
             threadId, inputId, sendBtnId,
-            attachInputId: `stage${stageId}-chat-attach`,
+            attachInputId: explicitAttachId || `stage${stageId}-chat-attach`,
             onSend: async (_text, history, attachment) => {
                 const showWorking = () => {
                     const el = document.createElement('div');
@@ -4956,12 +4961,325 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Stage 7
+    // ─── STAGE 7: STYLE ───────────────────────────────────────────────────────
+
+    // Stage 7 chat
     stageChatWindows[7] = initStageChat({
         stageId: 7,
         threadId: 'stage7-chat-thread',
         inputId: 'stage7-chat-input',
         sendBtnId: 'stage7-chat-send',
+        attachInputId: 'stage7-chat-attach',
+        executeRevision: async (notes) => {
+            // "Execute" from chat means "generate style from this conversation"
+            await stage7GenerateFromChat(notes);
+        }
+    });
+
+    let stage7CurrentStyle = null; // { slug, content, meta }
+
+    function initStage7() {
+        const data = window.currentProjectData || {};
+        const styleCard = document.getElementById('stage7-style-card');
+        const importNotice = document.getElementById('stage7-import-notice');
+        const btnApprove = document.getElementById('btnStage7Approve');
+
+        // Show import notice if applicable
+        if (data.imported && data.stage7_style_skipped && !data.stage7_style) {
+            importNotice?.classList.remove('hidden');
+        } else {
+            importNotice?.classList.add('hidden');
+        }
+
+        // If style already exists, load and show it
+        if (data.stage7_style) {
+            stage7LoadExistingStyle(data.stage7_style);
+        } else {
+            styleCard?.classList.add('hidden');
+            if (btnApprove) btnApprove.disabled = true;
+        }
+    }
+
+    async function stage7LoadExistingStyle(slug) {
+        try {
+            const res = await fetch('/api/select-style', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, styleSlug: slug })
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            stage7DisplayStyle(data);
+        } catch (err) {
+            console.error('Failed to load existing style:', err);
+        }
+    }
+
+    function stage7DisplayStyle(styleData) {
+        stage7CurrentStyle = styleData;
+        const card = document.getElementById('stage7-style-card');
+        const nameEl = document.getElementById('stage7-style-name');
+        const tonalEl = document.getElementById('stage7-style-tonal');
+        const refsEl = document.getElementById('stage7-style-refs');
+        const bodyEl = document.getElementById('stage7-style-body');
+        const btnApprove = document.getElementById('btnStage7Approve');
+
+        if (!card) return;
+
+        nameEl.textContent = styleData.meta?.name || styleData.slug || 'Custom Style';
+        tonalEl.textContent = styleData.meta?.tonal_summary || '';
+        const refs = styleData.meta?.references;
+        refsEl.textContent = refs?.length ? `References: ${Array.isArray(refs) ? refs.join(', ') : refs}` : '';
+
+        // Show the body content without YAML front matter
+        let body = styleData.content || '';
+        const fmEnd = body.indexOf('---', body.indexOf('---') + 3);
+        if (fmEnd > 0) body = body.slice(fmEnd + 3).trim();
+        bodyEl.textContent = body;
+
+        card.classList.remove('hidden');
+        document.getElementById('stage7-loading')?.classList.add('hidden');
+        if (btnApprove) {
+            btnApprove.disabled = false;
+            // If already approved, show green state
+            if (window.currentProjectData?.stage7_style) {
+                btnApprove.textContent = 'Approved ✓';
+                btnApprove.classList.add('approve-btn-green');
+            }
+        }
+    }
+
+    async function stage7GenerateFromChat(description) {
+        const loadingEl = document.getElementById('stage7-loading');
+        const loadingText = document.getElementById('stage7-loading-text');
+        if (loadingEl) { loadingEl.classList.remove('hidden'); }
+        if (loadingText) loadingText.textContent = 'Generating style...';
+
+        try {
+            const chat = stageChatWindows[7];
+            const history = chat ? chat.history || [] : [];
+            const res = await fetch('/api/generate-stage7-style', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    mode: 'chat',
+                    description: description || '',
+                    conversationHistory: history
+                })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Generation failed');
+            }
+            const data = await res.json();
+            stage7DisplayStyle(data);
+            if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
+            updateStageNav(window.currentProjectData);
+        } catch (err) {
+            console.error('Style generation error:', err);
+            if (loadingEl) loadingEl.classList.add('hidden');
+            alert('Style generation failed: ' + err.message);
+        }
+    }
+
+    async function stage7GenerateFromForm() {
+        const name = document.getElementById('stage7-qs-name')?.value?.trim() || '';
+        const references = document.getElementById('stage7-qs-references')?.value?.trim() || '';
+        const files = document.getElementById('stage7-qs-files')?.files;
+
+        // Gather selected pills
+        const characteristics = [];
+        document.querySelectorAll('#stage7-qs-pills .style-pill.active').forEach(el => {
+            characteristics.push(el.dataset.val);
+        });
+
+        // Gather slider values
+        const sliders = {
+            warmth: document.getElementById('stage7-qs-slider-warmth')?.value || 50,
+            intensity: document.getElementById('stage7-qs-slider-intensity')?.value || 50,
+            realism: document.getElementById('stage7-qs-slider-realism')?.value || 50
+        };
+
+        // Close modal
+        document.getElementById('stage7-quickstart-modal')?.classList.add('hidden');
+
+        const loadingEl = document.getElementById('stage7-loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+
+        try {
+            const formDataObj = new FormData();
+            formDataObj.append('projectId', activeProjectId);
+            formDataObj.append('mode', 'form');
+            formDataObj.append('formData', JSON.stringify({ name, references: references ? references.split(',').map(r => r.trim()) : [], characteristics, sliders }));
+            if (files) {
+                for (const f of files) formDataObj.append('sampleFiles', f);
+            }
+
+            const res = await fetch('/api/generate-stage7-style', {
+                method: 'POST',
+                body: formDataObj
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Generation failed');
+            }
+            const data = await res.json();
+            stage7DisplayStyle(data);
+            if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
+            updateStageNav(window.currentProjectData);
+        } catch (err) {
+            console.error('Form style generation error:', err);
+            if (loadingEl) loadingEl.classList.add('hidden');
+            alert('Style generation failed: ' + err.message);
+        }
+    }
+
+    async function stage7PreviewScene() {
+        if (!stage7CurrentStyle?.slug) return;
+        const previewPanel = document.getElementById('stage7-preview-panel');
+        const previewText = document.getElementById('stage7-preview-text');
+        const loadingEl = document.getElementById('stage7-loading');
+
+        if (loadingEl) { loadingEl.classList.remove('hidden'); }
+        document.getElementById('stage7-loading-text').textContent = 'Drafting preview scene...';
+
+        try {
+            const res = await fetch('/api/preview-style-scene', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, styleSlug: stage7CurrentStyle.slug, sceneIndex: 0 })
+            });
+            if (!res.ok) throw new Error('Preview failed');
+            const data = await res.json();
+            previewText.textContent = data.previewText;
+            previewPanel.classList.remove('hidden');
+        } catch (err) {
+            console.error('Preview error:', err);
+            alert('Preview failed: ' + err.message);
+        } finally {
+            if (loadingEl) loadingEl.classList.add('hidden');
+        }
+    }
+
+    async function stage7ApproveStyle() {
+        if (!stage7CurrentStyle?.slug || !activeProjectId) return;
+        const btnApprove = document.getElementById('btnStage7Approve');
+
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage7_style: stage7CurrentStyle.slug } })
+            });
+            if (!res.ok) throw new Error('Approve failed');
+            const updated = await res.json();
+            window.currentProjectData = updated.data;
+            updateStageNav(updated.data);
+
+            if (btnApprove) {
+                btnApprove.textContent = 'Approved ✓';
+                btnApprove.classList.add('approve-btn-green');
+                btnApprove.disabled = true;
+            }
+        } catch (err) {
+            console.error('Approve error:', err);
+            alert('Failed to approve style: ' + err.message);
+        }
+    }
+
+    async function stage7LoadMyStyles() {
+        const list = document.getElementById('stage7-mystyles-list');
+        if (!list) return;
+        list.innerHTML = '<p style="color:#6b7280;font-size:0.85rem">Loading...</p>';
+
+        try {
+            const res = await fetch('/api/styles');
+            const data = await res.json();
+            if (!data.styles?.length) {
+                list.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;font-style:italic">No saved styles yet. Create one using the chat or Quick Start form.</p>';
+                return;
+            }
+            list.innerHTML = '';
+            for (const style of data.styles) {
+                const item = document.createElement('div');
+                item.className = 'style-list-item';
+                item.innerHTML = `
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:600;color:#e5e7eb;font-size:0.9rem">${style.name}</div>
+                        <div style="font-size:0.8rem;color:#6b7280">${style.tonal_summary || ''}${style.references?.length ? ' — ' + (Array.isArray(style.references) ? style.references.join(', ') : style.references) : ''}</div>
+                    </div>
+                    <button class="primary-btn" style="font-size:0.75rem;padding:4px 12px;white-space:nowrap">Use This</button>
+                `;
+                item.querySelector('button').addEventListener('click', async () => {
+                    document.getElementById('stage7-mystyles-modal')?.classList.add('hidden');
+                    const loadingEl = document.getElementById('stage7-loading');
+                    if (loadingEl) loadingEl.classList.remove('hidden');
+                    try {
+                        const selectRes = await fetch('/api/select-style', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, styleSlug: style.slug })
+                        });
+                        if (!selectRes.ok) throw new Error('Select failed');
+                        const selectData = await selectRes.json();
+                        stage7DisplayStyle(selectData);
+                        if (window.currentProjectData) window.currentProjectData.stage7_style = selectData.slug;
+                        updateStageNav(window.currentProjectData);
+                    } catch (err) {
+                        console.error('Select style error:', err);
+                        if (loadingEl) loadingEl.classList.add('hidden');
+                        alert('Failed to select style: ' + err.message);
+                    }
+                });
+                list.appendChild(item);
+            }
+        } catch (err) {
+            console.error('Load styles error:', err);
+            list.innerHTML = '<p style="color:#ef4444;font-size:0.85rem">Failed to load styles.</p>';
+        }
+    }
+
+    // Stage 7 event listeners
+    document.getElementById('btnStage7QuickStart')?.addEventListener('click', () => {
+        document.getElementById('stage7-quickstart-modal')?.classList.remove('hidden');
+    });
+    document.getElementById('btnStage7QsCancel')?.addEventListener('click', () => {
+        document.getElementById('stage7-quickstart-modal')?.classList.add('hidden');
+    });
+    document.getElementById('btnStage7QsGenerate')?.addEventListener('click', () => stage7GenerateFromForm());
+    document.getElementById('btnStage7MyStyles')?.addEventListener('click', () => {
+        document.getElementById('stage7-mystyles-modal')?.classList.remove('hidden');
+        stage7LoadMyStyles();
+    });
+    document.getElementById('btnStage7MyStylesClose')?.addEventListener('click', () => {
+        document.getElementById('stage7-mystyles-modal')?.classList.add('hidden');
+    });
+    document.getElementById('btnStage7Approve')?.addEventListener('click', () => stage7ApproveStyle());
+    document.getElementById('btnStage7Preview')?.addEventListener('click', () => stage7PreviewScene());
+    document.getElementById('btnStage7Regenerate')?.addEventListener('click', () => {
+        document.getElementById('stage7-style-card')?.classList.add('hidden');
+        document.getElementById('btnStage7Approve').disabled = true;
+        document.getElementById('btnStage7Approve').textContent = 'Approve →';
+        document.getElementById('btnStage7Approve').classList.remove('approve-btn-green');
+        stage7CurrentStyle = null;
+    });
+    document.getElementById('btnStage7ClosePreview')?.addEventListener('click', () => {
+        document.getElementById('stage7-preview-panel')?.classList.add('hidden');
+    });
+
+    // Quick Start pill toggle
+    document.querySelectorAll('#stage7-qs-pills .style-pill').forEach(pill => {
+        pill.addEventListener('click', () => pill.classList.toggle('active'));
+    });
+
+    // Stage 8 (Draft)
+    stageChatWindows[8] = initStageChat({
+        stageId: 8,
+        threadId: 'stage8-chat-thread',
+        inputId: 'stage8-chat-input',
+        sendBtnId: 'stage8-chat-send',
+        attachInputId: 'stage8-chat-attach',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
             const res = await fetch('/api/revise-draft', {
@@ -4971,7 +5289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
-            stage7LoadEditor(data.result);
+            stage8LoadEditor(data.result);
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
             window.currentProjectData = projData.data;
@@ -4979,8 +5297,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ─── STAGE CHAT RESIZERS (Stages 1–7) ───────────────────────────────────
-    for (let s = 1; s <= 7; s++) {
+    // ─── STAGE CHAT RESIZERS (Stages 1–6, 8) ──────────────────────────────────
+    for (const s of [1, 2, 3, 4, 5, 6, 8]) {
         const hsplit = document.getElementById(`stage${s}-hsplit`);
         const chatEl = document.getElementById(`stage${s}-chat`);
         if (!hsplit || !chatEl) continue;
@@ -5089,13 +5407,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }).filter(Boolean).join('\n\n---\n\n');
         }
 
-        // Stage 7 — approval flag
-        if (stage === 7) {
-            return '(Stage 7 approval marker — the full draft text is stored in the Stage 6 scenes snapshot.)';
+        // Stage 8 (Draft) — approval flag
+        if (stage === 8 || stage === 7) {
+            return '(Stage 8 approval marker — the full draft text is stored in the Stage 6 scenes snapshot.)';
         }
 
-        // Stage 8 — Coverage
-        if (stage === 8 && snap.evaluation_grid) {
+        // Stage 9 (Coverage)
+        if ((stage === 9 || stage === 8) && snap.evaluation_grid) {
             let out = '';
             if (snap.title) out += `TITLE: ${snap.title}\n`;
             if (snap.genre) out += `GENRE: ${snap.genre}\n`;
@@ -5215,14 +5533,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // ─── STAGE 9 LOOPBACK MODAL ──────────────────────────────────────────────
+    // ─── STAGE 10 LOOPBACK MODAL ─────────────────────────────────────────────
 
-    const stage9LoopbackModal = document.getElementById('stage9-loopback-modal');
+    const stage10LoopbackModal = document.getElementById('stage10-loopback-modal');
     const btnLoopbackCoverage = document.getElementById('btn-loopback-coverage');
-    const btnLoopbackPolish   = document.getElementById('btn-loopback-polish');
+    const btnLoopbackExport   = document.getElementById('btn-loopback-export');
 
-    function setStage9ApproveConfirmed() {
-        const btn = document.getElementById('btnStage9Approve');
+    function setStage10ApproveConfirmed() {
+        const btn = document.getElementById('btnStage10Approve');
         if (btn) {
             btn.textContent = 'Approved ✓';
             btn.classList.add('approve-btn-green');
@@ -5230,22 +5548,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (btnLoopbackPolish) {
-        btnLoopbackPolish.addEventListener('click', () => {
-            stage9LoopbackModal?.classList.add('hidden');
-            setStage9ApproveConfirmed();
-            switchStage(10);
+    if (btnLoopbackExport) {
+        btnLoopbackExport.addEventListener('click', () => {
+            stage10LoopbackModal?.classList.add('hidden');
+            setStage10ApproveConfirmed();
+            // Trigger fountain download from the Rewrite stage
+            document.getElementById('btnDownloadRewriteFountain')?.click();
         });
     }
 
     if (btnLoopbackCoverage) {
         btnLoopbackCoverage.addEventListener('click', async () => {
-            stage9LoopbackModal?.classList.add('hidden');
-            setStage9ApproveConfirmed();
+            stage10LoopbackModal?.classList.add('hidden');
+            setStage10ApproveConfirmed();
 
             // Snapshot existing coverage before overwriting (if it exists)
             if (window.currentProjectData?.stage8_coverage) {
-                const vhCov = captureVersionSnapshot(8, 'stage8_coverage', 'Coverage', window.currentProjectData.stage8_coverage);
+                const vhCov = captureVersionSnapshot(9, 'stage8_coverage', 'Coverage', window.currentProjectData.stage8_coverage);
                 await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -5253,7 +5572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Clear coverage so initStage8() regenerates it from Stage 9 working copy
+            // Clear coverage so initStage9() regenerates it from Stage 10 working copy
             await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -5264,23 +5583,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.currentProjectData.stage8_approved = false;
             }
 
-            // Re-run coverage on the Stage 9 rewritten draft
-            window.coverageSourceStage9 = true;
-            switchStage(8);
+            // Re-run coverage on the Stage 10 rewritten draft
+            window.coverageSourceStage10 = true;
+            switchStage(9);
         });
     }
 
-    // ─── STAGE 9: REWRITE ────────────────────────────────────────────────────
+    // ─── STAGE 10: REWRITE ───────────────────────────────────────────────────
 
     // State
-    let stage9State   = null;   // { working, priority_idx, macro_todo, micro_todo }
-    let stage9Pending = {};     // { scene_number: proposed_text } — not yet approved
-    let stage9CurrentScene = null;  // currently selected scene_number
-    let stage9ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
-    let stage9Chat = null;      // ChatWindow instance
-    let stage9ExecutingPlan = false; // guard against double-click on Execute Plan
+    let stage10State   = null;   // { working, priority_idx, macro_todo, micro_todo }
+    let stage10Pending = {};     // { scene_number: proposed_text } — not yet approved
+    let stage10CurrentScene = null;  // currently selected scene_number
+    let stage10ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
+    let stage10Chat = null;      // ChatWindow instance
+    let stage10ExecutingPlan = false; // guard against double-click on Execute Plan
 
-    function stage9RenderPlanCard(plan) {
+    function stage10RenderPlanCard(plan) {
         const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const scenes = (plan.affected_scenes || []).map(s => `
             <div class="chat-plan-scene">
@@ -5295,17 +5614,17 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }
 
-    let stage9GeneratingPlan = false;
+    let stage10GeneratingPlan = false;
 
-    async function stage9GeneratePlan() {
-        if (!stage9Chat || stage9GeneratingPlan || window.stage9CurrentPlan) return;
-        stage9GeneratingPlan = true;
-        const priorities = stage9GetPriorityList();
-        const task = priorities[stage9State.priority_idx]?.task;
-        if (!task) { stage9Chat.append('system', 'No active priority task.'); stage9GeneratingPlan = false; return; }
-        stage9Chat.append('system', 'Generating rewrite plan...');
-        stage9Chat.setThinking(true);
-        const conversationContext = stage9Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
+    async function stage10GeneratePlan() {
+        if (!stage10Chat || stage10GeneratingPlan || window.stage10CurrentPlan) return;
+        stage10GeneratingPlan = true;
+        const priorities = stage10GetPriorityList();
+        const task = priorities[stage10State.priority_idx]?.task;
+        if (!task) { stage10Chat.append('system', 'No active priority task.'); stage10GeneratingPlan = false; return; }
+        stage10Chat.append('system', 'Generating rewrite plan...');
+        stage10Chat.setThinking(true);
+        const conversationContext = stage10Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
         try {
             const res = await fetch('/api/plan-rewrite', {
                 method: 'POST',
@@ -5314,37 +5633,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error);
             const plan = await res.json();
-            window.stage9CurrentPlan = plan;
-            stage9Chat.append('ai', '', { html: stage9RenderPlanCard(plan) });
-            document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage9ExecutePlan(plan));
+            window.stage10CurrentPlan = plan;
+            stage10Chat.append('ai', '', { html: stage10RenderPlanCard(plan) });
+            document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage10ExecutePlan(plan));
         } catch (err) {
-            stage9Chat.append('system', 'Planning failed: ' + err.message);
+            stage10Chat.append('system', 'Planning failed: ' + err.message);
         } finally {
-            stage9Chat.setThinking(false);
-            stage9GeneratingPlan = false;
+            stage10Chat.setThinking(false);
+            stage10GeneratingPlan = false;
         }
     }
 
-    async function stage9ExecutePlan(plan) {
-        if (!plan || stage9ExecutingPlan) return;
-        stage9ExecutingPlan = true;
+    async function stage10ExecutePlan(plan) {
+        if (!plan || stage10ExecutingPlan) return;
+        stage10ExecutingPlan = true;
 
-        const priorities = stage9GetPriorityList();
-        const task = priorities[stage9State.priority_idx]?.task || '';
+        const priorities = stage10GetPriorityList();
+        const task = priorities[stage10State.priority_idx]?.task || '';
         const scenes = plan.affected_scenes || [];
 
-        const loadingOverlay = document.getElementById('stage9-rewrite-loading');
-        const rightView = document.getElementById('stage9-right-panel-view');
+        const loadingOverlay = document.getElementById('stage10-rewrite-loading');
+        const rightView = document.getElementById('stage10-right-panel-view');
         loadingOverlay?.classList.remove('hidden');
         loadingOverlay?.classList.add('flex');
         if (rightView) rightView.classList.add('hidden');
-        if (stage9Chat) stage9Chat.setDisabled(true);
-        if (stage9Chat) stage9Chat.setThinking(true);
+        if (stage10Chat) stage10Chat.setDisabled(true);
+        if (stage10Chat) stage10Chat.setThinking(true);
 
         try {
             for (let i = 0; i < scenes.length; i++) {
                 const s = scenes[i];
-                if (stage9Chat) stage9Chat.append('system', `Rewriting scene ${s.scene_number} (${i + 1}/${scenes.length})...`);
+                if (stage10Chat) stage10Chat.append('system', `Rewriting scene ${s.scene_number} (${i + 1}/${scenes.length})...`);
 
                 const res = await fetch('/api/rewrite-single-scene', {
                     method: 'POST',
@@ -5358,70 +5677,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (!res.ok) {
                     const err = await res.json();
-                    if (stage9Chat) stage9Chat.append('system', `Scene ${s.scene_number} failed: ${err.error}`);
+                    if (stage10Chat) stage10Chat.append('system', `Scene ${s.scene_number} failed: ${err.error}`);
                     continue;
                 }
                 const data = await res.json();
                 if (data.modified) {
-                    stage9Pending[data.scene_number] = data.proposed_text;
-                    renderStage9SceneList();
+                    stage10Pending[data.scene_number] = data.proposed_text;
+                    renderStage10SceneList();
                 }
             }
 
-            resetStage9ApproveBtn();
-            window.stage9CurrentPlan = null;
+            resetStage10ApproveBtn();
+            window.stage10CurrentPlan = null;
 
-            const modCount = Object.keys(stage9Pending).length;
-            const firstModified = Object.keys(stage9Pending).map(Number)[0];
-            if (firstModified) stage9SelectScene(firstModified);
-            renderStage9SceneList();
+            const modCount = Object.keys(stage10Pending).length;
+            const firstModified = Object.keys(stage10Pending).map(Number)[0];
+            if (firstModified) stage10SelectScene(firstModified);
+            renderStage10SceneList();
 
-            if (stage9Chat) stage9Chat.append('ai', `Rewrites applied to ${modCount} scene(s). Review the diffs above — use the scene list on the right to jump between changed scenes.\n\nWhen you're happy with the changes, approve to move on to the next priority.`, {
-                actions: [{ label: 'Approve & Continue', onClick: stage9ApproveAndContinue }]
+            if (stage10Chat) stage10Chat.append('ai', `Rewrites applied to ${modCount} scene(s). Review the diffs above — use the scene list on the right to jump between changed scenes.\n\nWhen you're happy with the changes, approve to move on to the next priority.`, {
+                actions: [{ label: 'Approve & Continue', onClick: stage10ApproveAndContinue }]
             });
         } catch (err) {
             console.error('Execute plan failed:', err);
-            if (stage9Chat) stage9Chat.append('system', 'Rewrite failed: ' + err.message);
+            if (stage10Chat) stage10Chat.append('system', 'Rewrite failed: ' + err.message);
         } finally {
             loadingOverlay?.classList.add('hidden');
             loadingOverlay?.classList.remove('flex');
             if (rightView) rightView.classList.remove('hidden');
-            if (stage9Chat) stage9Chat.setThinking(false);
-            if (stage9Chat) stage9Chat.setDisabled(false);
-            stage9ExecutingPlan = false;
+            if (stage10Chat) stage10Chat.setThinking(false);
+            if (stage10Chat) stage10Chat.setDisabled(false);
+            stage10ExecutingPlan = false;
         }
     }
 
-    async function stage9ApproveAndContinue() {
-        stage9FlushEditPanel();
-        const newIdx = stage9State.priority_idx + 1;
+    async function stage10ApproveAndContinue() {
+        stage10FlushEditPanel();
+        const newIdx = stage10State.priority_idx + 1;
         try {
             await fetch('/api/approve-rewrite-priority', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: newIdx })
+                body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage10Pending, newPriorityIdx: newIdx })
             });
-            Object.assign(stage9State.working, stage9Pending);
-            Object.keys(stage9Pending).forEach(n => { stage9ApprovedScenes[parseInt(n)] = true; });
-            stage9Pending = {};
-            stage9State.priority_idx = newIdx;
-            window.stage9CurrentPlan = null;
+            Object.assign(stage10State.working, stage10Pending);
+            Object.keys(stage10Pending).forEach(n => { stage10ApprovedScenes[parseInt(n)] = true; });
+            stage10Pending = {};
+            stage10State.priority_idx = newIdx;
+            window.stage10CurrentPlan = null;
             if (window.currentProjectData?.stage9_rewrites) {
                 window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
             }
-            stage9DeselectScene();
+            stage10DeselectScene();
 
-            const priorities = stage9GetPriorityList();
+            const priorities = stage10GetPriorityList();
             if (newIdx >= priorities.length) {
                 // All done — show done banner, post system message
-                document.getElementById('stage9-done-banner')?.classList.remove('hidden');
-                stage9Chat?.clear();
-                stage9Chat?.append('system', 'All priorities addressed. Use the Finalize Rewrite button above to complete.');
+                document.getElementById('stage10-done-banner')?.classList.remove('hidden');
+                stage10Chat?.clear();
+                stage10Chat?.append('system', 'All priorities addressed. Use the Finalize Rewrite button above to complete.');
             } else {
                 // Clear chat and re-open with next priority
-                stage9Chat?.clear();
-                stage9Chat?.setDisabled(true);
-                stage9Chat?.setThinking(true);
+                stage10Chat?.clear();
+                stage10Chat?.setDisabled(true);
+                stage10Chat?.setThinking(true);
                 try {
                     const initRes = await fetch('/api/brainstorm-rewrite', {
                         method: 'POST',
@@ -5429,10 +5748,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
                     });
                     const initData = await initRes.json();
-                    stage9Chat?.append('ai', initData.message);
+                    stage10Chat?.append('ai', initData.message);
                 } finally {
-                    stage9Chat?.setThinking(false);
-                    stage9Chat?.setDisabled(false);
+                    stage10Chat?.setThinking(false);
+                    stage10Chat?.setDisabled(false);
                 }
             }
         } catch (err) {
@@ -5441,12 +5760,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function initStage9Resizers() {
-        const vsplit = document.getElementById('stage9-vsplit');
-        const leftCont = document.getElementById('stage9-left-container');
-        const rightCont = document.getElementById('stage9-right-container');
+    function initStage10Resizers() {
+        const vsplit = document.getElementById('stage10-vsplit');
+        const leftCont = document.getElementById('stage10-left-container');
+        const rightCont = document.getElementById('stage10-right-container');
         if (vsplit && leftCont && rightCont) {
-            const savedV = parseFloat(localStorage.getItem('stage9SplitV') || '0.5');
+            const savedV = parseFloat(localStorage.getItem('stage10SplitV') || '0.5');
             leftCont.style.flexBasis = `${savedV * 100}%`;
             rightCont.style.flexBasis = `${(1 - savedV) * 100}%`;
             vsplit.addEventListener('mousedown', e => {
@@ -5458,17 +5777,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ratio = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / rect.width));
                     leftCont.style.flexBasis = `${ratio * 100}%`;
                     rightCont.style.flexBasis = `${(1 - ratio) * 100}%`;
-                    localStorage.setItem('stage9SplitV', ratio);
+                    localStorage.setItem('stage10SplitV', ratio);
                 };
                 const onUp = () => { vsplit.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
             });
         }
-        const hsplit = document.getElementById('stage9-hsplit');
-        const chatEl = document.getElementById('stage9-chat');
+        const hsplit = document.getElementById('stage10-hsplit');
+        const chatEl = document.getElementById('stage10-chat');
         if (hsplit && chatEl) {
-            const savedH = parseInt(localStorage.getItem('stage9SplitH') || '280');
+            const savedH = parseInt(localStorage.getItem('stage10SplitH') || '280');
             chatEl.style.height = `${savedH}px`;
             hsplit.addEventListener('mousedown', e => {
                 e.preventDefault();
@@ -5478,7 +5797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const onMove = ev => {
                     const newH = Math.min(600, Math.max(120, startH + (startY - ev.clientY)));
                     chatEl.style.height = `${newH}px`;
-                    localStorage.setItem('stage9SplitH', newH);
+                    localStorage.setItem('stage10SplitH', newH);
                 };
                 const onUp = () => { hsplit.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
                 document.addEventListener('mousemove', onMove);
@@ -5487,101 +5806,101 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function initStage9() {
+    async function initStage10() {
         if (!activeProjectId) return;
-        const loading  = document.getElementById('stage9-loading');
-        const workspace = document.getElementById('stage9-workspace');
+        const loading  = document.getElementById('stage10-loading');
+        const workspace = document.getElementById('stage10-workspace');
         loading?.classList.remove('hidden');
         workspace?.classList.add('hidden');
 
         try {
-            const reset = !!window.stage9ResetOnInit;
-            window.stage9ResetOnInit = false;
+            const reset = !!window.stage10ResetOnInit;
+            window.stage10ResetOnInit = false;
             const res = await fetch('/api/init-stage9', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, reset })
             });
-            if (!res.ok) throw new Error((await res.json()).error || 'Failed to init Stage 9');
+            if (!res.ok) throw new Error((await res.json()).error || 'Failed to init Stage 10');
             const data = await res.json();
 
-            stage9State = {
+            stage10State = {
                 working:      data.stage9_rewrites.working,
                 priority_idx: data.stage9_rewrites.priority_idx,
                 macro_todo:   data.macro_todo || [],
                 micro_todo:   data.micro_todo  || [],
             };
             // Restore any pending rewrites that were saved to disk (survives page refresh)
-            stage9Pending = data.stage9_rewrites.pending || {};
-            stage9ApprovedScenes = {};
+            stage10Pending = data.stage9_rewrites.pending || {};
+            stage10ApprovedScenes = {};
 
             loading?.classList.add('hidden');
             workspace?.classList.remove('hidden');
 
-            renderStage9SceneList();
-            renderStage9TaskBanner();
-            stage9WireButtons();
+            renderStage10SceneList();
+            renderStage10TaskBanner();
+            stage10WireButtons();
 
             // If pending rewrites were restored from disk, select the first one
-            const pendingKeys = Object.keys(stage9Pending).map(Number);
+            const pendingKeys = Object.keys(stage10Pending).map(Number);
             if (pendingKeys.length > 0) {
-                stage9SelectScene(pendingKeys[0]);
-                renderStage9SceneList();
+                stage10SelectScene(pendingKeys[0]);
+                renderStage10SceneList();
             }
 
             // Initialize chat window
-            stage9Chat = new ChatWindow({
-                threadId:  'stage9-chat-thread',
-                inputId:   'stage9-chat-input',
+            stage10Chat = new ChatWindow({
+                threadId:  'stage10-chat-thread',
+                inputId:   'stage10-chat-input',
                 sendBtnId: 'btnChatSend',
-                attachInputId: 'stage9-chat-attach',
+                attachInputId: 'stage10-chat-attach',
                 onSend: async (text, history, attachment) => {
-                    if (stage9CurrentScene !== null) {
+                    if (stage10CurrentScene !== null) {
                         // Scene selected: feedback for that scene
-                        const priorities = stage9GetPriorityList();
-                        const task = priorities[stage9State.priority_idx]?.task || '';
+                        const priorities = stage10GetPriorityList();
+                        const task = priorities[stage10State.priority_idx]?.task || '';
                         let currentText;
-                        if (stage9ViewMode === 'formatted' && stage9Editor) {
-                            currentText = stage9Editor.toFountain();
+                        if (stage10ViewMode === 'formatted' && stage10Editor) {
+                            currentText = stage10Editor.toFountain();
                         } else {
-                            currentText = stage9Pending[stage9CurrentScene] ?? stage9State.working[stage9CurrentScene] ?? '';
+                            currentText = stage10Pending[stage10CurrentScene] ?? stage10State.working[stage10CurrentScene] ?? '';
                         }
-                        stage9Chat.setThinking(true);
+                        stage10Chat.setThinking(true);
                         const res = await fetch('/api/rewrite-scene-feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage9CurrentScene, priorityTask: task, userFeedback: text, currentText, ...(attachment && { attachment }) })
+                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: stage10CurrentScene, priorityTask: task, userFeedback: text, currentText, ...(attachment && { attachment }) })
                         });
-                        stage9Chat.setThinking(false);
+                        stage10Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
-                        stage9Pending[stage9CurrentScene] = data.proposed_text;
-                        resetStage9ApproveBtn();
-                        stage9SelectScene(stage9CurrentScene);
-                        renderStage9SceneList();
-                        stage9Chat.append('ai', `Scene ${stage9CurrentScene} updated. Review the diff on the right.`);
+                        stage10Pending[stage10CurrentScene] = data.proposed_text;
+                        resetStage10ApproveBtn();
+                        stage10SelectScene(stage10CurrentScene);
+                        renderStage10SceneList();
+                        stage10Chat.append('ai', `Scene ${stage10CurrentScene} updated. Review the diff on the right.`);
                     } else {
                         // No scene selected: planning brainstorm
                         const msgs = history.filter(m => m.role !== 'system');
-                        stage9Chat.setThinking(true);
+                        stage10Chat.setThinking(true);
                         const res = await fetch('/api/brainstorm-rewrite', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
                         });
-                        stage9Chat.setThinking(false);
+                        stage10Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
-                        stage9Chat.append('ai', data.message);
-                        if (data.suggest_plan && !window.stage9CurrentPlan && !stage9ExecutingPlan) stage9GeneratePlan();
+                        stage10Chat.append('ai', data.message);
+                        if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
                     }
                 }
             });
 
-            // Fetch AI opening message (presents Stage 8 priorities)
+            // Fetch AI opening message (presents Stage 9 priorities)
             try {
-                stage9Chat.setThinking(true);
-                stage9Chat.setDisabled(true);
+                stage10Chat.setThinking(true);
+                stage10Chat.setDisabled(true);
                 const initRes = await fetch('/api/brainstorm-rewrite', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -5589,30 +5908,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (initRes.ok) {
                     const initData = await initRes.json();
-                    stage9Chat.append('ai', initData.message);
+                    stage10Chat.append('ai', initData.message);
                 }
             } catch (e) {
                 console.warn('Chat init failed:', e.message);
             } finally {
-                stage9Chat.setThinking(false);
-                stage9Chat.setDisabled(false);
+                stage10Chat.setThinking(false);
+                stage10Chat.setDisabled(false);
             }
         } catch (err) {
-            console.error('initStage9 error:', err);
+            console.error('initStage10 error:', err);
             if (loading) loading.querySelector('p').textContent = 'Failed to load: ' + err.message;
         }
     }
 
-    function stage9GetPriorityList() {
-        const macro = (stage9State.macro_todo || []).map((t, i) => ({ ...t, list: 'MACRO', localIdx: i }));
-        const micro = (stage9State.micro_todo  || []).map((t, i) => ({ ...t, list: 'MICRO', localIdx: i }));
+    function stage10GetPriorityList() {
+        const macro = (stage10State.macro_todo || []).map((t, i) => ({ ...t, list: 'MACRO', localIdx: i }));
+        const micro = (stage10State.micro_todo  || []).map((t, i) => ({ ...t, list: 'MICRO', localIdx: i }));
         return [...macro, ...micro];
     }
 
-    function renderStage9TaskBanner() {
-        const priorities = stage9GetPriorityList();
-        const idx = stage9State.priority_idx;
-        const doneBanner = document.getElementById('stage9-done-banner');
+    function renderStage10TaskBanner() {
+        const priorities = stage10GetPriorityList();
+        const idx = stage10State.priority_idx;
+        const doneBanner = document.getElementById('stage10-done-banner');
         if (idx >= priorities.length) {
             doneBanner?.classList.remove('hidden');
         } else {
@@ -5620,68 +5939,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderStage9SceneList() {
-        const container = document.getElementById('stage9-scene-list');
-        if (!container || !stage9State) return;
-        const entries = Object.keys(stage9State.working).map(n => parseInt(n)).sort((a, b) => a - b);
+    function renderStage10SceneList() {
+        const container = document.getElementById('stage10-scene-list');
+        if (!container || !stage10State) return;
+        const entries = Object.keys(stage10State.working).map(n => parseInt(n)).sort((a, b) => a - b);
         container.innerHTML = entries.map(n => {
-            const hasPending  = !!stage9Pending[n];
-            const hasApproved = !!stage9ApprovedScenes[n];
+            const hasPending  = !!stage10Pending[n];
+            const hasApproved = !!stage10ApprovedScenes[n];
             const dot = hasPending
                 ? '<span class="text-blue-400 ml-1 text-xs">●</span>'
                 : hasApproved
                     ? '<span class="text-green-500 ml-1 text-xs">✓</span>'
                     : '';
-            const isActive = n === stage9CurrentScene ? 'bg-white/10' : 'hover:bg-white/5';
+            const isActive = n === stage10CurrentScene ? 'bg-white/10' : 'hover:bg-white/5';
             // Get slugline from stage6 data
             const allScenes = getFlatScenes();
             const sceneData = allScenes.find(s => s.scene_number === n);
             const label = sceneData?.scene_heading || sceneData?.slugline || `Scene ${n}`;
-            return `<button onclick="window.stage9SelectSceneBtn(${n})"
+            return `<button onclick="window.stage10SelectSceneBtn(${n})"
                 class="w-full text-left px-3 py-2 rounded text-xs text-gray-300 transition-colors ${isActive} flex items-center justify-between gap-2">
                 <span class="truncate">${n}. ${label}</span>${dot}
             </button>`;
         }).join('');
     }
 
-    let stage9Editor = null;
-    let stage9ViewMode = 'preview'; // 'preview' | 'formatted'
+    let stage10Editor = null;
+    let stage10ViewMode = 'preview'; // 'preview' | 'formatted'
 
-    function stage9DeselectScene() {
-        stage9CurrentScene = null;
-        const leftPanel = document.getElementById('stage9-left-panel');
-        const editorMount = document.getElementById('stage9-editor-mount');
-        const rightView = document.getElementById('stage9-right-panel-view');
+    function stage10DeselectScene() {
+        stage10CurrentScene = null;
+        const leftPanel = document.getElementById('stage10-left-panel');
+        const editorMount = document.getElementById('stage10-editor-mount');
+        const rightView = document.getElementById('stage10-right-panel-view');
         if (leftPanel) leftPanel.innerHTML = '<p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>';
         if (editorMount) editorMount.classList.add('hidden');
         if (rightView) { rightView.classList.remove('hidden'); rightView.innerHTML = '<p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>'; }
-        if (stage9Editor) { stage9Editor.destroy(); stage9Editor = null; }
-        stage9ViewMode = 'preview';
-        stage9UpdateToggleButtons();
-        renderStage9SceneList();
+        if (stage10Editor) { stage10Editor.destroy(); stage10Editor = null; }
+        stage10ViewMode = 'preview';
+        stage10UpdateToggleButtons();
+        renderStage10SceneList();
     }
 
-    window.stage9SelectSceneBtn = function(n) {
-        if (n === stage9CurrentScene) {
-            stage9DeselectScene();
+    window.stage10SelectSceneBtn = function(n) {
+        if (n === stage10CurrentScene) {
+            stage10DeselectScene();
         } else {
-            stage9SelectScene(n);
+            stage10SelectScene(n);
         }
     };
 
-    function stage9SelectScene(n) {
+    function stage10SelectScene(n) {
         // Flush any current editor/textarea edit into pending
-        stage9FlushEditPanel();
-        stage9CurrentScene = n;
+        stage10FlushEditPanel();
+        stage10CurrentScene = n;
 
-        const origText     = stage9State.working[n] || '';
-        const proposedText = stage9Pending[n] !== undefined ? stage9Pending[n] : origText;
-        const leftPanel    = document.getElementById('stage9-left-panel');
-        const editorMount  = document.getElementById('stage9-editor-mount');
-        const rightView    = document.getElementById('stage9-right-panel-view');
+        const origText     = stage10State.working[n] || '';
+        const proposedText = stage10Pending[n] !== undefined ? stage10Pending[n] : origText;
+        const leftPanel    = document.getElementById('stage10-left-panel');
+        const editorMount  = document.getElementById('stage10-editor-mount');
+        const rightView    = document.getElementById('stage10-right-panel-view');
 
         // Left panel: show original with diff highlights if there are pending changes
-        if (stage9Pending[n] !== undefined) {
+        if (stage10Pending[n] !== undefined) {
             const { leftAnnotations } = computeLineDiff(origText, proposedText);
             if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, leftAnnotations);
         } else {
@@ -5689,7 +6008,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Right panel: default to preview (diff) view
-        if (stage9Pending[n] !== undefined) {
+        if (stage10Pending[n] !== undefined) {
             const { rightAnnotations } = computeLineDiff(origText, proposedText);
             if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
         } else {
@@ -5697,67 +6016,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Ensure editor is loaded (for Edit mode, lazily created)
-        if (!stage9Editor && editorMount) {
-            const s9ToolbarSlot = document.getElementById('stage9-toolbar-slot');
-            stage9Editor = new FountainEditor(editorMount, {
+        if (!stage10Editor && editorMount) {
+            const s9ToolbarSlot = document.getElementById('stage10-toolbar-slot');
+            stage10Editor = new FountainEditor(editorMount, {
                 externalToolbarSlot: s9ToolbarSlot,
                 onDirty: () => {
-                    if (stage9CurrentScene !== null) {
-                        stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();
-                        resetStage9ApproveBtn();
-                        renderStage9SceneList();
+                    if (stage10CurrentScene !== null) {
+                        stage10Pending[stage10CurrentScene] = stage10Editor.toFountain();
+                        resetStage10ApproveBtn();
+                        renderStage10SceneList();
                         // Update left panel diff
-                        const orig = stage9State.working[stage9CurrentScene] || '';
-                        const proposed = stage9Editor.toFountain();
+                        const orig = stage10State.working[stage10CurrentScene] || '';
+                        const proposed = stage10Editor.toFountain();
                         const { leftAnnotations } = computeLineDiff(orig, proposed);
-                        const lp = document.getElementById('stage9-left-panel');
+                        const lp = document.getElementById('stage10-left-panel');
                         if (lp) lp.innerHTML = formatFountainToHTML(orig, leftAnnotations);
                     }
                 }
             });
         }
-        if (stage9Editor) stage9Editor.loadFountain(proposedText);
+        if (stage10Editor) stage10Editor.loadFountain(proposedText);
 
         // Default to preview view
-        stage9ViewMode = 'preview';
+        stage10ViewMode = 'preview';
         if (editorMount) editorMount.classList.add('hidden');
         if (rightView) rightView.classList.remove('hidden');
-        stage9UpdateToggleButtons();
+        stage10UpdateToggleButtons();
 
-        renderStage9SceneList();
+        renderStage10SceneList();
     }
 
-    function stage9FlushEditPanel() {
-        if (stage9CurrentScene === null) return;
+    function stage10FlushEditPanel() {
+        if (stage10CurrentScene === null) return;
         // Only flush editor text to pending if this scene already has pending changes
         // (prevents overwriting original text with editor-normalized version)
-        if (stage9ViewMode === 'formatted' && stage9Editor && stage9Pending[stage9CurrentScene] !== undefined) {
-            stage9Pending[stage9CurrentScene] = stage9Editor.toFountain();
+        if (stage10ViewMode === 'formatted' && stage10Editor && stage10Pending[stage10CurrentScene] !== undefined) {
+            stage10Pending[stage10CurrentScene] = stage10Editor.toFountain();
         }
     }
 
-    function stage9UpdateToggleButtons() {
+    function stage10UpdateToggleButtons() {
         const btnF = document.getElementById('btnToggleFormatted');
         const btnP = document.getElementById('btnTogglePreview');
         const active = 'text-blue-400 bg-blue-900/30';
         const inactive = 'text-gray-500 hover:text-gray-300';
-        if (btnP) { btnP.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'preview' ? active : inactive}`; }
-        if (btnF) { btnF.className = `text-xs px-2 py-1 rounded transition-colors ${stage9ViewMode === 'formatted' ? active : inactive}`; }
+        if (btnP) { btnP.className = `text-xs px-2 py-1 rounded transition-colors ${stage10ViewMode === 'preview' ? active : inactive}`; }
+        if (btnF) { btnF.className = `text-xs px-2 py-1 rounded transition-colors ${stage10ViewMode === 'formatted' ? active : inactive}`; }
     }
 
-    function stage9WireButtons() {
+    function stage10WireButtons() {
         // ── Toggle: Preview | Edit ────────────────────────────────────────────
-        function stage9SwitchView(mode) {
-            stage9FlushEditPanel(); // flush current mode first
-            stage9ViewMode = mode;
+        function stage10SwitchView(mode) {
+            stage10FlushEditPanel(); // flush current mode first
+            stage10ViewMode = mode;
 
-            const editorMount = document.getElementById('stage9-editor-mount');
-            const rightView   = document.getElementById('stage9-right-panel-view');
+            const editorMount = document.getElementById('stage10-editor-mount');
+            const rightView   = document.getElementById('stage10-right-panel-view');
             if (!editorMount || !rightView) return;
 
-            const origText     = stage9CurrentScene !== null ? (stage9State.working[stage9CurrentScene] || '') : '';
-            const proposedText = stage9CurrentScene !== null
-                ? (stage9Pending[stage9CurrentScene] !== undefined ? stage9Pending[stage9CurrentScene] : origText)
+            const origText     = stage10CurrentScene !== null ? (stage10State.working[stage10CurrentScene] || '') : '';
+            const proposedText = stage10CurrentScene !== null
+                ? (stage10Pending[stage10CurrentScene] !== undefined ? stage10Pending[stage10CurrentScene] : origText)
                 : '';
 
             editorMount.classList.add('hidden');
@@ -5765,11 +6084,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (mode === 'formatted') {
                 editorMount.classList.remove('hidden');
-                if (stage9Editor) stage9Editor.loadFountain(proposedText);
+                if (stage10Editor) stage10Editor.loadFountain(proposedText);
             } else {
                 // Preview mode (default)
                 rightView.classList.remove('hidden');
-                if (stage9Pending[stage9CurrentScene] !== undefined) {
+                if (stage10Pending[stage10CurrentScene] !== undefined) {
                     const { rightAnnotations } = computeLineDiff(origText, proposedText);
                     rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
                 } else {
@@ -5778,34 +6097,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Update left panel diff
-            if (stage9CurrentScene !== null && stage9Pending[stage9CurrentScene] !== undefined) {
+            if (stage10CurrentScene !== null && stage10Pending[stage10CurrentScene] !== undefined) {
                 const { leftAnnotations } = computeLineDiff(origText, proposedText);
-                const leftPanel = document.getElementById('stage9-left-panel');
+                const leftPanel = document.getElementById('stage10-left-panel');
                 if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, leftAnnotations);
             }
 
-            stage9UpdateToggleButtons();
-            renderStage9SceneList();
+            stage10UpdateToggleButtons();
+            renderStage10SceneList();
         }
 
         const btnF = document.getElementById('btnToggleFormatted');
         const btnP = document.getElementById('btnTogglePreview');
-        if (btnF) btnF.onclick = () => stage9SwitchView('formatted');
-        if (btnP) btnP.onclick = () => stage9SwitchView('preview');
+        if (btnF) btnF.onclick = () => stage10SwitchView('formatted');
+        if (btnP) btnP.onclick = () => stage10SwitchView('preview');
 
         // ── Finalize Rewrite ──────────────────────────────────────────────────
-        async function finalizeStage9() {
-            stage9FlushEditPanel();
-            if (Object.keys(stage9Pending).length > 0) {
+        async function finalizeStage10() {
+            stage10FlushEditPanel();
+            if (Object.keys(stage10Pending).length > 0) {
                 await fetch('/api/approve-rewrite-priority', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage9Pending, newPriorityIdx: stage9State.priority_idx })
+                    body: JSON.stringify({ projectId: activeProjectId, pendingScenes: stage10Pending, newPriorityIdx: stage10State.priority_idx })
                 });
-                Object.assign(stage9State.working, stage9Pending);
-                stage9Pending = {};
+                Object.assign(stage10State.working, stage10Pending);
+                stage10Pending = {};
             }
-            await fetch('/api/finalize-stage9', {
+            await fetch('/api/finalize-stage10', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId })
@@ -5815,8 +6134,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const projData = await projRes.json();
             window.currentProjectData = projData.data;
 
-            // Snapshot Stage 9
-            const versionHistory9 = captureVersionSnapshot(9, 'stage9_rewrites', 'Rewrite', projData.data.stage9_rewrites);
+            // Snapshot Stage 10
+            const versionHistory9 = captureVersionSnapshot(10, 'stage9_rewrites', 'Rewrite', projData.data.stage9_rewrites);
             await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -5826,23 +6145,23 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStageNav(projData.data);
 
             // Show loopback modal instead of jumping straight to Stage 10
-            const loopbackModal = document.getElementById('stage9-loopback-modal');
+            const loopbackModal = document.getElementById('stage10-loopback-modal');
             if (loopbackModal) loopbackModal.classList.remove('hidden');
         }
 
         const btnFinalize = document.getElementById('btnFinalizeRewrite');
-        if (btnFinalize) btnFinalize.onclick = finalizeStage9;
+        if (btnFinalize) btnFinalize.onclick = finalizeStage10;
 
-        const btnApprove9 = document.getElementById('btnStage9Approve');
-        if (btnApprove9) btnApprove9.addEventListener('click', finalizeStage9);
+        const btnApprove9 = document.getElementById('btnStage10Approve');
+        if (btnApprove9) btnApprove9.addEventListener('click', finalizeStage10);
 
         // ── Download Rewrite (.fountain + PDF) ─────────────────────────────────
         const btnFountain = document.getElementById('btnDownloadRewriteFountain');
         if (btnFountain) {
             btnFountain.onclick = () => {
-                if (!stage9State?.working) { alert('No rewrite data available.'); return; }
-                const entries = Object.keys(stage9State.working).map(Number).sort((a, b) => a - b);
-                const fountainText = entries.map(n => (stage9State.working[n] || '').trim()).filter(t => t && t !== '[SCENE DELETED]').join('\n\n');
+                if (!stage10State?.working) { alert('No rewrite data available.'); return; }
+                const entries = Object.keys(stage10State.working).map(Number).sort((a, b) => a - b);
+                const fountainText = entries.map(n => (stage10State.working[n] || '').trim()).filter(t => t && t !== '[SCENE DELETED]').join('\n\n');
                 const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
                 const blob = new Blob([fountainText], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
@@ -5857,17 +6176,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnPdf = document.getElementById('btnDownloadRewritePdf');
         if (btnPdf) {
             btnPdf.onclick = () => {
-                if (!stage9State) { alert('No rewrite data available.'); return; }
+                if (!stage10State) { alert('No rewrite data available.'); return; }
                 triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnPdf);
             };
         }
 
         // ── Resize handles ────────────────────────────────────────────────────
-        initStage9Resizers();
+        initStage10Resizers();
     }
 
-    function resetStage9ApproveBtn() {
-        const btn = document.getElementById('btnStage9Approve');
+    function resetStage10ApproveBtn() {
+        const btn = document.getElementById('btnStage10Approve');
         if (btn && (btn.textContent.includes('Approved') || btn.disabled)) {
             btn.textContent = 'Approve';
             btn.classList.remove('approve-btn-green');
@@ -5877,7 +6196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-// --- Stage 7 Helpers ---
+// --- Stage 8 Helpers ---
     function getFlatScenes() {
         const data = window.currentProjectData?.stage6_scenes;
         if (!data) return [];

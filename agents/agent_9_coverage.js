@@ -149,7 +149,7 @@ const consolidateCoverage = async (results, geminiApiKey) => {
 };
 
 /**
- * Stage 8: Coverage Agent
+ * Stage 9: Coverage Agent
  * Runs 3 parallel coverage analyses then consolidates into a consensus report.
  *
  * @param {string} fullScriptText - All scene drafts concatenated in order
@@ -158,7 +158,7 @@ const consolidateCoverage = async (results, geminiApiKey) => {
  * @returns {Promise<object>} - Structured coverage report
  */
 const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
-    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage8_coverage.md'), 'utf8');
+    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_coverage.md'), 'utf8');
 
     // Build character profiles section if available
     const chars = projectContext.characters || [];

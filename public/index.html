@@ -82,10 +82,10 @@
                 <a href="javascript:void(0)" id="nav-stage-4" class="stage-link disabled"><span class="badge">4</span> Beats</a>
                 <a href="javascript:void(0)" id="nav-stage-5" class="stage-link disabled"><span class="badge">5</span> Treatment</a>
                 <a href="javascript:void(0)" id="nav-stage-6" class="stage-link disabled"><span class="badge">6</span> Scenes</a>
-                <a href="javascript:void(0)" id="nav-stage7" class="stage-link disabled"><span class="badge">7</span> Draft</a>
-                <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">8</span> Coverage</a>
-                <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">9</span> Rewrite</a>
-                <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">10</span> Polish</a>
+                <a href="javascript:void(0)" id="nav-stage-7" class="stage-link disabled"><span class="badge">7</span> Style</a>
+                <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">8</span> Draft</a>
+                <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">9</span> Coverage</a>
+                <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">10</span> Rewrite</a>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnReturnHome" class="sidebar-home-btn" title="Return Home">
@@ -482,11 +482,145 @@
         </main>
 
 
-        <!-- Stage 7: Draft -->
-        <main id="stage7-view" class="workspace hidden">
+        <!-- Stage 7: Style -->
+        <main id="stage-7-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 7: Draft</h1>
+                    <h1>Stage 7: Style</h1>
+                    <p>Define the tonal and stylistic direction for your screenplay.</p>
+                </div>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnStage7QuickStart" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors">Quick Start</button>
+                    <button id="btnStage7MyStyles" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors">My Styles</button>
+                    <button id="btnStage7Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap" disabled>Approve →</button>
+                </div>
+            </header>
+
+            <!-- Imported project notice -->
+            <div id="stage7-import-notice" class="hidden" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px 18px;margin:12px 16px 0;font-size:0.9rem;color:#94a3b8">
+                This imported script went straight to Coverage. You can set a writing style now if you'd like to guide future rewrites, but it won't affect the existing draft.
+            </div>
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Left: Chat + Style card -->
+                <div class="flex-1 flex flex-col overflow-hidden" style="min-width:0">
+                    <div class="workspace-scrollable" style="flex:1;overflow-y:auto;padding:16px">
+                        <!-- Style card (shown after generation) -->
+                        <div id="stage7-style-card" class="hidden" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+                                <div>
+                                    <h3 id="stage7-style-name" style="margin:0 0 4px;font-size:1.1rem;color:#e5e7eb"></h3>
+                                    <p id="stage7-style-tonal" style="margin:0;font-size:0.85rem;color:#9ca3af"></p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button id="btnStage7Preview" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-1.5 px-3 rounded-full border border-white/10 transition-colors">Preview Scene</button>
+                                    <button id="btnStage7Regenerate" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-1.5 px-3 rounded-full border border-white/10 transition-colors">Regenerate</button>
+                                </div>
+                            </div>
+                            <div id="stage7-style-refs" style="font-size:0.8rem;color:#6b7280;margin-bottom:12px"></div>
+                            <div id="stage7-style-body" style="font-size:0.85rem;color:#d1d5db;line-height:1.6;white-space:pre-wrap"></div>
+                        </div>
+
+                        <!-- Preview panel (shown when previewing a scene) -->
+                        <div id="stage7-preview-panel" class="hidden" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px;margin-bottom:16px">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                                <h4 style="margin:0;color:#e5e7eb;font-size:0.95rem">Scene Preview</h4>
+                                <button id="btnStage7ClosePreview" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1.1rem">✕</button>
+                            </div>
+                            <div id="stage7-preview-text" style="font-family:'Courier Prime',Courier,monospace;font-size:0.85rem;color:#d1d5db;white-space:pre-wrap;line-height:1.5"></div>
+                        </div>
+
+                        <!-- Loading state -->
+                        <div id="stage7-loading" class="hidden" style="display:flex;align-items:center;gap:10px;padding:20px;color:#9ca3af">
+                            <div class="spinner"></div>
+                            <span id="stage7-loading-text">Generating style...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Chat panel -->
+                <div id="stage7-hsplit" class="resize-handle-h"></div>
+                <div id="stage7-chat" class="stage-chat">
+                    <div class="chat-header"><span class="chat-header-label">Style Assistant</span></div>
+                    <div id="stage7-chat-thread" class="chat-thread"></div>
+                    <div class="chat-input-row">
+                        <label for="stage7-chat-attach" class="chat-attach-btn" title="Attach writing sample (txt, pdf, fountain)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                            <input type="file" id="stage7-chat-attach" accept=".txt,.pdf,.fountain" class="hidden">
+                        </label>
+                        <textarea id="stage7-chat-input" class="chat-input" placeholder="Describe the writing style you want..." rows="1"></textarea>
+                        <button id="stage7-chat-send" class="chat-send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Start Form Modal -->
+            <div id="stage7-quickstart-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width:560px">
+                    <h2 style="margin:0 0 16px;font-size:1.1rem;color:#e5e7eb">Quick Start — Define Your Style</h2>
+
+                    <div style="margin-bottom:14px">
+                        <label style="font-size:0.8rem;color:#9ca3af;display:block;margin-bottom:4px">Style Name</label>
+                        <input id="stage7-qs-name" type="text" placeholder="e.g. Nancy Meyers, Noir Minimalist..." style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e5e7eb;font-size:0.9rem">
+                    </div>
+
+                    <div style="margin-bottom:14px">
+                        <label style="font-size:0.8rem;color:#9ca3af;display:block;margin-bottom:8px">Tonal Sliders</label>
+                        <div class="style-slider-row"><span>Warm</span><input id="stage7-qs-slider-warmth" type="range" min="0" max="100" value="50" class="style-slider"><span>Dry</span></div>
+                        <div class="style-slider-row"><span>Restrained</span><input id="stage7-qs-slider-intensity" type="range" min="0" max="100" value="50" class="style-slider"><span>Operatic</span></div>
+                        <div class="style-slider-row"><span>Grounded</span><input id="stage7-qs-slider-realism" type="range" min="0" max="100" value="50" class="style-slider"><span>Stylized</span></div>
+                    </div>
+
+                    <div style="margin-bottom:14px">
+                        <label style="font-size:0.8rem;color:#9ca3af;display:block;margin-bottom:6px">Key Characteristics</label>
+                        <div id="stage7-qs-pills" class="style-pills">
+                            <button class="style-pill" data-val="Minimal dialogue">Minimal dialogue</button>
+                            <button class="style-pill" data-val="Rich action lines">Rich action lines</button>
+                            <button class="style-pill" data-val="Fast-paced">Fast-paced</button>
+                            <button class="style-pill" data-val="Poetic">Poetic</button>
+                            <button class="style-pill" data-val="Terse">Terse</button>
+                            <button class="style-pill" data-val="Dialogue-forward">Dialogue-forward</button>
+                            <button class="style-pill" data-val="Atmospheric">Atmospheric</button>
+                            <button class="style-pill" data-val="Subtext-heavy">Subtext-heavy</button>
+                            <button class="style-pill" data-val="Dark humor">Dark humor</button>
+                            <button class="style-pill" data-val="Visual storytelling">Visual storytelling</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px">
+                        <label style="font-size:0.8rem;color:#9ca3af;display:block;margin-bottom:4px">Reference Films / Directors / Writers</label>
+                        <input id="stage7-qs-references" type="text" placeholder="e.g. Coen Brothers, Chinatown, Phoebe Waller-Bridge" style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e5e7eb;font-size:0.9rem">
+                    </div>
+
+                    <div style="margin-bottom:18px">
+                        <label style="font-size:0.8rem;color:#9ca3af;display:block;margin-bottom:4px">Upload Writing Samples</label>
+                        <input id="stage7-qs-files" type="file" accept=".txt,.pdf,.fountain" multiple style="font-size:0.85rem;color:#9ca3af">
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:10px">
+                        <button id="btnStage7QsCancel" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors">Cancel</button>
+                        <button id="btnStage7QsGenerate" class="primary-btn" style="font-size:0.8rem">Generate Style</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Styles Selector Modal -->
+            <div id="stage7-mystyles-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width:480px">
+                    <h2 style="margin:0 0 16px;font-size:1.1rem;color:#e5e7eb">My Styles</h2>
+                    <div id="stage7-mystyles-list" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                        <button id="btnStage7MyStylesClose" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors">Close</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Stage 8: Draft -->
+        <main id="stage-8-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 8: Draft</h1>
                     <p>Write the first draft of your screenplay using standard formatting.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -498,14 +632,14 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export PDF
                     </button>
-                    <button id="btnStage7Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve</button>
+                    <button id="btnStage8Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve</button>
                 </div>
             </header>
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Editor Window (Center) -->
                 <div class="flex-1 bg-gray-900 draft-editor-container flex flex-col overflow-hidden">
                     <!-- Sticky Header: control bar + formatting toolbar -->
-                    <div id="stage7-sticky-header" class="bg-gray-950 border-b border-white/10 flex-shrink-0">
+                    <div id="stage8-sticky-header" class="bg-gray-950 border-b border-white/10 flex-shrink-0">
                         <div class="max-w-4xl mx-auto flex items-center justify-between px-10 py-3">
                             <div class="flex items-center space-x-3">
                                 <button id="btnGenerateScene" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors flex items-center">
@@ -523,7 +657,7 @@
                                 <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Drafting Mode</div>
                             </div>
                         </div>
-                        <div id="stage7-toolbar-slot"></div>
+                        <div id="stage8-toolbar-slot"></div>
                     </div>
                     <!-- Scrollable editor area -->
                     <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto scrollbar-hide">
@@ -532,48 +666,48 @@
                 </div>
 
                 <!-- Right Pane (Blueprint TOC Sidebar) -->
-                <aside class="w-96 max-w-md bg-gray-950 border-l border-white/10 overflow-y-auto stage7-blueprint-sidebar scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                <aside class="w-96 max-w-md bg-gray-950 border-l border-white/10 overflow-y-auto stage8-blueprint-sidebar scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                     <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase p-4 mb-2">SCENES</h3>
-                    <div id="stage7-toc" class="space-y-2 px-4 pb-8"></div>
+                    <div id="stage8-toc" class="space-y-2 px-4 pb-8"></div>
                 </aside>
             </div>
 
-            <!-- Stage 7 Feedback Panel (Sticky) -->
+            <!-- Stage 8 Feedback Panel (Sticky) -->
     
-            <!-- Stage 7 Chat Window -->
-            <div id="stage7-hsplit" class="resize-handle-h"></div>
-            <div id="stage7-chat" class="stage-chat">
+            <!-- Stage 8 Chat Window -->
+            <div id="stage8-hsplit" class="resize-handle-h"></div>
+            <div id="stage8-chat" class="stage-chat">
                 <div class="chat-header"><span class="chat-header-label">Assistant</span></div>
-                <div id="stage7-chat-thread" class="chat-thread"></div>
+                <div id="stage8-chat-thread" class="chat-thread"></div>
                 <div class="chat-input-row">
-                    <label for="stage7-chat-attach" class="chat-attach-btn" title="Attach file (txt, pdf, docx)">
+                    <label for="stage8-chat-attach" class="chat-attach-btn" title="Attach file (txt, pdf, docx)">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        <input type="file" id="stage7-chat-attach" accept=".txt,.pdf,.docx" class="hidden">
+                        <input type="file" id="stage8-chat-attach" accept=".txt,.pdf,.docx" class="hidden">
                     </label>
-                    <textarea id="stage7-chat-input" class="chat-input" placeholder="e.g. Make the dialogue snappier, shorten the scene..." rows="1"></textarea>
-                    <button id="stage7-chat-send" class="chat-send-btn">Send</button>
+                    <textarea id="stage8-chat-input" class="chat-input" placeholder="e.g. Make the dialogue snappier, shorten the scene..." rows="1"></textarea>
+                    <button id="stage8-chat-send" class="chat-send-btn">Send</button>
                 </div>
             </div>
         </main>
 
-        <!-- Stage 8: Coverage -->
-        <main id="stage-8-view" class="workspace hidden">
+        <!-- Stage 9: Coverage -->
+        <main id="stage-9-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 8: Coverage</h1>
-                    <p id="stage8-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
+                    <h1>Stage 9: Coverage</h1>
+                    <p id="stage9-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
                     <button id="btnDownloadCoverage" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export Coverage
                     </button>
-                    <button id="btnStage8Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Begin Rewrite</button>
+                    <button id="btnStage9Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Begin Rewrite</button>
                 </div>
             </header>
 
             <!-- Loading State -->
-            <div id="stage8-loading" class="workspace-scrollable hidden">
+            <div id="stage9-loading" class="workspace-scrollable hidden">
                 <div class="flex flex-col items-center justify-center mt-24 gap-4">
                     <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <p class="text-gray-400 text-sm">This runs 3 parallel analyses then consolidates into a consensus report. May take 2–3 minutes...</p>
@@ -581,18 +715,18 @@
             </div>
 
             <!-- Report Display -->
-            <div id="stage8-report" class="workspace-scrollable hidden">
-                <div id="stage8-content" class="max-w-3xl mx-auto px-8 pb-32 space-y-6"></div>
+            <div id="stage9-report" class="workspace-scrollable hidden">
+                <div id="stage9-content" class="max-w-3xl mx-auto px-8 pb-32 space-y-6"></div>
             </div>
 
 
         </main>
 
-        <!-- Stage 9: Rewrite -->
-        <main id="stage-9-view" class="workspace hidden">
+        <!-- Stage 10: Rewrite -->
+        <main id="stage-10-view" class="workspace hidden">
 
             <!-- Loading State -->
-            <div id="stage9-loading" class="workspace-scrollable hidden">
+            <div id="stage10-loading" class="workspace-scrollable hidden">
                 <div class="flex flex-col items-center justify-center mt-24 gap-4">
                     <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <p class="text-gray-400 text-sm">Loading scene drafts...</p>
@@ -600,13 +734,13 @@
             </div>
 
             <!-- Rewrite Workspace -->
-            <div id="stage9-workspace" class="flex flex-col flex-1 overflow-hidden hidden">
+            <div id="stage10-workspace" class="flex flex-col flex-1 overflow-hidden hidden">
 
                 <!-- Stage Header -->
                 <div class="border-b border-white/10 bg-gray-950 shrink-0" style="padding: 28px 60px">
                     <div class="workspace-header" style="padding:0;margin:0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                         <div>
-                            <h1>Stage 9: Rewrite</h1>
+                            <h1>Stage 10: Rewrite</h1>
                             <p>Work with the assistant to address coverage priorities, scene by scene.</p>
                         </div>
                         <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -618,13 +752,13 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                 Export PDF
                             </button>
-                            <button id="btnStage9Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve</button>
+                            <button id="btnStage10Approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- All-done banner (shown when all priorities exhausted) -->
-                <div id="stage9-done-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0 hidden">
+                <div id="stage10-done-banner" class="border-b border-white/10 bg-gray-900 px-6 py-4 shrink-0 hidden">
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-sm text-green-400 font-semibold">All priority tasks addressed. Review the final rewrite below.</p>
                         <button id="btnFinalizeRewrite" class="primary-btn">Finalize Rewrite →</button>
@@ -637,19 +771,19 @@
                     <!-- Split View -->
                     <div class="flex flex-1 overflow-hidden">
                         <!-- Left: Previous State (read-only, rendered Fountain) -->
-                        <div id="stage9-left-container" class="flex flex-col border-r border-white/10 overflow-hidden" style="flex-basis:50%">
+                        <div id="stage10-left-container" class="flex flex-col border-r border-white/10 overflow-hidden" style="flex-basis:50%">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0">
                                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous State</span>
                             </div>
-                            <div id="stage9-left-panel"
+                            <div id="stage10-left-panel"
                                 class="flex-1 overflow-y-auto bg-gray-950 text-gray-500 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                                 <p class="text-gray-600 italic text-xs">Select a scene from the sidebar...</p>
                             </div>
                         </div>
                         <!-- Vertical drag handle -->
-                        <div id="stage9-vsplit" class="resize-handle-v"></div>
+                        <div id="stage10-vsplit" class="resize-handle-v"></div>
                         <!-- Right: Proposed Rewrite -->
-                        <div id="stage9-right-container" class="flex flex-col overflow-hidden" style="flex-basis:50%">
+                        <div id="stage10-right-container" class="flex flex-col overflow-hidden" style="flex-basis:50%">
                             <div class="px-4 py-2 border-b border-white/10 bg-gray-900 shrink-0 flex items-center justify-between">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Proposed Rewrite</span>
                                 <div class="flex items-center gap-2">
@@ -657,18 +791,18 @@
                                     <button id="btnToggleFormatted" class="text-xs px-2 py-1 rounded transition-colors text-gray-500 hover:text-gray-300">Edit</button>
                                 </div>
                             </div>
-                            <div id="stage9-toolbar-slot" class="shrink-0"></div>
-                            <div id="stage9-rewrite-loading" class="hidden items-center justify-center flex-1 gap-3">
+                            <div id="stage10-toolbar-slot" class="shrink-0"></div>
+                            <div id="stage10-rewrite-loading" class="hidden items-center justify-center flex-1 gap-3">
                                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                 <p class="text-gray-500 text-xs">Executing rewrite plan...</p>
                             </div>
                             <!-- Editor (hidden by default, shown in Edit mode) -->
-                            <div id="stage9-editor-mount"
+                            <div id="stage10-editor-mount"
                                 class="hidden flex-1 overflow-y-auto bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                                 <p class="text-gray-600 italic text-xs px-8 py-6">Start a conversation below to begin...</p>
                             </div>
                             <!-- Preview with diff highlights (default) -->
-                            <div id="stage9-right-panel-view"
+                            <div id="stage10-right-panel-view"
                                 class="flex-1 overflow-y-auto bg-gray-900 text-gray-200 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                                 <p class="text-gray-600 italic text-xs">Start a conversation below to begin...</p>
                             </div>
@@ -678,39 +812,29 @@
                     <!-- Right Sidebar: Scene List -->
                     <aside class="w-72 bg-gray-950 border-l border-white/10 overflow-y-auto shrink-0 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                         <h3 class="text-xs font-bold text-gray-400 tracking-wider uppercase p-4 pb-2">SCENES</h3>
-                        <div id="stage9-scene-list" class="space-y-1 px-3 pb-8"></div>
+                        <div id="stage10-scene-list" class="space-y-1 px-3 pb-8"></div>
                     </aside>
                 </div>
 
                 <!-- Horizontal drag handle -->
-                <div id="stage9-hsplit" class="resize-handle-h"></div>
+                <div id="stage10-hsplit" class="resize-handle-h"></div>
 
                 <!-- Chat Window -->
-                <div id="stage9-chat" class="stage-chat">
+                <div id="stage10-chat" class="stage-chat">
                     <div class="chat-header">
                         <span class="chat-header-label">Assistant</span>
                     </div>
-                    <div id="stage9-chat-thread" class="chat-thread"></div>
+                    <div id="stage10-chat-thread" class="chat-thread"></div>
                     <div class="chat-input-row">
-                        <label for="stage9-chat-attach" class="chat-attach-btn" title="Attach file (txt, pdf, docx)">
+                        <label for="stage10-chat-attach" class="chat-attach-btn" title="Attach file (txt, pdf, docx)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                            <input type="file" id="stage9-chat-attach" accept=".txt,.pdf,.docx" class="hidden">
+                            <input type="file" id="stage10-chat-attach" accept=".txt,.pdf,.docx" class="hidden">
                         </label>
-                        <textarea id="stage9-chat-input" class="chat-input" placeholder="Reply to the assistant, or describe what you'd like to change..." rows="1"></textarea>
+                        <textarea id="stage10-chat-input" class="chat-input" placeholder="Reply to the assistant, or describe what you'd like to change..." rows="1"></textarea>
                         <button id="btnChatSend" class="chat-send-btn">Send</button>
                     </div>
                 </div>
 
-            </div>
-        </main>
-
-        <!-- Placeholder Workspace (Stage 10) -->
-        <main id="stage-10-view" class="workspace hidden">
-            <header class="workspace-header">
-                <h1>Stage 10: Polish</h1>
-                <p>Finalize your screenplay for submission.</p>
-            </header>
-            <div class="workspace-scrollable">
             </div>
         </main>
 
@@ -768,14 +892,14 @@
         </div>
     </div>
 
-    <!-- Stage 9 Loopback Modal -->
-    <div id="stage9-loopback-modal" class="modal-overlay hidden">
+    <!-- Stage 10 Loopback Modal -->
+    <div id="stage10-loopback-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Rewrite Complete</h3>
-            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:24px">Your Stage 9 rewrite is finalized. What would you like to do next?</p>
+            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:24px">Your Stage 10 rewrite is finalized. What would you like to do next?</p>
             <div class="modal-actions" style="flex-direction:column;gap:8px">
-                <button id="btn-loopback-coverage" class="primary-btn" style="width:100%">Run Stage 8 Coverage on New Draft</button>
-                <button id="btn-loopback-polish" class="secondary-btn" style="width:100%">Proceed to Stage 10 Polish →</button>
+                <button id="btn-loopback-coverage" class="primary-btn" style="width:100%">Run Stage 9 Coverage on New Draft</button>
+                <button id="btn-loopback-export" class="secondary-btn" style="width:100%">Export Finished Script</button>
             </div>
         </div>
     </div>
@@ -833,7 +957,7 @@
             </p>
             <div class="modal-actions" style="flex-direction:column;gap:10px">
                 <button id="btn-regen-to-stage9" class="primary-btn" style="width:100%">
-                    Send to Stage 9 Rewrite →
+                    Send to Stage 10 Rewrite →
                 </button>
                 <div style="display:flex;align-items:center;gap:12px;margin:4px 0">
                     <hr style="flex:1;border:none;border-top:1px solid rgba(255,255,255,0.1)">

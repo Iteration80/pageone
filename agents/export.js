@@ -122,7 +122,7 @@ function makeDoc(children) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 8: Coverage Report → .docx
+// Stage 9: Coverage Report → .docx
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function generateCoverageDocx(coverage) {
@@ -465,7 +465,7 @@ async function generateTreatmentDocx(treatment, projectTitle) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 7 / 9: Screenplay → .pdf  (Fountain parser + pdfkit)
+// Stage 8 / 10: Screenplay → .pdf  (Fountain parser + pdfkit)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parseFountain(text) {
@@ -710,7 +710,7 @@ async function generateScreenplayPdf(scenes, projectTitle) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 7: Draft → .docx  (formatted screenplay in Word)
+// Stage 8: Draft → .docx  (formatted screenplay in Word)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function generateDraftDocx(scenes, projectTitle) {

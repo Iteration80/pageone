@@ -19,6 +19,7 @@ const STAGE_ORDER = [
     'stage4_beats',
     'stage5_treatment',
     'stage6_scenes',
+    'stage7_style',
     'stage7_draft',
 ];
 

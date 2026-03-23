@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Stage 9: Scene Rewrite Agent
+ * Stage 10: Scene Rewrite Agent
  * Applies a single coverage task to one scene. Returns the scene unchanged
  * if the task does not apply to it.
  *
@@ -14,17 +14,21 @@ const path = require('path');
  * @param {object} [modelConfig]     - { model, geminiApiKey, anthropicApiKey }
  * @returns {Promise<string>}        - Rewritten (or unchanged) Fountain scene text
  */
-const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '', modelConfig = {}) => {
+const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '', modelConfig = {}, styleContent = null) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY
     } = modelConfig;
 
-    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_rewrite.md'), 'utf8');
+    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage10_rewrite.md'), 'utf8');
 
     const plannedChangeSection = userFeedback
         ? `\n## PLANNED CHANGE FOR THIS SCENE\n${userFeedback}\n`
+        : '';
+
+    const styleSection = styleContent
+        ? `\n## STYLE DIRECTIVES\nThe following directives describe the writing style for this project.\nTreat them as primary craft instructions when making decisions about dialogue rhythm,\naction detail, tonal register, pacing, and voice.\n\n${styleContent}\n`
         : '';
 
     const charSection = sceneContext.characters
@@ -34,7 +38,7 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-${plannedChangeSection}${charSection}
+${plannedChangeSection}${styleSection}${charSection}
 ## PRIORITY CONTEXT
 ${priorityTask}
 

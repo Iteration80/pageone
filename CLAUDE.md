@@ -1,7 +1,7 @@
 # PageOne — Project Instructions for Claude Code
 
 ## Project Overview
-PageOne is a 9-stage AI screenplay development pipeline. Each stage is driven by a skill file (SOP) in `skills/` that instructs the Gemini AI agent on how to produce output. The quality of the entire pipeline depends on the quality of these skill files. Improving them is the highest-leverage activity in this project.
+PageOne is a 10-stage AI screenplay development pipeline. Each stage is driven by a skill file (SOP) in `skills/` that instructs the Gemini AI agent on how to produce output. The quality of the entire pipeline depends on the quality of these skill files. Improving them is the highest-leverage activity in this project.
 
 ## Skill Files (the core assets)
 All stage SOPs live in `skills/`:
@@ -10,10 +10,10 @@ All stage SOPs live in `skills/`:
 - `skills/skill_stage4_beats.md` — 15-beat sequence sheet
 - `skills/skill_stage5_treatment.md` — Scene-by-scene treatment
 - `skills/skill_stage6_scenes.md` — Full scene writing
-- `skills/skill_stage7_draft.md` — Full screenplay draft
-- `skills/skill_stage8_coverage.md` — Quality coverage report
-- `skills/skill_stage9_planner.md` — Rewrite planning
-- `skills/skill_stage9_rewrite.md` — Surgical scene rewriting
+- `skills/skill_stage8_draft.md` — Full screenplay draft (Stage 8)
+- `skills/skill_stage9_coverage.md` — Quality coverage report (Stage 9)
+- `skills/skill_stage10_planner.md` — Rewrite planning (Stage 10)
+- `skills/skill_stage10_rewrite.md` — Surgical scene rewriting (Stage 10)
 - `skills/skill_coverage_consolidator.md` — Coverage synthesis
 - `skills/skill_humanizer.md` — AI-artifact removal
 
@@ -23,6 +23,18 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 - `stage8_coverage.evaluation_grid` — Structured quality ratings (concept / structure / characterization / pacing / dialogue)
 - `stage8_coverage.analytical_comments` — Detailed qualitative notes on the output
 - `stage8_coverage.blueprint` — Macro/micro to-do lists that identify recurring weaknesses
+
+---
+
+## Pending Implementation
+
+Stage 7 Style — ready to implement in phases. Execute in order, verify each before starting the next:
+
+1. `specs/stage7-phase-1a-server-rename.md` — server-side rename (server.js, agent/skill file renames, settings)
+2. `specs/stage7-phase-1b-frontend-rename.md` — frontend nav rename (index.html, app.js navigation + stage switching)
+3. `specs/stage7-phase-1c-systems-rename.md` — re-approval flow, chat persistence, import target, toolbar slots
+4. `specs/stage7-phase-2-style-feature.md` — new Style stage (agent, skill, UI, endpoints, style storage)
+5. `specs/stage7-phase-3-thread-style.md` — thread style into Draft + Rewrite agents
 
 ---
 
