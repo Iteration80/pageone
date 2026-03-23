@@ -40,8 +40,10 @@ Several Stage 1 improvements and fixes:
 - **Auto-rename on pitch selection** — Project is automatically renamed to the selected pitch's title.
 - **Assistant chat hidden before pitch selection** — Stage 1 chat window and resize handle are hidden until a pitch is selected for workshopping (no purpose before that). Shown on selection or when loading a project with existing pitch data.
 - **Brainstorm clarification cadence** — `skills/skill_brainstorm.md` Mode 2: after ~3 clarifying exchanges, assistant now pauses to summarize and offer to move forward or keep brainstorming (soft limit, not rigid counter).
+- **Approved flag on stage1_pitch** — Selecting a pitch sets `approved: false`; clicking Approve sets `approved: true`. On project reload, the green "Approved ✓" state only shows when `approved` is truthy. Prevents false approved state on selected-but-not-yet-approved pitches.
+- **Brainstorm execute_immediately fix** — `skills/skill_brainstorm.md`: when the writer explicitly asks to generate/execute (e.g., "do it", "generate the pitch"), the assistant now sets `execute_immediately: true` so the revision triggers immediately. Previously brainstorm mode always set `false`, requiring a redundant extra confirmation.
 
-**Files:** `public/app.js` (openProject reset, handleApprove persist+rename+chat reveal, handleHashChange reset), `public/index.html` (Stage 1 chat hidden by default), `server.js` (destructure agent returns), `skills/skill_brainstorm.md` (clarification cadence).
+**Files:** `public/app.js` (openProject reset, handleApprove persist+rename+chat reveal, handleHashChange reset, approved flag), `public/index.html` (Stage 1 chat hidden by default), `server.js` (destructure agent returns), `skills/skill_brainstorm.md` (clarification cadence, execute_immediately rules).
 
 ### 2026-03-22 — Stage 7 Style UI: layout consistency + UX enhancements
 

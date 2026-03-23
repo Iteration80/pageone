@@ -556,8 +556,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         stage1Notes.value = notes;
                     }
 
-                    // Lock textareas and show Approved / Revise state
-                    toggleStage1EditMode(true);
+                    // Show Approved state only if the pitch was actually approved
+                    if (projectDetails.data.stage1_pitch.approved !== false) {
+                        toggleStage1EditMode(true);
+                    }
 
                     // Auto-resize notes if visible
                     if (stage1Notes) autoResize(stage1Notes);
@@ -858,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Persist the selected pitch and auto-rename project to pitch title
         if (activeProjectId) {
-            const pitchData = { pitch: approvedData };
+            const pitchData = { pitch: approvedData, approved: false };
             if (window.currentProjectData) window.currentProjectData.stage1_pitch = pitchData;
             const payload = { data: { stage1_pitch: pitchData } };
             if (approvedData.title) payload.title = approvedData.title;
@@ -1097,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const notes = stage1Notes?.value ?? '';
 
         // Set nested payload for Stage 1 data
-        const stage1Snapshot = { pitch: finalData, notes: notes };
+        const stage1Snapshot = { pitch: finalData, notes: notes, approved: true };
         const versionHistory1 = captureVersionSnapshot(1, 'stage1_pitch', 'Pitch', stage1Snapshot);
         const payload = {
             data: {
