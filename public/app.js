@@ -4827,12 +4827,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     return el;
                 };
 
+                // Build revision notes that include user requests + assistant summary
+                const buildRevisionNotes = (assistantSummary, conversationHistory) => {
+                    const userMessages = conversationHistory
+                        .filter(m => m.role === 'user')
+                        .map(m => m.content)
+                        .join('\n');
+                    return `USER REQUESTS:\n${userMessages}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
+                };
+
                 if (pendingRevision) {
                     pendingRevision = false;
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        await executeRevision(pendingNotes);
+                        await executeRevision(buildRevisionNotes(pendingNotes, history));
                         indicator.remove();
                         chat.append('ai', 'Done. Review the changes above, then approve when ready.');
                     } catch (err) {
@@ -4870,7 +4879,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        await executeRevision(data.message);
+                        await executeRevision(buildRevisionNotes(data.message, history));
                         indicator.remove();
                         chat.append('ai', 'Done. Review the changes above, then approve when ready.');
                     } catch (err) {
@@ -4968,6 +4977,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
             renderCharacters(data.result.characters);
+            if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
         }
     });

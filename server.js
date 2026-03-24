@@ -246,6 +246,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
             const content = await fs.readFile(filePath, 'utf-8');
             projectData = JSON.parse(content);
         } catch (err) {
+            console.error('generate-characters: failed to load project:', err.message);
             return res.status(404).json({ error: "Project not found" });
         }
 
