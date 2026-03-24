@@ -602,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage3WasApproved && btnStage3Approve) {
                         btnStage3Approve.textContent = 'Approved ✓';
                         btnStage3Approve.classList.add('approve-btn-green');
+                        btnStage3Approve.disabled = true;
                     }
                     if (stage3WasApproved && btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                     if (stage3WasApproved && btnStage3Revise) btnStage3Revise.classList.add('hidden');
@@ -2627,6 +2628,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnStage3Approve.textContent = 'Approved ✓';
                 btnStage3Approve.classList.add('approve-btn-green');
+                btnStage3Approve.disabled = true;
 
                 // Toggle back to edit mode
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
@@ -2644,7 +2646,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(err);
                 alert("Error saving approved characters.");
                 btnStage3Approve.textContent = originalText;
-            } finally {
                 btnStage3Approve.disabled = false;
             }
         });
