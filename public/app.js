@@ -6477,7 +6477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = document.getElementById('spend-modal-content');
         if (!content) return;
 
-        const usage = window.currentProjectData?.data?.apiUsage || [];
+        const usage = window.currentProjectData?.apiUsage || [];
 
         if (!usage.length) {
             content.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;text-align:center;padding:24px 0">No usage data yet. Generate some content to start tracking costs.</p>';
