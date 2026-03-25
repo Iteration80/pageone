@@ -871,8 +871,11 @@ app.post('/api/brainstorm', async (req, res) => {
             if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
         }
         if (isInit && stageId === 5) {
-            // Stage Entry Analysis — proactive editorial opening message
+            // Stage 5 Entry Analysis — proactive editorial opening message
             conversationPrompt += `## STAGE ENTRY ANALYSIS (Mode 4)\nThe writer has just generated or loaded the treatment and is viewing it for the first time. You have the full treatment above. Analyze it as an editorial partner — identify 2-3 specific, actionable observations about pacing, character arc momentum, structural balance between acts, or missed dramatic opportunities. Reference specific sequences or moments. Do NOT summarize what the treatment contains — the writer already read it. Surface things they might not have noticed: a sagging act break, a character who disappears too long, a sequence doing heavy lifting while another coasts, a thematic thread that starts strong but gets dropped. End by asking which area the writer wants to dig into first. Be direct and editorial, not deferential. Set suggest_plan: false and execute_immediately: false.\n\n`;
+        } else if (isInit && stageId === 6) {
+            // Stage 6 Entry Analysis — scene blueprint review
+            conversationPrompt += `## STAGE ENTRY ANALYSIS (Mode 4)\nThe writer has just generated the scene blueprint and is reviewing it for the first time. You have the full scene-by-scene breakdown above. Analyze it as a script coordinator would — identify 2-3 specific observations about:\n- Scene count balance across sequences (are some overloaded while others feel thin?)\n- Slugline consistency and geography (do locations make spatial sense? are characters teleporting between decks without transition?)\n- Dramaturgical gaps (scenes that exist only as connective tissue without their own conflict or value shift)\n- Pacing rhythm (are high-tension and breather scenes alternating effectively, or do multiple intense scenes stack without relief?)\nReference specific scene numbers and headings. Do NOT summarize the blueprint — the writer can see it. Surface what they might miss scanning 60-80 scene cards. End by asking which area they want to dig into. Be direct. Set suggest_plan: false and execute_immediately: false.\n\n`;
         } else {
             for (const msg of messages) {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;

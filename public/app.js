@@ -1285,13 +1285,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 50);
             initStage5();
         } else if (stageNum === 6) {
-            // Visualize dummy data for Stage 6 if board is empty
-            if (stage6Board && !stage6Board.innerHTML.trim()) {
-                renderStage6();
-            }
             setTimeout(() => {
                 document.querySelectorAll('.scene-textarea').forEach(ta => autoResize(ta));
             }, 50);
+            initStage6();
         } else if (stageNum === 7) {
             initStage7();
         } else if (stageNum === 8) {
@@ -3370,8 +3367,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentData = scrapeTreatmentStage5();
             const originalText = btnStage5Approve.textContent;
 
-            const existingHistory = (window.currentProjectData?.versionHistory) || [];
-            const isReApproval = existingHistory.filter(v => v.stage === 5).length > 0;
+            const stage6HasData = !!(window.currentProjectData?.stage6_scenes?.length);
+            const isReApproval = stage6HasData;
 
             btnStage5Approve.textContent = 'Saving...';
             btnStage5Approve.disabled = true;
@@ -3423,35 +3420,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
         container.innerHTML = ''; // Wipe clean before drawing
 
-        // Dummy Data implementation
-        const dummyData = {
-            sequences: [
-                {
-                    sequence_title: "Sequence 1: The Setup",
-                    scenes: [
-                        {
-                            scene_number: 1,
-                            scene_heading: "EXT. CITY STREET - DAY",
-                            narrative_action: "The protagonist walks through the crowded street, looking for something.",
-                            dramaturgical_function: "Establish the setting and the protagonist's initial goal.",
-                            estimated_page_count: "1.5 pgs"
-                        },
-                        {
-                            scene_number: 2,
-                            scene_heading: "INT. COFFEE SHOP - DAY",
-                            narrative_action: "He meets his contact, who looks nervous. They exchange a cryptic package.",
-                            dramaturgical_function: "Introduce the inciting incident and a secondary character.",
-                            estimated_page_count: "2 pgs"
-                        }
-                    ]
-                }
-            ]
-        };
-
-        // Determine data structure
+        // Determine data structure — no dummy data; empty state is handled by leaving the container empty
         let sequences = [];
         if (!data) {
-            sequences = dummyData.sequences; 
+            return; // No data — leave container empty
         } else if (Array.isArray(data)) {
             sequences = data; // Flat array of sequences
         } else if (data.sequences && Array.isArray(data.sequences)) {
@@ -3460,7 +3432,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Flat array of scenes: wrap them so they render in a single block
             sequences = [{ sequence_title: "Draft Blueprint", scenes: data.scenes }];
         } else {
-            sequences = dummyData.sequences;
+            return; // Unknown shape — leave container empty
         }
 
         // Clean up accumulated ghosts: If real scenes exist in the data, strip out any empty placeholder sequences
@@ -3469,9 +3441,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sequences = sequences.filter(seq => seq.scenes && seq.scenes.length > 0);
         }
 
-        if (sequences === dummyData.sequences || sequences.length === 0) {
-            // If we are forcing dummy data, clear the container but allow it to draw the empty blocks so the user can hit 'Generate'
-            container.innerHTML = '';
+        if (sequences.length === 0) {
+            return; // Nothing to render
         }
 
         let globalSceneCounter = 1;
@@ -5078,6 +5049,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
         }
     });
+
+    // Stage 6 — Proactive editorial opening message
+    async function initStage6() {
+        const data = window.currentProjectData || {};
+        if (!data.stage6_scenes?.length) return; // No scenes yet
+        const chat = stageChatWindows[6];
+        if (!chat || (chat.history && chat.history.length > 0)) return;
+        const savedConvos = data.conversations || {};
+        if (savedConvos.stage6?.length) return;
+
+        chat.setThinking(true);
+        try {
+            const res = await fetch('/api/brainstorm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, stageId: 6, messages: [], isInit: true })
+            });
+            if (res.ok) {
+                const initData = await res.json();
+                chat.append('ai', initData.message);
+            }
+        } catch (err) {
+            console.error('Stage 6 init message failed:', err);
+        } finally {
+            chat.setThinking(false);
+        }
+    }
 
     // ─── STAGE 7: STYLE ───────────────────────────────────────────────────────
 
