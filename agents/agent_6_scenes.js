@@ -83,9 +83,37 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
 
     const parsedTreatmentBlocks = parseSequenceBlocks(fullTreatmentText);
 
+    const usageList = [];
+
+    // --- Location Dictionary Extraction ---
+    // One lightweight call to extract canonical location names from the full
+    // treatment. This list is injected into every per-sequence prompt so the
+    // agent uses consistent slugline locations instead of hallucinating new ones.
+    let canonicalLocations = '';
+    try {
+        console.log('  Stage 6: Extracting canonical locations from treatment...');
+        const locResult = await generateContent({
+            model, geminiApiKey, anthropicApiKey,
+            contents: [`Extract every distinct physical location mentioned in this screenplay treatment. Return the location name as it should appear in a scene heading (e.g., "MEDICAL BAY", "COMMAND DECK", "MAIN CORRIDOR"). Include interior/exterior qualifiers only when a location has both (e.g., list both if scenes happen inside and outside). Be exhaustive — scan the entire text.\n\nTREATMENT:\n${fullTreatmentText}`],
+            config: {
+                temperature: 0.3,
+                responseMimeType: 'application/json',
+                responseSchema: { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] },
+            },
+            schema: { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] },
+        });
+        const locData = JSON.parse(locResult.text);
+        if (locData.locations?.length) {
+            canonicalLocations = locData.locations.join(', ');
+            console.log(`  Stage 6: Extracted ${locData.locations.length} locations: ${canonicalLocations}`);
+        }
+        usageList.push(locResult.usage);
+    } catch (err) {
+        console.warn('  Stage 6: Location extraction failed (non-fatal):', err.message);
+    }
+
     // --- Iterative Loop ---
     let allSequences = [];
-    const usageList = [];
     let previousSequenceClimax = 'N/A - Start of Film';
 
     let globalSceneIndex = 1;
@@ -107,7 +135,7 @@ ${JSON.stringify(pitch, null, 2)}
 
 CHARACTERS:
 ${JSON.stringify(characters, null, 2)}
-
+${canonicalLocations ? `\nCANONICAL LOCATIONS (use these exact names in scene headings — do not invent new locations unless the narrative explicitly requires a space not in this list):\n${canonicalLocations}\n` : ''}
 CURRENT SEQUENCE BEATS (Sequence ${i} only):
 ${JSON.stringify(currentBeats, null, 2)}
 

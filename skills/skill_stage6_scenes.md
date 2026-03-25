@@ -14,6 +14,8 @@ You are given two source documents. Use them for different purposes and do not c
 
 When these two sources appear to conflict, honor the Beat Sheet's structural logic while using the Narrative Expansion's specific physical details to execute it.
 
+* **Location Dictionary:** If a CANONICAL LOCATIONS list is provided, use those exact names in scene headings. Do not invent new locations unless the narrative explicitly describes a space not in the list. This prevents location name drift across sequences.
+
 ## 4. THE ANTI-REPETITION & BOUNDARY MANDATE (CRITICAL)
 Your absolute highest priority is maintaining linear chronological integrity. You are adapting only a specific, isolated segment of the story.
 
