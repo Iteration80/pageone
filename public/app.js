@@ -626,6 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage4WasApproved && btnStage4Approve) {
                         btnStage4Approve.textContent = 'Approved ✓';
                         btnStage4Approve.classList.add('approve-btn-green');
+                        btnStage4Approve.disabled = true;
                     }
                     if (stage4WasApproved && btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                     if (stage4WasApproved && btnStage4Revise) btnStage4Revise.classList.add('hidden');
@@ -3066,6 +3067,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnStage4Approve.textContent = 'Approved ✓';
                 btnStage4Approve.classList.add('approve-btn-green');
+                btnStage4Approve.disabled = true;
 
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
@@ -3083,7 +3085,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(err);
                 alert('Error saving approved treatment.');
                 btnStage4Approve.textContent = originalText;
-            } finally {
                 btnStage4Approve.disabled = false;
             }
         });
@@ -3100,10 +3101,10 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(stage5TAs).forEach(key => {
             if (stage5TAs[key]) {
                 const ta = stage5TAs[key];
-                ta.value = data[key] || '';
+                ta.value = (data[key] || '').replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
                 
                 // Force Apply the Card Aesthetic Classes to match Stage 4 exactly
-                ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto max-h-96 treatment-stage5-ta";
+                ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto max-h-[48rem] treatment-stage5-ta";
                 
                 // For Stage 5 treatment fields, we skip autoResize because we want fixed max-height + scrollbar
                 // However, if the text is short, we still want it to fit normally.
