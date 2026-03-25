@@ -3103,20 +3103,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ta = stage5TAs[key];
                 ta.value = (data[key] || '').replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
                 
-                // Force Apply the Card Aesthetic Classes to match Stage 4 exactly
-                ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto max-h-[48rem] treatment-stage5-ta";
-                
-                // For Stage 5 treatment fields, we skip autoResize because we want fixed max-height + scrollbar
-                // However, if the text is short, we still want it to fit normally.
-                // Let's call autoResize but then immediately ensure overflow-y-auto is set
-                autoResize(ta);
-                ta.style.overflowY = 'auto'; // Re-enable scrollbars specifically for Treatment
+                // Fixed-height scrollable cards for treatment text
+                ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto treatment-stage5-ta";
+                const isTitleField = (key === 'title_logline_characters');
+                ta.style.minHeight = isTitleField ? '120px' : '400px';
+                ta.style.maxHeight = isTitleField ? '300px' : '800px';
+                ta.style.overflowY = 'auto';
 
                 // Add input listeners for user edits
                 if (!ta.dataset.listenerAdded) {
                     ta.addEventListener('input', () => {
-                        autoResize(ta);
-                        ta.style.overflowY = 'auto'; // Keep scrollbars enabled
                         if (btnStage5Approve) {
                             btnStage5Approve.textContent = 'Approve';
                             btnStage5Approve.classList.remove('approve-btn-green');

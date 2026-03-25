@@ -4,6 +4,24 @@ setGlobalDispatcher(new Agent({ headersTimeout: 300_000, bodyTimeout: 300_000 })
 const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+
+/**
+ * Atomic file write — writes to a temp file in the same directory, then renames.
+ * Prevents corruption from concurrent writes or interrupted I/O.
+ */
+async function atomicWriteFile(targetPath, data) {
+    const dir = path.dirname(targetPath);
+    const tmpPath = path.join(dir, `.tmp-${crypto.randomBytes(6).toString('hex')}`);
+    await fs.writeFile(tmpPath, data);
+    await fs.rename(tmpPath, targetPath);
+}
+
+/** Shorthand: atomic JSON write with pretty-printing. */
+async function atomicWriteJSON(targetPath, obj) {
+    await atomicWriteFile(targetPath, JSON.stringify(obj, null, 2));
+}
 
 /** Extracts plain text from a chat attachment ({ name, mimeType, data: base64 }). */
 async function extractAttachmentText(attachment) {
@@ -73,7 +91,7 @@ async function trackUsage(projectId, usageOrList) {
                 outputTokens: u.outputTokens || 0,
             });
         }
-        await fs.writeFile(filePath, JSON.stringify(project, null, 2));
+        await atomicWriteJSON(filePath, project);
     } catch (err) {
         console.error('trackUsage error:', err.message);
     }
@@ -221,7 +239,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         projectData.data.stage2_outline = outlineData;
         notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: outlineData });
@@ -267,7 +285,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         projectData.data.stage3_characters = characterData;
         notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: characterData });
@@ -326,7 +344,7 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         projectData.data.stage4_beats = beatsResult;
         notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usage);
 
         send({ type: 'complete', result: beatsResult });
@@ -384,7 +402,7 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
         projectData.data.stage5_treatment = treatmentResult;
         notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usageList);
 
         send({ type: 'complete', result: treatmentResult });
@@ -445,7 +463,7 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
         stampGenerated(projectData, 'stage6_scenes');
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usageList);
 
         send({ type: 'complete', result: allSequences });
@@ -485,7 +503,7 @@ app.post('/api/revise-stage6', async (req, res) => {
         projectData.data.stage6_scenes = updatedBlueprint;
         stampRevised(projectData, 'stage6_scenes');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: updatedBlueprint });
@@ -550,7 +568,7 @@ app.post('/api/generate-draft', async (req, res) => {
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
         res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
@@ -611,7 +629,7 @@ app.post('/api/revise-draft', async (req, res) => {
         targetedScene.humanized_draft_text = humanizedText;
         targetedScene.locked = false; // Unlock scene after revision
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
 
         res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
@@ -691,7 +709,7 @@ app.post('/api/generate-coverage', async (req, res) => {
         projectData.data.stage8_coverage = coverageResult;
         stampGenerated(projectData, 'stage8_coverage');
 
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usageList);
 
         res.json({ result: coverageResult });
@@ -726,7 +744,7 @@ app.post('/api/init-stage9', async (req, res) => {
         if (projectData.data?.stage9_rewrites && reset) {
             projectData.data.stage9_rewrites.priority_idx = 0;
             projectData.data.stage9_rewrites.approved = false;
-            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            await atomicWriteJSON(filePath, projectData);
             return res.json({
                 stage9_rewrites: projectData.data.stage9_rewrites,
                 macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
@@ -750,7 +768,7 @@ app.post('/api/init-stage9', async (req, res) => {
         const stage9 = { working, priority_idx: 0, approved: false };
         projectData.data = projectData.data || {};
         projectData.data.stage9_rewrites = stage9;
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
 
         res.json({
             stage9_rewrites: stage9,
@@ -893,7 +911,7 @@ app.post('/api/brainstorm', async (req, res) => {
             const convos = projectData.data.conversations || {};
             convos[stageKey] = [...messages, { role: 'assistant', content: result.message }];
             projectData.data.conversations = convos;
-            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            await atomicWriteJSON(filePath, projectData);
         } catch (saveErr) {
             console.error('Failed to persist conversation:', saveErr.message);
         }
@@ -956,7 +974,7 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
                 conversationPrompt += `[The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Here are the specific changes:\n${charChangeCtx}\n\nAcknowledge these character changes, briefly explain how they might affect the current draft (which scenes/moments would be most impacted), and ask if the writer wants to generate a rewrite plan focused on implementing these character updates across the screenplay. Keep it conversational and concise.]`;
                 // Clear the flag so it doesn't re-trigger
                 delete projectData.data.characterChangeContext;
-                await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+                await atomicWriteJSON(filePath, projectData);
             } else {
             const doneCount = allPriorities.filter(p => p.done).length;
             if (doneCount > 0) {
@@ -1021,7 +1039,7 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
                 const convos = projectData.data.conversations || {};
                 convos['stage9'] = [...messages, { role: 'assistant', content: result.message }];
                 projectData.data.conversations = convos;
-                await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+                await atomicWriteJSON(filePath, projectData);
             } catch (saveErr) {
                 console.error('Failed to persist rewrite conversation:', saveErr.message);
             }
@@ -1222,7 +1240,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNumber] = '';
-            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            await atomicWriteJSON(filePath, projectData);
             return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
         }
 
@@ -1253,7 +1271,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNumber] = proposed;
-            await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+            await atomicWriteJSON(filePath, projectData);
         }
 
         trackUsage(projectId, usage);
@@ -1283,7 +1301,7 @@ app.post('/api/approve-rewrite-priority', async (req, res) => {
         stage9.pending = {};  // Clear pending — now merged into working
         stage9.priority_idx = newPriorityIdx;
         projectData.data.stage9_rewrites = stage9;
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
 
         res.json({ stage9_rewrites: stage9 });
     } catch (error) {
@@ -1326,7 +1344,7 @@ app.post('/api/finalize-stage10', async (req, res) => {
         if (projectData.data?.stage9_rewrites) {
             projectData.data.stage9_rewrites.approved = true;
         }
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
@@ -1392,13 +1410,13 @@ app.post('/api/generate-stage7-style', upload.array('sampleFiles', 5), async (re
             .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
         // Save style file
-        await fs.writeFile(path.join(STYLES_DIR, `${slug}.md`), styleContent);
+        await atomicWriteFile(path.join(STYLES_DIR, `${slug}.md`), styleContent);
 
         // Update project
         projectData.data = projectData.data || {};
         projectData.data.stage7_style = slug;
         stampGenerated(projectData, 'stage7_style');
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ slug, content: styleContent, meta });
@@ -1523,7 +1541,7 @@ app.post('/api/select-style', async (req, res) => {
         projectData.data = projectData.data || {};
         projectData.data.stage7_style = styleSlug;
         stampGenerated(projectData, 'stage7_style');
-        await fs.writeFile(filePath, JSON.stringify(projectData, null, 2));
+        await atomicWriteJSON(filePath, projectData);
 
         // Load and return the style content
         const styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
@@ -1554,7 +1572,7 @@ app.post('/api/settings', async (req, res) => {
         if (stageModels) appSettings.stageModels = stageModels;
 
         await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
-        await fs.writeFile(SETTINGS_PATH, JSON.stringify(appSettings, null, 2));
+        await atomicWriteJSON(SETTINGS_PATH, appSettings);
         res.json({ ok: true });
     } catch (err) {
         console.error('Failed to save settings:', err);
@@ -1619,7 +1637,7 @@ app.post('/api/projects', async (req, res) => {
         };
 
         const filePath = path.join(DATA_DIR, `${id}.json`);
-        await fs.writeFile(filePath, JSON.stringify(newProject, null, 2));
+        await atomicWriteJSON(filePath, newProject);
 
         res.status(201).json(newProject);
     } catch (error) {
@@ -1672,7 +1690,7 @@ app.post('/api/import-script', upload.single('scriptFile'), async (req, res) => 
         };
 
         const filePath = path.join(DATA_DIR, `${id}.json`);
-        await fs.writeFile(filePath, JSON.stringify(newProject, null, 2));
+        await atomicWriteJSON(filePath, newProject);
 
         console.log(`Imported script "${title}": ${parsed.scenes.length} scenes, ${stage6Scenes.length} sequences`);
         res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
@@ -1713,7 +1731,7 @@ app.put('/api/projects/:id', async (req, res) => {
             delete updatedProject.stampRevisedStage; // Don't persist the flag itself
         }
 
-        await fs.writeFile(filePath, JSON.stringify(updatedProject, null, 2));
+        await atomicWriteJSON(filePath, updatedProject);
 
         res.json(updatedProject);
     } catch (error) {
