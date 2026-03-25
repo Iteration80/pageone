@@ -1279,6 +1279,11 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
             }, 50);
+        } else if (stageNum === 5) {
+            setTimeout(() => {
+                document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
+            }, 50);
+            initStage5();
         } else if (stageNum === 6) {
             // Visualize dummy data for Stage 6 if board is empty
             if (stage6Board && !stage6Board.innerHTML.trim()) {
@@ -3392,7 +3397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage5Approve.classList.add('approve-btn-green');
 
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
-                btnStage5Revise.classList.add('hidden');
+                if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
 
                 if (isReApproval) {
                     showGenericRegenModal('Treatment', 'Stage 6 Scenes',
@@ -3406,7 +3411,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error(err);
                 btnStage5Approve.textContent = originalText;
-            } finally {
                 btnStage5Approve.disabled = false;
             }
         });
@@ -5027,6 +5031,33 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    // Stage 5 — Proactive editorial opening message
+    async function initStage5() {
+        const data = window.currentProjectData || {};
+        if (!data.stage5_treatment) return; // No treatment yet
+        const chat = stageChatWindows[5];
+        if (!chat || (chat.history && chat.history.length > 0)) return; // Already has conversation
+        const savedConvos = data.conversations || {};
+        if (savedConvos.stage5?.length) return;
+
+        chat.setThinking(true);
+        try {
+            const res = await fetch('/api/brainstorm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, stageId: 5, messages: [], isInit: true })
+            });
+            if (res.ok) {
+                const initData = await res.json();
+                chat.append('ai', initData.message);
+            }
+        } catch (err) {
+            console.error('Stage 5 init message failed:', err);
+        } finally {
+            chat.setThinking(false);
+        }
+    }
 
     // Stage 6
     stageChatWindows[6] = initStageChat({

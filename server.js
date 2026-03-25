@@ -784,7 +784,7 @@ app.post('/api/init-stage9', async (req, res) => {
 // General-purpose brainstorm: stages 1–7 chat assistant
 app.post('/api/brainstorm', async (req, res) => {
     try {
-        const { projectId, stageId, messages = [], sceneNumber, attachment } = req.body;
+        const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false } = req.body;
         if (!projectId || !stageId) return res.status(400).json({ error: 'Missing projectId or stageId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -870,18 +870,22 @@ app.post('/api/brainstorm', async (req, res) => {
             const fileText = await extractAttachmentText(attachment);
             if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
         }
-        for (const msg of messages) {
-            conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
+        if (isInit && stageId === 5) {
+            // Stage Entry Analysis — proactive editorial opening message
+            conversationPrompt += `## STAGE ENTRY ANALYSIS (Mode 4)\nThe writer has just generated or loaded the treatment and is viewing it for the first time. You have the full treatment above. Analyze it as an editorial partner — identify 2-3 specific, actionable observations about pacing, character arc momentum, structural balance between acts, or missed dramatic opportunities. Reference specific sequences or moments. Do NOT summarize what the treatment contains — the writer already read it. Surface things they might not have noticed: a sagging act break, a character who disappears too long, a sequence doing heavy lifting while another coasts, a thematic thread that starts strong but gets dropped. End by asking which area the writer wants to dig into first. Be direct and editorial, not deferential. Set suggest_plan: false and execute_immediately: false.\n\n`;
+        } else {
+            for (const msg of messages) {
+                conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
+            }
+            // Cadence enforcement: nudge model to stop asking questions after enough exchanges
+            const userExchangeCount = messages.filter(m => m.role === 'user').length;
+            if (userExchangeCount >= 5) {
+                conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now pause and check in. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming.\n\n1. Summarize the direction so far ONLY if you haven't already done so in this same response. Don't repeat yourself.\n2. Choose the appropriate next step based on what ACTUALLY happened:\n   - If YOU surfaced a specific improvement or issue in THIS response: ask the writer whether they want to address it before moving on. Follow through on your own observations — do NOT pivot to a generic "anything else?" when you just identified something concrete.\n   - If concrete changes were proposed or agreed on: offer to apply them ("Want me to go ahead and update the [stage output], or keep refining?"). Set suggest_plan: true.\n   - If the conversation was purely exploratory and no improvements were surfaced: ask if the writer wants to dig into another aspect or is happy with where things stand. Do NOT offer to regenerate — there is nothing to regenerate. Set suggest_plan: false.\n\n`;
+            } else if (userExchangeCount >= 4) {
+                conversationPrompt += `\n\n## CADENCE REMINDER\nThis is exchange ${userExchangeCount}. On your next response you will need to check in per the Clarification Cadence rule. Be aware: only offer to regenerate/update content if concrete changes were actually discussed. If the conversation has been exploratory, offer to discuss another aspect or let the writer approve as-is.\n\n`;
+            }
+            conversationPrompt += 'Continue the conversation as the editorial assistant.';
         }
-        // Cadence enforcement: nudge model to stop asking questions after enough exchanges
-        const userExchangeCount = messages.filter(m => m.role === 'user').length;
-        if (userExchangeCount >= 5) {
-            conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now pause and check in. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming.\n\n1. Summarize the direction so far ONLY if you haven't already done so in this same response. Don't repeat yourself.\n2. Choose the appropriate next step based on what ACTUALLY happened:\n   - If YOU surfaced a specific improvement or issue in THIS response: ask the writer whether they want to address it before moving on. Follow through on your own observations — do NOT pivot to a generic "anything else?" when you just identified something concrete.\n   - If concrete changes were proposed or agreed on: offer to apply them ("Want me to go ahead and update the [stage output], or keep refining?"). Set suggest_plan: true.\n   - If the conversation was purely exploratory and no improvements were surfaced: ask if the writer wants to dig into another aspect or is happy with where things stand. Do NOT offer to regenerate — there is nothing to regenerate. Set suggest_plan: false.\n\n`;
-        } else if (userExchangeCount >= 4) {
-            conversationPrompt += `\n\n## CADENCE REMINDER\nThis is exchange ${userExchangeCount}. On your next response you will need to check in per the Clarification Cadence rule. Be aware: only offer to regenerate/update content if concrete changes were actually discussed. If the conversation has been exploratory, offer to discuss another aspect or let the writer approve as-is.\n\n`;
-        }
-
-        conversationPrompt += 'Continue the conversation as the editorial assistant.';
 
         const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
         const { GoogleGenAI } = require('@google/genai');
@@ -906,14 +910,17 @@ app.post('/api/brainstorm', async (req, res) => {
         trackUsage(projectId, brainstormUsage);
 
         // Persist the full conversation (current session + new exchange) to project file
-        try {
-            const stageKey = `stage${stageId}`;
-            const convos = projectData.data.conversations || {};
-            convos[stageKey] = [...messages, { role: 'assistant', content: result.message }];
-            projectData.data.conversations = convos;
-            await atomicWriteJSON(filePath, projectData);
-        } catch (saveErr) {
-            console.error('Failed to persist conversation:', saveErr.message);
+        // Skip persistence for init messages — they are ephemeral and regenerated on each visit
+        if (!isInit) {
+            try {
+                const stageKey = `stage${stageId}`;
+                const convos = projectData.data.conversations || {};
+                convos[stageKey] = [...messages, { role: 'assistant', content: result.message }];
+                projectData.data.conversations = convos;
+                await atomicWriteJSON(filePath, projectData);
+            } catch (saveErr) {
+                console.error('Failed to persist conversation:', saveErr.message);
+            }
         }
 
         res.json(result);
