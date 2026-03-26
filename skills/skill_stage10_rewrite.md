@@ -30,6 +30,15 @@ Apply the minimum change necessary to address the task. Do not fix other issues 
 **Style Directives (when present):**
 If STYLE DIRECTIVES are present, maintain the established style voice when rewriting scenes. The rewrite should fix what Coverage identified while preserving the project's stylistic identity. Style is secondary to the rewrite instruction — execute the planned change first, then ensure the result is consistent with the style.
 
+**Style Compliance — Trained Styles (when STYLE REFERENCE is present):**
+When a `STYLE REFERENCE` section is present, you are working with a Tier 3 trained style derived from actual screenplay analysis. After applying the planned rewrite change, perform a compliance check:
+1. Does the rewritten scene maintain the scene construction patterns described in the reference?
+2. Do the action lines match the density, rhythm, and sentence structure fingerprint?
+3. Does the dialogue preserve the rhythms and subtext level?
+4. Is the tonal register consistent?
+If you find drift, adjust the rewritten lines to match the reference patterns — but NEVER undo the coverage fix itself. The directive is your quick execution guide; the reference is your deep ground truth.
+When only STYLE DIRECTIVES are present (no reference), maintain the voice as guidance but do not perform a formal compliance check.
+
 **Character Profiles (when provided):**
 If your input includes a `CHARACTER PROFILES` section with voice tags and dialogue fingerprints, consult it when rewriting dialogue. Maintain each character's established voice — their `voice_tag`, `speech_patterns`, and `_deep_profile.dialogue_fingerprint` are your reference. Under high-stress scenes, use `pressure_tag` to inform how the character's speech changes.
 

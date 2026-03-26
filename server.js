@@ -122,26 +122,40 @@ const { generateSceneDraft } = require('./agents/agent_8_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
 const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
-const { generateStyleFile, parseStyleFile } = require('./agents/agent_7_style');
+const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 
 const STYLES_DIR = path.join(__dirname, 'data', 'styles');
 
 /**
  * Load the style file for a project, if one is set and exists.
- * Returns { styleContent, styleWarning } where styleContent is the markdown
- * string (or null) and styleWarning is a UI-facing notice (or null).
+ * Returns { styleContent, styleWarning, referenceContent } where styleContent
+ * is the directive markdown (or null), referenceContent is the full reference
+ * for Tier 3 trained styles (or null), and styleWarning is a UI-facing notice.
  */
 async function loadProjectStyle(projectData) {
     const slug = projectData.data?.stage7_style;
-    if (!slug || slug === 'none') return { styleContent: null, styleWarning: null };
+    if (!slug || slug === 'none') return { styleContent: null, styleWarning: null, referenceContent: null };
+
+    // Try new naming first (-directive.md), fall back to legacy (.md)
+    let styleContent = null, referenceContent = null, styleWarning = null;
     try {
-        const content = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
-        return { styleContent: content, styleWarning: null };
+        styleContent = await fs.readFile(path.join(STYLES_DIR, `${slug}-directive.md`), 'utf-8');
     } catch {
-        console.warn(`Style file "${slug}.md" not found — drafting without style directives.`);
-        return { styleContent: null, styleWarning: `The style "${slug}" is no longer available. Drafting without style directives.` };
+        try {
+            styleContent = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
+        } catch {
+            console.warn(`Style file "${slug}" not found — drafting without style directives.`);
+            styleWarning = `The style "${slug}" is no longer available. Drafting without style directives.`;
+        }
     }
+
+    // Load full reference if it exists (Tier 3 trained styles only)
+    try {
+        referenceContent = await fs.readFile(path.join(STYLES_DIR, `${slug}-reference.md`), 'utf-8');
+    } catch { /* no reference = Tier 2 conversational or legacy style */ }
+
+    return { styleContent, styleWarning, referenceContent };
 }
 
 const app = express();
@@ -876,6 +890,35 @@ app.post('/api/brainstorm', async (req, res) => {
         } else if (isInit && stageId === 6) {
             // Stage 6 Entry Analysis — scene blueprint review
             conversationPrompt += `## STAGE ENTRY ANALYSIS (Mode 4)\nThe writer has just generated the scene blueprint and is reviewing it for the first time. You have the full scene-by-scene breakdown above. Analyze it as a script coordinator would — identify 2-3 specific observations about:\n- Scene count balance across sequences (are some overloaded while others feel thin?)\n- Slugline consistency and geography (do locations make spatial sense? are characters teleporting between decks without transition?)\n- Dramaturgical gaps (scenes that exist only as connective tissue without their own conflict or value shift)\n- Pacing rhythm (are high-tension and breather scenes alternating effectively, or do multiple intense scenes stack without relief?)\nReference specific scene numbers and headings. Do NOT summarize the blueprint — the writer can see it. Surface what they might miss scanning 60-80 scene cards. End by asking which area they want to dig into. Be direct. Set suggest_plan: false and execute_immediately: false.\n\n`;
+        } else if (isInit && stageId === 7) {
+            // Stage 7 — 3-writer style suggestion based on story context
+            // Load saved styles for context
+            let savedStyleNames = [];
+            try {
+                const styleFiles = await fs.readdir(STYLES_DIR);
+                for (const f of styleFiles) {
+                    if (!f.endsWith('-directive.md') && !f.endsWith('.md')) continue;
+                    if (f.endsWith('-reference.md')) continue;
+                    try {
+                        const raw = await fs.readFile(path.join(STYLES_DIR, f), 'utf-8');
+                        const { meta } = parseStyleFile(raw);
+                        if (meta.name) savedStyleNames.push(meta.name);
+                    } catch {}
+                }
+            } catch {}
+
+            conversationPrompt += `## STAGE 7 STYLE SUGGESTION (3-Writer System)\n`;
+            conversationPrompt += `The writer has scenes ready and is choosing a writing style. Suggest exactly 3 specific filmmakers or screenwriters whose style would suit this story.\n\n`;
+            conversationPrompt += `Rules:\n`;
+            conversationPrompt += `- For each suggestion: writer name, 1-sentence style description, 1 sentence connecting it to something SPECIFIC in their scenes (reference a scene number or character moment).\n`;
+            conversationPrompt += `- Suggest a range: one intense/visceral, one restrained/observational, one unexpected/wild-card.\n`;
+            conversationPrompt += `- If the writer has saved styles that fit, include one as a suggestion: "You already have a [Name] style that could work here."\n`;
+            if (savedStyleNames.length > 0) {
+                conversationPrompt += `- Saved styles in library: ${savedStyleNames.join(', ')}\n`;
+            }
+            conversationPrompt += `- End with: "Pick one and I'll build the style, or describe something different."\n`;
+            conversationPrompt += `- Also mention: "Or choose 'No Style' above to draft in a clean, neutral voice."\n`;
+            conversationPrompt += `\nSet suggest_plan: false and execute_immediately: false.\n\n`;
         } else {
             for (const msg of messages) {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
@@ -1097,10 +1140,13 @@ app.post('/api/plan-rewrite', async (req, res) => {
         const charBlock = characters.length > 0
             ? `\n\n## CHARACTERS\n${characters.map(c => `${c.name} (${c.role}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`).join('\n')}`
             : '';
-        const { styleContent: plannerStyleContent } = await loadProjectStyle(projectData);
-        const styleNote = plannerStyleContent
-            ? `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`
-            : '';
+        const { styleContent: plannerStyleContent, referenceContent: plannerRefContent } = await loadProjectStyle(projectData);
+        let styleNote = '';
+        if (plannerStyleContent && plannerRefContent) {
+            styleNote = `\n\n## STYLE CONTEXT\nThis project has a trained style (Tier 3) derived from screenplay analysis. The rewrite agent will automatically perform style-compliance checking using the full reference. Do not add style tasks to the plan unless the rewrite task explicitly raises style drift as an issue.`;
+        } else if (plannerStyleContent) {
+            styleNote = `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`;
+        }
         const prompt = `## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
@@ -1179,8 +1225,8 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
             ? allScenes.filter(s => affectedSceneNumbers.includes(s.scene_number))
             : allScenes;
 
-        const { styleContent } = await loadProjectStyle(projectData);
-        console.log(`Stage 10: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."`);
+        const { styleContent, referenceContent } = await loadProjectStyle(projectData);
+        console.log(`Stage 10: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."${referenceContent ? ' [with style compliance]' : ''}`);
 
         const results = await Promise.allSettled(
             scopedScenes.map(s => {
@@ -1189,7 +1235,7 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }, '', getModelConfig(10), styleContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
+                }, '', getModelConfig(10), styleContent, referenceContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
 
@@ -1254,8 +1300,8 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
         }
 
-        const { styleContent } = await loadProjectStyle(projectData);
-        console.log(`Stage 10: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."`);
+        const { styleContent, referenceContent } = await loadProjectStyle(projectData);
+        console.log(`Stage 10: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."${referenceContent ? ' [with style compliance]' : ''}`);
 
         // Build character context for this scene
         const characters = projectData.data?.stage3_characters?.characters || [];
@@ -1271,7 +1317,8 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             { title, sceneNumber, slugline, characters: charProfiles },
             plannedChange || '',
             getModelConfig(10),
-            styleContent
+            styleContent,
+            referenceContent
         );
 
         const modified = proposed.trim() !== sceneText.trim();
@@ -1367,67 +1414,55 @@ app.post('/api/finalize-stage10', async (req, res) => {
 // Generate a style skill file from chat/form input
 app.post('/api/generate-stage7-style', upload.array('sampleFiles', 5), async (req, res) => {
     try {
-        const { projectId, mode, description, formData: formDataRaw, conversationHistory: convRaw } = req.body;
-        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
-
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
-
-        const formData = formDataRaw ? (typeof formDataRaw === 'string' ? JSON.parse(formDataRaw) : formDataRaw) : null;
+        const { projectId, description, conversationHistory: convRaw } = req.body;
         const conversationHistory = convRaw ? (typeof convRaw === 'string' ? JSON.parse(convRaw) : convRaw) : [];
 
-        // Extract text from uploaded sample files
-        const sampleTexts = [];
-        if (req.files?.length) {
-            for (const file of req.files) {
-                const ext = (file.originalname || '').split('.').pop().toLowerCase();
-                if (ext === 'pdf') {
-                    const pdfParse = require('pdf-parse');
-                    const parsed = await pdfParse(file.buffer);
-                    sampleTexts.push(parsed.text);
-                } else {
-                    sampleTexts.push(file.buffer.toString('utf-8'));
-                }
-            }
+        // Load project context if projectId provided (optional for Landing Page creation)
+        let projectData = null, filePath = null;
+        if (projectId) {
+            filePath = path.join(DATA_DIR, `${projectId}.json`);
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
         }
 
         // Build scene summaries for context
         let sceneSummaries = '';
-        const s6 = projectData.data?.stage6_scenes || [];
-        if (s6.length > 0) {
-            const lines = [];
-            for (const seq of s6) {
-                if (seq.scenes) for (const sc of seq.scenes) {
-                    lines.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} — ${sc.narrative_action || ''}`);
+        if (projectData) {
+            const s6 = projectData.data?.stage6_scenes || [];
+            if (s6.length > 0) {
+                const lines = [];
+                for (const seq of s6) {
+                    if (seq.scenes) for (const sc of seq.scenes) {
+                        lines.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} — ${sc.narrative_action || ''}`);
+                    }
                 }
+                sceneSummaries = lines.join('\n');
             }
-            sceneSummaries = lines.join('\n');
         }
 
-        console.log(`Generating Stage 7 Style for project ${projectId} (mode: ${mode || 'chat'})...`);
+        console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}...`);
         const { result: styleContent, usage } = await generateStyleFile({
             description: description || '',
-            formData,
-            sampleTexts,
             sceneSummaries,
             conversationHistory
         }, getModelConfig(7));
 
         // Parse the generated style to extract metadata
         const { meta } = parseStyleFile(styleContent);
-        const slug = (meta.name || formData?.name || 'custom-style')
+        const slug = (meta.slug || meta.name || 'custom-style')
             .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-        // Save style file
-        await atomicWriteFile(path.join(STYLES_DIR, `${slug}.md`), styleContent);
+        // Save as directive file (new naming convention)
+        await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), styleContent);
 
-        // Update project
-        projectData.data = projectData.data || {};
-        projectData.data.stage7_style = slug;
-        stampGenerated(projectData, 'stage7_style');
-        await atomicWriteJSON(filePath, projectData);
-        trackUsage(projectId, usage);
+        // Update project if within project context
+        if (projectData && filePath) {
+            projectData.data = projectData.data || {};
+            projectData.data.stage7_style = slug;
+            stampGenerated(projectData, 'stage7_style');
+            await atomicWriteJSON(filePath, projectData);
+            if (projectId) trackUsage(projectId, usage);
+        }
 
         res.json({ slug, content: styleContent, meta });
     } catch (error) {
@@ -1446,12 +1481,16 @@ app.post('/api/preview-style-scene', async (req, res) => {
         const content = await fs.readFile(filePath, 'utf-8');
         const projectData = JSON.parse(content);
 
-        // Load style file
+        // Load style file — try new naming first, fall back to legacy
         let styleContent;
         try {
-            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
+            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf-8');
         } catch {
-            return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+            try {
+                styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
+            } catch {
+                return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+            }
         }
 
         // Get the target scene
@@ -1512,16 +1551,43 @@ app.get('/api/styles', async (req, res) => {
     try {
         let files;
         try { files = await fs.readdir(STYLES_DIR); } catch { files = []; }
-        const styles = [];
+
+        // Group files by slug: [slug]-directive.md, [slug]-reference.md, or legacy [slug].md
+        const styleMap = new Map(); // slug -> { directiveFile, referenceFile }
         for (const file of files) {
             if (!file.endsWith('.md')) continue;
-            const slug = file.replace(/\.md$/, '');
+            const tieredMatch = file.match(/^(.+?)-(directive|reference)\.md$/);
+            if (tieredMatch) {
+                const [, slug, type] = tieredMatch;
+                if (!styleMap.has(slug)) styleMap.set(slug, {});
+                styleMap.get(slug)[type === 'directive' ? 'directiveFile' : 'referenceFile'] = file;
+            } else {
+                // Legacy single-file style
+                const slug = file.replace(/\.md$/, '');
+                if (!styleMap.has(slug)) styleMap.set(slug, {});
+                styleMap.get(slug).directiveFile = file;
+            }
+        }
+
+        const styles = [];
+        for (const [slug, entry] of styleMap) {
+            // Read the directive (primary metadata source)
+            const metaFile = entry.directiveFile || entry.referenceFile;
+            if (!metaFile) continue;
             try {
-                const raw = await fs.readFile(path.join(STYLES_DIR, file), 'utf-8');
+                const raw = await fs.readFile(path.join(STYLES_DIR, metaFile), 'utf-8');
                 const { meta } = parseStyleFile(raw);
-                styles.push({ slug, name: meta.name || slug, tonal_summary: meta.tonal_summary || '', references: meta.references || [], created: meta.created || '' });
+                styles.push({
+                    slug,
+                    name: meta.name || slug,
+                    tonal_summary: meta.tonal_summary || '',
+                    references: meta.references || [],
+                    created: meta.created || '',
+                    tier: meta.tier || 'conversational',
+                    hasReference: !!entry.referenceFile
+                });
             } catch {
-                styles.push({ slug, name: slug, tonal_summary: '', references: [], created: '' });
+                styles.push({ slug, name: slug, tonal_summary: '', references: [], created: '', tier: 'conversational', hasReference: false });
             }
         }
         res.json({ styles });
@@ -1537,11 +1603,16 @@ app.post('/api/select-style', async (req, res) => {
         const { projectId, styleSlug } = req.body;
         if (!projectId || !styleSlug) return res.status(400).json({ error: 'Missing projectId or styleSlug' });
 
-        // Verify style exists
+        // Verify style exists — try new naming first, fall back to legacy
+        let styleContent = null;
         try {
-            await fs.access(path.join(STYLES_DIR, `${styleSlug}.md`));
+            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf-8');
         } catch {
-            return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+            try {
+                styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
+            } catch {
+                return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+            }
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -1553,12 +1624,210 @@ app.post('/api/select-style', async (req, res) => {
         stampGenerated(projectData, 'stage7_style');
         await atomicWriteJSON(filePath, projectData);
 
-        // Load and return the style content
-        const styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
         const { meta } = parseStyleFile(styleContent);
         res.json({ slug: styleSlug, content: styleContent, meta });
     } catch (error) {
         console.error('select-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Generate a Tier 3 trained style from uploaded screenplay(s)
+app.post('/api/generate-trained-style', upload.array('screenplayFiles', 5), async (req, res) => {
+    try {
+        const { projectId, styleName, conversationHistory: convRaw } = req.body;
+        const conversationHistory = convRaw ? (typeof convRaw === 'string' ? JSON.parse(convRaw) : convRaw) : [];
+
+        // Extract text from uploaded screenplay files
+        const screenplayTexts = [];
+        const screenplayTitles = [];
+        if (req.files?.length) {
+            for (const file of req.files) {
+                const ext = (file.originalname || '').split('.').pop().toLowerCase();
+                const title = file.originalname.replace(/\.[^.]+$/, '');
+                screenplayTitles.push(title);
+                if (ext === 'pdf') {
+                    const pdfParse = require('pdf-parse');
+                    const parsed = await pdfParse(file.buffer);
+                    screenplayTexts.push(parsed.text);
+                } else {
+                    screenplayTexts.push(file.buffer.toString('utf-8'));
+                }
+            }
+        }
+
+        if (screenplayTexts.length === 0) {
+            return res.status(400).json({ error: 'At least one screenplay file is required for trained style generation' });
+        }
+
+        console.log(`Generating Tier 3 trained style from ${screenplayTexts.length} screenplay(s)...`);
+        const { reference, directive, usageList } = await generateTrainedStyle({
+            styleName: styleName || '',
+            screenplayTexts,
+            screenplayTitles,
+            conversationHistory
+        }, getModelConfig(7));
+
+        // Extract slug from reference metadata
+        const { meta: refMeta } = parseStyleFile(reference);
+        const slug = (refMeta.slug || refMeta.name || styleName || 'trained-style')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+        // Save both files atomically
+        await atomicWriteFile(path.join(STYLES_DIR, `${slug}-reference.md`), reference);
+        await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), directive);
+
+        // Update project if within project context
+        if (projectId) {
+            const filePath = path.join(DATA_DIR, `${projectId}.json`);
+            const content = await fs.readFile(filePath, 'utf-8');
+            const projectData = JSON.parse(content);
+            projectData.data = projectData.data || {};
+            projectData.data.stage7_style = slug;
+            stampGenerated(projectData, 'stage7_style');
+            await atomicWriteJSON(filePath, projectData);
+            trackUsage(projectId, usageList);
+        }
+
+        const { meta } = parseStyleFile(directive);
+        res.json({ slug, directive, reference, meta, tier: 'trained' });
+    } catch (error) {
+        console.error('generate-trained-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get full style content (directive + reference if exists)
+app.get('/api/styles/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        let directive = null, reference = null;
+
+        // Try new naming first, fall back to legacy
+        try {
+            directive = await fs.readFile(path.join(STYLES_DIR, `${slug}-directive.md`), 'utf-8');
+        } catch {
+            try {
+                directive = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
+            } catch {
+                return res.status(404).json({ error: `Style "${slug}" not found` });
+            }
+        }
+
+        // Load reference if it exists (Tier 3 only)
+        try {
+            reference = await fs.readFile(path.join(STYLES_DIR, `${slug}-reference.md`), 'utf-8');
+        } catch { /* no reference = Tier 2 */ }
+
+        const { meta, body } = parseStyleFile(directive);
+        const tier = reference ? 'trained' : (meta.tier || 'conversational');
+
+        res.json({ slug, directive, reference, meta, body, tier });
+    } catch (error) {
+        console.error('get-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update a style's directive content
+app.put('/api/styles/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const { content } = req.body;
+        if (!content) return res.status(400).json({ error: 'Missing content' });
+
+        // Verify the file exists first
+        let filePath;
+        try {
+            filePath = path.join(STYLES_DIR, `${slug}-directive.md`);
+            await fs.access(filePath);
+        } catch {
+            try {
+                filePath = path.join(STYLES_DIR, `${slug}.md`);
+                await fs.access(filePath);
+            } catch {
+                return res.status(404).json({ error: `Style "${slug}" not found` });
+            }
+        }
+
+        await atomicWriteFile(filePath, content);
+        const { meta } = parseStyleFile(content);
+        res.json({ slug, meta });
+    } catch (error) {
+        console.error('update-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete a style (removes both directive and reference files)
+app.delete('/api/styles/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        let deleted = false;
+
+        // Delete all possible files for this slug
+        for (const suffix of ['-directive.md', '-reference.md', '.md']) {
+            try {
+                await fs.unlink(path.join(STYLES_DIR, `${slug}${suffix}`));
+                deleted = true;
+            } catch { /* file doesn't exist, that's fine */ }
+        }
+
+        if (!deleted) return res.status(404).json({ error: `Style "${slug}" not found` });
+        res.json({ deleted: true, slug });
+    } catch (error) {
+        console.error('delete-style error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Lightweight brainstorm chat for style creation outside project context
+app.post('/api/style-chat', async (req, res) => {
+    try {
+        const { messages, isInit } = req.body;
+        const styleSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage7_style.md'), 'utf8');
+        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+
+        let systemPrompt = `${brainstormSop}\n\n## STYLE SOP\n${styleSop}\n\n`;
+        systemPrompt += `You are helping a writer create a style for their screenplay projects. You are NOT in a project context — there are no scenes to reference. Help them describe the style they want, then generate a directive when they're ready.\n`;
+
+        if (isInit) {
+            systemPrompt += `\nThis is the start of the conversation. Open with: "Who do you want to write like? Name a writer, describe a vibe, or if you have a screenplay you'd like me to analyze, we can do that on the style detail page after creation."`;
+        }
+
+        // Load list of existing styles for context
+        let existingStyles = [];
+        try {
+            const files = await fs.readdir(STYLES_DIR);
+            for (const file of files) {
+                if (!file.endsWith('-directive.md') && !file.endsWith('.md')) continue;
+                if (file.endsWith('-reference.md')) continue;
+                try {
+                    const raw = await fs.readFile(path.join(STYLES_DIR, file), 'utf-8');
+                    const { meta } = parseStyleFile(raw);
+                    existingStyles.push(meta.name || file.replace(/-(directive)?\.md$/, ''));
+                } catch {}
+            }
+        } catch {}
+
+        if (existingStyles.length > 0) {
+            systemPrompt += `\n\nExisting styles in the library: ${existingStyles.join(', ')}`;
+        }
+
+        const mc = getModelConfig(7);
+        const { generateContent } = require('./agents/ai-client');
+        const response = await generateContent({
+            model: mc.model, geminiApiKey: mc.geminiApiKey, anthropicApiKey: mc.anthropicApiKey,
+            contents: messages || [],
+            config: {
+                systemInstruction: systemPrompt,
+                temperature: 0.7
+            }
+        });
+
+        res.json({ reply: response.text, usage: response.usage });
+    } catch (error) {
+        console.error('style-chat error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

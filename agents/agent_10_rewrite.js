@@ -7,14 +7,19 @@ const path = require('path');
  * Applies a single coverage task to one scene. Returns the scene unchanged
  * if the task does not apply to it.
  *
+ * For Tier 3 (trained) styles, also performs a style-compliance check using
+ * the full style reference after applying the coverage fix.
+ *
  * @param {string} sceneText         - Current Fountain text for this scene
  * @param {string} priorityTask      - The specific rewrite instruction to apply
- * @param {object} sceneContext      - { title, sceneNumber, slugline }
+ * @param {object} sceneContext      - { title, sceneNumber, slugline, characters }
  * @param {string} [userFeedback]    - Optional additional user instructions
  * @param {object} [modelConfig]     - { model, geminiApiKey, anthropicApiKey }
- * @returns {Promise<string>}        - Rewritten (or unchanged) Fountain scene text
+ * @param {string} [styleContent]    - Style directive (400-600 words, Tier 2 or 3)
+ * @param {string} [styleReference]  - Full style reference (2000+ words, Tier 3 only)
+ * @returns {Promise<{result: string, usage: object}>}
  */
-const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '', modelConfig = {}, styleContent = null) => {
+const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback = '', modelConfig = {}, styleContent = null, styleReference = null) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
@@ -25,6 +30,11 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
 
     const plannedChangeSection = userFeedback
         ? `\n## PLANNED CHANGE FOR THIS SCENE\n${userFeedback}\n`
+        : '';
+
+    // Tier 3: Full reference for compliance checking (injected before directive)
+    const referenceSection = styleReference
+        ? `\n## STYLE REFERENCE (for compliance checking)\nThe following is the full style analysis for this project's writing voice.\nAfter applying the rewrite, verify the result matches these patterns.\nFix any style drift without undoing the coverage fix.\n\n${styleReference}\n`
         : '';
 
     const styleSection = styleContent
@@ -38,7 +48,7 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-${plannedChangeSection}${styleSection}${charSection}
+${plannedChangeSection}${referenceSection}${styleSection}${charSection}
 ## PRIORITY CONTEXT
 ${priorityTask}
 

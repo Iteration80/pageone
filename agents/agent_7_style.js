@@ -4,32 +4,32 @@ const path = require('path');
 
 /**
  * Stage 7: The Style Agent
- * Analyzes user input (chat description, form data, writing samples) and generates
- * a style skill file — actionable craft directives for the Draft and Rewrite agents.
+ * Generates style artifacts at two tiers:
+ *   Tier 2 (Conversational): directive only — from chat description + training knowledge
+ *   Tier 3 (Trained): reference + directive — from uploaded screenplay analysis
  */
-const generateStyleFile = async (input, modelConfig = {}) => {
+
+/**
+ * Generate a Tier 2 conversational directive (400-600 words).
+ * Input from chat conversation, descriptions, and optional scene context.
+ */
+const generateDirective = async (input, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY
     } = modelConfig;
 
-    // Read the Style SOP
-    const sopPath = path.join(__dirname, '../skills/skill_stage7_style.md');
-    const styleSop = fs.readFileSync(sopPath, 'utf8');
+    const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
 
     const {
         description = '',
-        formData = null,
-        sampleTexts = [],
         sceneSummaries = '',
         conversationHistory = []
     } = input;
 
-    // Build prompt sections
     let prompt = `${styleSop}\n\n`;
 
-    // Conversation history (if chat mode)
     if (conversationHistory.length > 0) {
         prompt += `## CONVERSATION HISTORY\n`;
         for (const msg of conversationHistory) {
@@ -37,63 +37,146 @@ const generateStyleFile = async (input, modelConfig = {}) => {
         }
     }
 
-    // User description
     if (description) {
         prompt += `## WRITER'S STYLE DESCRIPTION\n${description}\n\n`;
     }
 
-    // Form data (Quick Start mode)
-    if (formData) {
-        prompt += `## STRUCTURED STYLE INPUT\n`;
-        if (formData.name) prompt += `Style Name: ${formData.name}\n`;
-        if (formData.references?.length) prompt += `References: ${formData.references.join(', ')}\n`;
-        if (formData.characteristics?.length) prompt += `Key Characteristics: ${formData.characteristics.join(', ')}\n`;
-        if (formData.sliders) {
-            prompt += `Tonal Sliders:\n`;
-            for (const [key, val] of Object.entries(formData.sliders)) {
-                prompt += `  - ${key}: ${val}\n`;
-            }
-        }
-        prompt += '\n';
-    }
-
-    // Writing samples
-    if (sampleTexts.length > 0) {
-        prompt += `## WRITING SAMPLES TO ANALYZE\n`;
-        for (let i = 0; i < sampleTexts.length; i++) {
-            prompt += `### Sample ${i + 1}\n${sampleTexts[i]}\n\n`;
-        }
-    }
-
-    // Scene summaries (for context-aware style suggestion)
     if (sceneSummaries) {
         prompt += `## STORY CONTEXT (Stage 6 Scene Summaries)\n${sceneSummaries}\n\n`;
     }
 
     prompt += `## INSTRUCTIONS
-Generate the style skill file now. Output the complete file including YAML front matter and all six sections (Scene Construction, Action Lines, Dialogue, Tone, Signature Moves, Avoid).
+Generate the style directive now. Output the complete file including YAML front matter and all six sections (Scene Construction, Action Lines, Dialogue, Tone, Signature Moves, Avoid).
 Use imperative voice throughout. Keep within 400-600 words (excluding front matter).
-Output ONLY the style file content — no introductory text, no code blocks.`;
+The YAML front matter MUST include these fields: name, slug, created, tier: "conversational", source: "conversation", artifact_type: "directive", tonal_summary, word_count.
+Output ONLY the file content — no introductory text, no code blocks.`;
 
     try {
         const response = await generateContent({
             model, geminiApiKey, anthropicApiKey,
             contents: prompt,
-            config: {
-                temperature: 0.7,
-            }
+            config: { temperature: 0.7 }
         });
-
         return { result: response.text, usage: response.usage };
     } catch (error) {
-        console.error('Error in agent_7_style:', error);
+        console.error('Error in agent_7_style (generateDirective):', error);
         throw error;
     }
 };
 
+// Keep old name as alias for backward compat
+const generateStyleFile = generateDirective;
+
+/**
+ * Generate a Tier 3 trained style from uploaded screenplay text(s).
+ * Two-step process:
+ *   1. Analyze screenplay(s) → full reference (2000+ words)
+ *   2. Distill reference → compact directive (400-600 words)
+ * Returns { reference, directive, usageList }
+ */
+const generateTrainedStyle = async (input, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+    } = modelConfig;
+
+    const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
+
+    const {
+        styleName = '',
+        screenplayTexts = [],
+        screenplayTitles = [],
+        conversationHistory = []
+    } = input;
+
+    const usageList = [];
+
+    // --- Step 1: Generate full reference from screenplay analysis ---
+    let refPrompt = `${styleSop}\n\n`;
+    refPrompt += `## MODE: TRAINED STYLE — SCREENPLAY ANALYSIS\n\n`;
+
+    if (conversationHistory.length > 0) {
+        refPrompt += `## CONVERSATION HISTORY\n`;
+        for (const msg of conversationHistory) {
+            refPrompt += `${msg.role === 'user' ? 'WRITER' : 'ASSISTANT'}: ${msg.content}\n\n`;
+        }
+    }
+
+    refPrompt += `## SCREENPLAY TEXT TO ANALYZE\n`;
+    for (let i = 0; i < screenplayTexts.length; i++) {
+        const title = screenplayTitles[i] || `Screenplay ${i + 1}`;
+        refPrompt += `### ${title}\n${screenplayTexts[i]}\n\n`;
+    }
+
+    refPrompt += `## INSTRUCTIONS
+Analyze the screenplay text above and produce a FULL STYLE REFERENCE (2000+ words).
+Extract concrete patterns from the actual text — not from training knowledge about the writer.
+
+The YAML front matter MUST include: name, slug, created, tier: "trained", source: "screenplay-analysis", screenplays_analyzed (array of titles), artifact_type: "reference", tonal_summary, word_count.
+${styleName ? `Use "${styleName}" as the style name.` : ''}
+
+Include these sections with deep, evidence-backed analysis:
+## Scene Construction Patterns
+## Action Line Fingerprint
+## Dialogue Rhythms
+## Tonal Signature
+## Pacing DNA
+## Visual vs. Verbal Balance
+## Signature Moves
+## Anti-Patterns (What This Writer Avoids)
+
+Cite specific examples from the screenplay text. Target 2000-3000 words.
+Output ONLY the reference file content — no introductory text, no code blocks.`;
+
+    const refResponse = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents: refPrompt,
+        config: { temperature: 0.5 }
+    });
+    usageList.push(refResponse.usage);
+
+    const referenceText = refResponse.text;
+
+    // --- Step 2: Distill reference into compact directive ---
+    let distillPrompt = `${styleSop}\n\n`;
+    distillPrompt += `## MODE: DISTILLATION — REFERENCE TO DIRECTIVE\n\n`;
+    distillPrompt += `## FULL STYLE REFERENCE\n${referenceText}\n\n`;
+
+    distillPrompt += `## INSTRUCTIONS
+Distill the full style reference above into a COMPACT DIRECTIVE (400-600 words).
+Preserve the most impactful patterns. Use imperative voice throughout.
+
+The YAML front matter MUST include: name (same as reference), slug (same as reference), created, tier: "trained", source: "screenplay-analysis", artifact_type: "directive", paired_with: "[slug]-reference", tonal_summary (same as reference), word_count.
+
+Use these six sections:
+## Scene Construction
+## Action Lines
+## Dialogue
+## Tone
+## Signature Moves
+## Avoid
+
+Output ONLY the directive file content — no introductory text, no code blocks.`;
+
+    const dirResponse = await generateContent({
+        model, geminiApiKey, anthropicApiKey,
+        contents: distillPrompt,
+        config: { temperature: 0.5 }
+    });
+    usageList.push(dirResponse.usage);
+
+    return {
+        reference: referenceText,
+        directive: dirResponse.text,
+        usageList
+    };
+};
+
 /**
  * Parse YAML front matter from a style file.
- * Returns { meta: {name, created, references, tonal_summary, word_count}, body: string }
+ * Returns { meta: {name, slug, created, tier, source, artifact_type, paired_with,
+ *   screenplays_analyzed, references, tonal_summary, word_count}, body: string }
  */
 function parseStyleFile(content) {
     const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -119,4 +202,4 @@ function parseStyleFile(content) {
     return { meta, body: fmMatch[2].trim() };
 }
 
-module.exports = { generateStyleFile, parseStyleFile };
+module.exports = { generateStyleFile, generateDirective, generateTrainedStyle, parseStyleFile };

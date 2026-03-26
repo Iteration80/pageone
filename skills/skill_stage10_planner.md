@@ -46,7 +46,7 @@ These are the most narrowly scoped tasks. A scene is affected only if it contain
 
 **Do NOT rewrite anything.** Your job is analysis only. The `planned_change` field describes what WILL happen — it is not the rewrite itself.
 
-**Do NOT treat style as a problem.** The project may have a writing style set (visible as STYLE DIRECTIVES in the rewrite agent's context). When planning rewrites, do not treat the style itself as something to fix — it is an intentional creative choice. Only flag style-related issues if the rewrite task explicitly raises them.
+**Do NOT treat style as a problem.** The project may have a writing style set (visible as STYLE DIRECTIVES in the rewrite agent's context). When planning rewrites, do not treat the style itself as something to fix — it is an intentional creative choice. Only flag style-related issues if the rewrite task explicitly raises them. When a project has a trained style (Tier 3), the rewrite agent automatically performs style-compliance checking using the full reference — you do not need to add style tasks to the plan unless Coverage explicitly flagged style drift.
 
 **Do NOT conflate task categories.** A structural task does not affect dialogue-only scenes. A dialogue task does not affect action-only scenes. Stay within the category of the task.
 

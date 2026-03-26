@@ -362,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Failed to load projects:", error);
         }
+        loadHubStyles();
     }
 
     function renderProjects(projects) {
@@ -414,6 +415,311 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.hash = `project-${data.id}`;
         } catch (error) {
             console.error("Failed to create project:", error);
+        }
+    });
+
+    // ── Hub Styles Section ───────────────────────────────────────────────────
+
+    async function loadHubStyles() {
+        const grid = document.getElementById('stylesGrid');
+        if (!grid) return;
+
+        try {
+            const res = await fetch('/api/styles');
+            const data = await res.json();
+            grid.innerHTML = '';
+
+            if (!data.styles?.length) {
+                grid.innerHTML = '<p style="color:#4b5563;font-size:0.85rem;font-style:italic">No styles yet. Create one to define your writing voice.</p>';
+                return;
+            }
+
+            for (const style of data.styles) {
+                const card = document.createElement('div');
+                card.className = 'hub-style-card';
+                const tierClass = style.tier === 'trained' ? 'trained' : 'conversational';
+                const tierLabel = style.tier === 'trained' ? 'Trained' : 'Conversational';
+                card.innerHTML = `
+                    <div style="font-weight:600;color:#e5e7eb;font-size:0.95rem;margin-bottom:4px">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
+                    <div style="font-size:0.8rem;color:#6b7280;margin-bottom:6px">${escapeHtml(style.tonal_summary || '')}</div>
+                    <div style="font-size:0.7rem;color:#4b5563">${style.created || ''}</div>
+                `;
+                card.addEventListener('click', () => openStyleDetail(style.slug));
+                grid.appendChild(card);
+            }
+        } catch (err) {
+            console.error('Load hub styles error:', err);
+        }
+    }
+
+    let currentDetailStyleSlug = null;
+
+    async function openStyleDetail(slug) {
+        const modal = document.getElementById('styleDetailModal');
+        if (!modal) return;
+
+        try {
+            const res = await fetch(`/api/styles/${slug}`);
+            if (!res.ok) throw new Error('Failed to load style');
+            const data = await res.json();
+            currentDetailStyleSlug = slug;
+
+            document.getElementById('styleDetailName').textContent = data.meta?.name || slug;
+            document.getElementById('styleDetailTonal').textContent = data.meta?.tonal_summary || '';
+
+            const badge = document.getElementById('styleDetailTierBadge');
+            if (data.tier === 'trained') {
+                badge.textContent = 'Trained';
+                badge.className = 'style-tier-badge trained';
+            } else {
+                badge.textContent = 'Conversational';
+                badge.className = 'style-tier-badge conversational';
+            }
+
+            // Reference section (Tier 3 only)
+            const refSection = document.getElementById('styleDetailRefSection');
+            const refContent = document.getElementById('styleDetailRefContent');
+            if (data.reference) {
+                const { body: refBody } = parseStyleFileFrontend(data.reference);
+                refContent.textContent = refBody;
+                refSection.classList.remove('hidden');
+                refContent.classList.add('hidden'); // collapsed by default
+                document.getElementById('btnStyleDetailToggleRef').textContent = 'Show ▾';
+            } else {
+                refSection.classList.add('hidden');
+            }
+
+            // Directive
+            const { body: dirBody } = parseStyleFileFrontend(data.directive);
+            document.getElementById('styleDetailDirective').textContent = dirBody;
+
+            modal.classList.remove('hidden');
+        } catch (err) {
+            console.error('Open style detail error:', err);
+            alert('Failed to load style details.');
+        }
+    }
+
+    // Simple frontend YAML front matter parser
+    function parseStyleFileFrontend(content) {
+        if (!content) return { meta: {}, body: content || '' };
+        const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+        if (!match) return { meta: {}, body: content };
+        return { meta: {}, body: match[2].trim() };
+    }
+
+    // Style detail modal listeners
+    document.getElementById('btnStyleDetailClose')?.addEventListener('click', () => {
+        document.getElementById('styleDetailModal')?.classList.add('hidden');
+    });
+
+    document.getElementById('btnStyleDetailToggleRef')?.addEventListener('click', () => {
+        const content = document.getElementById('styleDetailRefContent');
+        const btn = document.getElementById('btnStyleDetailToggleRef');
+        if (!content || !btn) return;
+        const hidden = content.classList.toggle('hidden');
+        btn.textContent = hidden ? 'Show ▾' : 'Hide ▴';
+    });
+
+    document.getElementById('btnStyleDetailDelete')?.addEventListener('click', async () => {
+        if (!currentDetailStyleSlug) return;
+        if (!confirm(`Delete style "${currentDetailStyleSlug}"? This cannot be undone.`)) return;
+        try {
+            const res = await fetch(`/api/styles/${currentDetailStyleSlug}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            document.getElementById('styleDetailModal')?.classList.add('hidden');
+            loadHubStyles();
+        } catch (err) {
+            console.error('Delete style error:', err);
+            alert('Failed to delete style.');
+        }
+    });
+
+    document.getElementById('btnStyleDetailEdit')?.addEventListener('click', async () => {
+        if (!currentDetailStyleSlug) return;
+        try {
+            const res = await fetch(`/api/styles/${currentDetailStyleSlug}`);
+            const data = await res.json();
+            document.getElementById('editStyleContent').value = data.directive || '';
+            document.getElementById('editStyleModal')?.classList.remove('hidden');
+        } catch (err) {
+            console.error('Load style for edit error:', err);
+        }
+    });
+
+    document.getElementById('btnEditStyleCancel')?.addEventListener('click', () => {
+        document.getElementById('editStyleModal')?.classList.add('hidden');
+    });
+
+    document.getElementById('btnEditStyleSave')?.addEventListener('click', async () => {
+        if (!currentDetailStyleSlug) return;
+        const content = document.getElementById('editStyleContent')?.value;
+        if (!content) return;
+        try {
+            const res = await fetch(`/api/styles/${currentDetailStyleSlug}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            if (!res.ok) throw new Error('Save failed');
+            document.getElementById('editStyleModal')?.classList.add('hidden');
+            document.getElementById('styleDetailModal')?.classList.add('hidden');
+            loadHubStyles();
+        } catch (err) {
+            console.error('Save style error:', err);
+            alert('Failed to save style.');
+        }
+    });
+
+    // Create Style modal
+    document.getElementById('btnNewStyle')?.addEventListener('click', () => {
+        const modal = document.getElementById('createStyleModal');
+        if (!modal) return;
+        // Reset state
+        document.getElementById('createStylePaths')?.classList.remove('hidden');
+        document.getElementById('createStyleChatPath')?.classList.add('hidden');
+        document.getElementById('createStyleUploadPath')?.classList.add('hidden');
+        modal.classList.remove('hidden');
+    });
+
+    document.getElementById('btnCreateStyleClose')?.addEventListener('click', () => {
+        document.getElementById('createStyleModal')?.classList.add('hidden');
+    });
+
+    // Conversational path
+    let createStyleChatHistory = [];
+
+    document.getElementById('btnCreateStyleConversational')?.addEventListener('click', async () => {
+        document.getElementById('createStylePaths')?.classList.add('hidden');
+        document.getElementById('createStyleChatPath')?.classList.remove('hidden');
+        createStyleChatHistory = [];
+
+        const thread = document.getElementById('createStyleChatThread');
+        if (thread) thread.innerHTML = '<p style="color:#6b7280;font-style:italic">Loading...</p>';
+
+        // Init chat
+        try {
+            const res = await fetch('/api/style-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [], isInit: true })
+            });
+            const data = await res.json();
+            createStyleChatHistory.push({ role: 'model', content: data.reply });
+            if (thread) thread.innerHTML = `<div style="margin-bottom:8px;color:#93c5fd"><strong>Assistant:</strong> ${escapeHtml(data.reply)}</div>`;
+        } catch (err) {
+            if (thread) thread.innerHTML = '<p style="color:#ef4444">Failed to start chat.</p>';
+        }
+    });
+
+    document.getElementById('btnCreateStyleChatSend')?.addEventListener('click', async () => {
+        const input = document.getElementById('createStyleChatInput');
+        const thread = document.getElementById('createStyleChatThread');
+        const text = input?.value?.trim();
+        if (!text) return;
+
+        createStyleChatHistory.push({ role: 'user', content: text });
+        thread.innerHTML += `<div style="margin-bottom:8px;color:#e5e7eb"><strong>You:</strong> ${escapeHtml(text)}</div>`;
+        input.value = '';
+
+        try {
+            const messages = createStyleChatHistory.map(m => ({
+                role: m.role === 'user' ? 'user' : 'model',
+                parts: [{ text: m.content }]
+            }));
+            const res = await fetch('/api/style-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages })
+            });
+            const data = await res.json();
+            createStyleChatHistory.push({ role: 'model', content: data.reply });
+            thread.innerHTML += `<div style="margin-bottom:8px;color:#93c5fd"><strong>Assistant:</strong> ${escapeHtml(data.reply)}</div>`;
+            thread.scrollTop = thread.scrollHeight;
+
+            // Enable generate button after at least 2 exchanges
+            const userMsgs = createStyleChatHistory.filter(m => m.role === 'user');
+            if (userMsgs.length >= 1) {
+                document.getElementById('btnCreateStyleGenerate').disabled = false;
+            }
+        } catch (err) {
+            thread.innerHTML += '<div style="color:#ef4444">Error — try again.</div>';
+        }
+    });
+
+    document.getElementById('btnCreateStyleGenerate')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btnCreateStyleGenerate');
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+
+        try {
+            const lastUserMsg = createStyleChatHistory.filter(m => m.role === 'user').pop()?.content || '';
+            const res = await fetch('/api/generate-stage7-style', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: lastUserMsg,
+                    conversationHistory: createStyleChatHistory.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
+                })
+            });
+            if (!res.ok) throw new Error('Generation failed');
+            const data = await res.json();
+            document.getElementById('createStyleModal')?.classList.add('hidden');
+            loadHubStyles();
+            openStyleDetail(data.slug);
+        } catch (err) {
+            console.error('Create style error:', err);
+            alert('Failed to generate style: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Generate Style';
+        }
+    });
+
+    // Trained path
+    document.getElementById('btnCreateStyleTrained')?.addEventListener('click', () => {
+        document.getElementById('createStylePaths')?.classList.add('hidden');
+        document.getElementById('createStyleUploadPath')?.classList.remove('hidden');
+    });
+
+    document.getElementById('btnCreateStyleUpload')?.addEventListener('click', async () => {
+        const files = document.getElementById('createStyleFiles')?.files;
+        if (!files?.length) {
+            alert('Please select at least one screenplay file.');
+            return;
+        }
+
+        const progress = document.getElementById('createStyleUploadProgress');
+        const btn = document.getElementById('btnCreateStyleUpload');
+        progress?.classList.remove('hidden');
+        btn.disabled = true;
+
+        try {
+            const formData = new FormData();
+            const styleName = document.getElementById('createStyleName')?.value?.trim() || '';
+            if (styleName) formData.append('styleName', styleName);
+            for (const file of files) {
+                formData.append('screenplayFiles', file);
+            }
+
+            const res = await fetch('/api/generate-trained-style', {
+                method: 'POST',
+                body: formData
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Generation failed');
+            }
+            const data = await res.json();
+            document.getElementById('createStyleModal')?.classList.add('hidden');
+            loadHubStyles();
+            openStyleDetail(data.slug);
+        } catch (err) {
+            console.error('Trained style error:', err);
+            alert('Failed to create trained style: ' + err.message);
+        } finally {
+            progress?.classList.add('hidden');
+            btn.disabled = false;
         }
     });
 
@@ -5142,6 +5448,9 @@ document.addEventListener('DOMContentLoaded', () => {
             importNotice?.classList.add('hidden');
         }
 
+        // Load inline saved-style cards
+        stage7LoadInlineStyles();
+
         // If style already exists, load and show it
         if (data.stage7_style) {
             stage7LoadExistingStyle(data.stage7_style);
@@ -5150,17 +5459,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('stage7-no-style')?.classList.remove('hidden');
             if (btnApprove) btnApprove.disabled = true;
 
-            // If scenes exist and chat is empty, offer style analysis
+            // If scenes exist and chat is empty, the brainstorm init will suggest 3 writers
             const hasScenes = data.stage6_scenes &&
                 (data.stage6_scenes.sequences?.length > 0 ||
-                 data.stage6_scenes.scenes?.length > 0);
+                 data.stage6_scenes.scenes?.length > 0 ||
+                 (Array.isArray(data.stage6_scenes) && data.stage6_scenes.length > 0));
             if (hasScenes && !data.stage7_style_skipped) {
                 const chat = stageChatWindows[7];
                 if (chat && (!chat.history || chat.history.length === 0)) {
-                    setTimeout(() => {
-                        chat.append('ai',
-                            'I can see your scenes are ready. Want me to analyze your story and suggest a style direction? Or use Quick Start / My Styles above to define your own.');
-                    }, 300);
+                    // The brainstorm Stage 7 init handler will generate 3-writer suggestions
+                    // based on the story context — triggered automatically by initStageChat
                 }
             }
         }
@@ -5256,55 +5564,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function stage7GenerateFromForm() {
-        const name = document.getElementById('stage7-qs-name')?.value?.trim() || '';
-        const references = document.getElementById('stage7-qs-references')?.value?.trim() || '';
-        const files = document.getElementById('stage7-qs-files')?.files;
-
-        // Gather selected pills
-        const characteristics = [];
-        document.querySelectorAll('#stage7-qs-pills .style-pill.active').forEach(el => {
-            characteristics.push(el.dataset.val);
-        });
-
-        // Gather slider values
-        const sliders = {
-            warmth: document.getElementById('stage7-qs-slider-warmth')?.value || 50,
-            intensity: document.getElementById('stage7-qs-slider-intensity')?.value || 50,
-            realism: document.getElementById('stage7-qs-slider-realism')?.value || 50
-        };
-
-        // Close modal
-        document.getElementById('stage7-quickstart-modal')?.classList.add('hidden');
-
-        const loadingEl = document.getElementById('stage7-loading');
-        if (loadingEl) loadingEl.classList.remove('hidden');
+    // Load saved styles as inline cards in Stage 7
+    async function stage7LoadInlineStyles() {
+        const container = document.getElementById('stage7-saved-styles');
+        const grid = document.getElementById('stage7-saved-styles-grid');
+        if (!container || !grid) return;
 
         try {
-            const formDataObj = new FormData();
-            formDataObj.append('projectId', activeProjectId);
-            formDataObj.append('mode', 'form');
-            formDataObj.append('formData', JSON.stringify({ name, references: references ? references.split(',').map(r => r.trim()) : [], characteristics, sliders }));
-            if (files) {
-                for (const f of files) formDataObj.append('sampleFiles', f);
+            const res = await fetch('/api/styles');
+            const data = await res.json();
+            if (!data.styles?.length) {
+                container.classList.add('hidden');
+                return;
             }
 
-            const res = await fetch('/api/generate-stage7-style', {
-                method: 'POST',
-                body: formDataObj
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Generation failed');
+            grid.innerHTML = '';
+            for (const style of data.styles) {
+                const card = document.createElement('div');
+                card.className = 'stage7-inline-style-card';
+                card.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;min-width:180px;max-width:240px;cursor:pointer;transition:border-color 0.2s;display:flex;flex-direction:column;gap:4px';
+                const tierBadge = style.tier === 'trained'
+                    ? '<span style="font-size:0.65rem;background:#065f46;color:#6ee7b7;padding:1px 6px;border-radius:4px;margin-left:6px">Trained</span>'
+                    : '<span style="font-size:0.65rem;background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:4px;margin-left:6px">Conversational</span>';
+                card.innerHTML = `
+                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${style.name}${tierBadge}</div>
+                    <div style="font-size:0.75rem;color:#6b7280">${style.tonal_summary || ''}</div>
+                    <button class="primary-btn" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start">Use This</button>
+                `;
+                card.querySelector('button').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const loadingEl = document.getElementById('stage7-loading');
+                    if (loadingEl) loadingEl.classList.remove('hidden');
+                    try {
+                        const selectRes = await fetch('/api/select-style', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, styleSlug: style.slug })
+                        });
+                        if (!selectRes.ok) throw new Error('Select failed');
+                        const selectData = await selectRes.json();
+                        stage7DisplayStyle(selectData);
+                        if (window.currentProjectData) window.currentProjectData.stage7_style = selectData.slug;
+                        updateStageNav(window.currentProjectData);
+                    } catch (err) {
+                        console.error('Select style error:', err);
+                        if (loadingEl) loadingEl.classList.add('hidden');
+                        alert('Failed to select style: ' + err.message);
+                    }
+                });
+                grid.appendChild(card);
             }
-            const data = await res.json();
-            stage7DisplayStyle(data);
-            if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
-            updateStageNav(window.currentProjectData);
+            container.classList.remove('hidden');
         } catch (err) {
-            console.error('Form style generation error:', err);
-            if (loadingEl) loadingEl.classList.add('hidden');
-            alert('Style generation failed: ' + err.message);
+            console.error('Load inline styles error:', err);
+            container.classList.add('hidden');
         }
     }
 
@@ -5361,73 +5674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function stage7LoadMyStyles() {
-        const list = document.getElementById('stage7-mystyles-list');
-        if (!list) return;
-        list.innerHTML = '<p style="color:#6b7280;font-size:0.85rem">Loading...</p>';
-
-        try {
-            const res = await fetch('/api/styles');
-            const data = await res.json();
-            if (!data.styles?.length) {
-                list.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;font-style:italic">No saved styles yet. Create one using the chat or Quick Start form.</p>';
-                return;
-            }
-            list.innerHTML = '';
-            for (const style of data.styles) {
-                const item = document.createElement('div');
-                item.className = 'style-list-item';
-                item.innerHTML = `
-                    <div style="flex:1;min-width:0">
-                        <div style="font-weight:600;color:#e5e7eb;font-size:0.9rem">${style.name}</div>
-                        <div style="font-size:0.8rem;color:#6b7280">${style.tonal_summary || ''}${style.references?.length ? ' — ' + (Array.isArray(style.references) ? style.references.join(', ') : style.references) : ''}</div>
-                    </div>
-                    <button class="primary-btn" style="font-size:0.75rem;padding:4px 12px;white-space:nowrap">Use This</button>
-                `;
-                item.querySelector('button').addEventListener('click', async () => {
-                    document.getElementById('stage7-mystyles-modal')?.classList.add('hidden');
-                    const loadingEl = document.getElementById('stage7-loading');
-                    if (loadingEl) loadingEl.classList.remove('hidden');
-                    try {
-                        const selectRes = await fetch('/api/select-style', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, styleSlug: style.slug })
-                        });
-                        if (!selectRes.ok) throw new Error('Select failed');
-                        const selectData = await selectRes.json();
-                        stage7DisplayStyle(selectData);
-                        if (window.currentProjectData) window.currentProjectData.stage7_style = selectData.slug;
-                        updateStageNav(window.currentProjectData);
-                    } catch (err) {
-                        console.error('Select style error:', err);
-                        if (loadingEl) loadingEl.classList.add('hidden');
-                        alert('Failed to select style: ' + err.message);
-                    }
-                });
-                list.appendChild(item);
-            }
-        } catch (err) {
-            console.error('Load styles error:', err);
-            list.innerHTML = '<p style="color:#ef4444;font-size:0.85rem">Failed to load styles.</p>';
-        }
-    }
-
     // Stage 7 event listeners
-    document.getElementById('btnStage7QuickStart')?.addEventListener('click', () => {
-        document.getElementById('stage7-quickstart-modal')?.classList.remove('hidden');
-    });
-    document.getElementById('btnStage7QsCancel')?.addEventListener('click', () => {
-        document.getElementById('stage7-quickstart-modal')?.classList.add('hidden');
-    });
-    document.getElementById('btnStage7QsGenerate')?.addEventListener('click', () => stage7GenerateFromForm());
-    document.getElementById('btnStage7MyStyles')?.addEventListener('click', () => {
-        document.getElementById('stage7-mystyles-modal')?.classList.remove('hidden');
-        stage7LoadMyStyles();
-    });
-    document.getElementById('btnStage7MyStylesClose')?.addEventListener('click', () => {
-        document.getElementById('stage7-mystyles-modal')?.classList.add('hidden');
-    });
     document.getElementById('btnStage7Approve')?.addEventListener('click', () => stage7ApproveStyle());
     document.getElementById('btnStage7Preview')?.addEventListener('click', () => stage7PreviewScene());
     document.getElementById('btnStage7Regenerate')?.addEventListener('click', () => {
@@ -5468,10 +5715,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Quick Start pill toggle
-    document.querySelectorAll('#stage7-qs-pills .style-pill').forEach(pill => {
-        pill.addEventListener('click', () => pill.classList.toggle('active'));
-    });
 
     // Stage 8 (Draft)
     stageChatWindows[8] = initStageChat({

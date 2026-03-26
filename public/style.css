@@ -1862,63 +1862,31 @@ textarea.synopsis-input {
 
 /* ── Stage 7: Style ──────────────────────────────────── */
 
-.style-slider-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
-    color: #9ca3af;
-}
-.style-slider-row span { min-width: 70px; text-align: right; }
-.style-slider-row span:last-child { text-align: left; }
-.style-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 4px;
-    background: #334155;
-    border-radius: 2px;
-    outline: none;
-}
-.style-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: #2563eb;
-    cursor: pointer;
-}
+/* Stage 7 inline style cards */
+.stage7-inline-style-card:hover { border-color: #475569 !important; }
 
-.style-pills {
+/* Landing page style cards */
+.styles-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-}
-.style-pill {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 0.8rem;
-    color: #9ca3af;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.style-pill:hover { border-color: #475569; color: #e5e7eb; }
-.style-pill.active {
-    background: #1e3a5f;
-    border-color: #2563eb;
-    color: #93c5fd;
-}
-
-.style-list-item {
-    display: flex;
-    align-items: center;
     gap: 12px;
-    padding: 12px 14px;
+}
+.hub-style-card {
     background: #1e293b;
     border: 1px solid #334155;
-    border-radius: 10px;
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 200px;
+    max-width: 260px;
+    cursor: pointer;
     transition: border-color 0.15s;
 }
-.style-list-item:hover { border-color: #475569; }
+.hub-style-card:hover { border-color: #475569; }
+.style-tier-badge {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+}
+.style-tier-badge.trained { background: #065f46; color: #6ee7b7; }
+.style-tier-badge.conversational { background: #1e3a5f; color: #93c5fd; }
