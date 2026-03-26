@@ -29,6 +29,20 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-03-25 — Brainstorm assistant: execution boundary, post-revision follow-up, verbosity fixes
+
+Major overhaul of `skills/skill_brainstorm.md` to fix conversation flow issues where the AI assistant narrated fake completions ("Done — I've revised...") without actually triggering the revision engine.
+
+- **Execution Boundary rule** — New prominent section explaining the assistant cannot modify data. Banned patterns: past-tense claims, narrating changes, saying "Done" before execution. Correct pattern: brief forward-looking acknowledgment ("On it — revising now.") + `suggest_plan: true, execute_immediately: true`.
+- **Post-revision follow-up** — `public/app.js`: replaced two hardcoded "Done. Review the changes above..." messages with `postRevisionFollowUp()` helper that calls `/api/brainstorm` with a synthetic `[Revision applied successfully]` marker. The assistant sees its full conversation history and circles back to remaining agenda items.
+- **Post-Revision Continuation SOP** — New section in brainstorm SOP: acknowledge in one sentence, surface next item, no cumulative summaries, no bundling execution offers with next-item discussion.
+- **Plan Readiness Signal** — Added anti-pattern examples and correct templates for execution messages.
+- **Verbosity controls** — Banned running recap paragraphs (appeared ~8x in test session). Voice section: rotate check-in phrasing, don't reuse "or are you happy with where this stands?"
+- **Active revision loops** — Cadence checks skipped when writer has confirmed 3+ revisions in a row; resume when writer changes topic.
+- **Stage 5 Approve button** — Fixed load-time hydration not setting `disabled = true` on already-approved state.
+
+**Files:** `public/app.js` (postRevisionFollowUp helper, Stage 5 approve disabled fix), `skills/skill_brainstorm.md` (Execution Boundary, Post-Revision Continuation, Plan Readiness, Voice, Cadence).
+
 ### 2026-03-22 — Post-audit fixes: 9 stale references from Stage 7 renumbering
 
 Cleaned up leftover references after the Stage 7 (Style) renumbering that shifted Draft→8, Coverage→9, Rewrite→10.

@@ -649,6 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage5WasApproved && btnStage5Approve) {
                         btnStage5Approve.textContent = 'Approved ✓';
                         btnStage5Approve.classList.add('approve-btn-green');
+                        btnStage5Approve.disabled = true;
                     }
                     if (stage5WasApproved && btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                     if (stage5WasApproved && btnStage5Revise) btnStage5Revise.classList.add('hidden');
@@ -4809,6 +4810,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `USER REQUESTS:\n${userMessages}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
                 };
 
+                // After a revision completes, call brainstorm to continue the conversation
+                // (e.g., circle back to remaining items from a multi-item analysis)
+                const postRevisionFollowUp = async () => {
+                    chat.history.push({ role: 'user', content: '[Revision applied successfully. Continue the conversation.]' });
+                    chat.setThinking(true);
+                    try {
+                        const res = await fetch('/api/brainstorm', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, stageId, messages: chat.history })
+                        });
+                        if (res.ok) {
+                            const followUp = await res.json();
+                            chat.setThinking(false);
+                            chat.append('ai', followUp.message);
+                            if (followUp.suggest_plan) {
+                                pendingRevision = true;
+                                pendingNotes = followUp.message;
+                            }
+                        } else {
+                            chat.setThinking(false);
+                            chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                        }
+                    } catch {
+                        chat.setThinking(false);
+                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                    }
+                };
+
                 if (pendingRevision) {
                     pendingRevision = false;
                     chat.setDisabled(true);
@@ -4816,7 +4846,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         await executeRevision(buildRevisionNotes(pendingNotes, history));
                         indicator.remove();
-                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                        await postRevisionFollowUp();
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
@@ -4854,7 +4884,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         await executeRevision(buildRevisionNotes(data.message, history));
                         indicator.remove();
-                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
+                        await postRevisionFollowUp();
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
