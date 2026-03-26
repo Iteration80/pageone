@@ -3804,13 +3804,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (isReApproval) {
-                    showGenericRegenModal('Scenes', 'Stage 8 Draft',
-                        () => { switchStage(8); initStage8(); },
-                        () => { switchStage(8); }
-                    );
+                    // Stage 7 (Style) sits between 6 and 8 — offer regen of Stage 8 only if it exists
+                    const hasStage8 = !!(window.currentProjectData?.stage8_draft);
+                    if (hasStage8) {
+                        showGenericRegenModal('Scenes', 'Stage 8 Draft',
+                            () => { switchStage(8); initStage8(); },
+                            () => { switchStage(7); }
+                        );
+                    } else {
+                        switchStage(7);
+                    }
                 } else {
-                    switchStage(8);
-                    initStage8();
+                    switchStage(7);
                 }
 
             } catch (error) {
