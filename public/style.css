@@ -590,6 +590,17 @@ textarea.synopsis-input {
     margin-bottom: 60px;
 }
 
+.hub-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.hub-section-header h2 {
+    margin: 0;
+}
+
 .hub-workspace h2 {
     font-size: 2rem;
     font-weight: 600;
