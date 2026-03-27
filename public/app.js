@@ -5459,18 +5459,41 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('stage7-no-style')?.classList.remove('hidden');
             if (btnApprove) btnApprove.disabled = true;
 
-            // If scenes exist and chat is empty, the brainstorm init will suggest 3 writers
+            // If scenes exist and chat is empty, fire proactive 3-writer suggestion
             const hasScenes = data.stage6_scenes &&
                 (data.stage6_scenes.sequences?.length > 0 ||
                  data.stage6_scenes.scenes?.length > 0 ||
                  (Array.isArray(data.stage6_scenes) && data.stage6_scenes.length > 0));
             if (hasScenes && !data.stage7_style_skipped) {
                 const chat = stageChatWindows[7];
-                if (chat && (!chat.history || chat.history.length === 0)) {
-                    // The brainstorm Stage 7 init handler will generate 3-writer suggestions
-                    // based on the story context — triggered automatically by initStageChat
+                const savedConvos = data.conversations || {};
+                if (chat && (!chat.history || chat.history.length === 0) && !savedConvos.stage7?.length) {
+                    initStage7Brainstorm();
                 }
             }
+        }
+    }
+
+    // Stage 7 — Proactive 3-writer suggestion (same pattern as Stage 5/6 init)
+    async function initStage7Brainstorm() {
+        const chat = stageChatWindows[7];
+        if (!chat) return;
+
+        chat.setThinking(true);
+        try {
+            const res = await fetch('/api/brainstorm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, stageId: 7, messages: [], isInit: true })
+            });
+            if (res.ok) {
+                const initData = await res.json();
+                chat.append('ai', initData.message);
+            }
+        } catch (err) {
+            console.error('Stage 7 init message failed:', err);
+        } finally {
+            chat.setThinking(false);
         }
     }
 

@@ -923,6 +923,12 @@ app.post('/api/brainstorm', async (req, res) => {
             for (const msg of messages) {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
             }
+
+            // Stage 7-specific: tell the model what "execution" means for style generation
+            if (stageId === 7) {
+                conversationPrompt += `\n## STAGE 7 CONTEXT\nYou are in the Style stage. "Executing" here means generating style directives from this conversation. When the writer confirms they want a specific style (e.g., "let's go with this", "yes, use that", "generate it", "sounds good"), set suggest_plan: true AND execute_immediately: true. The system will generate the style file from the full conversation. Give a brief forward-looking acknowledgment like "On it — generating the style directives now." Do NOT describe the result.\n\n`;
+            }
+
             // Cadence enforcement: nudge model to stop asking questions after enough exchanges
             const userExchangeCount = messages.filter(m => m.role === 'user').length;
             if (userExchangeCount >= 5) {
