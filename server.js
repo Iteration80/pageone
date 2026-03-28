@@ -1795,7 +1795,15 @@ app.post('/api/style-chat', async (req, res) => {
         const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
 
         let systemPrompt = `${brainstormSop}\n\n## STYLE SOP\n${styleSop}\n\n`;
-        systemPrompt += `You are helping a writer create a style for their screenplay projects. You are NOT in a project context — there are no scenes to reference. Help them describe the style they want, then generate a directive when they're ready.\n`;
+        systemPrompt += `You are helping a writer create a style for their screenplay projects. You are NOT in a project context — there are no scenes to reference. Help them describe the style they want, then generate a directive when they're ready.
+
+## RESPONSE FORMAT
+Your response is structured JSON with these fields:
+- message: Your conversational reply (string)
+- suggest_plan: Set true when you have enough information to generate a style (boolean)
+- execute_immediately: Set true ONLY when the writer has explicitly confirmed they want to generate. Agreement IS confirmation — "yes", "let's do it", "sounds good" after you offer to generate = true. Never set true on your own initiative without the writer's go-ahead.
+
+When you have enough info to generate, ask: "Ready to generate this style?" (or similar). When the writer confirms, set both suggest_plan: true and execute_immediately: true. The system will auto-trigger generation — do NOT narrate the generation yourself.\n`;
 
         if (isInit) {
             systemPrompt += `\nThis is the start of the conversation. Open with: "Who do you want to write like? Name a writer, describe a vibe, or if you have a screenplay you'd like me to analyze, we can do that on the style detail page after creation."`;
@@ -1820,18 +1828,56 @@ app.post('/api/style-chat', async (req, res) => {
             systemPrompt += `\n\nExisting styles in the library: ${existingStyles.join(', ')}`;
         }
 
+        // Load all project pitches for context
+        let projectContext = '';
+        try {
+            const projectFiles = await fs.readdir(DATA_DIR);
+            const pitches = [];
+            for (const f of projectFiles) {
+                if (!f.endsWith('.json')) continue;
+                try {
+                    const pData = JSON.parse(await fs.readFile(path.join(DATA_DIR, f), 'utf-8'));
+                    const pitch = pData.data?.stage1_pitch?.pitch;
+                    if (pitch?.title) {
+                        pitches.push(`- "${pitch.title}" (${pitch.genre || 'genre TBD'}): ${(pitch.synopsis || '').slice(0, 200)}`);
+                    }
+                } catch {}
+            }
+            if (pitches.length > 0) {
+                projectContext = `\n\n## WRITER'S PROJECTS\nThe writer has these active projects:\n${pitches.join('\n')}\nIf they mention a project by name, tailor the style to that story.\n`;
+                systemPrompt += projectContext;
+            }
+        } catch {}
+
+        // For init, send a starter message so Gemini has content to respond to
+        const contents = (isInit || !messages || messages.length === 0)
+            ? 'Start the conversation. Introduce yourself and ask about their style needs.'
+            : messages;
+
         const mc = getModelConfig(7);
         const { generateContent } = require('./agents/ai-client');
         const response = await generateContent({
             model: mc.model, geminiApiKey: mc.geminiApiKey, anthropicApiKey: mc.anthropicApiKey,
-            contents: messages || [],
+            contents,
             config: {
                 systemInstruction: systemPrompt,
-                temperature: 0.7
+                temperature: 0.7,
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'object',
+                    properties: {
+                        message: { type: 'string' },
+                        suggest_plan: { type: 'boolean' },
+                        execute_immediately: { type: 'boolean' }
+                    },
+                    required: ['message', 'suggest_plan', 'execute_immediately']
+                },
             }
         });
 
-        res.json({ reply: response.text, usage: response.usage });
+        const result = JSON.parse(response.text);
+        console.log(`style-chat: suggest_plan=${result.suggest_plan} execute_immediately=${result.execute_immediately}`);
+        res.json({ reply: result.message, execute_immediately: result.execute_immediately, usage: response.usage });
     } catch (error) {
         console.error('style-chat error:', error.message);
         res.status(500).json({ error: error.message });

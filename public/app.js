@@ -372,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'project-card';
             card.innerHTML = `
                 <h3 class="project-title" data-id="${project.id}">${escapeHtml(project.title)}</h3>
-                <div class="project-meta">ID: ${project.id}</div>
                 <div class="project-actions">
                     <button class="edit-btn" data-id="${project.id}" title="Rename Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -440,9 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tierClass = style.tier === 'trained' ? 'trained' : 'conversational';
                 const tierLabel = style.tier === 'trained' ? 'Trained' : 'Conversational';
                 card.innerHTML = `
-                    <div style="font-weight:600;color:#e5e7eb;font-size:0.95rem;margin-bottom:4px">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
-                    <div style="font-size:0.8rem;color:#6b7280;margin-bottom:6px">${escapeHtml(style.tonal_summary || '')}</div>
-                    <div style="font-size:0.7rem;color:#4b5563">${style.created || ''}</div>
+                    <div style="font-weight:600;color:var(--text-primary);font-size:1rem">${escapeHtml(style.name)} <span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
+                    <div style="font-size:0.85rem;color:var(--text-secondary)">${escapeHtml(style.tonal_summary || '')}</div>
                 `;
                 card.addEventListener('click', () => openStyleDetail(style.slug));
                 grid.appendChild(card);
@@ -510,6 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Style detail modal listeners
     document.getElementById('btnStyleDetailClose')?.addEventListener('click', () => {
+        document.getElementById('styleDetailModal')?.classList.add('hidden');
+    });
+
+    document.getElementById('btnStyleDetailDone')?.addEventListener('click', () => {
         document.getElementById('styleDetailModal')?.classList.add('hidden');
     });
 
@@ -589,15 +591,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Conversational path
     let createStyleChatHistory = [];
 
+    // Helper to render a chat message in the style thread
+    function styleThreadAppend(thread, role, text) {
+        const div = document.createElement('div');
+        div.className = `chat-message ${role === 'user' ? 'chat-message-user' : 'chat-message-ai'}`;
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        thread.appendChild(div);
+        thread.scrollTop = thread.scrollHeight;
+    }
+
     document.getElementById('btnCreateStyleConversational')?.addEventListener('click', async () => {
         document.getElementById('createStylePaths')?.classList.add('hidden');
-        document.getElementById('createStyleChatPath')?.classList.remove('hidden');
+        const chatPath = document.getElementById('createStyleChatPath');
+        if (chatPath) { chatPath.classList.remove('hidden'); chatPath.style.display = 'flex'; }
         createStyleChatHistory = [];
 
         const thread = document.getElementById('createStyleChatThread');
-        if (thread) thread.innerHTML = '<p style="color:#6b7280;font-style:italic">Loading...</p>';
+        if (thread) thread.innerHTML = '<div class="chat-message chat-message-working">Thinking <div class="chat-working-dots"><span></span><span></span><span></span></div></div>';
 
-        // Init chat
+        // Init chat — assistant introduces itself with project context
         try {
             const res = await fetch('/api/style-chat', {
                 method: 'POST',
@@ -605,10 +617,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ messages: [], isInit: true })
             });
             const data = await res.json();
+            if (data.error) throw new Error(data.error);
             createStyleChatHistory.push({ role: 'model', content: data.reply });
-            if (thread) thread.innerHTML = `<div style="margin-bottom:8px;color:#93c5fd"><strong>Assistant:</strong> ${escapeHtml(data.reply)}</div>`;
+            if (thread) { thread.innerHTML = ''; styleThreadAppend(thread, 'ai', data.reply); }
         } catch (err) {
-            if (thread) thread.innerHTML = '<p style="color:#ef4444">Failed to start chat.</p>';
+            if (thread) thread.innerHTML = '<p style="color:#ef4444;padding:8px">Failed to start chat. Check your API key in Settings.</p>';
+        }
+    });
+
+    // Enter key sends message (Shift+Enter for newline)
+    document.getElementById('createStyleChatInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('btnCreateStyleChatSend')?.click();
         }
     });
 
@@ -619,8 +640,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!text) return;
 
         createStyleChatHistory.push({ role: 'user', content: text });
-        thread.innerHTML += `<div style="margin-bottom:8px;color:#e5e7eb"><strong>You:</strong> ${escapeHtml(text)}</div>`;
+        styleThreadAppend(thread, 'user', text);
         input.value = '';
+
+        // Show thinking dots
+        const thinking = document.createElement('div');
+        thinking.className = 'chat-message chat-message-working';
+        thinking.innerHTML = 'Thinking <div class="chat-working-dots"><span></span><span></span><span></span></div>';
+        thread.appendChild(thinking);
+        thread.scrollTop = thread.scrollHeight;
 
         try {
             const messages = createStyleChatHistory.map(m => ({
@@ -632,25 +660,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ messages })
             });
+            thinking.remove();
             const data = await res.json();
+            if (data.error) throw new Error(data.error);
             createStyleChatHistory.push({ role: 'model', content: data.reply });
-            thread.innerHTML += `<div style="margin-bottom:8px;color:#93c5fd"><strong>Assistant:</strong> ${escapeHtml(data.reply)}</div>`;
-            thread.scrollTop = thread.scrollHeight;
+            styleThreadAppend(thread, 'ai', data.reply);
 
-            // Enable generate button after at least 2 exchanges
-            const userMsgs = createStyleChatHistory.filter(m => m.role === 'user');
-            if (userMsgs.length >= 1) {
-                document.getElementById('btnCreateStyleGenerate').disabled = false;
+            // Auto-trigger generation when the assistant signals readiness
+            if (data.execute_immediately) {
+                triggerStyleGeneration(thread);
             }
         } catch (err) {
-            thread.innerHTML += '<div style="color:#ef4444">Error — try again.</div>';
+            thinking.remove();
+            styleThreadAppend(thread, 'ai', 'Error — try again.');
         }
     });
 
-    document.getElementById('btnCreateStyleGenerate')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btnCreateStyleGenerate');
-        btn.disabled = true;
-        btn.textContent = 'Generating...';
+    async function triggerStyleGeneration(thread) {
+        // Show generating indicator in chat
+        const genIndicator = document.createElement('div');
+        genIndicator.className = 'chat-message chat-message-working';
+        genIndicator.innerHTML = 'Generating style <div class="chat-working-dots"><span></span><span></span><span></span></div>';
+        if (thread) { thread.appendChild(genIndicator); thread.scrollTop = thread.scrollHeight; }
+
+        // Disable input during generation
+        const sendBtn = document.getElementById('btnCreateStyleChatSend');
+        const input = document.getElementById('createStyleChatInput');
+        if (sendBtn) sendBtn.disabled = true;
+        if (input) input.disabled = true;
 
         try {
             const lastUserMsg = createStyleChatHistory.filter(m => m.role === 'user').pop()?.content || '';
@@ -669,12 +706,13 @@ document.addEventListener('DOMContentLoaded', () => {
             openStyleDetail(data.slug);
         } catch (err) {
             console.error('Create style error:', err);
-            alert('Failed to generate style: ' + err.message);
+            if (genIndicator) genIndicator.remove();
+            styleThreadAppend(thread, 'ai', 'Failed to generate style — try again.');
         } finally {
-            btn.disabled = false;
-            btn.textContent = 'Generate Style';
+            if (sendBtn) sendBtn.disabled = false;
+            if (input) input.disabled = false;
         }
-    });
+    }
 
     // Trained path
     document.getElementById('btnCreateStyleTrained')?.addEventListener('click', () => {

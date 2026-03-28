@@ -92,28 +92,72 @@ const generateTrainedStyle = async (input, modelConfig = {}) => {
 
     const usageList = [];
 
-    // --- Step 1: Generate full reference from screenplay analysis ---
-    let refPrompt = `${styleSop}\n\n`;
-    refPrompt += `## MODE: TRAINED STYLE — SCREENPLAY ANALYSIS\n\n`;
+    // --- Step 1: Analyze each screenplay individually (parallel) ---
+    // Each script gets its own API call to stay within context limits.
+    // A single screenplay can be 80-120 pages (~30K words), so we analyze one at a time.
+    const analysisPromises = screenplayTexts.map((text, i) => {
+        const title = screenplayTitles[i] || `Screenplay ${i + 1}`;
+
+        let prompt = `${styleSop}\n\n`;
+        prompt += `## MODE: TRAINED STYLE — SINGLE SCREENPLAY ANALYSIS\n\n`;
+
+        if (conversationHistory.length > 0) {
+            prompt += `## CONVERSATION HISTORY\n`;
+            for (const msg of conversationHistory) {
+                prompt += `${msg.role === 'user' ? 'WRITER' : 'ASSISTANT'}: ${msg.content}\n\n`;
+            }
+        }
+
+        prompt += `## SCREENPLAY: "${title}"\n${text}\n\n`;
+
+        prompt += `## INSTRUCTIONS
+Analyze this screenplay and extract its stylistic DNA. Focus on what makes this writer's voice distinctive.
+
+Cover these areas with concrete evidence (cite specific lines, scenes, or passages):
+1. **Scene Construction** — How scenes open/close, transition patterns, scene length tendencies
+2. **Action Lines** — Sentence length, verb choices, visual density, white space usage
+3. **Dialogue** — Rhythm, subtext patterns, character voice differentiation, exposition handling
+4. **Tone** — Mood control, tonal shifts, humor/gravity balance
+5. **Pacing** — Scene-to-scene momentum, tension/release patterns, act structure
+6. **Signature Moves** — Recurring techniques, distinctive quirks, trademark patterns
+7. **Anti-Patterns** — What this writer deliberately avoids
+
+Target 800-1200 words of analysis. Extract patterns from the actual text — not from training knowledge about the writer.
+Output ONLY the analysis — no preamble, no code blocks.`;
+
+        return generateContent({
+            model, geminiApiKey, anthropicApiKey,
+            contents: prompt,
+            config: { temperature: 0.5 }
+        });
+    });
+
+    const analysisResults = await Promise.all(analysisPromises);
+    for (const r of analysisResults) usageList.push(r.usage);
+
+    // --- Step 2: Synthesize per-script analyses into full reference ---
+    let synthPrompt = `${styleSop}\n\n`;
+    synthPrompt += `## MODE: TRAINED STYLE — SYNTHESIS\n\n`;
 
     if (conversationHistory.length > 0) {
-        refPrompt += `## CONVERSATION HISTORY\n`;
+        synthPrompt += `## CONVERSATION HISTORY\n`;
         for (const msg of conversationHistory) {
-            refPrompt += `${msg.role === 'user' ? 'WRITER' : 'ASSISTANT'}: ${msg.content}\n\n`;
+            synthPrompt += `${msg.role === 'user' ? 'WRITER' : 'ASSISTANT'}: ${msg.content}\n\n`;
         }
     }
 
-    refPrompt += `## SCREENPLAY TEXT TO ANALYZE\n`;
-    for (let i = 0; i < screenplayTexts.length; i++) {
+    synthPrompt += `## PER-SCREENPLAY ANALYSES\n`;
+    for (let i = 0; i < analysisResults.length; i++) {
         const title = screenplayTitles[i] || `Screenplay ${i + 1}`;
-        refPrompt += `### ${title}\n${screenplayTexts[i]}\n\n`;
+        synthPrompt += `### ${title}\n${analysisResults[i].text}\n\n`;
     }
 
-    refPrompt += `## INSTRUCTIONS
-Analyze the screenplay text above and produce a FULL STYLE REFERENCE (2000+ words).
-Extract concrete patterns from the actual text — not from training knowledge about the writer.
+    synthPrompt += `## INSTRUCTIONS
+Synthesize the per-screenplay analyses above into a UNIFIED STYLE REFERENCE (2000-3000 words).
+Identify patterns that are consistent across scripts (core style) vs. unique to individual works.
+Weight recurring patterns more heavily — they represent the writer's true voice.
 
-The YAML front matter MUST include: name, slug, created, tier: "trained", source: "screenplay-analysis", screenplays_analyzed (array of titles), artifact_type: "reference", tonal_summary, word_count.
+The YAML front matter MUST include: name, slug, created, tier: "trained", source: "screenplay-analysis", screenplays_analyzed: [${screenplayTitles.map(t => `"${t}"`).join(', ')}], artifact_type: "reference", tonal_summary, word_count.
 ${styleName ? `Use "${styleName}" as the style name.` : ''}
 
 Include these sections with deep, evidence-backed analysis:
@@ -126,19 +170,19 @@ Include these sections with deep, evidence-backed analysis:
 ## Signature Moves
 ## Anti-Patterns (What This Writer Avoids)
 
-Cite specific examples from the screenplay text. Target 2000-3000 words.
+Cite specific examples from the analyses. Target 2000-3000 words.
 Output ONLY the reference file content — no introductory text, no code blocks.`;
 
     const refResponse = await generateContent({
         model, geminiApiKey, anthropicApiKey,
-        contents: refPrompt,
+        contents: synthPrompt,
         config: { temperature: 0.5 }
     });
     usageList.push(refResponse.usage);
 
     const referenceText = refResponse.text;
 
-    // --- Step 2: Distill reference into compact directive ---
+    // --- Step 3: Distill reference into compact directive ---
     let distillPrompt = `${styleSop}\n\n`;
     distillPrompt += `## MODE: DISTILLATION — REFERENCE TO DIRECTIVE\n\n`;
     distillPrompt += `## FULL STYLE REFERENCE\n${referenceText}\n\n`;

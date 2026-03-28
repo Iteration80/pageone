@@ -24,27 +24,31 @@
             </button>
         </header>
         <main class="hub-workspace">
-            <div class="hub-section-header">
-                <h2>My Projects</h2>
-                <div style="display:flex;gap:8px;align-items:center">
-                    <button id="importScriptBtn" class="secondary-btn" style="display:flex;align-items:center;gap:6px">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import Script
-                    </button>
-                    <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
+            <section class="hub-section">
+                <div class="hub-section-header">
+                    <h2>My Projects</h2>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button id="importScriptBtn" class="secondary-btn" style="display:flex;align-items:center;gap:6px">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Import Script
+                        </button>
+                        <button id="createNewProjectBtn" class="primary-btn">Create New Project</button>
+                    </div>
                 </div>
-            </div>
-            <div id="projectsGrid" class="projects-grid">
-                <!-- Project cards injected here -->
-            </div>
+                <div id="projectsGrid" class="projects-grid">
+                    <!-- Project cards injected here -->
+                </div>
+            </section>
 
-            <div class="hub-section-header" style="margin-top:40px">
-                <h2>My Styles</h2>
-                <button id="btnNewStyle" class="primary-btn">Create New Style</button>
-            </div>
-            <div id="stylesGrid" class="styles-grid">
-                <!-- Style cards injected here -->
-            </div>
+            <section class="hub-section">
+                <div class="hub-section-header">
+                    <h2>My Styles</h2>
+                    <button id="btnNewStyle" class="primary-btn">Create New Style</button>
+                </div>
+                <div id="stylesGrid" class="styles-grid">
+                    <!-- Style cards injected here -->
+                </div>
+            </section>
         </main>
     </div>
 
@@ -106,17 +110,21 @@
             <!-- Projects using this style -->
             <div id="styleDetailProjects" style="margin-bottom:16px;font-size:0.8rem;color:#6b7280"></div>
 
-            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #1e293b">
-                <button id="btnStyleDetailEdit" class="secondary-btn" style="font-size:0.8rem">Edit Directive</button>
-                <button id="btnStyleDetailDelete" style="font-size:0.8rem;padding:6px 14px;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;border-radius:8px;cursor:pointer">Delete</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid #1e293b">
+                <span id="styleDetailSavedIndicator" style="font-size:0.75rem;color:#4ade80">✓ Saved to library</span>
+                <div style="display:flex;gap:10px">
+                    <button id="btnStyleDetailDelete" style="font-size:0.8rem;padding:6px 14px;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;border-radius:8px;cursor:pointer">Delete</button>
+                    <button id="btnStyleDetailEdit" class="secondary-btn" style="font-size:0.8rem">Edit</button>
+                    <button id="btnStyleDetailDone" class="primary-btn" style="font-size:0.8rem">Done</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Create Style Modal -->
     <div id="createStyleModal" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width:560px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="modal-content" style="max-width:720px;max-height:85vh;display:flex;flex-direction:column">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
                 <h3 style="margin:0;font-size:1.1rem;color:#e5e7eb">Create a New Style</h3>
                 <button id="btnCreateStyleClose" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1.2rem">✕</button>
             </div>
@@ -134,14 +142,11 @@
             </div>
 
             <!-- Conversational path: chat interface -->
-            <div id="createStyleChatPath" class="hidden">
-                <div id="createStyleChatThread" style="min-height:200px;max-height:350px;overflow-y:auto;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.85rem;color:#d1d5db"></div>
-                <div style="display:flex;gap:8px">
-                    <textarea id="createStyleChatInput" style="flex:1;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e5e7eb;font-size:0.85rem;resize:none" rows="2" placeholder="Describe the style you want..."></textarea>
-                    <button id="btnCreateStyleChatSend" class="primary-btn" style="font-size:0.8rem;align-self:flex-end">Send</button>
-                </div>
-                <div style="display:flex;justify-content:flex-end;margin-top:12px">
-                    <button id="btnCreateStyleGenerate" class="primary-btn" style="font-size:0.8rem" disabled>Generate Style</button>
+            <div id="createStyleChatPath" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+                <div id="createStyleChatThread" class="chat-thread" style="flex:1;min-height:300px;max-height:50vh;overflow-y:auto;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:16px;margin-bottom:12px;font-size:0.9rem;line-height:1.6"></div>
+                <div style="display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
+                    <textarea id="createStyleChatInput" style="flex:1;padding:10px 14px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e5e7eb;font-size:0.9rem;resize:none;line-height:1.5" rows="2" placeholder="Describe the style you want..."></textarea>
+                    <button id="btnCreateStyleChatSend" class="primary-btn" style="font-size:0.85rem;padding:8px 16px;align-self:flex-end">Send</button>
                 </div>
             </div>
 

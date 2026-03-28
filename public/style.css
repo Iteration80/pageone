@@ -587,7 +587,7 @@ textarea.synopsis-input {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 60px;
+    margin-bottom: 32px;
 }
 
 .hub-section-header {
@@ -604,7 +604,7 @@ textarea.synopsis-input {
 .hub-workspace h2 {
     font-size: 2rem;
     font-weight: 600;
-    margin-bottom: 30px;
+    margin-bottom: 0;
 }
 
 .projects-grid {
@@ -617,10 +617,10 @@ textarea.synopsis-input {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
-    padding: 24px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -639,9 +639,8 @@ textarea.synopsis-input {
     padding: 0;
 }
 
-.project-meta {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
+.hub-section {
+    margin-bottom: 32px;
 }
 
 .project-actions {
@@ -1878,21 +1877,26 @@ textarea.synopsis-input {
 
 /* Landing page style cards */
 .styles-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
 }
 .hub-style-card {
-    background: #1e293b;
-    border: 1px solid #334155;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
-    padding: 16px;
-    min-width: 200px;
-    max-width: 260px;
+    padding: 20px;
     cursor: pointer;
-    transition: border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
-.hub-style-card:hover { border-color: #475569; }
+.hub-style-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.2);
+}
 .style-tier-badge {
     font-size: 0.65rem;
     padding: 1px 6px;
