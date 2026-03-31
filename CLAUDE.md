@@ -26,6 +26,20 @@ User feedback and quality signals are stored in `data/projects/*.json`. Relevant
 
 ---
 
+## Deployment Notes
+
+### Authentication (`APP_SECRET`)
+API auth is dormant by default — the server runs unauthenticated on localhost. To activate before deploying:
+
+1. Generate a secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Uncomment and fill in `.env`: `APP_SECRET=your-secret-here`
+3. In `public/app.js`, add the header to all `fetch('/api/...')` calls (a `fetchApi()` wrapper is the right place)
+4. Server confirms activation on startup: `[auth] APP_SECRET set — API authentication active.`
+
+When active, every `/api/*` request must include `X-Api-Key: <APP_SECRET>`.
+
+---
+
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 

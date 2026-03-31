@@ -595,7 +595,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function styleThreadAppend(thread, role, text) {
         const div = document.createElement('div');
         div.className = `chat-message ${role === 'user' ? 'chat-message-user' : 'chat-message-ai'}`;
-        div.innerHTML = text.replace(/\n/g, '<br>');
+        // Safe text rendering: split on newlines, insert <br> elements — no innerHTML with user/AI content
+        const lines = String(text || '').split('\n');
+        lines.forEach((line, i) => {
+            if (i > 0) div.appendChild(document.createElement('br'));
+            div.appendChild(document.createTextNode(line));
+        });
         thread.appendChild(div);
         thread.scrollTop = thread.scrollHeight;
     }
@@ -1713,14 +1718,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.75rem;color:#6b7280;margin-top:2px">${dateStr} at ${timeStr}</div>
                     </div>
                     <div style="display:flex;gap:8px;flex-shrink:0">
-                        <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px" onclick="window.previewVersionById('${v.id}')">View</button>
-                        <button class="secondary-btn" style="font-size:0.75rem;padding:6px 12px" onclick="window.restoreVersionById('${v.id}')">Restore</button>
+                        <button class="secondary-btn version-view-btn" style="font-size:0.75rem;padding:6px 12px" data-version-id="${escapeHtml(String(v.id))}">View</button>
+                        <button class="secondary-btn version-restore-btn" style="font-size:0.75rem;padding:6px 12px" data-version-id="${escapeHtml(String(v.id))}">Restore</button>
                     </div>
                 </div>`;
             });
             html += `</div></div>`;
         });
         container.innerHTML = html;
+
+        // Attach event listeners via delegation instead of inline onclick
+        container.querySelectorAll('.version-view-btn').forEach(btn => {
+            btn.addEventListener('click', () => window.previewVersionById(btn.dataset.versionId));
+        });
+        container.querySelectorAll('.version-restore-btn').forEach(btn => {
+            btn.addEventListener('click', () => window.restoreVersionById(btn.dataset.versionId));
+        });
     }
 
     window.restoreVersionById = async function(versionId) {
@@ -4869,17 +4882,49 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = '<p class="text-gray-600 text-sm italic">No items.</p>';
             return;
         }
-        container.innerHTML = items.map((item, idx) => `
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                <span class="text-xs font-mono font-bold px-2 py-0.5 mt-0.5 rounded border shrink-0 text-blue-400 bg-blue-400/10 border-blue-400/30">P${item.priority}</span>
-                <div class="flex-1 min-w-0">
-                    <textarea class="todo-task-input w-full bg-transparent text-sm text-gray-200 resize-none border-none focus:outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 leading-relaxed" rows="2" data-list="${list}" data-idx="${idx}">${item.task}</textarea>
-                </div>
-                <div class="flex flex-col gap-1 shrink-0 pt-1">
-                    <button onclick="window.moveTodoItem(${idx}, -1, '${list}')" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move up">▲</button>
-                    <button onclick="window.moveTodoItem(${idx},  1, '${list}')" class="text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs" title="Move down">▼</button>
-                </div>
-            </div>`).join('');
+        // Build elements via DOM API so data attributes stay safe and no inline handlers are needed
+        container.innerHTML = '';
+        items.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10';
+
+            const badge = document.createElement('span');
+            badge.className = 'text-xs font-mono font-bold px-2 py-0.5 mt-0.5 rounded border shrink-0 text-blue-400 bg-blue-400/10 border-blue-400/30';
+            badge.textContent = `P${item.priority}`;
+
+            const textWrap = document.createElement('div');
+            textWrap.className = 'flex-1 min-w-0';
+
+            const ta = document.createElement('textarea');
+            ta.className = 'todo-task-input w-full bg-transparent text-sm text-gray-200 resize-none border-none focus:outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 leading-relaxed';
+            ta.rows = 2;
+            ta.dataset.list = list;
+            ta.dataset.idx = String(idx);
+            ta.value = item.task;  // safe — value property, not innerHTML
+            textWrap.appendChild(ta);
+
+            const btnWrap = document.createElement('div');
+            btnWrap.className = 'flex flex-col gap-1 shrink-0 pt-1';
+
+            const btnUp = document.createElement('button');
+            btnUp.className = 'text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs';
+            btnUp.title = 'Move up';
+            btnUp.textContent = '▲';
+            btnUp.addEventListener('click', () => window.moveTodoItem(idx, -1, list));
+
+            const btnDown = document.createElement('button');
+            btnDown.className = 'text-gray-500 hover:text-gray-300 transition-colors leading-none text-xs';
+            btnDown.title = 'Move down';
+            btnDown.textContent = '▼';
+            btnDown.addEventListener('click', () => window.moveTodoItem(idx, 1, list));
+
+            btnWrap.appendChild(btnUp);
+            btnWrap.appendChild(btnDown);
+            row.appendChild(badge);
+            row.appendChild(textWrap);
+            row.appendChild(btnWrap);
+            container.appendChild(row);
+        });
         setTimeout(() => {
             container.querySelectorAll('.todo-task-input').forEach(ta => autoResize(ta));
         }, 50);

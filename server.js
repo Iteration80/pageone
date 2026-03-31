@@ -2,10 +2,47 @@ require('dotenv').config();
 const { setGlobalDispatcher, Agent } = require('undici');
 setGlobalDispatcher(new Agent({ headersTimeout: 300_000, bodyTimeout: 300_000 }));
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+
+// ─── Input validation helpers ─────────────────────────────────────────────────
+
+/** Validate a project ID: must be a 13–14 digit numeric timestamp string. */
+function isValidProjectId(id) {
+    return typeof id === 'string' && /^\d{13,14}$/.test(id);
+}
+
+/** Validate a style slug: lowercase alphanumeric, hyphens, underscores only. */
+function isValidSlug(slug) {
+    return typeof slug === 'string' && /^[a-z0-9_-]+$/.test(slug) && slug.length <= 200;
+}
+
+/** Resolve a path and verify it stays within the expected base directory. */
+async function safePath(base, ...parts) {
+    const joined = path.join(base, ...parts);
+    // Resolve symlinks and check the real path stays inside base
+    const realBase = await fs.realpath(base).catch(() => base);
+    let realJoined;
+    try {
+        realJoined = await fs.realpath(joined);
+    } catch {
+        // File doesn't exist yet — check the resolved parent
+        realJoined = path.resolve(joined);
+    }
+    if (!realJoined.startsWith(realBase + path.sep) && realJoined !== realBase) {
+        throw new Error('Path escape attempt');
+    }
+    return joined;
+}
+
+/** Safe JSON.parse that returns null on failure instead of throwing. */
+function safeParse(str, fallback = null) {
+    if (typeof str !== 'string') return str ?? fallback;
+    try { return JSON.parse(str); } catch { return fallback; }
+}
 
 /**
  * Atomic file write — writes to a temp file in the same directory, then renames.
@@ -74,6 +111,7 @@ function getModelConfig(stageNum) {
 /** Append API usage record to the project's apiUsage array. */
 async function trackUsage(projectId, usageOrList) {
     if (!projectId || !usageOrList) return;
+    if (!isValidProjectId(projectId)) return;
     try {
         const usages = Array.isArray(usageOrList) ? usageOrList : [usageOrList];
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -136,6 +174,10 @@ const STYLES_DIR = path.join(__dirname, 'data', 'styles');
 async function loadProjectStyle(projectData) {
     const slug = projectData.data?.stage7_style;
     if (!slug || slug === 'none') return { styleContent: null, styleWarning: null, referenceContent: null };
+    if (!isValidSlug(slug)) {
+        console.warn(`loadProjectStyle: invalid slug "${slug}" — skipping.`);
+        return { styleContent: null, styleWarning: 'Invalid style slug — drafting without style directives.', referenceContent: null };
+    }
 
     // Try new naming first (-directive.md), fall back to legacy (.md)
     let styleContent = null, referenceContent = null, styleWarning = null;
@@ -162,7 +204,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+const ALLOWED_UPLOAD_MIMES = new Set([
+    'application/pdf',
+    'text/plain',
+    'application/octet-stream',        // .fountain / .fdx often land here
+    'text/x-fountain',
+    'application/x-fountain',
+    'application/xml',
+    'text/xml',
+    'application/vnd.ms-word',
+]);
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB hard cap
+    fileFilter(_req, file, cb) {
+        const ext = (file.originalname || '').split('.').pop().toLowerCase();
+        const allowed = ['pdf', 'txt', 'fountain', 'fdx', 'docx'];
+        if (!allowed.includes(ext) && !ALLOWED_UPLOAD_MIMES.has(file.mimetype)) {
+            return cb(new Error(`Unsupported file type: .${ext}`));
+        }
+        cb(null, true);
+    },
+});
 
 const DATA_DIR = path.join(__dirname, 'data', 'projects');
 
@@ -175,31 +238,78 @@ async function initDb() {
         console.error("Failed to create data directory:", err);
     }
 }
-initDb();
-loadSettings();
+
+// ─── Security headers ─────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    // CSP: allow scripts from CDNs used by index.html, fonts from Google
+    res.setHeader('Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; " +
+        "font-src https://fonts.gstatic.com data:; " +
+        "img-src 'self' data:; " +
+        "connect-src 'self'; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'"
+    );
+    next();
+});
+
+// ─── Authentication (shared secret) ──────────────────────────────────────────
+// Dormant by default. Activate by setting APP_SECRET in .env.
+// When set, every /api/* request must include:  X-Api-Key: <APP_SECRET>
+const APP_SECRET = process.env.APP_SECRET;
+function requireAuth(req, res, next) {
+    if (!APP_SECRET) return next(); // dormant — no secret configured
+    const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+    if (!header || header !== APP_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+}
+
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,      // 1 minute window
+    max: 30,                   // max 30 AI calls per IP per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests — slow down and try again.' },
+});
+const strictLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests — slow down and try again.' },
+});
 
 // Middleware
 app.use(express.static('public'));
 app.use(express.json({ limit: '20mb' }));
 
 // API route
-app.post('/api/execute', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { prompt } = req.body;
         const pdfFile = req.file;
 
-        // Validation removed to allow random pitch generation if both are empty
+        // Validation intentionally omitted — allows random pitch generation with no input
 
         console.log("Generating pitch options...");
         const { result, usage } = await agent1Pitch(prompt, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing agent:", error);
-        res.status(500).json({ error: error.message || "An error occurred" });
+        res.status(500).json({ error: "Failed to generate pitch" });
     }
 });
 
-app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { currentPitch, userNote } = req.body || {};
         const pdfFile = req.file;
@@ -209,24 +319,25 @@ app.post('/api/refine-pitch', upload.single('pdfFile'), async (req, res) => {
         }
 
         // currentPitch might be a string if sent via FormData
-        const parsedPitch = typeof currentPitch === 'string' ? JSON.parse(currentPitch) : currentPitch;
+        const parsedPitch = safeParse(currentPitch);
+        if (!parsedPitch) return res.status(400).json({ error: "Invalid currentPitch JSON" });
 
         console.log("Revising pitch...");
         const { result, usage } = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile, getModelConfig(1));
         res.json({ result });
     } catch (error) {
         console.error("Error executing refine agent:", error);
-        res.status(500).json({ error: error.message || "An error occurred" });
+        res.status(500).json({ error: "Failed to refine pitch" });
     }
 });
 
-app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentBeats, notes } = req.body;
         const pdfFile = req.file;
 
-        if (!projectId) {
-            return res.status(400).json({ error: "Missing projectId" });
+        if (!isValidProjectId(projectId)) {
+            return res.status(400).json({ error: "Missing or invalid projectId" });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -243,7 +354,7 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
             return res.status(400).json({ error: "Project has no finalized Stage 1 Pitch" });
         }
 
-        const parsedBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
+        const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
 
         console.log("Generating Stage 2 Outline...");
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfig(2));
@@ -259,17 +370,17 @@ app.post('/api/generate-outline', upload.single('pdfFile'), async (req, res) => 
         res.json({ result: outlineData });
     } catch (error) {
         console.error('Outline Gen Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Failed to generate outline" });
     }
 });
 
-app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentCharacters, notes } = req.body;
         const pdfFile = req.file;
 
-        if (!projectId) {
-            return res.status(400).json({ error: "Missing projectId" });
+        if (!isValidProjectId(projectId)) {
+            return res.status(400).json({ error: "Missing or invalid projectId" });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -278,7 +389,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
             const content = await fs.readFile(filePath, 'utf-8');
             projectData = JSON.parse(content);
         } catch (err) {
-            console.error('generate-characters: failed to load project:', err.message);
+            console.error('generate-characters: failed to load project');
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -289,7 +400,7 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
             return res.status(400).json({ error: "Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters" });
         }
 
-        const parsedChars = currentCharacters ? (typeof currentCharacters === 'string' ? JSON.parse(currentCharacters) : currentCharacters) : null;
+        const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
 
         console.log("Generating Stage 3 Characters...");
         const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfig(3));
@@ -305,16 +416,16 @@ app.post('/api/generate-characters', upload.single('pdfFile'), async (req, res) 
         res.json({ result: characterData });
     } catch (error) {
         console.error('Character Gen Error:', error);
-        res.status(500).json({ error: error.message || "Failed to generate characters" });
+        res.status(500).json({ error: "Failed to generate characters" });
     }
 });
 
-app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId, currentBeats, notes } = req.body || {};
     const pdfFile = req.file;
 
-    if (!projectId) {
-        return res.status(400).json({ error: "Missing projectId" });
+    if (!isValidProjectId(projectId)) {
+        return res.status(400).json({ error: "Missing or invalid projectId" });
     }
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -334,7 +445,7 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         return res.status(400).json({ error: "Project requires Stages 1-3 to generate Beats" });
     }
 
-    const parsedCurrentBeats = currentBeats ? (typeof currentBeats === 'string' ? JSON.parse(currentBeats) : currentBeats) : null;
+    const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -364,16 +475,16 @@ app.post('/api/generate-stage4-beats', upload.single('pdfFile'), async (req, res
         send({ type: 'complete', result: beatsResult });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
-        send({ type: 'error', message: error.message || 'Failed to generate beats' });
+        send({ type: 'error', message: 'Failed to generate beats' });
     } finally {
         res.end();
     }
 });
 
-app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId } = req.body || {};
-    if (!projectId) {
-        return res.status(400).json({ error: "Missing projectId" });
+    if (!isValidProjectId(projectId)) {
+        return res.status(400).json({ error: "Missing or invalid projectId" });
     }
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -390,7 +501,7 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
     const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
 
     const { notes, currentTreatment } = req.body;
-    const parsedTreatment = currentTreatment ? JSON.parse(currentTreatment) : null;
+    const parsedTreatment = currentTreatment ? safeParse(currentTreatment, null) : null;
 
     if (!pitchData || !charactersData || !beatsData) {
         return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
@@ -422,16 +533,16 @@ app.post('/api/generate-stage5-treatment', upload.single('pdfFile'), async (req,
         send({ type: 'complete', result: treatmentResult });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message);
-        send({ type: 'error', message: error.message || 'Failed to generate treatment' });
+        send({ type: 'error', message: 'Failed to generate treatment' });
     } finally {
         res.end();
     }
 });
 
-app.post('/api/generate-stage6-scenes', async (req, res) => {
+app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res) => {
     const { projectId } = req.body;
-    if (!projectId) {
-        return res.status(400).json({ error: "Missing projectId" });
+    if (!isValidProjectId(projectId)) {
+        return res.status(400).json({ error: "Missing or invalid projectId" });
     }
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -483,17 +594,17 @@ app.post('/api/generate-stage6-scenes', async (req, res) => {
         send({ type: 'complete', result: allSequences });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
-        send({ type: 'error', message: error.message || "Failed to generate scene blueprint" });
+        send({ type: 'error', message: 'Failed to generate scene blueprint' });
     } finally {
         res.end();
     }
 });
 
-app.post('/api/revise-stage6', async (req, res) => {
+app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, feedback } = req.body;
-        if (!projectId || !feedback) {
-            return res.status(400).json({ error: "Missing projectId or feedback" });
+        if (!isValidProjectId(projectId) || !feedback) {
+            return res.status(400).json({ error: "Missing or invalid projectId, or missing feedback" });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -523,15 +634,16 @@ app.post('/api/revise-stage6', async (req, res) => {
         res.json({ result: updatedBlueprint });
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to revise scene blueprint" });
+        res.status(500).json({ error: "Failed to revise scene blueprint" });
     }
 });
 
-app.post('/api/generate-draft', async (req, res) => {
+app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, sceneNumber } = req.body;
-        if (!projectId || sceneNumber === undefined) {
-            return res.status(400).json({ error: "Missing projectId or sceneNumber" });
+        const sceneNum = parseInt(sceneNumber, 10);
+        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000) {
+            return res.status(400).json({ error: "Missing or invalid projectId or sceneNumber" });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -550,7 +662,7 @@ app.post('/api/generate-draft', async (req, res) => {
         // Find the scene in the sequences
         let targetedScene = null;
         for (const sequence of projectData.data.stage6_scenes) {
-            const scene = sequence.scenes.find(s => s.scene_number === parseInt(sceneNumber));
+            const scene = sequence.scenes.find(s => s.scene_number === sceneNum);
             if (scene) {
                 targetedScene = scene;
                 break;
@@ -558,12 +670,12 @@ app.post('/api/generate-draft', async (req, res) => {
         }
 
         if (!targetedScene) {
-            return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
+            return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
         }
 
         const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
         if (missingFields.length > 0) {
-            return res.status(400).json({ error: `Scene ${sceneNumber} is missing required fields: ${missingFields.join(', ')}` });
+            return res.status(400).json({ error: `Scene missing required fields: ${missingFields.join(', ')}` });
         }
 
         const projectContext = {
@@ -572,7 +684,7 @@ app.post('/api/generate-draft', async (req, res) => {
         };
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
-        console.log(`Generating draft for Scene ${sceneNumber}...`);
+        console.log(`Generating draft for Scene ${sceneNum}...`);
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(8), styleContent);
 
         console.log(`Humanizing draft for Scene ${sceneNumber}...`);
@@ -588,15 +700,16 @@ app.post('/api/generate-draft', async (req, res) => {
         res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
     } catch (error) {
         console.error('Stage 8 Draft Generation Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to generate scene draft" });
+        res.status(500).json({ error: "Failed to generate scene draft" });
     }
 });
 
-app.post('/api/revise-draft', async (req, res) => {
+app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, sceneNumber, feedback } = req.body;
-        if (!projectId || sceneNumber === undefined || !feedback) {
-            return res.status(400).json({ error: "Missing projectId, sceneNumber, or feedback" });
+        const sceneNum = parseInt(sceneNumber, 10);
+        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000 || !feedback) {
+            return res.status(400).json({ error: "Missing or invalid projectId, sceneNumber, or feedback" });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -614,17 +727,17 @@ app.post('/api/revise-draft', async (req, res) => {
 
         let targetedScene = null;
         for (const sequence of projectData.data.stage6_scenes) {
-            const scene = sequence.scenes.find(s => s.scene_number === parseInt(sceneNumber));
+            const scene = sequence.scenes.find(s => s.scene_number === sceneNum);
             if (scene) { targetedScene = scene; break; }
         }
 
         if (!targetedScene) {
-            return res.status(404).json({ error: `Scene ${sceneNumber} not found in blueprint` });
+            return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
         }
 
         const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
         if (missingFields.length > 0) {
-            return res.status(400).json({ error: `Scene ${sceneNumber} is missing required fields: ${missingFields.join(', ')}` });
+            return res.status(400).json({ error: `Scene missing required fields: ${missingFields.join(', ')}` });
         }
 
         const projectContext = {
@@ -633,7 +746,7 @@ app.post('/api/revise-draft', async (req, res) => {
         };
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
-        console.log(`Revising draft for Scene ${sceneNumber}...`);
+        console.log(`Revising draft for Scene ${sceneNum}...`);
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(8), styleContent);
 
         console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
@@ -649,16 +762,16 @@ app.post('/api/revise-draft', async (req, res) => {
         res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
     } catch (error) {
         console.error('Stage 8 Draft Revision Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to revise scene draft" });
+        res.status(500).json({ error: "Failed to revise scene draft" });
     }
 });
 
 // --- Stage 9: Coverage --- //
 
-app.post('/api/generate-coverage', async (req, res) => {
+app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, source } = req.body;
-        if (!projectId) return res.status(400).json({ error: "Missing projectId" });
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: "Missing or invalid projectId" });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -729,17 +842,17 @@ app.post('/api/generate-coverage', async (req, res) => {
         res.json({ result: coverageResult });
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
-        res.status(500).json({ error: error.message || "Failed to generate coverage" });
+        res.status(500).json({ error: "Failed to generate coverage" });
     }
 });
 
 // --- Stage 10: Rewrite Routes --- //
 
 // Initialize stage9_rewrites from Stage 8 humanized text
-app.post('/api/init-stage9', async (req, res) => {
+app.post('/api/init-stage9', requireAuth, async (req, res) => {
     try {
         const { projectId, reset } = req.body;
-        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -791,15 +904,15 @@ app.post('/api/init-stage9', async (req, res) => {
         });
     } catch (error) {
         console.error('init-stage9 error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to initialize rewrite stage' });
     }
 });
 
 // General-purpose brainstorm: stages 1–7 chat assistant
-app.post('/api/brainstorm', async (req, res) => {
+app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false } = req.body;
-        if (!projectId || !stageId) return res.status(400).json({ error: 'Missing projectId or stageId' });
+        if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -967,7 +1080,10 @@ app.post('/api/brainstorm', async (req, res) => {
             try {
                 const stageKey = `stage${stageId}`;
                 const convos = projectData.data.conversations || {};
-                convos[stageKey] = [...messages, { role: 'assistant', content: result.message }];
+                const updated = [...messages, { role: 'assistant', content: result.message }];
+                // Cap conversation history to prevent unbounded memory growth
+                const MAX_HISTORY = 100;
+                convos[stageKey] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
                 projectData.data.conversations = convos;
                 await atomicWriteJSON(filePath, projectData);
             } catch (saveErr) {
@@ -978,15 +1094,15 @@ app.post('/api/brainstorm', async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error('brainstorm error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Brainstorm request failed' });
     }
 });
 
 // Conversational brainstorm: editorial assistant helps writer clarify rewrite direction
-app.post('/api/brainstorm-rewrite', async (req, res) => {
+app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, messages = [], isInit = false, attachment } = req.body;
-        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1096,7 +1212,9 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
         if (!isInit) {
             try {
                 const convos = projectData.data.conversations || {};
-                convos['stage9'] = [...messages, { role: 'assistant', content: result.message }];
+                const updated = [...messages, { role: 'assistant', content: result.message }];
+                const MAX_HISTORY = 100;
+                convos['stage9'] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
                 projectData.data.conversations = convos;
                 await atomicWriteJSON(filePath, projectData);
             } catch (saveErr) {
@@ -1107,15 +1225,15 @@ app.post('/api/brainstorm-rewrite', async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error('brainstorm-rewrite error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Brainstorm rewrite request failed' });
     }
 });
 
 // Audit scope: which scenes does this task affect?
-app.post('/api/plan-rewrite', async (req, res) => {
+app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, priorityTask, userFeedback, conversationContext } = req.body;
-        if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
+        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1201,15 +1319,15 @@ app.post('/api/plan-rewrite', async (req, res) => {
         res.json(plan);
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to generate rewrite plan' });
     }
 });
 
 // Run the rewrite agent only on planned (affected) scenes
-app.post('/api/rewrite-for-priority', async (req, res) => {
+app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, priorityTask, affectedSceneNumbers } = req.body;
-        if (!projectId || !priorityTask) return res.status(400).json({ error: 'Missing projectId or priorityTask' });
+        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1261,16 +1379,17 @@ app.post('/api/rewrite-for-priority', async (req, res) => {
         res.json({ scenes });
     } catch (error) {
         console.error('rewrite-for-priority error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to rewrite scenes for priority' });
     }
 });
 
 // Rewrite a single scene for a planned priority task
-app.post('/api/rewrite-single-scene', async (req, res) => {
+app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, sceneNumber, priorityTask, plannedChange } = req.body;
-        if (!projectId || !sceneNumber || !priorityTask) {
-            return res.status(400).json({ error: 'Missing projectId, sceneNumber, or priorityTask' });
+        const sceneNum = parseInt(sceneNumber, 10);
+        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || !priorityTask) {
+            return res.status(400).json({ error: 'Missing or invalid projectId, sceneNumber, or priorityTask' });
         }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -1291,19 +1410,19 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
             }
         }
 
-        const sceneText = working[sceneNumber] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
+        const sceneText = working[sceneNum] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
         const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
 
         // Short-circuit: if the plan says to delete/remove/omit this scene, skip the LLM
         const deletionPattern = /\b(delete|remove|omit|cut|eliminate)\b.*\b(scene|entirely|completely)\b/i;
         if (plannedChange && deletionPattern.test(plannedChange)) {
-            console.log(`Stage 10: deleting scene ${sceneNumber} (per plan)`);
+            console.log(`Stage 10: deleting scene ${sceneNum} (per plan)`);
             // Persist deletion to disk immediately
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
-            stage9.pending[sceneNumber] = '';
+            stage9.pending[sceneNum] = '';
             await atomicWriteJSON(filePath, projectData);
-            return res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: '', modified: true });
+            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true });
         }
 
         const { styleContent, referenceContent } = await loadProjectStyle(projectData);
@@ -1320,7 +1439,7 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
 
         const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
-            { title, sceneNumber, slugline, characters: charProfiles },
+            { title, sceneNumber: sceneNum, slugline, characters: charProfiles },
             plannedChange || '',
             getModelConfig(10),
             styleContent,
@@ -1333,23 +1452,23 @@ app.post('/api/rewrite-single-scene', async (req, res) => {
         if (modified) {
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
-            stage9.pending[sceneNumber] = proposed;
+            stage9.pending[sceneNum] = proposed;
             await atomicWriteJSON(filePath, projectData);
         }
 
         trackUsage(projectId, usage);
-        res.json({ scene_number: sceneNumber, original_text: sceneText, proposed_text: proposed, modified });
+        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to rewrite scene' });
     }
 });
 
 // Save approved pending changes and advance priority index
-app.post('/api/approve-rewrite-priority', async (req, res) => {
+app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
     try {
         const { projectId, pendingScenes, newPriorityIdx } = req.body;
-        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1369,15 +1488,15 @@ app.post('/api/approve-rewrite-priority', async (req, res) => {
         res.json({ stage9_rewrites: stage9 });
     } catch (error) {
         console.error('approve-rewrite-priority error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to approve rewrite priority' });
     }
 });
 
 // Rewrite a single scene using the priority task + user feedback
-app.post('/api/rewrite-scene-feedback', async (req, res) => {
+app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, sceneNumber, priorityTask, userFeedback, currentText } = req.body;
-        if (!projectId || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
+        if (!isValidProjectId(projectId) || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1390,15 +1509,15 @@ app.post('/api/rewrite-scene-feedback', async (req, res) => {
         res.json({ proposed_text });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
     }
 });
 
 // Mark Stage 10 as approved/finalized
-app.post('/api/finalize-stage10', async (req, res) => {
+app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.body;
-        if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1411,21 +1530,22 @@ app.post('/api/finalize-stage10', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to finalize stage 10' });
     }
 });
 
 // --- Stage 7: Style Routes --- //
 
 // Generate a style skill file from chat/form input
-app.post('/api/generate-stage7-style', upload.array('sampleFiles', 5), async (req, res) => {
+app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sampleFiles', 5), async (req, res) => {
     try {
         const { projectId, description, conversationHistory: convRaw } = req.body;
-        const conversationHistory = convRaw ? (typeof convRaw === 'string' ? JSON.parse(convRaw) : convRaw) : [];
+        const conversationHistory = convRaw ? (safeParse(convRaw, []) || []) : [];
 
         // Load project context if projectId provided (optional for Landing Page creation)
         let projectData = null, filePath = null;
         if (projectId) {
+            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             filePath = path.join(DATA_DIR, `${projectId}.json`);
             const content = await fs.readFile(filePath, 'utf-8');
             projectData = JSON.parse(content);
@@ -1473,15 +1593,15 @@ app.post('/api/generate-stage7-style', upload.array('sampleFiles', 5), async (re
         res.json({ slug, content: styleContent, meta });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to generate style' });
     }
 });
 
 // Preview a scene drafted in a specific style
-app.post('/api/preview-style-scene', async (req, res) => {
+app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, styleSlug, sceneIndex = 0 } = req.body;
-        if (!projectId || !styleSlug) return res.status(400).json({ error: 'Missing projectId or styleSlug' });
+        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -1548,12 +1668,12 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         res.json({ sceneNumber: scene.scene_number, previewText: response.text });
     } catch (error) {
         console.error('preview-style-scene error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to preview style scene' });
     }
 });
 
 // List all available styles
-app.get('/api/styles', async (req, res) => {
+app.get('/api/styles', requireAuth, async (req, res) => {
     try {
         let files;
         try { files = await fs.readdir(STYLES_DIR); } catch { files = []; }
@@ -1599,15 +1719,15 @@ app.get('/api/styles', async (req, res) => {
         res.json({ styles });
     } catch (error) {
         console.error('list styles error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to list styles' });
     }
 });
 
 // Select an existing style for a project
-app.post('/api/select-style', async (req, res) => {
+app.post('/api/select-style', requireAuth, async (req, res) => {
     try {
         const { projectId, styleSlug } = req.body;
-        if (!projectId || !styleSlug) return res.status(400).json({ error: 'Missing projectId or styleSlug' });
+        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
 
         // Verify style exists — try new naming first, fall back to legacy
         let styleContent = null;
@@ -1634,15 +1754,15 @@ app.post('/api/select-style', async (req, res) => {
         res.json({ slug: styleSlug, content: styleContent, meta });
     } catch (error) {
         console.error('select-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to select style' });
     }
 });
 
 // Generate a Tier 3 trained style from uploaded screenplay(s)
-app.post('/api/generate-trained-style', upload.array('screenplayFiles', 5), async (req, res) => {
+app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array('screenplayFiles', 5), async (req, res) => {
     try {
         const { projectId, styleName, conversationHistory: convRaw } = req.body;
-        const conversationHistory = convRaw ? (typeof convRaw === 'string' ? JSON.parse(convRaw) : convRaw) : [];
+        const conversationHistory = convRaw ? (safeParse(convRaw, []) || []) : [];
 
         // Extract text from uploaded screenplay files
         const screenplayTexts = [];
@@ -1685,6 +1805,7 @@ app.post('/api/generate-trained-style', upload.array('screenplayFiles', 5), asyn
 
         // Update project if within project context
         if (projectId) {
+            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             const filePath = path.join(DATA_DIR, `${projectId}.json`);
             const content = await fs.readFile(filePath, 'utf-8');
             const projectData = JSON.parse(content);
@@ -1699,14 +1820,15 @@ app.post('/api/generate-trained-style', upload.array('screenplayFiles', 5), asyn
         res.json({ slug, directive, reference, meta, tier: 'trained' });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to generate trained style' });
     }
 });
 
 // Get full style content (directive + reference if exists)
-app.get('/api/styles/:slug', async (req, res) => {
+app.get('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
+        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
         let directive = null, reference = null;
 
         // Try new naming first, fall back to legacy
@@ -1731,15 +1853,16 @@ app.get('/api/styles/:slug', async (req, res) => {
         res.json({ slug, directive, reference, meta, body, tier });
     } catch (error) {
         console.error('get-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to load style' });
     }
 });
 
 // Update a style's directive content
-app.put('/api/styles/:slug', async (req, res) => {
+app.put('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
         const { content } = req.body;
+        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
         if (!content) return res.status(400).json({ error: 'Missing content' });
 
         // Verify the file exists first
@@ -1761,14 +1884,15 @@ app.put('/api/styles/:slug', async (req, res) => {
         res.json({ slug, meta });
     } catch (error) {
         console.error('update-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to update style' });
     }
 });
 
 // Delete a style (removes both directive and reference files)
-app.delete('/api/styles/:slug', async (req, res) => {
+app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
+        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
         let deleted = false;
 
         // Delete all possible files for this slug
@@ -1779,16 +1903,16 @@ app.delete('/api/styles/:slug', async (req, res) => {
             } catch { /* file doesn't exist, that's fine */ }
         }
 
-        if (!deleted) return res.status(404).json({ error: `Style "${slug}" not found` });
+        if (!deleted) return res.status(404).json({ error: 'Style not found' });
         res.json({ deleted: true, slug });
     } catch (error) {
         console.error('delete-style error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to delete style' });
     }
 });
 
 // Lightweight brainstorm chat for style creation outside project context
-app.post('/api/style-chat', async (req, res) => {
+app.post('/api/style-chat', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { messages, isInit } = req.body;
         const styleSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage7_style.md'), 'utf8');
@@ -1880,13 +2004,13 @@ When you have enough info to generate, ask: "Ready to generate this style?" (or 
         res.json({ reply: result.message, execute_immediately: result.execute_immediately, usage: response.usage });
     } catch (error) {
         console.error('style-chat error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Style chat request failed' });
     }
 });
 
 // --- Settings Routes --- //
 
-app.get('/api/settings', (req, res) => {
+app.get('/api/settings', requireAuth, (req, res) => {
     res.json({
         geminiApiKey: appSettings.geminiApiKey ? '***' : '',
         anthropicApiKey: appSettings.anthropicApiKey ? '***' : '',
@@ -1894,7 +2018,7 @@ app.get('/api/settings', (req, res) => {
     });
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', requireAuth, async (req, res) => {
     try {
         const { geminiApiKey, anthropicApiKey, stageModels } = req.body;
         // Only update keys that were actually changed (don't overwrite with masked placeholder)
@@ -1907,14 +2031,14 @@ app.post('/api/settings', async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('Failed to save settings:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to save settings' });
     }
 });
 
 // --- Project Management Routes --- //
 
 // GET all projects
-app.get('/api/projects', async (req, res) => {
+app.get('/api/projects', requireAuth, async (req, res) => {
     try {
         const files = await fs.readdir(DATA_DIR);
         const projects = [];
@@ -1938,9 +2062,10 @@ app.get('/api/projects', async (req, res) => {
 });
 
 // GET single project
-app.get('/api/projects/:id', async (req, res) => {
+app.get('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
         const filePath = path.join(DATA_DIR, `${id}.json`);
 
         try {
@@ -1958,7 +2083,7 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 // POST new project
-app.post('/api/projects', async (req, res) => {
+app.post('/api/projects', requireAuth, async (req, res) => {
     try {
         const id = Date.now().toString();
         const newProject = {
@@ -1978,7 +2103,7 @@ app.post('/api/projects', async (req, res) => {
 });
 
 // POST import script → create project with Stage 6/7 pre-populated
-app.post('/api/import-script', upload.single('scriptFile'), async (req, res) => {
+app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (req, res) => {
     try {
         const { parseFountain, parseFdx, parsePdfScript, buildStage6FromScenes } = require('./utils/script-import');
         const file = req.file;
@@ -2027,14 +2152,15 @@ app.post('/api/import-script', upload.single('scriptFile'), async (req, res) => 
         res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
     } catch (error) {
         console.error('Import script error:', error);
-        res.status(500).json({ error: error.message || 'Failed to import script' });
+        res.status(500).json({ error: 'Failed to import script' });
     }
 });
 
 // PUT update project
-app.put('/api/projects/:id', async (req, res) => {
+app.put('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
         const updates = req.body;
 
         const filePath = path.join(DATA_DIR, `${id}.json`);
@@ -2072,9 +2198,10 @@ app.put('/api/projects/:id', async (req, res) => {
 });
 
 // DELETE project
-app.delete('/api/projects/:id', async (req, res) => {
+app.delete('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
         const filePath = path.join(DATA_DIR, `${id}.json`);
 
         try {
@@ -2094,15 +2221,17 @@ app.delete('/api/projects/:id', async (req, res) => {
 // ─── Export Endpoints ─────────────────────────────────────────────────────────
 
 async function loadProjectData(projectId) {
+    if (!isValidProjectId(projectId)) throw Object.assign(new Error('Invalid project ID'), { status: 400 });
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
     const content = await fs.readFile(filePath, 'utf-8');
     return JSON.parse(content);
 }
 
 // GET /api/export/docx/:projectId?stage=outline|characters|treatment|draft|coverage
-app.get('/api/export/docx/:projectId', async (req, res) => {
+app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
         const stage = req.query.stage || 'coverage';
         const project = await loadProjectData(projectId);
         const data = project.data || {};
@@ -2176,14 +2305,15 @@ app.get('/api/export/docx/:projectId', async (req, res) => {
         res.send(buf);
     } catch (err) {
         console.error('DOCX export error:', err);
-        res.status(500).json({ error: err.message || 'Export failed' });
+        res.status(500).json({ error: 'Export failed' });
     }
 });
 
 // GET /api/export/pdf/:projectId?stage=draft|rewrite
-app.get('/api/export/pdf/:projectId', async (req, res) => {
+app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
+        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
         const stage = req.query.stage || 'draft';
         const project = await loadProjectData(projectId);
         const data = project.data || {};
@@ -2213,12 +2343,27 @@ app.get('/api/export/pdf/:projectId', async (req, res) => {
         res.send(buf);
     } catch (err) {
         console.error('PDF export error:', err);
-        res.status(500).json({ error: err.message || 'Export failed' });
+        res.status(500).json({ error: 'Export failed' });
     }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-});
+// ─── Startup checks ───────────────────────────────────────────────────────────
+(async () => {
+    await initDb();
+    await loadSettings();
+
+    const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;
+    const hasAnthropic = appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    if (!hasGemini && !hasAnthropic) {
+        console.warn('[warn] Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set — AI features will fail on first use.');
+    }
+    if (APP_SECRET) {
+        console.log('[auth] APP_SECRET set — API authentication active.');
+    }
+
+    app.listen(PORT, () => {
+        console.log(`Server listening on port ${PORT}`);
+    });
+})();
