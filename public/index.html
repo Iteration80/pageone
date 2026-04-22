@@ -732,6 +732,16 @@
                         </div>
                         <div id="stage8-toolbar-slot"></div>
                     </div>
+                    <!-- Continuity feedback (hidden until errors/warnings returned from draft) -->
+                    <div id="stage8-continuity-banner" class="hidden border-b border-amber-500/30 bg-amber-950/20 px-10 py-3 flex-shrink-0">
+                        <div class="flex items-start justify-between gap-3 max-w-4xl mx-auto">
+                            <div id="stage8-continuity-errors" class="flex-1 space-y-1 text-sm text-amber-200"></div>
+                            <button id="btnRedraftScene" class="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-500">Re-draft Scene</button>
+                        </div>
+                    </div>
+                    <div id="stage8-continuity-warnings" class="hidden border-b border-white/5 bg-gray-900/40 px-10 py-2 flex-shrink-0">
+                        <div id="stage8-continuity-warnings-text" class="max-w-4xl mx-auto text-xs text-gray-500"></div>
+                    </div>
                     <!-- Scrollable editor area -->
                     <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto scrollbar-hide">
                         <div id="draft-editor-mount" class="draft-editor max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm mt-8 mb-24 min-h-[1100px]"></div>

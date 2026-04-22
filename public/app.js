@@ -4229,6 +4229,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function showContinuityFeedback(data) {
+        const banner = document.getElementById('stage8-continuity-banner');
+        const errorsEl = document.getElementById('stage8-continuity-errors');
+        const warningsBanner = document.getElementById('stage8-continuity-warnings');
+        const warningsText = document.getElementById('stage8-continuity-warnings-text');
+        if (!banner || !errorsEl || !warningsBanner || !warningsText) return;
+
+        if (data.continuityErrors?.length > 0) {
+            errorsEl.innerHTML = data.continuityErrors.map(e =>
+                `<div><strong>Continuity issue:</strong> ${escapeHtml(e.explanation)}</div>`
+            ).join('');
+            banner.classList.remove('hidden');
+
+            const btnRedraft = document.getElementById('btnRedraftScene');
+            if (btnRedraft) {
+                btnRedraft.onclick = async () => {
+                    const autoNote = data.continuityErrors.map(e => e.explanation).join(' ');
+                    hideContinuityFeedback();
+                    const originalText = btnGenerateScene?.textContent;
+                    if (btnGenerateScene) { btnGenerateScene.textContent = 'Re-drafting...'; btnGenerateScene.disabled = true; }
+                    try {
+                        const response = await fetch('/api/revise-draft', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: activeProjectId, sceneNumber: currentDraftSceneNumber, feedback: `Fix continuity: ${autoNote}` })
+                        });
+                        if (!response.ok) throw new Error('Revision failed');
+                        const revised = await response.json();
+                        stage8LoadEditor(revised.result);
+                        showContinuityFeedback(revised);
+                        const projRes = await fetch(`/api/projects/${activeProjectId}`);
+                        window.currentProjectData = (await projRes.json()).data;
+                    } catch (err) {
+                        console.error('Continuity re-draft failed:', err);
+                        alert(`Re-draft error: ${err.message}`);
+                    } finally {
+                        if (btnGenerateScene) { btnGenerateScene.textContent = originalText; btnGenerateScene.disabled = false; }
+                    }
+                };
+            }
+        } else {
+            banner.classList.add('hidden');
+        }
+
+        if (data.continuityWarnings?.length > 0) {
+            warningsText.textContent = data.continuityWarnings.map(w => `ℹ ${w.explanation}`).join(' · ');
+            warningsBanner.classList.remove('hidden');
+        } else {
+            warningsBanner.classList.add('hidden');
+        }
+    }
+
+    function hideContinuityFeedback() {
+        document.getElementById('stage8-continuity-banner')?.classList.add('hidden');
+        document.getElementById('stage8-continuity-warnings')?.classList.add('hidden');
+    }
+
     function initStage8() {
         if (!btnGenerateScene || !btnNextScene || !draftEditorMount) return;
 
@@ -4261,14 +4318,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalText = btnGenerateScene.textContent;
             btnGenerateScene.textContent = 'Generating...';
             btnGenerateScene.disabled = true;
+            hideContinuityFeedback();
 
             try {
                 const response = await fetch('/api/generate-draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         projectId: activeProjectId,
-                        sceneNumber: currentDraftSceneNumber 
+                        sceneNumber: currentDraftSceneNumber
                     })
                 });
 
@@ -4281,6 +4339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const draftText = data.result;
 
                 stage8LoadEditor(draftText);
+                showContinuityFeedback(data);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
@@ -4341,6 +4400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalText = btnStage8Submit.textContent;
             btnStage8Submit.disabled = true;
             btnStage8Submit.textContent = 'Revising...';
+            hideContinuityFeedback();
 
             try {
                 const response = await fetch('/api/revise-draft', {
@@ -4361,6 +4421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 stage8LoadEditor(data.result);
+                showContinuityFeedback(data);
 
                 // Sync local project data
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -4487,6 +4548,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
 
                     stage8LoadEditor(data.result);
+                    showContinuityFeedback(data);
 
                     // Sync local project data so getFlatScenes() reflects the new draft_text
                     const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -4630,8 +4692,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Expose selectDraftScene on window from inside the closure so it has access
     // to currentDraftSceneNumber and initStage8 (both defined in this scope).
     window.selectDraftScene = function(sceneNumber) {
-        // Flush any unsaved edits from the current scene before switching
         stage8FlushEditor();
+        hideContinuityFeedback();
         currentDraftSceneNumber = sceneNumber;
         initStage8();
     };

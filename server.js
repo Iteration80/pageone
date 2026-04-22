@@ -158,6 +158,7 @@ const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
 const { generateSceneDraft } = require('./agents/agent_8_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
+const { runContinuityCheck, applyCheckResult, buildContinuityContext, clearSceneFacts, resolveError } = require('./agents/agent_continuity');
 const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
 const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
@@ -683,21 +684,33 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
             characters: projectData.data.stage3_characters?.characters || []
         };
 
+        clearSceneFacts(projectData, sceneNum);
+        const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNum}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(8), styleContent);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(8), styleContent, continuityCtx);
 
-        console.log(`Humanizing draft for Scene ${sceneNumber}...`);
+        console.log(`Humanizing draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
 
-        // Save both the raw draft and the humanized version
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
 
-        await atomicWriteJSON(filePath, projectData);
-        trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
+        console.log(`Running continuity check for Scene ${sceneNum}...`);
+        const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
+            humanizedText || draftText, targetedScene, projectData,
+            { geminiApiKey: getModelConfig(8).geminiApiKey, anthropicApiKey: getModelConfig(8).anthropicApiKey }
+        );
+        applyCheckResult(projectData, checkResult, checkUsage);
 
-        res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
+        await atomicWriteJSON(filePath, projectData);
+        trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
+
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
+        if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
+        if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
+        res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Generation Error:', error.message);
         res.status(500).json({ error: "Failed to generate scene draft" });
@@ -745,24 +758,59 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
             characters: projectData.data.stage3_characters?.characters || []
         };
 
+        clearSceneFacts(projectData, sceneNum);
+        const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNum}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(8), styleContent);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(8), styleContent, continuityCtx);
 
-        console.log(`Humanizing revised draft for Scene ${sceneNumber}...`);
+        console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
-        targetedScene.locked = false; // Unlock scene after revision
+        targetedScene.locked = false;
+
+        console.log(`Running continuity check for Scene ${sceneNum}...`);
+        const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
+            humanizedText || draftText, targetedScene, projectData,
+            { geminiApiKey: getModelConfig(8).geminiApiKey, anthropicApiKey: getModelConfig(8).anthropicApiKey }
+        );
+        applyCheckResult(projectData, checkResult, checkUsage);
 
         await atomicWriteJSON(filePath, projectData);
-        trackUsage(projectId, [draftUsage, humanizeUsage].filter(Boolean));
+        trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        res.json({ result: humanizedText, ...(styleWarning && { styleWarning }) });
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
+        if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
+        if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
+        res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Revision Error:', error.message);
         res.status(500).json({ error: "Failed to revise scene draft" });
+    }
+});
+
+// --- Continuity: Resolve flagged error --- //
+
+app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
+    try {
+        const { projectId, factId, resolution, newValue } = req.body;
+        if (!isValidProjectId(projectId) || !factId || !resolution) {
+            return res.status(400).json({ error: 'Missing projectId, factId, or resolution' });
+        }
+        if (!['intentional_change', 'dismiss', 'fix_prompt'].includes(resolution)) {
+            return res.status(400).json({ error: 'Invalid resolution type' });
+        }
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const projectData = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+        resolveError(projectData, factId, resolution, newValue);
+        await atomicWriteJSON(filePath, projectData);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Continuity resolve error:', error.message);
+        res.status(500).json({ error: 'Failed to resolve continuity issue' });
     }
 });
 

@@ -6,7 +6,7 @@ const path = require('path');
  * Stage 8: The Draft Agent
  * Generates one scene at a time based on the blueprint and project context.
  */
-const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null, modelConfig = {}, styleContent = null) => {
+const generateSceneDraft = async (sceneData, projectContext, revisionNotes = null, modelConfig = {}, styleContent = null, continuityContext = '') => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
@@ -28,6 +28,7 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
     const prompt = `
 ${screenwritingRules}
 ${styleSection}
+${continuityContext}
 ## PROJECT CONTEXT
 SYNOPSIS:
 ${projectContext.synopsis || 'Not provided'}
