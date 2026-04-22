@@ -6773,10 +6773,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Settings Modal ────────────────────────────────────────────────────────
 
     const MODEL_OPTIONS = [
-        { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+        { value: 'gemini-3.1-pro-preview',    label: 'Gemini 3.1 Pro' },
         { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash' },
-        { value: 'claude-opus-4-6',          label: 'Claude Opus 4.6' },
-        { value: 'claude-sonnet-4-6',        label: 'Claude Sonnet 4.6' },
+        { value: 'claude-opus-4-7',           label: 'Claude Opus 4.7' },
+        { value: 'claude-opus-4-6',           label: 'Claude Opus 4.6' },
+        { value: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6' },
         { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ];
 
@@ -6879,6 +6880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'gemini-3-flash-preview':      { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 3 Flash' },
         'gemini-2.0-flash':            { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
         'gemini-2.0-flash-001':        { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
+        'claude-opus-4-7':             { input: 15.0 / 1e6, output: 75.0 / 1e6, label: 'Claude Opus 4.7' },
         'claude-opus-4-6':             { input: 15.0 / 1e6, output: 75.0 / 1e6, label: 'Claude Opus 4.6' },
         'claude-sonnet-4-6':           { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 4.6' },
         'claude-haiku-4-5-20251001':   { input: 0.80 / 1e6, output: 4.0 / 1e6,  label: 'Claude Haiku 4.5' },
