@@ -5908,6 +5908,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ─── STAGE CHAT COLLAPSE ──────────────────────────────────────────────────
+    function initChatCollapse(stageNum, chatEl, handleEl) {
+        const key = `stageChatCollapsed${stageNum}`;
+        const header = chatEl.querySelector('.chat-header');
+        if (!header) return;
+
+        function setCollapsed(collapsed, save = true) {
+            if (collapsed) {
+                chatEl.classList.add('collapsed');
+                if (handleEl) handleEl.style.display = 'none';
+            } else {
+                chatEl.classList.remove('collapsed');
+                if (handleEl) handleEl.style.display = '';
+            }
+            if (save) localStorage.setItem(key, collapsed ? '1' : '0');
+        }
+
+        if (localStorage.getItem(key) === '1') setCollapsed(true, false);
+
+        header.addEventListener('click', () => setCollapsed(!chatEl.classList.contains('collapsed')));
+    }
+
     // ─── STAGE CHAT RESIZERS (Stages 1–6, 8) ──────────────────────────────────
     for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const hsplit = document.getElementById(`stage${s}-hsplit`);
@@ -5916,6 +5938,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const storageKey = `stageChatH${s}`;
         const saved = parseInt(localStorage.getItem(storageKey) || '280');
         chatEl.style.height = `${saved}px`;
+        initChatCollapse(s, chatEl, hsplit);
         hsplit.addEventListener('mousedown', e => {
             e.preventDefault();
             hsplit.classList.add('dragging');
@@ -6400,6 +6423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hsplit && chatEl) {
             const savedH = parseInt(localStorage.getItem('stage10SplitH') || '280');
             chatEl.style.height = `${savedH}px`;
+            initChatCollapse(10, chatEl, hsplit);
             hsplit.addEventListener('mousedown', e => {
                 e.preventDefault();
                 hsplit.classList.add('dragging');

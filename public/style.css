@@ -894,6 +894,8 @@ textarea.synopsis-input {
     padding: 8px 20px;
     border-bottom: 1px solid var(--card-border);
     flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
 }
 
 .chat-header-label {
@@ -902,6 +904,34 @@ textarea.synopsis-input {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-muted, #6b7280);
+}
+
+.chat-collapse-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-muted, #6b7280);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: transform 0.2s ease, color 0.15s;
+}
+.chat-collapse-btn:hover { color: var(--text-primary, #f9fafb); }
+
+.stage-chat.collapsed {
+    height: auto !important;
+    min-height: 0 !important;
+}
+.stage-chat.collapsed .chat-header {
+    border-bottom: none;
+}
+.stage-chat.collapsed .chat-thread,
+.stage-chat.collapsed .chat-input-row {
+    display: none;
+}
+.stage-chat.collapsed .chat-collapse-btn {
+    transform: rotate(-90deg);
 }
 
 .chat-thread {
