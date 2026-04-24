@@ -5733,6 +5733,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Load saved styles as inline cards in Stage 7
+    function stage7MarkActiveCard(activeSlug) {
+        document.querySelectorAll('.stage7-inline-style-card').forEach(c => {
+            const isActive = c.dataset.styleSlug === activeSlug;
+            c.style.borderColor = isActive ? '#3b82f6' : '#334155';
+            c.style.background = isActive ? '#1e3a5f' : '#1e293b';
+            const btn = c.querySelector('button');
+            if (btn) {
+                btn.textContent = isActive ? 'In Use ✓' : 'Use This';
+                btn.style.background = isActive ? '#166534' : '';
+                btn.style.borderColor = isActive ? '#166534' : '';
+            }
+        });
+    }
+
     async function stage7LoadInlineStyles() {
         const container = document.getElementById('stage7-saved-styles');
         const grid = document.getElementById('stage7-saved-styles-grid');
@@ -5750,7 +5764,8 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const style of data.styles) {
                 const card = document.createElement('div');
                 card.className = 'stage7-inline-style-card';
-                card.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;min-width:180px;max-width:240px;cursor:pointer;transition:border-color 0.2s;display:flex;flex-direction:column;gap:4px';
+                card.dataset.styleSlug = style.slug;
+                card.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;min-width:180px;max-width:240px;cursor:pointer;transition:border-color 0.2s,background 0.2s;display:flex;flex-direction:column;gap:4px';
                 const tierBadge = style.tier === 'trained'
                     ? '<span style="font-size:0.65rem;background:#065f46;color:#6ee7b7;padding:1px 6px;border-radius:4px;margin-left:6px">Trained</span>'
                     : '<span style="font-size:0.65rem;background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:4px;margin-left:6px">Conversational</span>';
@@ -5773,6 +5788,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const selectData = await selectRes.json();
                         stage7DisplayStyle(selectData);
                         if (window.currentProjectData) window.currentProjectData.stage7_style = selectData.slug;
+                        stage7MarkActiveCard(selectData.slug);
                         updateStageNav(window.currentProjectData);
                     } catch (err) {
                         console.error('Select style error:', err);
@@ -5782,6 +5798,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 grid.appendChild(card);
             }
+            stage7MarkActiveCard(window.currentProjectData?.stage7_style);
             container.classList.remove('hidden');
         } catch (err) {
             console.error('Load inline styles error:', err);
