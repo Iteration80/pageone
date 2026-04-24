@@ -88,16 +88,23 @@ function buildClaudeSystemPrompt(systemInstruction, schema) {
     return system;
 }
 
+// Models that have deprecated the temperature parameter
+const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7'];
+
 async function callClaude({ model, anthropicApiKey, contents, config = {}, schema }) {
     const client = new Anthropic({ apiKey: anthropicApiKey });
     const messages = normalizeContentsForClaude(contents);
     const system = buildClaudeSystemPrompt(config?.systemInstruction, schema);
 
+    const temperatureParam = CLAUDE_NO_TEMPERATURE.includes(model)
+        ? {}
+        : { temperature: config?.temperature ?? 0.7 };
+
     // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
     const response = await client.messages.create({
         model,
         max_tokens: 8192,
-        temperature: config?.temperature ?? 0.7,
+        ...temperatureParam,
         ...(system ? { system } : {}),
         messages
     });

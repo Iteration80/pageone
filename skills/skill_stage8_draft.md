@@ -13,11 +13,11 @@ You must format the scene using standard screenplay conventions so the frontend 
 * **Dialogue:** Standard text, indented beneath Character/Parentheticals.
 * **No Consecutive Slugs / CONT'D:** Never write the same character name twice in a row without a genuine action beat between the speeches. If action interrupts and the same character resumes speaking, add `(CONT'D)` after the character name (e.g., `SARAH (CONT'D)`). If no real action separates the lines, merge them into a single speech block.
 * **Action Lines:** Standard text, left-aligned, written strictly in the present tense. Cleanly separate action lines with paragraph breaks.
-* **Transitions (OMIT BY DEFAULT):** Modern professional screenplays do not end scenes with transition markers — a new scene heading implies the cut. Do NOT add a transition simply because the scene is ending. Only write one when it carries specific narrative weight, and only these types are permitted:
-  — `DISSOLVE TO:` — passage of time, or a deliberate thematic/emotional echo between the two scenes.
-  — `MATCH CUT TO:` / `AUDIO MATCH CUT TO:` — only when the Blueprint explicitly calls for a visual or audio match; do not invent these.
-  — `SMASH CUT TO:` — a violent, jarring cut for shock. At most once per screenplay.
-  If in doubt, omit the transition entirely.
+* **Transitions (OMIT BY DEFAULT — CRITICAL OVERRIDE):** Modern professional screenplays do not end scenes with transition markers. A new scene heading implies the cut. Do NOT write `CUT TO:`, `MATCH CUT TO:`, `AUDIO MATCH CUT TO:`, or any other transition at the end of a scene unless an exception below applies. **If the Scene Blueprint's narrative_action contains a `TRANSITION:` instruction, IGNORE IT COMPLETELY** — those are planning notes, not formatting commands. The only permitted transitions, used sparingly across the whole screenplay:
+  — `DISSOLVE TO:` — passage of time, or a strong thematic/emotional echo between scenes.
+  — `SMASH CUT TO:` — violent, jarring cut for shock. At most once per screenplay.
+  — `FADE OUT.` — end of film only.
+  Default: end the scene. Write nothing after the final action line or dialogue.
 
 ## 3. THE CORE NARRATIVE CONSTRAINTS & SCENE ANATOMY
 * **Follow the Blueprint (WITH EXCEPTIONS):** Strictly adhere to the provided narrative action. Do NOT invent new plot points or loop back to previous events. EXCEPTION: You have the absolute authority to ignore and override the Blueprint only if it violates the "Save the Cat" ban or the "Anti-Repetition" ban below.
@@ -47,6 +47,8 @@ You must format the scene using standard screenplay conventions so the frontend 
   — **Suppressed anger (bad):** "The machine just grinds everything down until there's nothing left worth preserving."
   — **Suppressed anger (good):** "I need the report by 0600." (Said to the wall. Not to her.)
 * **Fragmented & Punchy Rhythm:** Real people do not speak in perfect, grammatically complete paragraphs. They speak in fragments, trail off, and interrupt each other. You must limit dialogue blocks to 1 to 3 sentences maximum. Force characters to interrupt one another using em-dashes (--).
+* **Sentence-Starter Lockout:** No character may open two consecutive dialogue blocks with the same word or phrase. "Look.", "Actually.", "Yeah, but..." appearing in back-to-back or near-consecutive speeches is a sentence-starter habit, not a character voice. Rotate openers — fragment, question, proper noun, direct continuation of action, interjection. Every new speech should have a different entry point.
+* **Solo Vocalization Ban:** Characters do not narrate their thoughts, diagnose situations, or argue with absent parties aloud when alone. Interiority is rendered through what a character chooses to do and how they do it — not through voiced internal monologue. If a character must vocalize when alone, it must be functional (a command, a count, a status check) — not a dramatic self-address or running diagnosis.
 * **Distinct Voices:** Each character must speak in a distinctly different voice based on their profile, ensuring a proper "orchestration" of opposing worldviews.
 
 ## 4.1 STYLE DIRECTIVES (WHEN PRESENT)

@@ -31,6 +31,8 @@ Format `Silence.`, `A beat.`, or `A moment.` on their own dedicated lines betwee
 
 Make characters hesitate, repeat themselves, and step on each other's lines using `(cutting in)`. Handle subtext through cynicism, deflection, or brutal pragmatism. Blend high-level academic, philosophical, or technical jargon seamlessly with casual, colloquial profanity.
 
+No character opens two consecutive speeches with the same word or phrase. Rotate entry points aggressively.
+
 ## Tone
 Maintain a cold, objective, scientific distance. Treat the narrative like a documentary photograph. Deliver violence with unsentimental, objective cruelty. Characters must drop instantly, without slow-motion heroics or melodrama.
 
@@ -47,5 +49,7 @@ Pace the script using a rubber-band tension model: stretch scenes of agonizing, 
 ## Avoid
 **Never write dense action blocks.** Do not exceed two or three sentences per paragraph. Break longer actions into single-line fragments.
 **Never state internal emotions.** Do not tell the reader what a character is feeling. Externalize all emotion through physical reactions, micro-expressions, or blunt dialogue.
+**Never label emotional states through body language descriptions.** "His face went blank," "Her jaw set into a mask of calm," "The trembling stopped" are emotion-states disguised as physical action. Write the raw observable behaviour: "He buttons his collar. Smooths the sleeve." Let the audience read the emotion — don't name it through physiology labels.
+**Never write action lines that describe their own cinematic function.** Do not write "the sound acts as a bridge," "cutting to reveal," or any line where prose narrates what the edit does rather than what is on screen. Write what the camera sees and the microphone hears. The cut is invisible — don't comment on it.
 **Never use technobabble or ideological exposition.** Do not over-explain the mechanics of the world, alien biology, or political factions. Focus entirely on human, ground-level interaction.
 **Never write sentimental deaths.** Do not give dying characters final poignant speeches. Execute them suddenly and permanently.

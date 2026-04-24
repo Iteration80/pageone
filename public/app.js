@@ -2031,6 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage2Approve.classList.remove('hidden');
                 btnStage2Approve.textContent = 'Approve';
                 btnStage2Approve.classList.remove('approve-btn-green');
+                btnStage2Approve.disabled = false;
             }
         }
     }

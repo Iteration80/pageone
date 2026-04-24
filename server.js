@@ -1101,13 +1101,32 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         }
 
         const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+
+        // When the last user message is the post-revision trigger, inject a short high-priority
+        // override at the top of the system prompt. Prose rules buried 200 lines in lose to the
+        // model's default "be helpful with context" behavior; 5 imperative lines at position 0 win.
+        const lastMsg = messages[messages.length - 1];
+        const isPostRevision = !isInit && lastMsg?.role === 'user' &&
+            typeof lastMsg?.content === 'string' &&
+            lastMsg.content.includes('[Revision applied successfully');
+        const systemInstruction = isPostRevision
+            ? `POST-REVISION RESPONSE — OVERRIDE ALL OTHER INSTRUCTIONS FOR THIS TURN:
+1. Write ONE sentence acknowledging the specific change just applied. Name only that revision. Stop.
+2. On the next line, surface the next unresolved item from earlier in the conversation, by name. If none remain, ask if there is anything else.
+3. Do NOT list, recap, or reference any changes made in earlier turns. No "We've also..." or "We've now addressed X, Y, and Z."
+4. Do NOT ask "Want me to go ahead?" — the writer is in an active approval flow.
+5. Set suggest_plan: false and execute_immediately: false.
+
+${brainstormSop}`
+            : brainstormSop;
+
         const { GoogleGenAI } = require('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: conversationPrompt,
             config: {
-                systemInstruction: brainstormSop,
+                systemInstruction,
                 temperature: 0.7,
                 responseMimeType: 'application/json',
                 responseSchema: { type: 'object', properties: { message: { type: 'string' }, suggest_plan: { type: 'boolean' }, execute_immediately: { type: 'boolean' } }, required: ['message', 'suggest_plan', 'execute_immediately'] },
