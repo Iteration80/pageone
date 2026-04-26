@@ -88,6 +88,14 @@ function buildClaudeSystemPrompt(systemInstruction, schema) {
     return system;
 }
 
+// When Claude adds prose before the JSON despite instructions, extract the JSON block
+function extractJsonFromText(text) {
+    const t = text.trim();
+    if (t.startsWith('{') || t.startsWith('[')) return t;
+    const idx = t.search(/[\{\[]/);
+    return idx >= 0 ? t.slice(idx) : t;
+}
+
 // Models that have deprecated the temperature parameter
 const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7'];
 
@@ -100,10 +108,12 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
         ? {}
         : { temperature: config?.temperature ?? 0.7 };
 
+    const maxTokens = config?.maxOutputTokens ?? 16000;
+
     // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
     const response = await client.messages.create({
         model,
-        max_tokens: 8192,
+        max_tokens: maxTokens,
         ...temperatureParam,
         ...(system ? { system } : {}),
         messages
@@ -115,8 +125,10 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
         inputTokens: response.usage?.input_tokens || 0,
         outputTokens: response.usage?.output_tokens || 0,
     };
-    // Strip any markdown fences Claude might add
-    return { text: rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim(), usage };
+    // Strip markdown fences; when JSON is expected, also strip any prose preamble
+    let text = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+    if (schema) text = extractJsonFromText(text);
+    return { text, usage };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

@@ -3075,20 +3075,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 beatName.textContent = beat.beat_name || '';
                 card.appendChild(beatName);
 
-                // Helper to create labeled textarea fields
-                const fields = [
-                    { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action },
-                    { label: 'GENRE VARIATION NOTES', key: 'genre_variation_notes', value: beat.genre_variation_notes },
-                    { label: 'EMOTIONAL ARC', key: 'emotional_arc', value: beat.emotional_arc },
-                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes }
-                ];
-
-                fields.forEach(f => {
+                const renderField = (parent, f) => {
                     const label = document.createElement('label');
                     label.className = 'text-gray-400 block mb-1 text-xs font-semibold tracking-wider uppercase';
                     label.style.cssText = 'color: #9ca3af; display: block; margin-bottom: 4px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 12px;';
                     label.textContent = f.label;
-                    card.appendChild(label);
+                    parent.appendChild(label);
 
                     const ta = document.createElement('textarea');
                     ta.className = 'w-full bg-transparent border-none resize-none overflow-hidden text-gray-300 editable-treatment-field';
@@ -3104,7 +3096,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
                     ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                    card.appendChild(ta);
+                    parent.appendChild(ta);
+                };
+
+                renderField(card, { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action });
+
+                // Toggle button for annotation fields
+                const notesToggle = document.createElement('button');
+                notesToggle.textContent = 'Show Notes ▾';
+                notesToggle.style.cssText = 'font-size:0.75rem; color:#60a5fa; background:none; border:none; cursor:pointer; padding:4px 0; margin-top:8px; display:block;';
+                card.appendChild(notesToggle);
+
+                // Collapsible annotation fields
+                const notesWrap = document.createElement('div');
+                notesWrap.className = 'hidden';
+                [
+                    { label: 'GENRE VARIATION NOTES', key: 'genre_variation_notes', value: beat.genre_variation_notes },
+                    { label: 'EMOTIONAL ARC', key: 'emotional_arc', value: beat.emotional_arc },
+                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes }
+                ].forEach(f => renderField(notesWrap, f));
+                card.appendChild(notesWrap);
+
+                notesToggle.addEventListener('click', () => {
+                    const hidden = notesWrap.classList.toggle('hidden');
+                    notesToggle.textContent = hidden ? 'Show Notes ▾' : 'Hide Notes ▴';
+                    if (!hidden) notesWrap.querySelectorAll('textarea').forEach(ta => autoResize(ta));
                 });
 
                 treatmentContainer.appendChild(card);

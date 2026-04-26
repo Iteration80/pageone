@@ -116,6 +116,7 @@ Please apply the note surgically and return the full updated character list in J
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.3,
+                maxOutputTokens: 32000,
             },
             schema: characterSchema
         });
@@ -161,6 +162,7 @@ ${JSON.stringify(beatsData, null, 2)}`;
             systemInstruction,
             temperature: 0.6,
             thinkingConfig: { thinkingLevel: 'HIGH' },
+            maxOutputTokens: 32000,
         },
         schema: characterSchema
     });
