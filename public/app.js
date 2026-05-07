@@ -3,6 +3,84 @@ document.addEventListener('DOMContentLoaded', () => {
     let targetProjectId = null; // Used for rename and delete operations
     let currentDraftSceneNumber = 1;
     let isBatchGenerating = false;
+    const AUTH_STORAGE_KEY = 'pageone_access_key';
+    const nativeFetch = window.fetch.bind(window);
+
+    function getAuthSecret() {
+        return sessionStorage.getItem(AUTH_STORAGE_KEY) || '';
+    }
+
+    function isApiRequest(resource) {
+        const url = typeof resource === 'string' ? resource : resource?.url || '';
+        return url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
+    }
+
+    function showAuthOverlay(message = '') {
+        const overlay = document.getElementById('authOverlay');
+        const error = document.getElementById('authError');
+        const input = document.getElementById('authSecretInput');
+        if (error) error.textContent = message;
+        overlay?.classList.remove('hidden');
+        setTimeout(() => input?.focus(), 0);
+    }
+
+    function hideAuthOverlay() {
+        document.getElementById('authOverlay')?.classList.add('hidden');
+        const error = document.getElementById('authError');
+        if (error) error.textContent = '';
+    }
+
+    window.fetch = async (resource, options = {}) => {
+        const shouldAuth = isApiRequest(resource);
+        const requestOptions = { ...options };
+        if (shouldAuth) {
+            const headers = new Headers(requestOptions.headers || (resource instanceof Request ? resource.headers : undefined));
+            const secret = getAuthSecret();
+            if (secret && !headers.has('Authorization') && !headers.has('X-Api-Key')) {
+                headers.set('Authorization', `Bearer ${secret}`);
+            }
+            requestOptions.headers = headers;
+        }
+        const response = await nativeFetch(resource, requestOptions);
+        if (shouldAuth && response.status === 401) {
+            showAuthOverlay('Invalid or missing access key.');
+        }
+        return response;
+    };
+
+    function setupAuthGate() {
+        const form = document.getElementById('authForm');
+        const input = document.getElementById('authSecretInput');
+        const btn = document.getElementById('authSubmitBtn');
+        const error = document.getElementById('authError');
+        if (!form || !input || !btn) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const secret = input.value.trim();
+            btn.disabled = true;
+            if (error) error.textContent = '';
+            try {
+                const headers = secret ? { Authorization: `Bearer ${secret}` } : {};
+                const res = await nativeFetch('/api/projects', { headers });
+                if (!res.ok) throw new Error('Access denied');
+                if (secret) sessionStorage.setItem(AUTH_STORAGE_KEY, secret);
+                hideAuthOverlay();
+                if (window.location.hash.startsWith('#project-')) {
+                    handleHashChange();
+                } else {
+                    loadProjects();
+                }
+            } catch {
+                if (error) error.textContent = 'That access key was not accepted.';
+                input.select();
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    setupAuthGate();
 
     function autoResize(textarea) {
         if (!textarea) return;
@@ -816,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         importSelectedFile = file;
         importError?.classList.add('hidden');
-        if (importDropLabel) importDropLabel.innerHTML = `<span style="color:#60a5fa">${file.name}</span><br><span style="font-size:0.75rem;color:#4b5563">${(file.size / 1024).toFixed(1)} KB</span>`;
+        if (importDropLabel) importDropLabel.innerHTML = `<span style="color:#60a5fa">${escapeHtml(file.name)}</span><br><span style="font-size:0.75rem;color:#4b5563">${(file.size / 1024).toFixed(1)} KB</span>`;
         if (submitImportBtn) submitImportBtn.disabled = false;
     }
 
@@ -5787,8 +5865,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? '<span style="font-size:0.65rem;background:#065f46;color:#6ee7b7;padding:1px 6px;border-radius:4px;margin-left:6px">Trained</span>'
                     : '<span style="font-size:0.65rem;background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:4px;margin-left:6px">Conversational</span>';
                 card.innerHTML = `
-                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${style.name}${tierBadge}</div>
-                    <div style="font-size:0.75rem;color:#6b7280">${style.tonal_summary || ''}</div>
+                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}${tierBadge}</div>
+                    <div style="font-size:0.75rem;color:#6b7280">${escapeHtml(style.tonal_summary || '')}</div>
                     <button class="primary-btn" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start">Use This</button>
                 `;
                 card.querySelector('button').addEventListener('click', async (e) => {
@@ -6627,7 +6705,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = sceneData?.scene_heading || sceneData?.slugline || `Scene ${n}`;
             return `<button onclick="window.stage10SelectSceneBtn(${n})"
                 class="w-full text-left px-3 py-2 rounded text-xs text-gray-300 transition-colors ${isActive} flex items-center justify-between gap-2">
-                <span class="truncate">${n}. ${label}</span>${dot}
+                <span class="truncate">${n}. ${escapeHtml(label)}</span>${dot}
             </button>`;
         }).join('');
     }
@@ -6933,6 +7011,16 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn('Could not load settings:', e);
         }
 
+        const apiKeySection = document.getElementById('settings-api-key-section');
+        const managedKeySection = document.getElementById('settings-api-key-managed');
+        if (settings.apiKeysManagedByServer) {
+            apiKeySection?.classList.add('hidden');
+            managedKeySection?.classList.remove('hidden');
+        } else {
+            apiKeySection?.classList.remove('hidden');
+            managedKeySection?.classList.add('hidden');
+        }
+
         // Never pre-fill API key fields (they show masked values server-side)
         document.getElementById('settings-gemini-key').value = '';
         document.getElementById('settings-anthropic-key').value = '';
@@ -7082,5 +7170,3 @@ document.addEventListener('DOMContentLoaded', () => {
     spendModal?.addEventListener('click', (e) => {
         if (e.target === spendModal) closeSpendModal();
     });
-
-

@@ -27,6 +27,69 @@ body {
     overflow-x: hidden;
 }
 
+.auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 17, 26, 0.96);
+    padding: 24px;
+}
+
+.auth-overlay.hidden {
+    display: none;
+}
+
+.auth-panel {
+    width: min(100%, 360px);
+    background: #161925;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+}
+
+.auth-panel .logo-badge {
+    width: 52px;
+    margin-bottom: 4px;
+}
+
+.auth-panel h1 {
+    font-size: 1.45rem;
+    line-height: 1.2;
+}
+
+.auth-panel p {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+}
+
+.auth-panel input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.24);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 11px 12px;
+    font-size: 0.95rem;
+}
+
+.auth-panel input:focus {
+    outline: 1px solid var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.auth-error {
+    min-height: 18px;
+    color: #f87171;
+    font-size: 0.8rem;
+}
+
 .app-container {
     display: flex;
     height: 100vh;

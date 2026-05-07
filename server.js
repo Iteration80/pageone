@@ -8,6 +8,14 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+// ─── Storage paths ───────────────────────────────────────────────────────────
+const BUNDLED_DATA_ROOT = path.join(__dirname, 'data');
+const DATA_ROOT = path.resolve(process.env.DATA_ROOT || BUNDLED_DATA_ROOT);
+const SETTINGS_PATH = path.join(DATA_ROOT, 'settings.json');
+const DATA_DIR = path.join(DATA_ROOT, 'projects');
+const STYLES_DIR = path.join(DATA_ROOT, 'styles');
+const BUNDLED_STYLES_DIR = path.join(BUNDLED_DATA_ROOT, 'styles');
+
 // ─── Input validation helpers ─────────────────────────────────────────────────
 
 /** Validate a project ID: must be a 13–14 digit numeric timestamp string. */
@@ -60,6 +68,56 @@ async function atomicWriteJSON(targetPath, obj) {
     await atomicWriteFile(targetPath, JSON.stringify(obj, null, 2));
 }
 
+// ─── Project write queue ─────────────────────────────────────────────────────
+const projectWriteQueues = new Map();
+
+function getProjectFilePath(projectId) {
+    return path.join(DATA_DIR, `${projectId}.json`);
+}
+
+function projectIdFromPath(filePath) {
+    const parsed = path.parse(filePath);
+    if (path.resolve(parsed.dir) !== path.resolve(DATA_DIR)) return null;
+    return isValidProjectId(parsed.name) ? parsed.name : null;
+}
+
+async function withProjectWriteLock(projectId, task) {
+    if (!isValidProjectId(projectId)) return task();
+    const previous = projectWriteQueues.get(projectId) || Promise.resolve();
+    const run = previous.catch(() => {}).then(task);
+    projectWriteQueues.set(projectId, run);
+    run.finally(() => {
+        if (projectWriteQueues.get(projectId) === run) {
+            projectWriteQueues.delete(projectId);
+        }
+    }).catch(() => {});
+    return run;
+}
+
+async function writeProjectJSON(projectId, projectData) {
+    await withProjectWriteLock(projectId, async () => {
+        await atomicWriteJSON(getProjectFilePath(projectId), projectData);
+    });
+}
+
+async function writeJSONQueued(targetPath, obj) {
+    const projectId = projectIdFromPath(targetPath);
+    if (projectId) return writeProjectJSON(projectId, obj);
+    return atomicWriteJSON(targetPath, obj);
+}
+
+async function updateProjectJSON(projectId, updater) {
+    return withProjectWriteLock(projectId, async () => {
+        const filePath = getProjectFilePath(projectId);
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const project = JSON.parse(raw);
+        const updated = await updater(project, filePath);
+        const nextProject = updated || project;
+        await atomicWriteJSON(filePath, nextProject);
+        return nextProject;
+    });
+}
+
 /** Extracts plain text from a chat attachment ({ name, mimeType, data: base64 }). */
 async function extractAttachmentText(attachment) {
     if (!attachment?.data) return '';
@@ -87,25 +145,27 @@ async function extractAttachmentText(attachment) {
 }
 
 // ─── Settings (BYOK + per-stage model config) ─────────────────────────────────
-const SETTINGS_PATH = path.join(__dirname, 'data', 'settings.json');
 let appSettings = {};
 
 async function loadSettings() {
     try {
         const raw = await fs.readFile(SETTINGS_PATH, 'utf-8');
         appSettings = JSON.parse(raw);
-        console.log('Settings loaded from data/settings.json');
+        console.log(`Settings loaded from ${SETTINGS_PATH}`);
     } catch {
         appSettings = {}; // file doesn't exist yet — fall back to .env
     }
 }
 
+const APP_SECRET = process.env.APP_SECRET;
+const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!APP_SECRET && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
+
 /** Returns the model + API keys to use for a given stage number (1–10). */
 function getModelConfig(stageNum) {
     return {
         model: appSettings.stageModels?.[`stage${stageNum}`] || process.env.GEMINI_MODEL,
-        geminiApiKey: appSettings.geminiApiKey || process.env.GEMINI_API_KEY,
-        anthropicApiKey: appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+        geminiApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY,
+        anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY
     };
 }
 /** Append API usage record to the project's apiUsage array. */
@@ -114,22 +174,21 @@ async function trackUsage(projectId, usageOrList) {
     if (!isValidProjectId(projectId)) return;
     try {
         const usages = Array.isArray(usageOrList) ? usageOrList : [usageOrList];
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const raw = await fs.readFile(filePath, 'utf-8');
-        const project = JSON.parse(raw);
-        if (!project.data) project.data = {};
-        if (!project.data.apiUsage) project.data.apiUsage = [];
-        const now = Date.now();
-        for (const u of usages) {
-            if (!u || !u.model) continue;
-            project.data.apiUsage.push({
-                timestamp: now,
-                model: u.model,
-                inputTokens: u.inputTokens || 0,
-                outputTokens: u.outputTokens || 0,
-            });
-        }
-        await atomicWriteJSON(filePath, project);
+        await updateProjectJSON(projectId, (project) => {
+            if (!project.data) project.data = {};
+            if (!project.data.apiUsage) project.data.apiUsage = [];
+            const now = Date.now();
+            for (const u of usages) {
+                if (!u || !u.model) continue;
+                project.data.apiUsage.push({
+                    timestamp: now,
+                    model: u.model,
+                    inputTokens: u.inputTokens || 0,
+                    outputTokens: u.outputTokens || 0,
+                });
+            }
+            return project;
+        });
     } catch (err) {
         console.error('trackUsage error:', err.message);
     }
@@ -163,8 +222,6 @@ const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
 const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
-
-const STYLES_DIR = path.join(__dirname, 'data', 'styles');
 
 /**
  * Load the style file for a project, if one is set and exists.
@@ -201,7 +258,32 @@ async function loadProjectStyle(projectData) {
     return { styleContent, styleWarning, referenceContent };
 }
 
+async function styleSlugExists(slug) {
+    for (const suffix of ['-directive.md', '-reference.md', '.md']) {
+        try {
+            await fs.access(path.join(STYLES_DIR, `${slug}${suffix}`));
+            return true;
+        } catch { /* keep checking */ }
+    }
+    return false;
+}
+
+async function uniqueStyleSlug(candidate) {
+    const base = (candidate || 'custom-style')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'custom-style';
+    let slug = base;
+    let suffix = 2;
+    while (await styleSlugExists(slug)) {
+        slug = `${base}-${suffix}`;
+        suffix += 1;
+    }
+    return slug;
+}
+
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const multer = require('multer');
@@ -228,13 +310,34 @@ const upload = multer({
     },
 });
 
-const DATA_DIR = path.join(__dirname, 'data', 'projects');
-
 // Initialization
+async function seedBundledStyles() {
+    if (path.resolve(STYLES_DIR) === path.resolve(BUNDLED_STYLES_DIR)) return;
+    let files = [];
+    try {
+        files = await fs.readdir(BUNDLED_STYLES_DIR);
+    } catch {
+        return;
+    }
+
+    for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+        const source = path.join(BUNDLED_STYLES_DIR, file);
+        const target = path.join(STYLES_DIR, file);
+        try {
+            await fs.access(target);
+        } catch {
+            await fs.copyFile(source, target);
+        }
+    }
+}
+
 async function initDb() {
     try {
+        await fs.mkdir(DATA_ROOT, { recursive: true });
         await fs.mkdir(DATA_DIR, { recursive: true });
         await fs.mkdir(STYLES_DIR, { recursive: true });
+        await seedBundledStyles();
     } catch (err) {
         console.error("Failed to create data directory:", err);
     }
@@ -263,7 +366,6 @@ app.use((req, res, next) => {
 // ─── Authentication (shared secret) ──────────────────────────────────────────
 // Dormant by default. Activate by setting APP_SECRET in .env.
 // When set, every /api/* request must include:  X-Api-Key: <APP_SECRET>
-const APP_SECRET = process.env.APP_SECRET;
 function requireAuth(req, res, next) {
     if (!APP_SECRET) return next(); // dormant — no secret configured
     const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
@@ -272,6 +374,10 @@ function requireAuth(req, res, next) {
     }
     next();
 }
+
+app.get('/health', (_req, res) => {
+    res.json({ ok: true });
+});
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
 const aiLimiter = rateLimit({
@@ -365,7 +471,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         projectData.data.stage2_outline = outlineData;
         notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: outlineData });
@@ -411,7 +517,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         projectData.data.stage3_characters = characterData;
         notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: characterData });
@@ -470,7 +576,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         projectData.data.stage4_beats = beatsResult;
         notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
         send({ type: 'complete', result: beatsResult });
@@ -528,12 +634,12 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         projectData.data.stage5_treatment = treatmentResult;
         notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
         send({ type: 'complete', result: treatmentResult });
     } catch (error) {
-        console.error('Stage 5 Treatment Gen Error:', error.message);
+        console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         send({ type: 'error', message: 'Failed to generate treatment' });
     } finally {
         res.end();
@@ -589,7 +695,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
         stampGenerated(projectData, 'stage6_scenes');
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
         send({ type: 'complete', result: allSequences });
@@ -629,7 +735,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         projectData.data.stage6_scenes = updatedBlueprint;
         stampRevised(projectData, 'stage6_scenes');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
         res.json({ result: updatedBlueprint });
@@ -704,7 +810,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         );
         applyCheckResult(projectData, checkResult, checkUsage);
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
         const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
@@ -779,7 +885,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         );
         applyCheckResult(projectData, checkResult, checkUsage);
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
         const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
@@ -806,7 +912,7 @@ app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const projectData = JSON.parse(await fs.readFile(filePath, 'utf-8'));
         resolveError(projectData, factId, resolution, newValue);
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         res.json({ success: true });
     } catch (error) {
         console.error('Continuity resolve error:', error.message);
@@ -884,7 +990,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         projectData.data.stage8_coverage = coverageResult;
         stampGenerated(projectData, 'stage8_coverage');
 
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
         res.json({ result: coverageResult });
@@ -919,7 +1025,7 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
         if (projectData.data?.stage9_rewrites && reset) {
             projectData.data.stage9_rewrites.priority_idx = 0;
             projectData.data.stage9_rewrites.approved = false;
-            await atomicWriteJSON(filePath, projectData);
+            await writeJSONQueued(filePath, projectData);
             return res.json({
                 stage9_rewrites: projectData.data.stage9_rewrites,
                 macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
@@ -943,7 +1049,7 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
         const stage9 = { working, priority_idx: 0, approved: false };
         projectData.data = projectData.data || {};
         projectData.data.stage9_rewrites = stage9;
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
 
         res.json({
             stage9_rewrites: stage9,
@@ -991,7 +1097,12 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
                 const styleSlug = projectData.data?.stage7_style;
                 if (styleSlug) {
                     try {
-                        const styleContent = require('fs').readFileSync(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
+                        let styleContent;
+                        try {
+                            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
+                        } catch {
+                            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
+                        }
                         stageData = `Current style file (${styleSlug}):\n${styleContent}`;
                     } catch { stageData = 'No style file loaded yet.'; }
                 } else {
@@ -1152,7 +1263,7 @@ ${brainstormSop}`
                 const MAX_HISTORY = 100;
                 convos[stageKey] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
                 projectData.data.conversations = convos;
-                await atomicWriteJSON(filePath, projectData);
+                await writeJSONQueued(filePath, projectData);
             } catch (saveErr) {
                 console.error('Failed to persist conversation:', saveErr.message);
             }
@@ -1216,7 +1327,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
                 conversationPrompt += `[The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Here are the specific changes:\n${charChangeCtx}\n\nAcknowledge these character changes, briefly explain how they might affect the current draft (which scenes/moments would be most impacted), and ask if the writer wants to generate a rewrite plan focused on implementing these character updates across the screenplay. Keep it conversational and concise.]`;
                 // Clear the flag so it doesn't re-trigger
                 delete projectData.data.characterChangeContext;
-                await atomicWriteJSON(filePath, projectData);
+                await writeJSONQueued(filePath, projectData);
             } else {
             const doneCount = allPriorities.filter(p => p.done).length;
             if (doneCount > 0) {
@@ -1283,7 +1394,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
                 const MAX_HISTORY = 100;
                 convos['stage9'] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
                 projectData.data.conversations = convos;
-                await atomicWriteJSON(filePath, projectData);
+                await writeJSONQueued(filePath, projectData);
             } catch (saveErr) {
                 console.error('Failed to persist rewrite conversation:', saveErr.message);
             }
@@ -1488,7 +1599,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = '';
-            await atomicWriteJSON(filePath, projectData);
+            await writeJSONQueued(filePath, projectData);
             return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true });
         }
 
@@ -1520,7 +1631,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             const stage9 = projectData.data.stage9_rewrites || {};
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = proposed;
-            await atomicWriteJSON(filePath, projectData);
+            await writeJSONQueued(filePath, projectData);
         }
 
         trackUsage(projectId, usage);
@@ -1550,7 +1661,7 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
         stage9.pending = {};  // Clear pending — now merged into working
         stage9.priority_idx = newPriorityIdx;
         projectData.data.stage9_rewrites = stage9;
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
 
         res.json({ stage9_rewrites: stage9 });
     } catch (error) {
@@ -1593,7 +1704,7 @@ app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
         if (projectData.data?.stage9_rewrites) {
             projectData.data.stage9_rewrites.approved = true;
         }
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
@@ -1642,8 +1753,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
 
         // Parse the generated style to extract metadata
         const { meta } = parseStyleFile(styleContent);
-        const slug = (meta.slug || meta.name || 'custom-style')
-            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const slug = await uniqueStyleSlug(meta.slug || meta.name || 'custom-style');
 
         // Save as directive file (new naming convention)
         await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), styleContent);
@@ -1653,7 +1763,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
-            await atomicWriteJSON(filePath, projectData);
+            await writeJSONQueued(filePath, projectData);
             if (projectId) trackUsage(projectId, usage);
         }
 
@@ -1815,7 +1925,7 @@ app.post('/api/select-style', requireAuth, async (req, res) => {
         projectData.data = projectData.data || {};
         projectData.data.stage7_style = styleSlug;
         stampGenerated(projectData, 'stage7_style');
-        await atomicWriteJSON(filePath, projectData);
+        await writeJSONQueued(filePath, projectData);
 
         const { meta } = parseStyleFile(styleContent);
         res.json({ slug: styleSlug, content: styleContent, meta });
@@ -1863,8 +1973,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
 
         // Extract slug from reference metadata
         const { meta: refMeta } = parseStyleFile(reference);
-        const slug = (refMeta.slug || refMeta.name || styleName || 'trained-style')
-            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const slug = await uniqueStyleSlug(refMeta.slug || refMeta.name || styleName || 'trained-style');
 
         // Save both files atomically
         await atomicWriteFile(path.join(STYLES_DIR, `${slug}-reference.md`), reference);
@@ -1879,7 +1988,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
-            await atomicWriteJSON(filePath, projectData);
+            await writeJSONQueued(filePath, projectData);
             trackUsage(projectId, usageList);
         }
 
@@ -2079,9 +2188,11 @@ When you have enough info to generate, ask: "Ready to generate this style?" (or 
 
 app.get('/api/settings', requireAuth, (req, res) => {
     res.json({
-        geminiApiKey: appSettings.geminiApiKey ? '***' : '',
-        anthropicApiKey: appSettings.anthropicApiKey ? '***' : '',
-        stageModels: appSettings.stageModels || {}
+        geminiApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey ? '***' : '',
+        anthropicApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey ? '***' : '',
+        stageModels: appSettings.stageModels || {},
+        runtimeApiKeysEnabled: RUNTIME_API_KEYS_ENABLED,
+        apiKeysManagedByServer: !RUNTIME_API_KEYS_ENABLED
     });
 });
 
@@ -2089,11 +2200,11 @@ app.post('/api/settings', requireAuth, async (req, res) => {
     try {
         const { geminiApiKey, anthropicApiKey, stageModels } = req.body;
         // Only update keys that were actually changed (don't overwrite with masked placeholder)
-        if (geminiApiKey && geminiApiKey !== '***') appSettings.geminiApiKey = geminiApiKey;
-        if (anthropicApiKey && anthropicApiKey !== '***') appSettings.anthropicApiKey = anthropicApiKey;
+        if (RUNTIME_API_KEYS_ENABLED && geminiApiKey && geminiApiKey !== '***') appSettings.geminiApiKey = geminiApiKey;
+        if (RUNTIME_API_KEYS_ENABLED && anthropicApiKey && anthropicApiKey !== '***') appSettings.anthropicApiKey = anthropicApiKey;
         if (stageModels) appSettings.stageModels = stageModels;
 
-        await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+        await fs.mkdir(DATA_ROOT, { recursive: true });
         await atomicWriteJSON(SETTINGS_PATH, appSettings);
         res.json({ ok: true });
     } catch (err) {
@@ -2160,7 +2271,7 @@ app.post('/api/projects', requireAuth, async (req, res) => {
         };
 
         const filePath = path.join(DATA_DIR, `${id}.json`);
-        await atomicWriteJSON(filePath, newProject);
+        await writeJSONQueued(filePath, newProject);
 
         res.status(201).json(newProject);
     } catch (error) {
@@ -2213,7 +2324,7 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
         };
 
         const filePath = path.join(DATA_DIR, `${id}.json`);
-        await atomicWriteJSON(filePath, newProject);
+        await writeJSONQueued(filePath, newProject);
 
         console.log(`Imported script "${title}": ${parsed.scenes.length} scenes, ${stage6Scenes.length} sequences`);
         res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
@@ -2230,32 +2341,29 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
         const updates = req.body;
 
-        const filePath = path.join(DATA_DIR, `${id}.json`);
-
         try {
-            await fs.access(filePath);
+            await fs.access(getProjectFilePath(id));
         } catch {
             return res.status(404).json({ error: "Project not found" });
         }
 
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            // Ensure nested .data is merged properly rather than completely overwritten
+            let mergedData = projectData.data || {};
+            if (updates.data) {
+                mergedData = { ...mergedData, ...updates.data };
+            }
 
-        // Ensure nested .data is merged properly rather than completely overwritten
-        let mergedData = projectData.data || {};
-        if (updates.data) {
-            mergedData = { ...mergedData, ...updates.data };
-        }
+            const nextProject = { ...projectData, ...updates, data: mergedData };
 
-        const updatedProject = { ...projectData, ...updates, data: mergedData };
+            // If the client signals a stage was revised, stamp staleness on downstream stages
+            if (updates.stampRevisedStage) {
+                stampRevised(nextProject, updates.stampRevisedStage);
+                delete nextProject.stampRevisedStage; // Don't persist the flag itself
+            }
 
-        // If the client signals a stage was revised, stamp staleness on downstream stages
-        if (updates.stampRevisedStage) {
-            stampRevised(updatedProject, updates.stampRevisedStage);
-            delete updatedProject.stampRevisedStage; // Don't persist the flag itself
-        }
-
-        await atomicWriteJSON(filePath, updatedProject);
+            return nextProject;
+        });
 
         res.json(updatedProject);
     } catch (error) {

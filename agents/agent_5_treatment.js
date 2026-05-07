@@ -49,17 +49,29 @@ ${JSON.stringify(currentTreatment, null, 2)}
 
 Please apply the note surgically and return the full updated treatment in JSON format. Ensure you do not change anything else.`;
 
-        const result = await generateContent({
-            model, geminiApiKey, anthropicApiKey,
-            contents: [revisionPrompt],
-            config: {
-                systemInstruction: revisionSystemInstruction,
-                temperature: 0.3,
-            },
-            schema: treatmentSchema
-        });
-
-        return { result: JSON.parse(result.text), usage: result.usage };
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const result = await generateContent({
+                    model, geminiApiKey, anthropicApiKey,
+                    contents: [revisionPrompt],
+                    config: {
+                        systemInstruction: revisionSystemInstruction,
+                        temperature: 0.3,
+                        maxOutputTokens: 32000,
+                    },
+                    schema: treatmentSchema
+                });
+                return { result: JSON.parse(result.text), usageList: [result.usage] };
+            } catch (err) {
+                lastError = err;
+                if (attempt < 3) {
+                    console.warn(`  Revision attempt ${attempt} failed: ${err.message}. Retrying...`);
+                    await new Promise(r => setTimeout(r, attempt * 2000));
+                }
+            }
+        }
+        throw lastError;
     }
 
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)

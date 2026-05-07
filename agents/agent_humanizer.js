@@ -48,7 +48,7 @@ ${draftText}
         console.error('Error in agent_humanizer:', error);
         // On failure, return the original draft text so the pipeline does not break
         console.warn('Humanizer failed — returning original draft text as fallback.');
-        return draftText;
+        return { result: draftText, usage: null };
     }
 };
 

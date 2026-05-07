@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
@@ -22,6 +25,7 @@
     "multer": "^2.1.1",
     "pdf-parse": "^1.1.4",
     "pdfkit": "^0.18.0",
-    "undici": "^7.24.5"
+    "undici": "^7.24.5",
+    "xml-js": "^1.6.11"
   }
 }

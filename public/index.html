@@ -12,6 +12,17 @@
 </head>
 
 <body>
+    <div id="authOverlay" class="auth-overlay hidden">
+        <form id="authForm" class="auth-panel">
+            <div class="logo-badge">P1</div>
+            <h1>PageOne</h1>
+            <p>Enter the private access key to continue.</p>
+            <input id="authSecretInput" type="password" autocomplete="current-password" placeholder="Access key">
+            <div id="authError" class="auth-error" aria-live="polite"></div>
+            <button id="authSubmitBtn" type="submit" class="primary-btn">Unlock</button>
+        </form>
+    </div>
+
     <!-- Projects Hub Overlay -->
     <div id="projectsHub" class="projects-hub">
         <header class="hub-header">
@@ -993,7 +1004,7 @@
         <div class="modal-content" style="max-width:560px;max-height:80vh;overflow-y:auto">
             <h3>Settings</h3>
 
-            <section style="margin-bottom:24px">
+            <section id="settings-api-key-section" style="margin-bottom:24px">
                 <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
                 <label style="display:block;margin-bottom:12px">
                     <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Gemini API Key</span>
@@ -1005,6 +1016,10 @@
                     <input type="password" id="settings-anthropic-key" class="modal-input" style="width:100%"
                            placeholder="sk-ant-... (leave blank to keep existing)" autocomplete="off">
                 </label>
+            </section>
+            <section id="settings-api-key-managed" class="hidden" style="margin-bottom:24px">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
+                <p style="font-size:0.85rem;color:#9ca3af;line-height:1.5">API keys are managed by the deployed server environment for this private build.</p>
             </section>
 
             <section>
