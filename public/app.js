@@ -3547,6 +3547,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 5: Treatment Functions ---
 
+    function stripTreatmentRevisionArtifacts(value) {
+        return String(value || '')
+            .replace(/<<<\s*TREATMENT_SECTION\s*/gi, '')
+            .replace(/^\s*TREATMENT_SECTION\s*$/gim, '')
+            .replace(/^\s*<\/?pageone_current_treatment_section>\s*$/gim, '')
+            .trim();
+    }
+
+    function isInvalidTreatmentMetadata(value) {
+        const cleaned = stripTreatmentRevisionArtifacts(value);
+        if (!cleaned) return true;
+        const compact = cleaned.replace(/[\s_-]+/g, '').toLowerCase();
+        return compact === 'treatmentsection' || compact === 'pageonecurrenttreatmentsection';
+    }
+
+    function buildTreatmentMetadataFallback() {
+        const pitch = window.currentProjectData?.stage1_pitch?.pitch || {};
+        const characters = window.currentProjectData?.stage3_characters?.characters || [];
+        const lines = [];
+        if (pitch.title) lines.push(`TITLE: ${pitch.title}`);
+        if (pitch.genre) lines.push(`GENRE: ${pitch.genre}`);
+        if (pitch.logline) lines.push(`LOGLINE: ${pitch.logline}`);
+        if (pitch.core_theme) lines.push(`CORE THEME: ${pitch.core_theme}`);
+        if (Array.isArray(characters) && characters.length) {
+            lines.push('CHARACTERS:');
+            characters.forEach(character => {
+                const name = character.name || 'Unnamed Character';
+                const summary = character.brief_summary || character.role || '';
+                lines.push(summary ? `${name}: ${summary}` : name);
+            });
+        }
+        return lines.join('\n');
+    }
+
+    function cleanTreatmentStage5Value(key, value) {
+        const cleaned = stripTreatmentRevisionArtifacts(value);
+        if (key === 'title_logline_characters' && isInvalidTreatmentMetadata(cleaned)) {
+            return buildTreatmentMetadataFallback() || cleaned;
+        }
+        return cleaned;
+    }
+
     function renderTreatmentStage5(data) {
         if (!data) return;
         if (stage5TreatmentContainer) stage5TreatmentContainer.classList.remove('hidden');
@@ -3556,7 +3598,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(stage5TAs).forEach(key => {
             if (stage5TAs[key]) {
                 const ta = stage5TAs[key];
-                ta.value = (data[key] || '').replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
+                ta.value = cleanTreatmentStage5Value(key, data[key] || '').replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
                 
                 // Fixed-height scrollable cards for treatment text
                 ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto treatment-stage5-ta";

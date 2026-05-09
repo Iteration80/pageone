@@ -30,11 +30,56 @@ const TREATMENT_FIELDS = [
     }
 ];
 
-function normalizeTreatment(treatment) {
-    return TREATMENT_FIELDS.reduce((acc, field) => {
+function stripRevisionDelimiters(text) {
+    return String(text || '')
+        .replace(/<<<\s*TREATMENT_SECTION\s*/gi, '')
+        .replace(/^\s*TREATMENT_SECTION\s*$/gim, '')
+        .replace(/^\s*<\/?pageone_current_treatment_section>\s*$/gim, '')
+        .trim();
+}
+
+function isInvalidTreatmentField(text) {
+    const cleaned = stripRevisionDelimiters(text);
+    if (!cleaned) return true;
+    const compact = cleaned.replace(/[\s_-]+/g, '').toLowerCase();
+    return compact === 'treatmentsection' || compact === 'pageonecurrenttreatmentsection';
+}
+
+function buildTitleLoglineCharacters(pitchData, charactersData) {
+    const pitch = pitchData || {};
+    const characters = Array.isArray(charactersData) ? charactersData : [];
+    const lines = [];
+
+    if (pitch.title) lines.push(`TITLE: ${pitch.title}`);
+    if (pitch.genre) lines.push(`GENRE: ${pitch.genre}`);
+    if (pitch.logline) lines.push(`LOGLINE: ${pitch.logline}`);
+    if (pitch.core_theme) lines.push(`CORE THEME: ${pitch.core_theme}`);
+
+    if (characters.length) {
+        lines.push('CHARACTERS:');
+        for (const character of characters) {
+            const name = character.name || 'Unnamed Character';
+            const summary = character.brief_summary || character.role || '';
+            lines.push(summary ? `${name}: ${summary}` : name);
+        }
+    }
+
+    return lines.join('\n');
+}
+
+function normalizeTreatment(treatment, pitchData, charactersData) {
+    const normalized = TREATMENT_FIELDS.reduce((acc, field) => {
         acc[field.key] = typeof treatment?.[field.key] === 'string' ? treatment[field.key] : '';
         return acc;
     }, {});
+
+    if (isInvalidTreatmentField(normalized.title_logline_characters)) {
+        normalized.title_logline_characters = buildTitleLoglineCharacters(pitchData, charactersData);
+    } else {
+        normalized.title_logline_characters = stripRevisionDelimiters(normalized.title_logline_characters);
+    }
+
+    return normalized;
 }
 
 function extractSectionHeadings(text) {
@@ -119,7 +164,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
     // Revision Bypass Logic
     if (notes && currentTreatment) {
         console.log("  Surgical Revision Mode: Applying user notes...");
-        const revisedTreatment = normalizeTreatment(currentTreatment);
+        const revisedTreatment = normalizeTreatment(currentTreatment, pitchData, charactersData);
         const sectionIndex = buildTreatmentSectionIndex(revisedTreatment);
         const fieldsToRevise = selectTreatmentFieldsForRevision(notes);
         const usageList = [];
@@ -155,11 +200,11 @@ TARGET SECTION:
 ${field.label} (${field.scope})
 
 CURRENT TARGET SECTION TEXT:
-<<<TREATMENT_SECTION
+<pageone_current_treatment_section>
 ${originalText}
-TREATMENT_SECTION
+</pageone_current_treatment_section>
 
-Return the complete target section after applying only the relevant notes. Preserve all unaffected prose exactly. Preserve [SEQUENCE N START] and [SEQUENCE N END] tags exactly. Return JSON only with the key "revised_text".`;
+Return the complete target section after applying only the relevant notes. Preserve all unaffected prose exactly. Preserve [SEQUENCE N START] and [SEQUENCE N END] tags exactly. Do not include the <pageone_current_treatment_section> markers in revised_text. Return JSON only with the key "revised_text".`;
 
             let lastError;
             for (let attempt = 1; attempt <= 3; attempt++) {
@@ -180,7 +225,12 @@ Return the complete target section after applying only the relevant notes. Prese
                         throw new Error(`Revision for ${field.label} did not return revised_text`);
                     }
 
-                    revisedTreatment[field.key] = parsed.revised_text.trim();
+                    const revisedText = stripRevisionDelimiters(parsed.revised_text);
+                    if (isInvalidTreatmentField(revisedText)) {
+                        console.warn(`  ${field.label} revision returned delimiter-only text; preserving existing section.`);
+                    } else {
+                        revisedTreatment[field.key] = revisedText;
+                    }
                     usageList.push(result.usage);
                     lastError = null;
                     break;
