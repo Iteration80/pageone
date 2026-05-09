@@ -640,7 +640,8 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         send({ type: 'complete', result: treatmentResult });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
-        send({ type: 'error', message: 'Failed to generate treatment' });
+        const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
+        send({ type: 'error', message: `Failed to generate treatment${detail}` });
     } finally {
         res.end();
     }

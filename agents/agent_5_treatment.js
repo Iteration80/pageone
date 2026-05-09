@@ -2,6 +2,57 @@ const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
+const TREATMENT_FIELDS = [
+    {
+        key: 'title_logline_characters',
+        label: 'Title, Logline & Characters',
+        scope: 'metadata, title, logline, and character summary'
+    },
+    {
+        key: 'act_1',
+        label: 'Act I',
+        scope: 'Sequences 1 and 2'
+    },
+    {
+        key: 'act_2a',
+        label: 'Act II Part 1',
+        scope: 'Sequences 3 and 4'
+    },
+    {
+        key: 'act_2b',
+        label: 'Act II Part 2',
+        scope: 'Sequences 5 and 6'
+    },
+    {
+        key: 'act_3',
+        label: 'Act III',
+        scope: 'Sequences 7 and 8'
+    }
+];
+
+function normalizeTreatment(treatment) {
+    return TREATMENT_FIELDS.reduce((acc, field) => {
+        acc[field.key] = typeof treatment?.[field.key] === 'string' ? treatment[field.key] : '';
+        return acc;
+    }, {});
+}
+
+function extractSectionHeadings(text) {
+    const headings = [];
+    const regex = /\[SEQUENCE\s+(\d+)\s+START\][\s\S]*?^\s*SEQUENCE\s+\1\s*:\s*(.+?)\s*$/gim;
+    let match;
+    while ((match = regex.exec(text || '')) !== null) {
+        headings.push(`Sequence ${match[1]}: ${match[2].trim()}`);
+    }
+    return headings.length ? headings.join('; ') : 'No sequence headers found';
+}
+
+function buildTreatmentSectionIndex(treatment) {
+    return TREATMENT_FIELDS
+        .map(field => `${field.label} (${field.scope}): ${extractSectionHeadings(treatment[field.key])}`)
+        .join('\n');
+}
+
 /**
  * Stage 5 Treatment Agent (Chained Prompt Architecture)
  * Transform pitch, characters, and 8-sequence beats into a granular 4-act treatment.
@@ -39,39 +90,85 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
     // Revision Bypass Logic
     if (notes && currentTreatment) {
         console.log("  Surgical Revision Mode: Applying user notes...");
-        if (onProgress) onProgress(1, 1, 'Applying revision...');
-        const revisionSystemInstruction = `${treatmentSOP}\n\nROLE: Surgical Script Editor. Apply the user's note to the text, but DO NOT rewrite or alter ANY plot points, character names, or pacing outside the scope of the note. If the note only applies to Act 1, keep the rest of the text 100% identical to the provided current treatment. Maintain the exact same formatting.`;
+        const revisedTreatment = normalizeTreatment(currentTreatment);
+        const sectionIndex = buildTreatmentSectionIndex(revisedTreatment);
+        const usageList = [];
 
-        const revisionPrompt = `USER NOTE: ${notes}
+        const revisionSystemInstruction = `${treatmentSOP}
 
-EXISTING TREATMENT:
-${JSON.stringify(currentTreatment, null, 2)}
+ROLE: Surgical Script Editor.
+You are revising ONE treatment section at a time. Apply the user's notes only when they are relevant to the target section. Do not rewrite or alter plot points, character names, pacing, sequence tags, or formatting outside the scope of the notes. If the notes apply to another section, return this target section unchanged. The JSON response schema overrides the SOP output template; the SOP formatting rules apply only to the text inside "revised_text".`;
 
-Please apply the note surgically and return the full updated treatment in JSON format. Ensure you do not change anything else.`;
+        const sectionSchema = {
+            type: 'object',
+            properties: {
+                revised_text: {
+                    type: 'string',
+                    description: 'The complete revised text for the target treatment section, preserving sequence tags and formatting.'
+                }
+            },
+            required: ['revised_text']
+        };
 
-        let lastError;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const result = await generateContent({
-                    model, geminiApiKey, anthropicApiKey,
-                    contents: [revisionPrompt],
-                    config: {
-                        systemInstruction: revisionSystemInstruction,
-                        temperature: 0.3,
-                        maxOutputTokens: 32000,
-                    },
-                    schema: treatmentSchema
-                });
-                return { result: JSON.parse(result.text), usageList: [result.usage] };
-            } catch (err) {
-                lastError = err;
-                if (attempt < 3) {
-                    console.warn(`  Revision attempt ${attempt} failed: ${err.message}. Retrying...`);
-                    await new Promise(r => setTimeout(r, attempt * 2000));
+        for (let i = 0; i < TREATMENT_FIELDS.length; i++) {
+            const field = TREATMENT_FIELDS[i];
+            const originalText = revisedTreatment[field.key];
+            if (onProgress) onProgress(i + 1, TREATMENT_FIELDS.length, `Revising ${field.label}...`);
+
+            const revisionPrompt = `USER NOTES:
+${notes}
+
+FULL TREATMENT SECTION INDEX:
+${sectionIndex}
+
+TARGET SECTION:
+${field.label} (${field.scope})
+
+CURRENT TARGET SECTION TEXT:
+<<<TREATMENT_SECTION
+${originalText}
+TREATMENT_SECTION
+
+Return the complete target section after applying only the relevant notes. Preserve all unaffected prose exactly. Preserve [SEQUENCE N START] and [SEQUENCE N END] tags exactly. Return JSON only with the key "revised_text".`;
+
+            let lastError;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const result = await generateContent({
+                        model, geminiApiKey, anthropicApiKey,
+                        contents: [revisionPrompt],
+                        config: {
+                            systemInstruction: revisionSystemInstruction,
+                            temperature: 0.2,
+                            maxOutputTokens: 20000,
+                        },
+                        schema: sectionSchema
+                    });
+
+                    const parsed = JSON.parse(result.text);
+                    if (typeof parsed.revised_text !== 'string') {
+                        throw new Error(`Revision for ${field.label} did not return revised_text`);
+                    }
+
+                    revisedTreatment[field.key] = parsed.revised_text.trim();
+                    usageList.push(result.usage);
+                    lastError = null;
+                    break;
+                } catch (err) {
+                    lastError = err;
+                    if (attempt < 3) {
+                        console.warn(`  ${field.label} revision attempt ${attempt} failed: ${err.message}. Retrying...`);
+                        await new Promise(r => setTimeout(r, attempt * 2000));
+                    }
                 }
             }
+
+            if (lastError) {
+                throw new Error(`Failed to revise ${field.label}: ${lastError.message}`);
+            }
         }
-        throw lastError;
+
+        return { result: revisedTreatment, usageList };
     }
 
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)

@@ -88,12 +88,45 @@ function buildClaudeSystemPrompt(systemInstruction, schema) {
     return system;
 }
 
-// When Claude adds prose before the JSON despite instructions, extract the JSON block
-function extractJsonFromText(text) {
+// When Claude adds prose around JSON despite instructions, extract the first
+// balanced JSON object/array instead of trusting the entire text.
+function extractJsonFromText(text, schema) {
     const t = text.trim();
-    if (t.startsWith('{') || t.startsWith('[')) return t;
-    const idx = t.search(/[\{\[]/);
-    return idx >= 0 ? t.slice(idx) : t;
+    const expectedOpen = schema?.type === 'array' ? '[' : schema?.type === 'object' ? '{' : null;
+    const idx = expectedOpen ? t.indexOf(expectedOpen) : t.search(/[\{\[]/);
+    if (idx < 0) return t;
+
+    const open = expectedOpen || t[idx];
+    const close = open === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = idx; i < t.length; i++) {
+        const ch = t[i];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch === '"') {
+            inString = true;
+        } else if (ch === open) {
+            depth++;
+        } else if (ch === close) {
+            depth--;
+            if (depth === 0) return t.slice(idx, i + 1);
+        }
+    }
+
+    return t.slice(idx);
 }
 
 // Models that have deprecated the temperature parameter
@@ -127,7 +160,7 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     };
     // Strip markdown fences; when JSON is expected, also strip any prose preamble
     let text = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    if (schema) text = extractJsonFromText(text);
+    if (schema) text = extractJsonFromText(text, schema);
     return { text, usage };
 }
 
