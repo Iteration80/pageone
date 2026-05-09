@@ -53,6 +53,35 @@ function buildTreatmentSectionIndex(treatment) {
         .join('\n');
 }
 
+function selectTreatmentFieldsForRevision(notes) {
+    const text = String(notes || '');
+    const lower = text.toLowerCase();
+    const selected = new Set();
+
+    if (/\b(title|logline|character summary|characters section)\b/i.test(text)) {
+        selected.add('title_logline_characters');
+    }
+
+    if (/\b(act\s*i\b|act\s*1\b)/i.test(text)) selected.add('act_1');
+    if (/\b(act\s*iia\b|act\s*ii\s*(part\s*)?1\b|act\s*2a\b)/i.test(text)) selected.add('act_2a');
+    if (/\b(act\s*iib\b|act\s*ii\s*(part\s*)?2\b|act\s*2b\b)/i.test(text)) selected.add('act_2b');
+    if (/\b(act\s*iii\b|act\s*3\b)/i.test(text)) selected.add('act_3');
+
+    const sequenceMatches = text.matchAll(/\b(?:sequence|seq\.?|s)\s*#?\s*([1-8])\b/gi);
+    for (const match of sequenceMatches) {
+        const sequenceNumber = Number(match[1]);
+        if (sequenceNumber <= 2) selected.add('act_1');
+        else if (sequenceNumber <= 4) selected.add('act_2a');
+        else if (sequenceNumber <= 6) selected.add('act_2b');
+        else selected.add('act_3');
+    }
+
+    const globalRevision = /\b(throughout|whole treatment|full treatment|entire treatment|all acts|every act|all sequences|every sequence)\b/i.test(lower);
+    if (globalRevision || selected.size === 0) return TREATMENT_FIELDS;
+
+    return TREATMENT_FIELDS.filter(field => selected.has(field.key));
+}
+
 /**
  * Stage 5 Treatment Agent (Chained Prompt Architecture)
  * Transform pitch, characters, and 8-sequence beats into a granular 4-act treatment.
@@ -92,6 +121,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         console.log("  Surgical Revision Mode: Applying user notes...");
         const revisedTreatment = normalizeTreatment(currentTreatment);
         const sectionIndex = buildTreatmentSectionIndex(revisedTreatment);
+        const fieldsToRevise = selectTreatmentFieldsForRevision(notes);
         const usageList = [];
 
         const revisionSystemInstruction = `${treatmentSOP}
@@ -110,10 +140,10 @@ You are revising ONE treatment section at a time. Apply the user's notes only wh
             required: ['revised_text']
         };
 
-        for (let i = 0; i < TREATMENT_FIELDS.length; i++) {
-            const field = TREATMENT_FIELDS[i];
+        for (let i = 0; i < fieldsToRevise.length; i++) {
+            const field = fieldsToRevise[i];
             const originalText = revisedTreatment[field.key];
-            if (onProgress) onProgress(i + 1, TREATMENT_FIELDS.length, `Revising ${field.label}...`);
+            if (onProgress) onProgress(i + 1, fieldsToRevise.length, `Revising ${field.label}...`);
 
             const revisionPrompt = `USER NOTES:
 ${notes}

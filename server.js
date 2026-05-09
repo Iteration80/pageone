@@ -621,6 +621,12 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     res.flushHeaders();
 
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const heartbeat = setInterval(() => {
+        if (!res.destroyed && !res.writableEnded) {
+            res.write(': keep-alive\n\n');
+        }
+    }, 15000);
+    heartbeat.unref?.();
 
     try {
         console.log("Generating Stage 5 Chained Treatment...");
@@ -643,6 +649,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
         send({ type: 'error', message: `Failed to generate treatment${detail}` });
     } finally {
+        clearInterval(heartbeat);
         res.end();
     }
 });
