@@ -4,6 +4,94 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
 
+function compactText(value, maxChars = 4000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
+function parseRevisionTargets(currentBlueprint = [], feedback = '') {
+    const text = String(feedback || '');
+    const lower = text.toLowerCase();
+    const sceneNumbers = new Set();
+    const sequenceNumbers = new Set();
+
+    for (const match of text.matchAll(/\bscene[s]?\s+(\d+)(?:\s*(?:-|to|through|thru)\s*(\d+))?/gi)) {
+        const start = Number(match[1]);
+        const end = Number(match[2] || match[1]);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+        for (let n = Math.min(start, end); n <= Math.max(start, end); n++) sceneNumbers.add(n);
+    }
+
+    for (const match of text.matchAll(/\b(\d+)\s*\+\s*(\d+)(?:\s*\+\s*(\d+))?/g)) {
+        [match[1], match[2], match[3]].filter(Boolean).map(Number).forEach(n => {
+            if (Number.isFinite(n)) sceneNumbers.add(n);
+        });
+    }
+
+    for (const match of text.matchAll(/\bsequence[s]?\s+(\d+)(?:\s*(?:-|to|through|thru)\s*(\d+))?/gi)) {
+        const start = Number(match[1]);
+        const end = Number(match[2] || match[1]);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+        for (let n = Math.min(start, end); n <= Math.max(start, end); n++) sequenceNumbers.add(n);
+    }
+
+    const sequenceByScene = new Map();
+    currentBlueprint.forEach(seq => {
+        seq.scenes?.forEach(scene => sequenceByScene.set(Number(scene.scene_number), Number(seq.sequence_number)));
+    });
+    sceneNumbers.forEach(sceneNumber => {
+        const seqNum = sequenceByScene.get(Number(sceneNumber));
+        if (seqNum) sequenceNumbers.add(seqNum);
+    });
+
+    const hasExplicitTargets = sceneNumbers.size > 0 || sequenceNumbers.size > 0;
+    const globalEdit = /\b(entire|all scenes|full blueprint|whole blueprint|throughout|every scene|global|final-polish|final polish)\b/i.test(lower);
+    return {
+        sceneNumbers,
+        sequenceNumbers,
+        hasExplicitTargets,
+        includeAllFull: globalEdit && !hasExplicitTargets
+    };
+}
+
+function buildRevisionBlueprintContext(currentBlueprint = [], feedback = '') {
+    const targets = parseRevisionTargets(currentBlueprint, feedback);
+    const targetSummary = [
+        targets.sceneNumbers.size ? `Scenes: ${Array.from(targets.sceneNumbers).sort((a, b) => a - b).join(', ')}` : '',
+        targets.sequenceNumbers.size ? `Sequences: ${Array.from(targets.sequenceNumbers).sort((a, b) => a - b).join(', ')}` : '',
+        targets.includeAllFull ? 'Full-blueprint revision requested.' : ''
+    ].filter(Boolean).join('\n') || 'No explicit scene/sequence numbers detected; use full feedback to infer the minimum affected sequences.';
+
+    const context = currentBlueprint.map(seq => {
+        const sequenceNumber = Number(seq.sequence_number);
+        const includeFullSequence = targets.includeAllFull || targets.sequenceNumbers.has(sequenceNumber) || !targets.hasExplicitTargets;
+        return {
+            sequence_number: seq.sequence_number,
+            sequence_title: seq.sequence_title,
+            total_estimated_pages: seq.total_estimated_pages,
+            context_mode: includeFullSequence ? 'full-target-context' : 'compact-context',
+            scenes: seq.scenes?.map(({ draft_text, humanized_draft_text, locked, ...scene }) => {
+                const includeFullScene = includeFullSequence || targets.sceneNumbers.has(Number(scene.scene_number));
+                return {
+                    ...scene,
+                    narrative_action: includeFullScene
+                        ? scene.narrative_action || ''
+                        : compactText(scene.narrative_action || '', 280),
+                    dramaturgical_function: includeFullScene
+                        ? scene.dramaturgical_function || ''
+                        : compactText(scene.dramaturgical_function || '', 160)
+                };
+            })
+        };
+    });
+
+    return {
+        targetSummary,
+        context
+    };
+}
+
 /**
  * Stage 6 Revision Agent
  * Modifies an existing Stage 6 Scene Blueprint based on user feedback.
@@ -65,27 +153,24 @@ CRITICAL RULES:
         temperature: 0.5,
     };
 
-    // Strip heavy fields and truncate descriptions to keep prompt small.
-    // Post-processing restores draft_text/locked from the original blueprint.
-    const lightBlueprint = currentBlueprint.map(seq => ({
-        sequence_number: seq.sequence_number,
-        sequence_title: seq.sequence_title,
-        total_estimated_pages: seq.total_estimated_pages,
-        scenes: seq.scenes?.map(({ draft_text, humanized_draft_text, locked, ...scene }) => ({
-            ...scene,
-            narrative_action: scene.narrative_action?.slice(0, 200) || '',
-            dramaturgical_function: scene.dramaturgical_function?.slice(0, 100) || ''
-        }))
-    }));
+    const revisionBlueprint = buildRevisionBlueprintContext(currentBlueprint, feedback);
 
     const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 6 Scene Blueprint Revision');
-    const prompt = `${sourceBlock}CURRENT SCENE BLUEPRINT (JSON — narrative_action truncated for context; generate full versions for any scenes you modify):
-${JSON.stringify(lightBlueprint)}
+    const prompt = `${sourceBlock}REVISION TARGETS:
+${revisionBlueprint.targetSummary}
+
+CURRENT SCENE BLUEPRINT (JSON — targeted sequences/scenes include full text; compact-context sequences are for orientation only):
+${JSON.stringify(revisionBlueprint.context)}
 
 DIRECTOR'S FEEDBACK:
 ${feedback}
 
-OBJECTIVE: Apply the feedback. Return ONLY the sequences containing changes (with ALL their scenes). Do NOT return unmodified sequences.`;
+OBJECTIVE: Apply the feedback. Return ONLY the sequences containing changes (with ALL their scenes). Do NOT return unmodified sequences.
+
+FIDELITY RULES:
+- If feedback names a specific scene, tag, phrase, prop, function line, or scene merge/relocation, make that concrete change in the returned sequence.
+- Preserve every unmentioned scene verbatim within any returned sequence unless renumbering/merging requires a local adjustment.
+- If the feedback says a source/treatment/character-bible item is locked, treat it as binding even if the current blueprint says otherwise.`;
 
     // Retry up to 3 times on transient connection errors
     let result;

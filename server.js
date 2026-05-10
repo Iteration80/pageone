@@ -3055,17 +3055,19 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         console.log("Revising Stage 6 Scene Blueprint...");
         const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6RevisionSeed, { userMessage: feedback });
+        const beforeHash = sourcePlanDataHash(JSON.stringify(currentBlueprint || []));
         const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithSourcePacket(6, sourcePacket));
+        const changed = sourcePlanDataHash(JSON.stringify(updatedBlueprint || [])) !== beforeHash;
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
-        stampRevised(projectData, 'stage6_scenes');
+        if (changed) stampRevised(projectData, 'stage6_scenes');
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(updatedBlueprint, null, 2), 'revision');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: updatedBlueprint, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: updatedBlueprint, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
         res.status(500).json({ error: "Failed to revise scene blueprint" });

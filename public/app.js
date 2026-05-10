@@ -7414,7 +7414,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        await executeRevision(buildRevisionNotes(pendingNotes, history));
+                        const revisionResult = await executeRevision(buildRevisionNotes(pendingNotes, history));
+                        if (revisionResult && revisionResult.changed === false) {
+                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
+                        }
                         indicator.remove();
                         await postRevisionFollowUp();
                     } catch (err) {
@@ -7425,6 +7428,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return;
                 }
+
+                if (Number(stageId) === 6 && isStage6DirectRevisionRequest(_text)) {
+                    chat.append('ai', 'Applying those changes to the scene blueprint now.');
+                    chat.setDisabled(true);
+                    const indicator = showWorking();
+                    try {
+                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
+                        if (revisionResult && revisionResult.changed === false) {
+                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
+                        }
+                        indicator.remove();
+                        await postRevisionFollowUp();
+                    } catch (err) {
+                        indicator.remove();
+                        chat.append('ai', 'I tried to apply that, but the saved blueprint came back unchanged: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                    return;
+                }
+
                 let data;
                 chat.setThinking(true);
                 try {
@@ -7457,7 +7481,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        await executeRevision(buildRevisionNotes(data.message, history));
+                        const revisionResult = await executeRevision(buildRevisionNotes(data.message, history));
+                        if (revisionResult && revisionResult.changed === false) {
+                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
+                        }
                         indicator.remove();
                         await postRevisionFollowUp();
                     } catch (err) {
@@ -7683,6 +7710,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage 6
+    function isStage6DirectRevisionRequest(text) {
+        const value = String(text || '').trim();
+        if (value.length < 24) return false;
+
+        const asksForDiscussion = /[?]/.test(value) &&
+            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
+        if (asksForDiscussion) return false;
+
+        const referencesBlueprintTarget = /\bscene[s]?\s+\d+\b|\bsequence[s]?\s+\d+\b|\b\d+\s*\+\s*\d+\b|\bblueprint\b/i.test(value);
+        const containsDirective = /\b(final[- ]polish|revision pass|relocation pass|refine|revise|apply|fix|restore|add|tag|strip|replace|rephrase|merge|compress|relocate|move|remove|delete|lock|confirm|keep|do not touch)\b/i.test(value);
+        const structuredMemo = /\n\s*(?:\d+\.|[-*]\s+|==)/.test(value);
+
+        return referencesBlueprintTarget && containsDirective && (structuredMemo || value.length > 160);
+    }
+
     function latestUserRequestFromRevisionNotes(notes) {
         const match = String(notes || '').match(/LATEST USER REQUEST:\n([\s\S]*?)\n\nUSER REQUESTS:/);
         return (match ? match[1] : notes || '').trim();
@@ -7715,6 +7757,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSourceGenerationResult(6, data, { chat: stageChatWindows[6] });
             renderStage6(data.result);
             if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
+            return data;
         }
     });
 

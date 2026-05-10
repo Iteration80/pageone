@@ -204,6 +204,49 @@ test('Stage 6 revision carries project memory beside director feedback', async (
     assert.match(collectText(calls[0].contents), /Restore the blue key continuity/);
 });
 
+test('Stage 6 revision sends full text for explicitly targeted scenes', async () => {
+    const longPrefix = 'This scene establishes the wrong relationship framing. '.repeat(8);
+    const currentBlueprint = [{
+        sequence_number: 4,
+        sequence_title: 'Rebecca',
+        total_estimated_pages: 10,
+        scenes: [{
+            scene_number: 33,
+            scene_heading: 'INT. REBECCA HOUSE - NIGHT',
+            narrative_action: `${longPrefix}The scene continues with visual business.`,
+            dramaturgical_function: `${longPrefix}The two former childhood friends are now uneasy allies bound by her son.`,
+            estimated_page_count: 2
+        }]
+    }, {
+        sequence_number: 5,
+        sequence_title: 'Road',
+        total_estimated_pages: 10,
+        scenes: [{
+            scene_number: 40,
+            scene_heading: 'EXT. INTERSTATE - NIGHT',
+            narrative_action: 'Mara keeps driving.',
+            dramaturgical_function: 'Compact context only.',
+            estimated_page_count: 1
+        }]
+    }];
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(currentBlueprint),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await reviseStage6Scenes(currentBlueprint, 'Scene 33: strip "former childhood friends" framing.', {
+        knowledgeContext: BASE_KNOWLEDGE_PACKET,
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /REVISION TARGETS/);
+    assert.match(promptText, /Scenes: 33/);
+    assert.match(promptText, /former childhood friends/);
+    assert.match(promptText, /full-target-context/);
+});
+
 test('Stage 8 draft receives source packet, style, continuity, and scene context', async () => {
     const project = {
         data: {

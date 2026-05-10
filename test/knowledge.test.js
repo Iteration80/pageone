@@ -445,6 +445,14 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
 });
 
+test('frontend Stage 6 chat directly executes structured revision memos and guards no-op revisions', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(appJs, /function isStage6DirectRevisionRequest/);
+    assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
+    assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.match(appJs, /returned no blueprint changes/);
+});
+
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const project = {
         data: {
