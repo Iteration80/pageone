@@ -15,7 +15,8 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     // Read the Screenwriting SOP rules
@@ -58,7 +59,7 @@ Do not include any introductory or concluding text.
     `;
 
     try {
-        const response = await generateContent({
+        const response = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
             contents: prompt,
             config: {

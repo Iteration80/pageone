@@ -15,7 +15,8 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     // Strict JSON Schema matching agent_6_scenes.js
@@ -90,7 +91,7 @@ OBJECTIVE: Apply the feedback. Return ONLY the sequences containing changes (wit
     let result;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            result = await generateContent({
+            result = await generateContentFn({
                 model, geminiApiKey, anthropicApiKey,
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config,

@@ -28,7 +28,8 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage10_rewrite.md'), 'utf8');
@@ -66,7 +67,7 @@ ${sceneText}
     // Retry up to 3 times on transient connection errors
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const response = await generateContent({
+            const response = await generateContentFn({
                 model, geminiApiKey, anthropicApiKey,
                 contents: prompt,
                 config: {

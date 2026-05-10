@@ -141,7 +141,8 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage5_treatment.md');
@@ -215,7 +216,7 @@ Return the complete target section after applying only the relevant notes. Prese
             let lastError;
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
-                    const result = await generateContent({
+                    const result = await generateContentFn({
                         model, geminiApiKey, anthropicApiKey,
                         contents: [revisionPrompt],
                         config: {
@@ -270,7 +271,7 @@ Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave ot
 
     const usageList = [];
 
-    const result1 = await generateContent({
+    const result1 = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents: [step1Prompt],
         config: baseConfig,
@@ -292,7 +293,7 @@ BEATS (Sequences 3-4): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
 
-    const result2 = await generateContent({
+    const result2 = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents: [step2Prompt],
         config: baseConfig,
@@ -313,7 +314,7 @@ BEATS (Sequences 5-6): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
 
-    const result3 = await generateContent({
+    const result3 = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents: [step3Prompt],
         config: baseConfig,
@@ -334,7 +335,7 @@ BEATS (Sequences 7-8): ${JSON.stringify(beatsData.filter(s => s.sequence_number 
 
 Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
 
-    const result4 = await generateContent({
+    const result4 = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents: [step4Prompt],
         config: baseConfig,

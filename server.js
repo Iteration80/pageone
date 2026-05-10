@@ -3478,6 +3478,24 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
     }
 });
 
+function buildStage10RewritePlanPrompt({
+    sourceContext = '',
+    title = 'Untitled',
+    charBlock = '',
+    styleNote = '',
+    priorityTask = '',
+    feedbackSection = '',
+    contextSection = '',
+    sceneList = ''
+} = {}) {
+    const sourceBlock = buildMemorySourcePromptBlock(sourceContext, 'Stage 10 Rewrite Plan');
+    return `${sourceBlock ? `${sourceBlock}\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+}
+
+function buildStage10RewritePlannerSystemInstruction(plannerSop) {
+    return buildMemorySourceSystemInstruction(plannerSop, 'Stage 10 Rewrite Plan');
+}
+
 // Audit scope: which scenes does this task affect?
 app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
     try {
@@ -3522,8 +3540,16 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         }
         const sourcePlanSeed = `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
-        const sourceBlock = buildMemorySourcePromptBlock(sourcePacket.contextBlock, 'Stage 10 Rewrite Plan');
-        const prompt = `${sourceBlock ? `${sourceBlock}\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const prompt = buildStage10RewritePlanPrompt({
+            sourceContext: sourcePacket.contextBlock,
+            title,
+            charBlock,
+            styleNote,
+            priorityTask,
+            feedbackSection,
+            contextSection,
+            sceneList
+        });
 
         const plannerSchema = {
             type: 'object',
@@ -3557,7 +3583,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
             anthropicApiKey: modelCfg.anthropicApiKey,
             contents: prompt,
             config: {
-                systemInstruction: buildMemorySourceSystemInstruction(plannerSop, 'Stage 10 Rewrite Plan'),
+                systemInstruction: buildStage10RewritePlannerSystemInstruction(plannerSop),
                 temperature: 0.2,
                 responseMimeType: 'application/json',
                 responseSchema: plannerSchema,
@@ -5270,6 +5296,8 @@ if (require.main === module) {
 
 module.exports = {
     app,
+    buildStage10RewritePlanPrompt,
+    buildStage10RewritePlannerSystemInstruction,
     buildKnowledgeSnapshot,
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,

@@ -37,7 +37,8 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        generateContentFn = generateContent
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
@@ -97,7 +98,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     let canonicalLocations = '';
     try {
         console.log('  Stage 6: Extracting canonical locations from treatment...');
-        const locResult = await generateContent({
+        const locResult = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
             contents: [`Extract every distinct physical location mentioned in this screenplay treatment. Return the location name as it should appear in a scene heading (e.g., "MEDICAL BAY", "COMMAND DECK", "MAIN CORRIDOR"). Include interior/exterior qualifiers only when a location has both (e.g., list both if scenes happen inside and outside). Be exhaustive — scan the entire text.\n\nTREATMENT:\n${fullTreatmentText}`],
             config: {
@@ -154,7 +155,7 @@ ${previousSequenceClimax}
 OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action. Return a JSON object for this sequence only.`;
 
         try {
-            const result = await generateContent({
+            const result = await generateContentFn({
                 model, geminiApiKey, anthropicApiKey,
                 contents: [prompt],
                 config,
