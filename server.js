@@ -1107,13 +1107,156 @@ function knowledgePayloadForClient(knowledge, projectData = null) {
         stage_source_plans: knowledge.stage_source_plans || {},
         stage_source_audits: knowledge.stage_source_audits || {},
         stage_source_readiness: projectData ? buildSourceReadinessList(projectData) : [],
-        accepted_divergences: knowledge.accepted_divergences || []
+        accepted_divergences: knowledge.accepted_divergences || [],
+        memory_snapshot: projectData ? buildKnowledgeSnapshot(projectData) : (knowledge.memory_snapshot || null)
     };
 }
 
 function boundedKnowledgePush(list, item, maxItems = 100) {
     list.push(item);
     if (list.length > maxItems) list.splice(0, list.length - maxItems);
+}
+
+function memoryDedupeKey(value) {
+    return String(formatKnowledgeItem(value) || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/[^\w\s:.-]/g, '')
+        .trim();
+}
+
+function dedupeLatest(items = [], keyFn = memoryDedupeKey, maxItems = 80) {
+    const seen = new Set();
+    const output = [];
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        const key = keyFn(item);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        output.unshift(item);
+    }
+    return output.slice(-maxItems);
+}
+
+function buildStageHandoffSummary(stageId, stageName, stageData) {
+    const fallback = buildFallbackStageCuration(stageId, stageName, stageData);
+    return fallback.handoff_summary;
+}
+
+function refreshStageHandoff(projectData, stageId, stageData, { now = new Date().toISOString(), type = 'stage_auto_handoff' } = {}) {
+    const numericStageId = Number(stageId);
+    const stageName = STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`;
+    const knowledge = ensureProjectKnowledge(projectData);
+    const summary = buildStageHandoffSummary(numericStageId, stageName, stageData);
+    const entry = {
+        at: now,
+        type,
+        summary,
+        stageOutputHash: sourcePlanDataHash(stageData)
+    };
+    knowledge.stage_handoffs[`stage${numericStageId}`] = entry;
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type,
+        stageId: numericStageId,
+        summary: `Refreshed ${stageName} memory handoff.`
+    }, 120);
+    compactProjectKnowledge(projectData, { now });
+    return entry;
+}
+
+function buildKnowledgeSnapshot(projectData, { now = new Date().toISOString() } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const handoffs = Object.entries(knowledge.stage_handoffs || {})
+        .map(([key, value]) => {
+            const stageId = Number(String(key).replace('stage', ''));
+            return {
+                stageId,
+                stageName: STAGE_NAMES[stageId] || key,
+                at: value?.at || null,
+                summary: compactText(value?.summary || value || '', 500)
+            };
+        })
+        .filter(item => item.summary)
+        .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
+    const readiness = buildSourceReadinessList(projectData).map(item => ({
+        stageId: item.stageId,
+        stageName: item.stageName,
+        status: item.status,
+        label: item.label,
+        checkedAt: item.checkedAt,
+        issueCount: item.issueCounts?.total || 0
+    }));
+    const sourceSummary = sourceBibleSummary(knowledge);
+    const continuity = (knowledge.continuity_watchlist || []).map(formatKnowledgeItem).filter(Boolean).slice(-12);
+    const divergences = (knowledge.accepted_divergences || []).map(formatKnowledgeItem).filter(Boolean).slice(-8);
+    const decisions = (knowledge.decision_log || []).map(formatKnowledgeItem).filter(Boolean).slice(-8);
+
+    return {
+        generatedAt: now,
+        sourceCount: knowledge.source_registry?.length || 0,
+        sourceBibleSummary: compactText(sourceSummary, 2_200),
+        stageHandoffs: handoffs,
+        continuityWatchlist: continuity,
+        acceptedDivergences: divergences,
+        recentDecisions: decisions,
+        sourceReadiness: readiness,
+        summary: compactText([
+            sourceSummary ? `Source bible: ${compactText(sourceSummary, 600)}` : '',
+            handoffs.length ? `Stage handoffs: ${handoffs.map(item => `${item.stageName}: ${item.summary}`).join(' ')}` : '',
+            continuity.length ? `Continuity: ${continuity.join(' ')}` : ''
+        ].filter(Boolean).join('\n'), 1_600)
+    };
+}
+
+function compactProjectKnowledge(projectData, { now = new Date().toISOString(), recordDecision = false, reason = 'memory_compacted' } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const bible = knowledge.source_bible || {};
+    for (const key of ['canon_facts', 'characters', 'settings', 'timeline', 'rules', 'must_keep_elements', 'open_questions']) {
+        if (Array.isArray(bible[key])) {
+            bible[key] = dedupeLatest(bible[key].map(item => compactText(item, 600)).filter(Boolean), memoryDedupeKey, 80);
+        }
+    }
+    bible.curated_notes = dedupeLatest((bible.curated_notes || []).map(item => compactText(item, 600)).filter(Boolean), memoryDedupeKey, 100);
+    bible.compactedAt = now;
+
+    knowledge.continuity_watchlist = dedupeLatest(
+        (knowledge.continuity_watchlist || []).map(item => compactText(formatKnowledgeItem(item), 600)).filter(Boolean),
+        memoryDedupeKey,
+        80
+    );
+    knowledge.accepted_divergences = dedupeLatest(
+        knowledge.accepted_divergences || [],
+        item => memoryDedupeKey(item?.summary || item),
+        80
+    );
+    knowledge.decision_log = dedupeLatest(
+        knowledge.decision_log || [],
+        item => `${item?.type || 'decision'}|${item?.stageId || ''}|${memoryDedupeKey(item?.summary || item)}`,
+        120
+    );
+
+    const compactHandoffs = {};
+    for (const [key, value] of Object.entries(knowledge.stage_handoffs || {})) {
+        if (!/^stage(?:[1-9]|10)$/.test(key)) continue;
+        const summary = compactText(value?.summary || value || '', 1_200);
+        if (!summary) continue;
+        compactHandoffs[key] = {
+            ...(typeof value === 'object' && !Array.isArray(value) ? value : {}),
+            summary
+        };
+    }
+    knowledge.stage_handoffs = compactHandoffs;
+
+    if (recordDecision) {
+        boundedKnowledgePush(knowledge.decision_log, {
+            at: now,
+            type: reason,
+            summary: 'Compacted project memory for downstream assistant context.'
+        }, 120);
+    }
+    knowledge.memory_snapshot = buildKnowledgeSnapshot(projectData, { now });
+    return knowledge;
 }
 
 function compactAuditForKnowledge(audit = {}) {
@@ -4349,6 +4492,7 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
                 sourceId: persisted.savedSource.id,
                 summary: `${persisted.savedSource.duplicate ? 'Referenced existing' : 'Uploaded'} project source: ${persisted.savedSource.name}`
             }, 120);
+            compactProjectKnowledge(projectData, { now });
             return projectData;
         });
 
@@ -4387,6 +4531,7 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
                 type: 'source_removed',
                 summary: `Removed source ${sourceId}`
             });
+            compactProjectKnowledge(projectData);
             return projectData;
         });
         const knowledge = ensureProjectKnowledge(updatedProject);
@@ -4435,6 +4580,7 @@ app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) =
                     summary: cleanSummary
                 };
             }
+            compactProjectKnowledge(projectData, { now });
             return projectData;
         });
 
@@ -4489,6 +4635,7 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
                 type: 'accepted_source_divergence',
                 summary: cleanSummary
             };
+            compactProjectKnowledge(projectData, { now });
             return projectData;
         });
 
@@ -4633,6 +4780,7 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
                 summary: cleanProposal.decision_summary,
                 handoff: cleanProposal.handoff_summary
             }, 120);
+            compactProjectKnowledge(projectData, { now });
 
             return projectData;
         });
@@ -4642,6 +4790,37 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
     } catch (error) {
         console.error('stage curation apply error:', error.message);
         res.status(500).json({ error: 'Failed to apply project memory updates' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/refresh-stage-handoff', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { stageId, stageDataOverride } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Invalid stage ID' });
+        }
+
+        const updatedProject = await updateProjectJSON(id, async (projectData) => {
+            const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+            const overrideText = stageDataOverrideToText(stageDataOverride);
+            const stageData = overrideText === null ? builtStage.stageData : overrideText;
+            refreshStageHandoff(projectData, numericStageId, stageData);
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({
+            ok: true,
+            handoff: knowledge.stage_handoffs[`stage${numericStageId}`] || null,
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject)
+        });
+    } catch (error) {
+        console.error('stage handoff refresh error:', error.message);
+        res.status(500).json({ error: 'Failed to refresh stage handoff' });
     }
 });
 
@@ -4656,6 +4835,30 @@ app.get('/api/projects/:id/knowledge/diagnostics', requireAuth, async (req, res)
     } catch (error) {
         console.error('knowledge diagnostics error:', error.message);
         res.status(500).json({ error: 'Failed to inspect project knowledge' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/compact', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            compactProjectKnowledge(projectData, {
+                recordDecision: true,
+                reason: 'project_memory_compacted'
+            });
+            return projectData;
+        });
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({
+            ok: true,
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject),
+            diagnostics: buildKnowledgeDiagnostics(updatedProject)
+        });
+    } catch (error) {
+        console.error('knowledge compact error:', error.message);
+        res.status(500).json({ error: 'Failed to compact project memory' });
     }
 });
 
@@ -4704,6 +4907,7 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
                 type: 'project_memory_review_updated',
                 summary: 'Project memory was manually reviewed and updated.'
             }, 120);
+            compactProjectKnowledge(projectData, { now });
             return projectData;
         });
 
@@ -4801,6 +5005,7 @@ ${sourceMaterial}`,
                 type: 'source_bible_rebuilt',
                 summary: `Rebuilt source bible from ${sourceIds.length} source document${sourceIds.length === 1 ? '' : 's'}.`
             }, 120);
+            compactProjectKnowledge(freshProject, { now });
             return freshProject;
         });
 
@@ -4995,6 +5200,7 @@ if (require.main === module) {
 
 module.exports = {
     app,
+    buildKnowledgeSnapshot,
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
@@ -5005,10 +5211,12 @@ module.exports = {
     buildSourceUsePlan,
     buildSourceAuditFixNotes,
     compactAuditForKnowledge,
+    compactProjectKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
     recordStageSourceAudit,
     recordSourcePlanUsage,
+    refreshStageHandoff,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
     sourceAuditHasActionableItems,

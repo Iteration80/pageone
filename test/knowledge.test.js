@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    buildKnowledgeSnapshot,
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
@@ -12,10 +13,12 @@ const {
     buildSourceAuditFixNotes,
     buildSourceUsePlan,
     compactAuditForKnowledge,
+    compactProjectKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
     recordStageSourceAudit,
     recordSourcePlanUsage,
+    refreshStageHandoff,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
     sourceAuditHasActionableItems,
@@ -355,4 +358,61 @@ test('persistChatAttachmentToKnowledge supports direct project upload tagging an
     assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
     assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
     assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
+});
+
+test('compactProjectKnowledge dedupes memory and builds assistant snapshot', () => {
+    const project = {
+        data: {
+            stage1_pitch: { pitch: { title: 'Blue Key', synopsis: 'Mara finds a key.' } },
+            knowledge: {
+                source_registry: [{ id: 'src_key', name: 'Source', summary: 'Blue key canon.' }],
+                source_bible: {
+                    summary: 'Mara finds the blue key.',
+                    canon_facts: ['The blue key is in the arcade.', 'The blue key is in the arcade.'],
+                    curated_notes: ['Stage 2: Keep the key.', 'Stage 2: Keep the key.']
+                },
+                continuity_watchlist: ['Mara keeps the key.', 'Mara keeps the key.'],
+                decision_log: [
+                    { type: 'note', stageId: 1, summary: 'Keep key.' },
+                    { type: 'note', stageId: 1, summary: 'Keep key.' }
+                ],
+                accepted_divergences: [
+                    { summary: 'Jules becomes June.' },
+                    { summary: 'Jules becomes June.' }
+                ],
+                stage_handoffs: {
+                    stage1: { summary: 'Pitch approved. Mara finds a blue key.' },
+                    junk: { summary: 'Remove me.' }
+                }
+            }
+        }
+    };
+
+    const knowledge = compactProjectKnowledge(project, { now: '2026-05-09T12:00:00.000Z' });
+
+    assert.deepEqual(knowledge.source_bible.canon_facts, ['The blue key is in the arcade.']);
+    assert.deepEqual(knowledge.source_bible.curated_notes, ['Stage 2: Keep the key.']);
+    assert.deepEqual(knowledge.continuity_watchlist, ['Mara keeps the key.']);
+    assert.equal(knowledge.decision_log.length, 1);
+    assert.equal(knowledge.accepted_divergences.length, 1);
+    assert.ok(knowledge.stage_handoffs.stage1);
+    assert.equal(knowledge.stage_handoffs.junk, undefined);
+    assert.match(knowledge.memory_snapshot.summary, /Mara finds the blue key/);
+    assert.equal(knowledge.memory_snapshot.stageHandoffs.length, 1);
+});
+
+test('refreshStageHandoff stores compact fallback handoff for approval', () => {
+    const project = { data: { knowledge: {} } };
+    const handoff = refreshStageHandoff(
+        project,
+        2,
+        { outline: [{ sequence_number_and_title: 'Act I', beats: [{ beat_label: 'Opening', description: 'Mara finds the blue key.' }] }] },
+        { now: '2026-05-09T12:00:00.000Z' }
+    );
+    const snapshot = buildKnowledgeSnapshot(project, { now: '2026-05-09T12:00:00.000Z' });
+
+    assert.match(handoff.summary, /Outline approved/);
+    assert.match(project.data.knowledge.stage_handoffs.stage2.summary, /Mara finds the blue key/);
+    assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'stage_auto_handoff'));
+    assert.equal(snapshot.stageHandoffs[0].stageId, 2);
 });

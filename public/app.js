@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sourceLibraryMeta = document.getElementById('sourceLibraryMeta');
     const sourceBiblePanel = document.getElementById('sourceBiblePanel');
     const sourceLibraryStatus = document.getElementById('sourceLibraryStatus');
+    const knowledgeSnapshotPanel = document.getElementById('knowledgeSnapshotPanel');
     const knowledgeDiagnosticsPanel = document.getElementById('knowledgeDiagnosticsPanel');
     const knowledgeReviewPanel = document.getElementById('knowledgeReviewPanel');
     const sourceLibraryList = document.getElementById('sourceLibraryList');
@@ -205,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUploadSource = document.getElementById('btnUploadSource');
     const btnRebuildSourceBible = document.getElementById('btnRebuildSourceBible');
     const btnKnowledgeDiagnostics = document.getElementById('btnKnowledgeDiagnostics');
+    const btnCompactMemory = document.getElementById('btnCompactMemory');
     const btnSourceLibraryClose = document.getElementById('btnSourceLibraryClose');
 
     // Legacy / Convenience references for existing stages
@@ -1835,6 +1837,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     btnRebuildSourceBible?.addEventListener('click', () => rebuildSourceBible());
     btnKnowledgeDiagnostics?.addEventListener('click', () => loadKnowledgeDiagnostics());
+    btnCompactMemory?.addEventListener('click', () => compactProjectMemory());
     sourceUploadForm?.addEventListener('submit', uploadSourceToKnowledge);
     sourceLibraryList?.addEventListener('click', (event) => {
         const btn = event.target.closest('.source-library-delete');
@@ -3275,6 +3278,36 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderKnowledgeSnapshot(snapshot = {}) {
+        if (!knowledgeSnapshotPanel) return;
+        const handoffs = Array.isArray(snapshot.stageHandoffs) ? snapshot.stageHandoffs.slice(-6) : [];
+        const continuity = Array.isArray(snapshot.continuityWatchlist) ? snapshot.continuityWatchlist.slice(-6) : [];
+        const readiness = Array.isArray(snapshot.sourceReadiness) ? snapshot.sourceReadiness : [];
+        const generated = snapshot.generatedAt ? new Date(snapshot.generatedAt).toLocaleString() : 'Not built yet';
+        knowledgeSnapshotPanel.innerHTML = `
+            <div class="knowledge-panel-header">
+                <strong>Memory Snapshot</strong>
+                <span>${escapeHtml(generated)}</span>
+            </div>
+            <p class="knowledge-snapshot-summary">${escapeHtml(snapshot.summary || 'No compact assistant memory snapshot yet.')}</p>
+            <div class="knowledge-snapshot-grid">
+                <section>
+                    <h4>Stage Handoffs</h4>
+                    ${handoffs.length ? `<ul>${handoffs.map(item => `<li><strong>${escapeHtml(item.stageName || `Stage ${item.stageId || ''}`)}:</strong> ${escapeHtml(item.summary || '')}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No handoffs saved yet.</p>'}
+                </section>
+                <section>
+                    <h4>Continuity</h4>
+                    ${continuity.length ? `<ul>${continuity.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No continuity items yet.</p>'}
+                </section>
+            </div>
+            ${readiness.length ? `
+                <div class="knowledge-snapshot-readiness">
+                    ${readiness.map(item => `<span class="source-readiness-pill source-readiness-${escapeHtml(item.status || 'unknown')}">${escapeHtml(item.stageName || `Stage ${item.stageId || ''}`)}: ${escapeHtml(item.label || item.status || 'Unknown')}</span>`).join('')}
+                </div>
+            ` : ''}
+        `;
+    }
+
     function renderKnowledgeReview(knowledge = {}) {
         if (!knowledgeReviewPanel) return;
         const handoffs = knowledge.stage_handoffs || {};
@@ -3374,6 +3407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sourceLibraryMeta.textContent = `${formatCountLabel(sources.length, 'source', 'sources')} saved`;
         }
         renderSourceBiblePanel(knowledge.source_bible || {});
+        renderKnowledgeSnapshot(knowledge.memory_snapshot || {});
         renderKnowledgeReview(knowledge);
         if (!sourceLibraryList) return;
         if (!sources.length) {
@@ -3441,6 +3475,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btnRebuildSourceBible.disabled = false;
             btnRebuildSourceBible.textContent = originalText;
+        }
+    }
+
+    async function compactProjectMemory() {
+        if (!activeProjectId || !btnCompactMemory) return;
+        const originalText = btnCompactMemory.textContent;
+        btnCompactMemory.disabled = true;
+        btnCompactMemory.textContent = 'Compacting...';
+        setSourceLibraryStatus('Compacting project memory...');
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/compact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            setProjectKnowledge(data.knowledge);
+            renderSourceLibrary(data.knowledge);
+            renderKnowledgeDiagnostics(data.diagnostics || {});
+            setSourceLibraryStatus('Project memory compacted.');
+        } catch (err) {
+            setSourceLibraryStatus('Memory compaction failed: ' + err.message, true);
+        } finally {
+            btnCompactMemory.disabled = false;
+            btnCompactMemory.textContent = originalText;
         }
     }
 
@@ -6449,8 +6508,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function refreshStageMemoryHandoff(stageId) {
+        if (!activeProjectId) return false;
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/refresh-stage-handoff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stageId, stageDataOverride: getStageApprovalSnapshot(stageId) })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            setProjectKnowledge(data.knowledge);
+            return true;
+        } catch (err) {
+            console.warn('Automatic stage handoff skipped:', err.message);
+            return false;
+        }
+    }
+
     async function offerStageMemoryCuration(stageId) {
         if (!activeProjectId) return false;
+        await refreshStageMemoryHandoff(stageId);
         try {
             const res = await fetch(`/api/projects/${activeProjectId}/knowledge/propose-stage-curation`, {
                 method: 'POST',
