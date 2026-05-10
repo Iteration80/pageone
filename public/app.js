@@ -6330,13 +6330,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
             <div class="source-warning-card">
                 <div class="source-warning-card-header">
-                    <strong>Source Readiness Note</strong>
+                    <strong>Source check note</strong>
                     <span>${escapeHtml(stageLabel)}</span>
                 </div>
                 <ul>
                     ${safeWarnings.slice(0, 5).map(warning => `<li>${escapeHtml(warning)}</li>`).join('')}
                 </ul>
-                <p>Run Check Source for a fresh source alignment pass.</p>
+                <p>Use Check Source to compare this stage with your saved project sources.</p>
             </div>
         `;
     }
@@ -6379,10 +6379,10 @@ document.addEventListener('DOMContentLoaded', () => {
         banner.dataset.sourceWarningStage = String(stageId);
         banner.innerHTML = `
             <div>
-                <strong>Source readiness note</strong>
+                <strong>Source check note</strong>
                 <span>${escapeHtml(safeWarnings[0])}</span>
             </div>
-            <button type="button" class="source-warning-dismiss" title="Dismiss source readiness note">x</button>
+            <button type="button" class="source-warning-dismiss" title="Dismiss source check note">x</button>
         `;
         banner.querySelector('.source-warning-dismiss')?.addEventListener('click', () => banner.remove());
 

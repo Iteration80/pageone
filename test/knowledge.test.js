@@ -338,6 +338,7 @@ test('source response extras expose short project memory provenance', () => {
     const extras = sourceResponseExtras(packet);
 
     assert.ok(extras.sourceMemory);
+    assert.equal(extras.sourceWarnings, undefined);
     assert.equal(extras.sourceMemory.stageId, 8);
     assert.equal(extras.sourceMemory.sources[0].name, 'Graphic Novel.pdf');
     assert.ok(extras.sourceMemory.handoffs.some(handoff => /Scene Blueprint/.test(handoff.stageName)));
@@ -407,6 +408,8 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
     assert.match(appJs, /Missing handoff/);
     assert.match(appJs, /Stale handoff/);
     assert.match(appJs, /source-plan-ledger-invalidated/);
+    assert.match(appJs, /Source check note/);
+    assert.doesNotMatch(appJs, /Source Readiness Note/);
 });
 
 test('frontend chat attachment inputs advertise all supported source formats', () => {
@@ -519,7 +522,7 @@ test('buildSourceReadinessGate avoids AI audits when saved readiness is fresh', 
         severity: 'ok',
         canProceed: true,
         shouldRunAudit: false,
-        message: 'Outline has a fresh source audit with no open findings.'
+        message: 'Outline has a fresh source check with no open findings.'
     });
     assert.equal(buildSourceReadinessGate({ status: 'issues', stageName: 'Scenes' }).action, 'resolve_audit');
     assert.equal(buildSourceReadinessGate({ status: 'stale', stageName: 'Treatment' }).shouldRunAudit, true);
@@ -556,6 +559,7 @@ test('buildSourceGenerationPacket includes source contract without recording usa
     assert.equal(packet.stageId, 2);
     assert.equal(packet.readiness.status, 'needs_audit');
     assert.ok(packet.warnings.some(item => item.includes('no recorded source audit')));
+    assert.equal(sourceResponseExtras(packet).sourceWarnings, undefined);
     assert.match(packet.contextBlock, /SOURCE READINESS/);
     assert.match(packet.contextBlock, /Graphic Novel\.pdf/);
     assert.deepEqual(project.data.knowledge.stage_source_plans, {});

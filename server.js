@@ -1217,7 +1217,28 @@ Preserve concrete facts from project knowledge and source documents. If existing
 
 function sourceWarningsForResponse(packet = {}) {
     if (!packet) return undefined;
-    return Array.isArray(packet.warnings) && packet.warnings.length ? packet.warnings : undefined;
+    const readiness = packet.readiness || {};
+    if (readiness.status === 'needs_audit' && !readiness.isAuditInvalidated) return undefined;
+    if (!Array.isArray(packet.warnings) || !packet.warnings.length) return undefined;
+
+    const stageName = readiness.stageName || packet.stageName || `Stage ${readiness.stageId || packet.stageId || ''}`.trim();
+    const friendlyWarnings = packet.warnings.map(warning => {
+        if (readiness.status === 'stale') {
+            return `${stageName} changed after its last source check. Run Check Source before approval if this stage needs to stay aligned with your uploads.`;
+        }
+        if (readiness.status === 'issues') {
+            return `${stageName} has unresolved source check findings. Review them before treating this stage as source-aligned.`;
+        }
+        if (readiness.status === 'fixed_since_audit') {
+            return `${stageName} has source fixes that have not been checked yet. Run Check Source to confirm them.`;
+        }
+        return String(warning || '')
+            .replace(/\bsource audit\b/gi, 'source check')
+            .replace(/\bsource packet\b/gi, 'saved sources')
+            .replace(/\bcanon\b/gi, 'source material');
+    }).filter(Boolean);
+
+    return friendlyWarnings.length ? friendlyWarnings : undefined;
 }
 
 function compactMemoryLabels(items = [], maxItems = 4) {
@@ -2089,7 +2110,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'ok',
             canProceed: true,
             shouldRunAudit: false,
-            message: `${stageName} has a fresh source audit with no open findings.`
+            message: `${stageName} has a fresh source check with no open findings.`
         };
     }
     if (status === 'resolved') {
@@ -2098,7 +2119,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'ok',
             canProceed: true,
             shouldRunAudit: false,
-            message: `${stageName} source findings have been addressed or accepted.`
+            message: `${stageName} source check findings have been addressed or accepted.`
         };
     }
     if (status === 'issues') {
@@ -2107,7 +2128,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'warning',
             canProceed: false,
             shouldRunAudit: false,
-            message: `${stageName} has unresolved source audit findings.`
+            message: `${stageName} has unresolved source check findings.`
         };
     }
     if (status === 'stale') {
@@ -2116,7 +2137,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'warning',
             canProceed: false,
             shouldRunAudit: true,
-            message: `${stageName} changed after the last source audit. Run Check Source again before approval.`
+            message: `${stageName} changed after the last source check. Run Check Source again before approval.`
         };
     }
     if (status === 'fixed_since_audit') {
@@ -2125,7 +2146,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'warning',
             canProceed: false,
             shouldRunAudit: true,
-            message: `${stageName} has source fixes applied after the last audit. Recheck to confirm alignment.`
+            message: `${stageName} has source fixes applied after the last check. Recheck to confirm alignment.`
         };
     }
     if (status === 'needs_audit') {
@@ -2134,7 +2155,7 @@ function buildSourceReadinessGate(readiness = {}) {
             severity: 'info',
             canProceed: false,
             shouldRunAudit: true,
-            message: `${stageName} has saved sources but no recorded source audit yet.`
+            message: `PageOne has saved source material for ${stageName}. Run Check Source before approval if you want to verify this stage matches your uploads.`
         };
     }
     return {

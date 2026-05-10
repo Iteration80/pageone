@@ -4,6 +4,9 @@
 
 ---
 
+### 2026-05-10 - Clarified source upload status messaging
+Routine first-use source check reminders no longer appear as warning banners after generation. Remaining source notices use plainer "Source check" language for writers.
+
 ### 2026-05-10 - Source upload picker widened beyond PDF
 Stage 1 direct source upload and trained style uploads now advertise `.pdf`, `.txt`, `.md`, `.fountain`, `.fdx`, and `.docx`, and direct generation uploads extract non-PDF text before prompting.
 
