@@ -6614,16 +6614,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastUsed = cached?.lastUsedAt ? new Date(cached.lastUsedAt).toLocaleString() : '';
         const cachedRefs = (cached?.sourceReferences || []).slice(0, 4);
         const localWarnings = (cached?.localCheck?.warnings || []).map(warning => warning.message || warning);
+        const memorySnapshot = plan.memorySnapshot || cached?.memorySnapshot || null;
+        const snapshotUsed = !!(plan.usesMemorySnapshot || cached?.memorySnapshotUsed || memorySnapshot?.hasSnapshot);
+        const snapshotLines = [];
+        if (memorySnapshot?.summary) snapshotLines.push(memorySnapshot.summary);
+        if (memorySnapshot?.stageHandoffs?.length) {
+            snapshotLines.push(...memorySnapshot.stageHandoffs.slice(-3).map(item => `${item.stageName || `Stage ${item.stageId || ''}`}: ${item.summary || formatKnowledgeItemForUi(item)}`));
+        }
+        if (memorySnapshot?.continuityWatchlist?.length) {
+            snapshotLines.push(...memorySnapshot.continuityWatchlist.slice(-3));
+        }
         return `
             <div class="source-audit-card source-plan-card">
                 <div class="source-audit-card-header">
                     <strong>Source Use Plan</strong>
                     <span>${escapeHtml(plan.stageName || `Stage ${plan.stageId || ''}`)} - ${escapeHtml(plan.profile || 'Project source plan')}</span>
                     <span class="source-plan-status source-plan-status-${escapeHtml(statusClass)}">${escapeHtml(statusCopy[freshness] || statusCopy.not_used)}</span>
+                    ${snapshotUsed ? '<span class="source-plan-status source-plan-status-used">Snapshot used</span>' : ''}
                 </div>
                 ${lastUsed ? `<p class="source-plan-meta">Last generation use: ${escapeHtml(lastUsed)}${cached?.reason ? ` (${escapeHtml(cached.reason.replace(/_/g, ' '))})` : ''}</p>` : '<p class="source-plan-meta">This plan has not been recorded by a generation or revision yet.</p>'}
                 ${freshness === 'stale' ? '<p class="source-plan-meta source-plan-warning">The current stage text differs from the last recorded source-plan use.</p>' : ''}
                 ${plan.hasKnowledge ? '' : '<p class="source-audit-empty">No saved project knowledge yet. Upload source material or add project notes first.</p>'}
+                ${snapshotLines.length ? renderList('Compact Memory Snapshot', snapshotLines.slice(0, 6), 'No compact memory snapshot available.') : ''}
                 ${renderList('Stage Rules', plan.directives, 'No stage-specific rules available.')}
                 ${plan.handoff ? renderList('Current Handoff', [plan.handoff], '') : ''}
                 ${renderList('Continuity To Preserve', plan.continuityWatchlist, 'No continuity items selected.')}

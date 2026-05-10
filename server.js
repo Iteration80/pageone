@@ -831,6 +831,8 @@ function recordSourcePlanUsage(projectData, stageId, stageData = '', reason = 'g
         sourceIds,
         sourceReferences,
         directives: Array.isArray(plan.directives) ? plan.directives : [],
+        memorySnapshotUsed: !!plan.usesMemorySnapshot,
+        memorySnapshot: plan.memorySnapshot || null,
         localCheck
     };
 
@@ -845,13 +847,31 @@ function recordSourcePlanUsage(projectData, stageId, stageData = '', reason = 'g
             stageId: numericStageId,
             stageName: entry.stageName,
             at: now,
-            summary: `${entry.stageName} ${reason.replace(/_/g, ' ')} ${selectedSummary}.`,
+            summary: `${entry.stageName} ${reason.replace(/_/g, ' ')} ${selectedSummary}${entry.memorySnapshotUsed ? ' with compact memory snapshot' : ''}.`,
             sourceIds,
+            memorySnapshotUsed: entry.memorySnapshotUsed,
             warnings: localCheck.warnings.map(warning => warning.message)
         }, 120);
     }
 
     return entry;
+}
+
+function summarizeMemorySnapshotForPlan(snapshot = {}) {
+    const stageHandoffs = Array.isArray(snapshot.stageHandoffs) ? snapshot.stageHandoffs.slice(-5) : [];
+    const continuity = Array.isArray(snapshot.continuityWatchlist) ? snapshot.continuityWatchlist.slice(-6) : [];
+    const divergences = Array.isArray(snapshot.acceptedDivergences) ? snapshot.acceptedDivergences.slice(-4) : [];
+    const summary = compactText(snapshot.summary || snapshot.sourceBibleSummary || '', 900);
+    const hasSnapshot = !!(summary || stageHandoffs.length || continuity.length || divergences.length);
+    return hasSnapshot ? {
+        hasSnapshot,
+        generatedAt: snapshot.generatedAt || null,
+        sourceCount: snapshot.sourceCount || 0,
+        summary,
+        stageHandoffs,
+        continuityWatchlist: continuity,
+        acceptedDivergences: divergences
+    } : null;
 }
 
 function buildSourceUsePlan(projectData, stageId, stageData = '') {
@@ -868,6 +888,9 @@ function buildSourceUsePlan(projectData, stageId, stageData = '') {
     const handoff = knowledge.stage_handoffs?.[`stage${numericStageId}`] || knowledge.stage_handoffs?.[numericStageId] || '';
     const acceptedDivergences = (knowledge.accepted_divergences || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
     const continuityWatchlist = (knowledge.continuity_watchlist || []).slice(-10).map(formatKnowledgeItem).filter(Boolean);
+    const memorySnapshot = summarizeMemorySnapshotForPlan(
+        knowledge.memory_snapshot || buildKnowledgeSnapshot(projectData, { includeReadiness: false })
+    );
     const query = `${profile.queryTerms.join(' ')}\n${stageName}\n${compactText(stageData, 8_000)}`;
     const sourceReferences = relevantSourceSegmentsForStage(
         knowledge,
@@ -875,7 +898,7 @@ function buildSourceUsePlan(projectData, stageId, stageData = '') {
         numericStageId,
         profile.maxSources
     ).map(sourceReferenceForSegment);
-    const hasKnowledge = !!(knowledge.source_registry.length || bibleSummary || handoff || acceptedDivergences.length || continuityWatchlist.length);
+    const hasKnowledge = !!(knowledge.source_registry.length || bibleSummary || handoff || acceptedDivergences.length || continuityWatchlist.length || memorySnapshot);
 
     return {
         stageId: numericStageId,
@@ -889,6 +912,8 @@ function buildSourceUsePlan(projectData, stageId, stageData = '') {
         acceptedDivergences,
         handoff: formatKnowledgeItem(handoff),
         bibleSummary: compactText(bibleSummary, 1_600),
+        memorySnapshot,
+        usesMemorySnapshot: !!memorySnapshot,
         stageOutputHash,
         cachedPlan,
         freshness: cachedPlan?.status || 'not_used'
@@ -904,6 +929,17 @@ function formatSourceUsePlan(plan) {
     ];
     if (plan.directives?.length) {
         sections.push(`### Stage-Specific Source Rules\n${plan.directives.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (plan.memorySnapshot?.hasSnapshot) {
+        const lines = [];
+        if (plan.memorySnapshot.summary) lines.push(compactText(plan.memorySnapshot.summary, 900));
+        if (plan.memorySnapshot.stageHandoffs?.length) {
+            lines.push(`Stage handoffs:\n${plan.memorySnapshot.stageHandoffs.map(item => `- ${item.stageName || `Stage ${item.stageId || ''}`}: ${formatKnowledgeItem(item.summary || item)}`).join('\n')}`);
+        }
+        if (plan.memorySnapshot.continuityWatchlist?.length) {
+            lines.push(`Continuity:\n${plan.memorySnapshot.continuityWatchlist.map(item => `- ${formatKnowledgeItem(item)}`).join('\n')}`);
+        }
+        sections.push(`### Compact Memory Snapshot\n${lines.filter(Boolean).join('\n\n')}`);
     }
     if (plan.handoff) sections.push(`### Approved Stage Handoff\n${plan.handoff}`);
     if (plan.continuityWatchlist?.length) {
@@ -949,15 +985,41 @@ function sourceBibleSummary(knowledge) {
     ].filter(Boolean).join('\n\n');
 }
 
+function formatMemorySnapshotForContext(snapshot = {}) {
+    const lines = [];
+    if (snapshot.summary) lines.push(`Summary:\n${compactText(snapshot.summary, 1_200)}`);
+    if (snapshot.stageHandoffs?.length) {
+        lines.push(`Stage Handoffs:\n${snapshot.stageHandoffs.slice(-8).map(item => {
+            return `- ${item.stageName || `Stage ${item.stageId || ''}`}: ${formatKnowledgeItem(item.summary || item)}`;
+        }).join('\n')}`);
+    }
+    if (snapshot.continuityWatchlist?.length) {
+        lines.push(`Continuity Watchlist:\n${snapshot.continuityWatchlist.slice(-10).map(item => `- ${formatKnowledgeItem(item)}`).join('\n')}`);
+    }
+    if (snapshot.acceptedDivergences?.length) {
+        lines.push(`Accepted Divergences:\n${snapshot.acceptedDivergences.slice(-6).map(item => `- ${formatKnowledgeItem(item)}`).join('\n')}`);
+    }
+    if (snapshot.sourceReadiness?.length) {
+        lines.push(`Source Readiness:\n${snapshot.sourceReadiness.slice(0, 10).map(item => {
+            const issues = item.issueCount ? `, ${item.issueCount} issue${item.issueCount === 1 ? '' : 's'}` : '';
+            return `- ${item.stageName || `Stage ${item.stageId || ''}`}: ${item.label || item.status || 'Unknown'}${issues}`;
+        }).join('\n')}`);
+    }
+    if (!lines.length) return '';
+    return `### Compact Memory Snapshot\nUse this first. It is the curated project state that should guide downstream choices before consulting detailed source excerpts.\n\n${lines.join('\n\n')}`;
+}
+
 function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', stageName = '', stageData = '', maxChars = KNOWLEDGE_CONTEXT_LIMIT } = {}) {
     const knowledge = ensureProjectKnowledge(projectData);
     const sources = knowledge.source_registry || [];
     const bibleSummary = sourceBibleSummary(knowledge);
+    const memorySnapshot = buildKnowledgeSnapshot(projectData);
+    const memorySnapshotBlock = formatMemorySnapshotForContext(memorySnapshot);
     const watchlist = (knowledge.continuity_watchlist || []).slice(-12).map(formatKnowledgeItem).filter(Boolean);
     const recentDecisions = (knowledge.decision_log || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
     const acceptedDivergences = (knowledge.accepted_divergences || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
     const handoff = knowledge.stage_handoffs?.[`stage${stageId}`] || knowledge.stage_handoffs?.[stageId] || '';
-    const hasKnowledge = sources.length || bibleSummary || watchlist.length || recentDecisions.length || acceptedDivergences.length || handoff;
+    const hasKnowledge = memorySnapshotBlock || sources.length || bibleSummary || watchlist.length || recentDecisions.length || acceptedDivergences.length || handoff;
     if (!hasKnowledge) return '';
 
     const query = `${userMessage}\n${stageName}\n${compactText(stageData, 8_000)}`;
@@ -968,6 +1030,7 @@ function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', st
         '## PROJECT KNOWLEDGE (PERSISTENT MEMORY)\nUse this as source-aware project memory. Treat source material as reference/canon when it conflicts with assistant speculation.'
     ];
 
+    if (memorySnapshotBlock) sections.push(memorySnapshotBlock);
     if (bibleSummary) sections.push(`### Source Bible Summary\n${compactText(bibleSummary, 3_500)}`);
     if (watchlist.length) sections.push(`### Continuity Watchlist\n${watchlist.map(item => `- ${item}`).join('\n')}`);
     if (relevant.length) {
@@ -1165,7 +1228,7 @@ function refreshStageHandoff(projectData, stageId, stageData, { now = new Date()
     return entry;
 }
 
-function buildKnowledgeSnapshot(projectData, { now = new Date().toISOString() } = {}) {
+function buildKnowledgeSnapshot(projectData, { now = new Date().toISOString(), includeReadiness = true } = {}) {
     const knowledge = ensureProjectKnowledge(projectData);
     const handoffs = Object.entries(knowledge.stage_handoffs || {})
         .map(([key, value]) => {
@@ -1179,14 +1242,16 @@ function buildKnowledgeSnapshot(projectData, { now = new Date().toISOString() } 
         })
         .filter(item => item.summary)
         .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
-    const readiness = buildSourceReadinessList(projectData).map(item => ({
-        stageId: item.stageId,
-        stageName: item.stageName,
-        status: item.status,
-        label: item.label,
-        checkedAt: item.checkedAt,
-        issueCount: item.issueCounts?.total || 0
-    }));
+    const readiness = includeReadiness
+        ? buildSourceReadinessList(projectData).map(item => ({
+            stageId: item.stageId,
+            stageName: item.stageName,
+            status: item.status,
+            label: item.label,
+            checkedAt: item.checkedAt,
+            issueCount: item.issueCounts?.total || 0
+        }))
+        : [];
     const sourceSummary = sourceBibleSummary(knowledge);
     const continuity = (knowledge.continuity_watchlist || []).map(formatKnowledgeItem).filter(Boolean).slice(-12);
     const divergences = (knowledge.accepted_divergences || []).map(formatKnowledgeItem).filter(Boolean).slice(-8);

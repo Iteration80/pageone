@@ -80,6 +80,8 @@ test('knowledge context includes accepted divergences and relevant source proven
     });
 
     assert.match(context, /Graphic Novel\.pdf/);
+    assert.match(context, /Compact Memory Snapshot/);
+    assert.ok(context.indexOf('Compact Memory Snapshot') < context.indexOf('Relevant Source Documents'));
     assert.match(context, /Accepted Source Divergences/);
     assert.match(context, /combining Jules and June/);
     assert.match(sourceBibleSummary(project.data.knowledge), /Project Adaptation Notes/);
@@ -198,8 +200,10 @@ test('buildSourceUsePlan applies stage-specific retrieval and accepted divergenc
 
     assert.equal(stageSourceProfile(8).label, 'Draft scene execution');
     assert.equal(plan.profile, 'Draft scene execution');
+    assert.equal(plan.usesMemorySnapshot, true);
     assert.ok(plan.sourceReferences.some(ref => ref.sourceId === 'src_plot'));
     assert.match(text, /SOURCE-FIRST GENERATION PLAN/);
+    assert.match(text, /Compact Memory Snapshot/);
     assert.match(text, /Jules is renamed June/);
     assert.match(text, /arcade climax/);
 });
@@ -231,9 +235,11 @@ test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const stalePlan = buildSourceUsePlan(project, 6, 'Edited blueprint output.');
 
     assert.equal(entry.stageId, 6);
+    assert.equal(entry.memorySnapshotUsed, true);
     assert.equal(freshPlan.freshness, 'used');
     assert.equal(stalePlan.freshness, 'stale');
     assert.equal(project.data.knowledge.stage_source_plans.stage6.sourceIds[0], 'src_plot');
+    assert.equal(project.data.knowledge.stage_source_plans.stage6.memorySnapshotUsed, true);
     assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_plan_used'));
 });
 
