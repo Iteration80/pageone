@@ -17,6 +17,7 @@ const {
     compactAuditForKnowledge,
     compactProjectKnowledge,
     formatSourceUsePlan,
+    prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,
@@ -417,6 +418,16 @@ test('frontend chat attachment inputs advertise all supported source formats', (
             assert.ok(accept.includes(ext), `${accept} should include ${ext}`);
         }
     }
+
+    for (const inputId of ['pdfUpload', 'sourceKnowledgeUpload', 'createStyleFiles']) {
+        const match = indexHtml.match(new RegExp(`id="${inputId}"[^>]*accept="([^"]+)"`));
+        assert.ok(match, `${inputId} should have an accept attribute`);
+        for (const ext of ['.pdf', '.txt', '.md', '.fountain', '.docx', '.fdx']) {
+            assert.ok(match[1].includes(ext), `${inputId} should include ${ext}`);
+        }
+    }
+    assert.match(indexHtml, /Attach Source/);
+    assert.doesNotMatch(indexHtml, /Attach PDF/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
@@ -575,6 +586,32 @@ test('persistChatAttachmentToKnowledge supports direct project upload tagging an
     assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
     assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
     assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
+});
+
+test('prepareGenerationUpload extracts non-pdf stage uploads for direct generation', async () => {
+    const project = { data: {} };
+    const upload = {
+        originalname: 'Arcade Source.md',
+        mimetype: 'text/markdown',
+        buffer: Buffer.from('# Arcade Source\nMara finds the blue key in the flooded arcade.')
+    };
+
+    const prepared = await prepareGenerationUpload(project, upload, {
+        stageId: 1,
+        userMessage: 'Use this source for the pitch.',
+        forceTextBlock: true
+    });
+
+    assert.equal(prepared.agentFile, null);
+    assert.match(prepared.textBlock, /UPLOADED SOURCE FILE: Arcade Source\.md/);
+    assert.match(prepared.textBlock, /Mara finds the blue key/);
+
+    const source = project.data.knowledge.source_registry[0];
+    assert.equal(source.name, 'Arcade Source.md');
+    assert.match(source.text, /flooded arcade/);
+    assert.ok(source.tags.includes('stage_upload'));
+    assert.ok(source.tags.includes('stage1'));
+    assert.ok(source.tags.includes('markdown'));
 });
 
 test('persistChatAttachmentToKnowledge extracts markdown, fountain, docx, and fdx chat uploads', async () => {

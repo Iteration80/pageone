@@ -643,6 +643,60 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
     };
 }
 
+function uploadFileToAttachment(file) {
+    if (!file?.buffer) return null;
+    return {
+        name: file.originalname || 'Untitled source',
+        mimeType: file.mimetype || 'application/octet-stream',
+        data: file.buffer.toString('base64')
+    };
+}
+
+function isPdfUploadFile(file) {
+    const name = String(file?.originalname || '').toLowerCase();
+    const mime = String(file?.mimetype || '').toLowerCase();
+    return mime.includes('pdf') || name.endsWith('.pdf');
+}
+
+function uploadedSourcePromptBlock(attachment, fileText) {
+    if (!attachment || !fileText) return '';
+    return `## UPLOADED SOURCE FILE: ${attachment.name}\n${compactText(fileText, 80_000)}`;
+}
+
+function appendUploadedSourceBlock(text, uploadContext) {
+    const base = String(text || '').trim();
+    const block = uploadContext?.textBlock || '';
+    if (!block) return base;
+    return [base, block].filter(Boolean).join('\n\n');
+}
+
+async function prepareGenerationUpload(projectData, uploadedFile, { stageId, userMessage = '', originTag = 'stage_upload', forceTextBlock = false } = {}) {
+    const attachment = uploadFileToAttachment(uploadedFile);
+    if (!attachment) {
+        return { attachment: null, fileText: '', savedSource: null, agentFile: null, textBlock: '', isPdf: false };
+    }
+
+    let fileText = '';
+    let savedSource = null;
+    if (projectData) {
+        const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag });
+        fileText = persisted.fileText;
+        savedSource = persisted.savedSource;
+    } else {
+        fileText = normalizeSourceText(await extractAttachmentText(attachment));
+    }
+
+    const isPdf = isPdfUploadFile(uploadedFile);
+    return {
+        attachment,
+        fileText,
+        savedSource,
+        agentFile: isPdf ? uploadedFile : null,
+        textBlock: (!isPdf || forceTextBlock) ? uploadedSourcePromptBlock(attachment, fileText) : '',
+        isPdf
+    };
+}
+
 function tokenizeForKnowledge(text) {
     const counts = new Map();
     const source = String(text || '').toLowerCase().slice(0, 40_000);
@@ -2470,24 +2524,30 @@ app.use(express.json({ limit: '20mb' }));
 app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { prompt, projectId } = req.body;
-        const pdfFile = req.file;
+        const uploadedFile = req.file;
         let projectData = null;
         let sourcePacket = null;
+        let uploadContext = null;
 
         if (projectId) {
             if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
             projectData = JSON.parse(content);
-            const stage1Seed = `${prompt || 'Generate pitch options.'}\n${pdfFile?.originalname || ''}`;
-            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: prompt || '' });
+            uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: prompt || 'Generate pitch options.' });
+            const stage1Prompt = appendUploadedSourceBlock(prompt, uploadContext);
+            const stage1Seed = `${stage1Prompt || 'Generate pitch options.'}\n${uploadContext?.attachment?.name || ''}`;
+            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: stage1Prompt || prompt || '' });
+        } else {
+            uploadContext = await prepareGenerationUpload(null, uploadedFile);
         }
 
         // Validation intentionally omitted — allows random pitch generation with no input
 
         console.log("Generating pitch options...");
+        const promptWithUpload = appendUploadedSourceBlock(prompt, uploadContext);
         const { result, usage } = await agent1Pitch(
-            prompt,
-            pdfFile,
+            promptWithUpload,
+            uploadContext?.agentFile || null,
             sourcePacket ? getModelConfigWithSourcePacket(1, sourcePacket) : getModelConfig(1)
         );
         if (projectData && sourcePacket) {
@@ -2505,7 +2565,7 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
 app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { currentPitch, userNote, projectId } = req.body || {};
-        const pdfFile = req.file;
+        const uploadedFile = req.file;
 
         if (!currentPitch || !userNote) {
             return res.status(400).json({ error: "Missing currentPitch or userNote" });
@@ -2516,19 +2576,25 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         if (!parsedPitch) return res.status(400).json({ error: "Invalid currentPitch JSON" });
         let projectData = null;
         let sourcePacket = null;
+        let uploadContext = null;
         if (projectId) {
             if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
             projectData = JSON.parse(content);
-            const stage1Seed = `${JSON.stringify(parsedPitch, null, 2)}\n${userNote}\n${pdfFile?.originalname || ''}`;
-            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: userNote });
+            uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: userNote, forceTextBlock: true });
+            const userNoteWithUpload = appendUploadedSourceBlock(userNote, uploadContext);
+            const stage1Seed = `${JSON.stringify(parsedPitch, null, 2)}\n${userNoteWithUpload}\n${uploadContext?.attachment?.name || ''}`;
+            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: userNoteWithUpload });
+        } else {
+            uploadContext = await prepareGenerationUpload(null, uploadedFile, { forceTextBlock: true });
         }
+        const userNoteWithUpload = appendUploadedSourceBlock(userNote, uploadContext);
 
         console.log("Revising pitch...");
         const { result, usage } = await agent1Refine(
             JSON.stringify(parsedPitch),
-            userNote,
-            pdfFile,
+            userNoteWithUpload,
+            uploadContext?.agentFile || null,
             sourcePacket ? getModelConfigWithSourcePacket(1, sourcePacket) : getModelConfig(1)
         );
         if (projectData && sourcePacket) {
@@ -2546,7 +2612,7 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
 app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentBeats, notes } = req.body;
-        const pdfFile = req.file;
+        const uploadedFile = req.file;
 
         if (!isValidProjectId(projectId)) {
             return res.status(400).json({ error: "Missing or invalid projectId" });
@@ -2567,17 +2633,19 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         }
 
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
+        const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 2, userMessage: notes || '', forceTextBlock: true });
+        const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 
         console.log("Generating Stage 2 Outline...");
-        const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notes || ''}`;
-        const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notes || '' });
-        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfigWithSourcePacket(2, sourcePacket));
+        const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
+        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
         projectData.data.stage2_outline = outlineData;
-        notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notes ? 'revision' : 'generation');
+        notesWithUpload ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -2592,7 +2660,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
 app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
         const { projectId, currentCharacters, notes } = req.body;
-        const pdfFile = req.file;
+        const uploadedFile = req.file;
 
         if (!isValidProjectId(projectId)) {
             return res.status(400).json({ error: "Missing or invalid projectId" });
@@ -2616,17 +2684,19 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         }
 
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
+        const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
+        const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 
         console.log("Generating Stage 3 Characters...");
-        const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notes || ''}`;
-        const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notes || '' });
-        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfigWithSourcePacket(3, sourcePacket));
+        const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
+        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(3, sourcePacket));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
         projectData.data.stage3_characters = characterData;
-        notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(characterData, null, 2), notes ? 'revision' : 'generation');
+        notesWithUpload ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(characterData, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -2640,7 +2710,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
 
 app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId, currentBeats, notes } = req.body || {};
-    const pdfFile = req.file;
+    const uploadedFile = req.file;
 
     if (!isValidProjectId(projectId)) {
         return res.status(400).json({ error: "Missing or invalid projectId" });
@@ -2675,10 +2745,12 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
     try {
         console.log("Generating Stage 4 Beats...");
-        const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notes || ''}`;
-        const sourcePacket = buildSourceGenerationPacket(projectData, 4, stage4KnowledgeSeed, { userMessage: notes || '' });
+        const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 4, userMessage: notes || '', forceTextBlock: true });
+        const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
+        const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notesWithUpload}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 4, stage4KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: beatsResult, usage } = await agent4Beats(
-            pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
+            pitchData, beatsData, charsData, parsedCurrentBeats, notesWithUpload, uploadContext.agentFile,
             (label) => send({ type: 'progress', label }),
             getModelConfigWithSourcePacket(4, sourcePacket)
         );
@@ -2687,8 +2759,8 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
-        notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notes ? 'revision' : 'generation');
+        notesWithUpload ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -2704,6 +2776,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
 app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId } = req.body || {};
+    const uploadedFile = req.file;
     if (!isValidProjectId(projectId)) {
         return res.status(400).json({ error: "Missing or invalid projectId" });
     }
@@ -2744,18 +2817,20 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 
     try {
         console.log("Generating Stage 5 Chained Treatment...");
-        const stage5KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedTreatment ? JSON.stringify(parsedTreatment, null, 2) : ''}\n${notes || ''}`;
-        const sourcePacket = buildSourceGenerationPacket(projectData, 5, stage5KnowledgeSeed, { userMessage: notes || '' });
+        const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 5, userMessage: notes || '', forceTextBlock: true });
+        const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
+        const stage5KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedTreatment ? JSON.stringify(parsedTreatment, null, 2) : ''}\n${notesWithUpload}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 5, stage5KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: treatmentResult, usageList } = await agent5Treatment(
-            pitchData, charactersData, beatsData, parsedTreatment, notes,
+            pitchData, charactersData, beatsData, parsedTreatment, notesWithUpload,
             (step, total, label) => send({ type: 'progress', step, total, label }),
             getModelConfigWithSourcePacket(5, sourcePacket)
         );
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
-        notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(treatmentResult, null, 2), notes ? 'revision' : 'generation');
+        notesWithUpload ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(treatmentResult, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
@@ -4537,16 +4612,11 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         const screenplayTitles = [];
         if (req.files?.length) {
             for (const file of req.files) {
-                const ext = (file.originalname || '').split('.').pop().toLowerCase();
                 const title = file.originalname.replace(/\.[^.]+$/, '');
                 screenplayTitles.push(title);
-                if (ext === 'pdf') {
-                    const pdfParse = require('pdf-parse');
-                    const parsed = await pdfParse(file.buffer);
-                    screenplayTexts.push(parsed.text);
-                } else {
-                    screenplayTexts.push(file.buffer.toString('utf-8'));
-                }
+                const attachment = uploadFileToAttachment(file);
+                const extractedText = normalizeSourceText(await extractAttachmentText(attachment));
+                if (extractedText) screenplayTexts.push(extractedText);
             }
         }
 
@@ -5664,6 +5734,7 @@ module.exports = {
     isMemoryRecallRequest,
     buildMemoryRecallResponse,
     removeKnowledgeSource,
+    prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,

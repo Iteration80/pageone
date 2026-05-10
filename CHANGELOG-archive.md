@@ -4,6 +4,9 @@
 
 ---
 
+### 2026-05-10 - Source upload picker widened beyond PDF
+Stage 1 direct source upload and trained style uploads now advertise `.pdf`, `.txt`, `.md`, `.fountain`, `.fdx`, and `.docx`, and direct generation uploads extract non-PDF text before prompting.
+
 ### 2026-05-10 - Assistant memory lifecycle verified
 Added Project Knowledge operator notes covering upload-to-memory lifecycle, source readiness states, source types/tags, and when writers should open Project Knowledge.
 

@@ -121,7 +121,7 @@ Do not require writers to open Project Knowledge for routine memory use. It is a
 | `script_reference` | `script` | Screenplay/draft/script material, including `.fountain` and `.fdx` when detected as script-like. |
 | `development_notes` | `notes` | Writer notes, adaptation notes, coverage notes, and other project-development material. |
 
-Additional tags can include origin and stage markers such as `chat_upload`, `project_upload`, and `stage2`. File-specific tags include `pdf`, `docx`, `markdown`, and `screenplay`.
+Additional tags can include origin and stage markers such as `chat_upload`, `stage_upload`, `project_upload`, and `stage2`. File-specific tags include `pdf`, `docx`, `markdown`, and `screenplay`.
 
 ## Readiness States
 
