@@ -22,7 +22,8 @@ const {
     sanitizeStageCurationProposal,
     sourceBibleSummary,
     sourceAuditHasActionableItems,
-    stageSourceProfile
+    stageSourceProfile,
+    updateKnowledgeSourceMetadata
 } = require('../server');
 
 test('ensureProjectKnowledge initializes persistent memory buckets without clobbering notes', () => {
@@ -364,6 +365,39 @@ test('persistChatAttachmentToKnowledge supports direct project upload tagging an
     assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
     assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
     assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
+});
+
+test('updateKnowledgeSourceMetadata retags a saved source and records the decision', () => {
+    const project = {
+        data: {
+            knowledge: {
+                source_registry: [{
+                    id: 'src_notes',
+                    name: 'Notes.txt',
+                    type: 'source_reference',
+                    tags: ['source_reference', 'project_upload', 'messy tag!'],
+                    summary: 'Development notes.',
+                    text: 'Mara keeps the blue key.'
+                }],
+                source_bible: { summary: '', curated_notes: [] },
+                continuity_watchlist: [],
+                decision_log: [],
+                accepted_divergences: [],
+                stage_handoffs: {}
+            }
+        }
+    };
+
+    const source = updateKnowledgeSourceMetadata(project, 'src_notes', {
+        type: 'development_notes',
+        tags: ['project_upload', 'Story Notes', 'source_reference']
+    }, { now: '2026-01-03T00:00:00.000Z' });
+
+    assert.equal(source.type, 'development_notes');
+    assert.deepEqual(source.tags, ['project_upload', 'storynotes', 'notes']);
+    assert.equal(source.updatedAt, '2026-01-03T00:00:00.000Z');
+    assert.match(project.data.knowledge.source_bible.sources_summary, /development_notes/);
+    assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_metadata_updated'));
 });
 
 test('compactProjectKnowledge dedupes memory and builds assistant snapshot', () => {

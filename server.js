@@ -240,6 +240,20 @@ const SOURCE_CHUNK_SIZE = 3_500;
 const SOURCE_CHUNK_OVERLAP = 300;
 const SOURCE_CHUNK_LIMIT = 40;
 const KNOWLEDGE_CONTEXT_LIMIT = 14_000;
+const SOURCE_TYPE_OPTIONS = new Set([
+    'source_material',
+    'source_reference',
+    'style_reference',
+    'script_reference',
+    'development_notes'
+]);
+const SOURCE_TYPE_TAGS = new Set(['source_reference', 'style', 'script', 'notes']);
+const SOURCE_TYPE_DEFAULT_TAG = {
+    source_reference: 'source_reference',
+    style_reference: 'style',
+    script_reference: 'script',
+    development_notes: 'notes'
+};
 const STOP_WORDS = new Set([
     'about', 'after', 'again', 'against', 'already', 'also', 'because', 'before',
     'being', 'between', 'could', 'current', 'every', 'first', 'from', 'have',
@@ -1153,15 +1167,58 @@ function summarizeSourceForClient(source) {
         name: source.name,
         mimeType: source.mimeType,
         uploadedAt: source.uploadedAt,
+        updatedAt: source.updatedAt,
         lastReferencedAt: source.lastReferencedAt,
         stageId: source.stageId,
         stagesReferenced: source.stagesReferenced || [],
         type: source.type || 'source_material',
         tags: source.tags || [],
         charCount: source.charCount || 0,
+        chunkCount: Array.isArray(source.chunks) ? source.chunks.length : 0,
+        truncated: !!source.truncated,
+        sourceNote: source.sourceNote || '',
         storage: source.storage || (source.text ? 'text' : source.chunks ? 'chunks' : 'summary'),
         summary: source.summary || ''
     };
+}
+
+function sanitizeSourceTags(tags) {
+    const rawTags = Array.isArray(tags)
+        ? tags
+        : String(tags || '').split(/[,\s]+/);
+    const cleanTags = rawTags
+        .map(tag => String(tag || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''))
+        .filter(Boolean)
+        .filter(tag => tag.length <= 40);
+    return Array.from(new Set(cleanTags)).slice(0, 12);
+}
+
+function updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags } = {}, { now = new Date().toISOString() } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const source = knowledge.source_registry.find(item => item.id === sourceId);
+    if (!source) {
+        const err = new Error('Source not found');
+        err.statusCode = 404;
+        throw err;
+    }
+
+    const cleanType = SOURCE_TYPE_OPTIONS.has(type) ? type : (source.type || 'source_material');
+    const baseTags = tags === undefined ? (source.tags || []) : tags;
+    const cleanTags = sanitizeSourceTags(baseTags).filter(tag => !SOURCE_TYPE_TAGS.has(tag));
+    const typeTag = SOURCE_TYPE_DEFAULT_TAG[cleanType];
+    source.type = cleanType;
+    source.tags = Array.from(new Set([...cleanTags, typeTag].filter(Boolean)));
+    source.updatedAt = now;
+
+    refreshSourceBibleSummary(knowledge);
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type: 'source_metadata_updated',
+        sourceId,
+        summary: `Updated source metadata for ${source.name || sourceId}.`
+    }, 120);
+    compactProjectKnowledge(projectData, { now });
+    return source;
 }
 
 function knowledgePayloadForClient(knowledge, projectData = null) {
@@ -4641,6 +4698,36 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
     }
 });
 
+app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
+    try {
+        const { id, sourceId } = req.params;
+        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
+            return res.status(400).json({ error: 'Invalid project ID or source ID' });
+        }
+
+        const { type, tags } = req.body || {};
+        if (type !== undefined && !SOURCE_TYPE_OPTIONS.has(type)) {
+            return res.status(400).json({ error: 'Invalid source type' });
+        }
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags });
+            return projectData;
+        });
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        const updatedSource = knowledge.source_registry.find(source => source.id === sourceId);
+        res.json({
+            ok: true,
+            source: updatedSource ? summarizeSourceForClient(updatedSource) : null,
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject),
+            diagnostics: buildKnowledgeDiagnostics(updatedProject)
+        });
+    } catch (error) {
+        console.error('knowledge source update error:', error.message);
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 404 ? 'Source not found' : 'Failed to update source' });
+    }
+});
+
 app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
@@ -5320,5 +5407,6 @@ module.exports = {
     sourceAuditHasActionableItems,
     stageSourceProfile,
     stageDataOverrideToText,
+    updateKnowledgeSourceMetadata,
     startServer
 };

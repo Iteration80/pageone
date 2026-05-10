@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
+    let activeStageNum = 1;
     let currentDraftSceneNumber = 1;
     let isBatchGenerating = false;
     const AUTH_STORAGE_KEY = 'pageone_access_key';
@@ -187,6 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
         workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
     const SOURCE_READINESS_STAGES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10]);
+    const SOURCE_TYPE_OPTIONS = [
+        ['source_material', 'Source Material'],
+        ['source_reference', 'Source Reference'],
+        ['style_reference', 'Style Reference'],
+        ['script_reference', 'Script Reference'],
+        ['development_notes', 'Development Notes']
+    ];
 
     // Version History navigation
     const btnVersionHistory = document.getElementById('btnVersionHistory');
@@ -1747,6 +1755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const STAGE_LABELS = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scenes', 7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite' };
 
     function switchStage(stageNum) {
+        activeStageNum = Number(stageNum) || activeStageNum;
         // Hide version history if open
         versionHistoryWorkspace?.classList.add('hidden');
         btnVersionHistory?.classList.remove('active');
@@ -1840,10 +1849,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCompactMemory?.addEventListener('click', () => compactProjectMemory());
     sourceUploadForm?.addEventListener('submit', uploadSourceToKnowledge);
     sourceLibraryList?.addEventListener('click', (event) => {
-        const btn = event.target.closest('.source-library-delete');
-        if (!btn) return;
-        if (!confirm('Delete this source from project knowledge?')) return;
-        deleteSource(btn.dataset.sourceId);
+        const deleteBtn = event.target.closest('.source-library-delete');
+        if (deleteBtn) {
+            if (!confirm('Delete this source from project knowledge?')) return;
+            deleteSource(deleteBtn.dataset.sourceId);
+            return;
+        }
+
+        const updateBtn = event.target.closest('.source-library-update');
+        if (updateBtn) {
+            updateSourceMetadata(updateBtn.dataset.sourceId);
+        }
     });
     knowledgeReviewPanel?.addEventListener('click', (event) => {
         const btn = event.target.closest('[data-action="save-knowledge-review"]');
@@ -3325,12 +3341,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const notesText = (knowledge.source_bible?.curated_notes || []).join('\n');
         const decisions = (knowledge.decision_log || []).slice(-6).reverse();
         const divergences = (knowledge.accepted_divergences || []).slice(-6).reverse();
+        const audits = Object.values(knowledge.stage_source_audits || {})
+            .filter(Boolean)
+            .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
+        const currentReadiness = sourceReadinessForStage(activeStageNum, { knowledge }) || {};
+        const currentPlan = sourcePlanForStage(knowledge, activeStageNum);
+        const currentAudit = sourceAuditForStage(knowledge, activeStageNum);
+        const currentRefs = Array.isArray(currentPlan?.sourceReferences) ? currentPlan.sourceReferences.slice(0, 4) : [];
+        const currentWarnings = Array.isArray(currentPlan?.localCheck?.warnings) ? currentPlan.localCheck.warnings.slice(0, 3) : [];
+        const currentStageLabel = STAGE_LABELS[activeStageNum] || `Stage ${activeStageNum}`;
 
         knowledgeReviewPanel.innerHTML = `
             <div class="knowledge-panel-header">
                 <strong>Project Memory Review</strong>
                 <button type="button" class="secondary-btn" data-action="save-knowledge-review">Save Memory Edits</button>
             </div>
+            <section class="knowledge-inspector-summary">
+                <div>
+                    <h4>Current Stage</h4>
+                    <span class="source-readiness-pill source-readiness-${escapeHtml(currentReadiness.status || 'unknown')}">${escapeHtml(currentStageLabel)}: ${escapeHtml(currentReadiness.label || 'No source status')}</span>
+                    <p>${escapeHtml(currentReadiness.checkedAt ? `Last audit ${formatDateTimeForUi(currentReadiness.checkedAt)}` : 'No audit recorded for the active stage yet.')}</p>
+                </div>
+                <div>
+                    <h4>Used Source Packet</h4>
+                    ${currentPlan ? `
+                        <p>${escapeHtml(currentPlan.lastUsedAt ? `Last used ${formatDateTimeForUi(currentPlan.lastUsedAt)}` : 'Plan recorded, not yet used.')}</p>
+                        ${currentRefs.length ? `<ul>${currentRefs.map(ref => `<li>${escapeHtml(ref.name || ref.sourceId || 'Source')} ${ref.label ? `<span>${escapeHtml(ref.label)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No specific source excerpts were selected.</p>'}
+                        ${currentWarnings.length ? `<p class="source-plan-ledger-warning">${escapeHtml(currentWarnings.map(w => w.message || w).join(' '))}</p>` : ''}
+                    ` : '<p class="knowledge-empty">No generation source packet has been recorded for this stage yet.</p>'}
+                </div>
+                <div>
+                    <h4>Latest Audit Detail</h4>
+                    ${currentAudit ? `
+                        <p>${escapeHtml(formatCountLabel(currentAudit.issueCounts?.total || 0, 'open issue', 'open issues'))}</p>
+                        ${renderMiniList([...(currentAudit.possible_source_mismatches || []), ...(currentAudit.missing_source_elements || []), ...(currentAudit.recommended_fixes || [])], 'No audit issues recorded.')}
+                    ` : '<p class="knowledge-empty">No source audit detail saved for this stage.</p>'}
+                </div>
+            </section>
             <div class="knowledge-review-grid">
                 <section>
                     <h4>Stage Handoffs</h4>
@@ -3372,6 +3419,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }).join('') : '<p class="knowledge-empty">No source readiness data yet.</p>'}
             </section>
+            <section class="source-audit-ledger">
+                <h4>Source Audit Results</h4>
+                ${audits.length ? audits.map(audit => {
+                    const checked = audit.checkedAt ? new Date(audit.checkedAt).toLocaleString() : 'Not checked';
+                    const issues = audit.issueCounts?.total || 0;
+                    const references = Array.isArray(audit.sourceReferences) ? audit.sourceReferences.length : 0;
+                    return `
+                        <details class="source-audit-ledger-item">
+                            <summary>
+                                <strong>${escapeHtml(audit.stageName || `Stage ${audit.stageId || ''}`)}</strong>
+                                <span>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))} · ${escapeHtml(formatCountLabel(references, 'reference', 'references'))} · ${escapeHtml(checked)}</span>
+                            </summary>
+                            <div class="source-audit-ledger-body">
+                                <label>Possible Mismatches</label>
+                                ${renderMiniList(audit.possible_source_mismatches || [], 'No possible mismatches.')}
+                                <label>Missing Source Elements</label>
+                                ${renderMiniList(audit.missing_source_elements || [], 'No missing source elements.')}
+                                <label>Recommended Fixes</label>
+                                ${renderMiniList(audit.recommended_fixes || [], 'No recommended fixes.')}
+                            </div>
+                        </details>
+                    `;
+                }).join('') : '<p class="knowledge-empty">No source audits have been saved yet.</p>'}
+            </section>
             <section class="source-plan-ledger">
                 <h4>Source Plan Ledger</h4>
                 ${sourcePlans.length ? sourcePlans.map(plan => {
@@ -3379,6 +3450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sourceCount = Array.isArray(plan.sourceIds) ? plan.sourceIds.length : 0;
                     const warningCount = Array.isArray(plan.localCheck?.warnings) ? plan.localCheck.warnings.length : 0;
                     const status = warningCount ? `${warningCount} warning${warningCount === 1 ? '' : 's'}` : 'clean';
+                    const refs = Array.isArray(plan.sourceReferences) ? plan.sourceReferences.slice(0, 3) : [];
                     return `
                         <div class="source-plan-ledger-row">
                             <div>
@@ -3387,7 +3459,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div>${escapeHtml(lastUsed)}</div>
                             <div>${escapeHtml(formatCountLabel(sourceCount, 'source', 'sources'))}</div>
-                            <div class="${warningCount ? 'source-plan-ledger-warning' : ''}">${escapeHtml(status)}</div>
+                            <div class="${warningCount ? 'source-plan-ledger-warning' : ''}">
+                                ${escapeHtml(status)}
+                                ${refs.length ? `<span>${escapeHtml(refs.map(ref => ref.name || ref.sourceId || 'Source').join(', '))}</span>` : ''}
+                            </div>
                         </div>
                     `;
                 }).join('') : '<p class="knowledge-empty">No source plans have been recorded by generation yet.</p>'}
@@ -3401,10 +3476,42 @@ document.addEventListener('DOMContentLoaded', () => {
         return item.summary || item.decision || item.note || item.text || JSON.stringify(item);
     }
 
+    function formatDateTimeForUi(value) {
+        return value ? new Date(value).toLocaleString() : '';
+    }
+
+    function formatSourceTypeLabel(type) {
+        const option = SOURCE_TYPE_OPTIONS.find(([value]) => value === type);
+        return option ? option[1] : 'Source Material';
+    }
+
+    function renderSourceTypeOptions(selectedType) {
+        return SOURCE_TYPE_OPTIONS
+            .map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selectedType ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+            .join('');
+    }
+
+    function sourcePlanForStage(knowledge = {}, stageId = activeStageNum) {
+        return knowledge.stage_source_plans?.[`stage${stageId}`] || null;
+    }
+
+    function sourceAuditForStage(knowledge = {}, stageId = activeStageNum) {
+        return knowledge.stage_source_audits?.[`stage${stageId}`] || null;
+    }
+
+    function renderMiniList(items = [], emptyText = 'None recorded.') {
+        const list = items.map(formatKnowledgeItemForUi).filter(Boolean).slice(0, 5);
+        return list.length
+            ? `<ul>${list.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+            : `<p class="knowledge-empty">${escapeHtml(emptyText)}</p>`;
+    }
+
     function renderSourceLibrary(knowledge = {}) {
         const sources = knowledge.source_registry || [];
         if (sourceLibraryMeta) {
-            sourceLibraryMeta.textContent = `${formatCountLabel(sources.length, 'source', 'sources')} saved`;
+            const readiness = sourceReadinessForStage(activeStageNum, { knowledge });
+            const stageLabel = STAGE_LABELS[activeStageNum] || `Stage ${activeStageNum}`;
+            sourceLibraryMeta.textContent = `${formatCountLabel(sources.length, 'source', 'sources')} saved · ${stageLabel}: ${readiness?.label || 'no source status'}`;
         }
         renderSourceBiblePanel(knowledge.source_bible || {});
         renderKnowledgeSnapshot(knowledge.memory_snapshot || {});
@@ -3417,13 +3524,28 @@ document.addEventListener('DOMContentLoaded', () => {
         sourceLibraryList.innerHTML = sources.map(source => {
             const tags = (source.tags || []).slice(0, 5).map(tag => `<span>${escapeHtml(tag)}</span>`).join('');
             const uploaded = source.uploadedAt ? new Date(source.uploadedAt).toLocaleString() : '';
+            const updated = source.updatedAt ? ` - updated ${escapeHtml(new Date(source.updatedAt).toLocaleString())}` : '';
+            const storage = source.storage === 'chunks'
+                ? `${formatCountLabel(source.chunkCount || 0, 'chunk', 'chunks')}${source.truncated ? ', truncated' : ''}`
+                : source.storage || 'summary';
+            const referenced = source.stagesReferenced?.length
+                ? ` - used in stages ${source.stagesReferenced.join(', ')}`
+                : '';
             return `
                 <article class="source-library-item">
                     <div class="source-library-item-main">
                         <div class="source-library-item-title">${escapeHtml(source.name || 'Untitled source')}</div>
-                        <div class="source-library-item-meta">${escapeHtml(source.type || 'source_material')} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}</div>
+                        <div class="source-library-item-meta">${escapeHtml(formatSourceTypeLabel(source.type || 'source_material'))} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))} - ${escapeHtml(storage)}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}${updated}${escapeHtml(referenced)}</div>
                         ${source.summary ? `<p>${escapeHtml(source.summary)}</p>` : ''}
+                        ${source.sourceNote ? `<p class="source-library-note">${escapeHtml(source.sourceNote)}</p>` : ''}
                         ${tags ? `<div class="source-library-tags">${tags}</div>` : ''}
+                        <div class="source-library-controls">
+                            <select class="source-library-type" data-source-id="${escapeHtml(source.id)}" aria-label="Source type">
+                                ${renderSourceTypeOptions(source.type || 'source_material')}
+                            </select>
+                            <input class="source-library-tag-input" data-source-id="${escapeHtml(source.id)}" value="${escapeHtml((source.tags || []).join(', '))}" aria-label="Source tags" placeholder="tags">
+                            <button class="secondary-btn source-library-update" data-source-id="${escapeHtml(source.id)}" type="button">Update</button>
+                        </div>
                     </div>
                     <button class="source-library-delete" data-source-id="${escapeHtml(source.id)}">Delete</button>
                 </article>
@@ -3555,6 +3677,33 @@ document.addEventListener('DOMContentLoaded', () => {
             setSourceLibraryStatus('Source deleted.');
         } catch (err) {
             setSourceLibraryStatus('Delete failed: ' + err.message, true);
+        }
+    }
+
+    async function updateSourceMetadata(sourceId) {
+        if (!activeProjectId || !sourceId) return;
+        const safeSourceId = String(sourceId).replace(/[^a-zA-Z0-9_]/g, '');
+        const type = document.querySelector(`.source-library-type[data-source-id="${safeSourceId}"]`)?.value || 'source_material';
+        const tags = (document.querySelector(`.source-library-tag-input[data-source-id="${safeSourceId}"]`)?.value || '')
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean);
+
+        setSourceLibraryStatus('Updating source metadata...');
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/sources/${encodeURIComponent(sourceId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, tags })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            setProjectKnowledge(data.knowledge);
+            renderSourceLibrary(data.knowledge);
+            renderKnowledgeDiagnostics(data.diagnostics || {});
+            setSourceLibraryStatus('Source metadata updated.');
+        } catch (err) {
+            setSourceLibraryStatus('Source update failed: ' + err.message, true);
         }
     }
 
