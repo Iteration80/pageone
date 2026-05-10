@@ -1,5 +1,9 @@
 const { generateContent } = require('./ai-client');
 const { GoogleGenAI } = require('@google/genai');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 const fs = require('fs');
 const path = require('path');
 
@@ -39,6 +43,14 @@ const coverageSchema = {
                 red_flags:  { type: "array", items: { type: "string" } }
             },
             required: ["assessment", "red_flags"]
+        },
+        source_alignment: {
+            type: "object",
+            properties: {
+                assessment: { type: "string" },
+                protected_elements: { type: "array", items: { type: "string" } },
+                drift_risks: { type: "array", items: { type: "string" } }
+            }
         },
         strengths: {
             type: "array",
@@ -103,14 +115,15 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        generateContentFn = generateContent
     } = modelConfig;
 
-    const response = await generateContent({
+    const response = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents: prompt,
         config: {
-            systemInstruction: sop,
+            systemInstruction: buildMemorySourceSystemInstruction(sop, 'Stage 9 Coverage'),
             temperature: 0.4,
             thinkingConfig: { thinkingLevel: 'HIGH' },
         },
@@ -123,18 +136,19 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
  * Consolidates 2–3 coverage results into a single consensus report.
  * Always uses the fast Gemini flash model — intentional cost optimization.
  */
-const consolidateCoverage = async (results, geminiApiKey) => {
+const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') => {
     const consolidatorSop = fs.readFileSync(
         path.join(__dirname, '../skills/skill_coverage_consolidator.md'), 'utf8'
     );
-    const prompt = `Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
+    const sourceBlock = buildMemorySourcePromptBlock(sourceContext, 'Stage 9 Coverage Consolidation');
+    const prompt = `${sourceBlock ? `${sourceBlock}\n\n---\n\n` : ''}Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions. Preserve source-alignment findings when multiple reports flag them or when a finding concerns an approved project lock.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
 
     const consolidateAi = new GoogleGenAI({ apiKey: geminiApiKey || process.env.GEMINI_API_KEY });
     const response = await consolidateAi.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
-            systemInstruction: consolidatorSop,
+            systemInstruction: buildMemorySourceSystemInstruction(consolidatorSop, 'Stage 9 Coverage Consolidation'),
             temperature: 0.1,
             responseMimeType: 'application/json',
             responseSchema: coverageSchema,
@@ -159,6 +173,7 @@ const consolidateCoverage = async (results, geminiApiKey) => {
  */
 const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_coverage.md'), 'utf8');
+    const sourceSection = buildMemorySourcePromptBlock(modelConfig.knowledgeContext, 'Stage 9 Coverage');
 
     // Build character profiles section if available
     const chars = projectContext.characters || [];
@@ -179,6 +194,8 @@ Logline: ${projectContext.logline || 'Not provided'}
 
 Synopsis:
 ${projectContext.synopsis || 'Not provided'}${charSection}
+
+${sourceSection ? `---\n\n${sourceSection}\n` : ''}
 
 ---
 
@@ -214,7 +231,7 @@ ${fullScriptText}
     }
 
     console.log(`Coverage: ${successes.length} runs succeeded — consolidating...`);
-    const consolidated = await consolidateCoverage(successes.map(s => s.parsed), modelConfig.geminiApiKey || process.env.GEMINI_API_KEY);
+    const consolidated = await consolidateCoverage(successes.map(s => s.parsed), modelConfig.geminiApiKey || process.env.GEMINI_API_KEY, modelConfig.knowledgeContext || '');
     usageList.push(consolidated.usage);
     return { result: consolidated.parsed, usageList };
 };

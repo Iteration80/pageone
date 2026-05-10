@@ -34,6 +34,12 @@ const TREATMENT_FIELDS = [
     }
 ];
 
+function compactText(value, maxChars = 4000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
 function stripRevisionDelimiters(text) {
     return String(text || '')
         .replace(/<<<\s*TREATMENT_SECTION\s*/gi, '')
@@ -102,6 +108,75 @@ function buildTreatmentSectionIndex(treatment) {
         .join('\n');
 }
 
+function formatCharacterLock(character = {}) {
+    const core = character.psychological_core || {};
+    const voice = character.voice_and_behavior || {};
+    const arc = character.arc || {};
+    const deep = character._deep_profile || {};
+    return [
+        `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}): ${character.brief_summary || ''}`,
+        core.desire ? `Want: ${core.desire}` : '',
+        core.psychological_need || core.moral_need ? `Need: ${[core.psychological_need, core.moral_need].filter(Boolean).join(' / ')}` : '',
+        core.ghost_and_wound ? `Wound: ${core.ghost_and_wound}` : '',
+        arc.direction || arc.core_drive ? `Arc: ${[arc.direction, arc.core_drive].filter(Boolean).join(', ')}` : '',
+        voice.voice_tag || voice.pressure_tag ? `Voice/pressure: ${[voice.voice_tag, voice.pressure_tag].filter(Boolean).join(', ')}` : '',
+        deep.scene_behavior_predictions ? `Behavior prediction: ${compactText(deep.scene_behavior_predictions, 450)}` : ''
+    ].filter(Boolean).join(' | ');
+}
+
+function formatBeatForContract(beat = {}, index = 0) {
+    const label = beat.beat_name || beat.beat_label || beat.beat || `Beat ${index + 1}`;
+    const action = beat.detailed_action || beat.description || '';
+    const emotional = beat.emotional_arc ? ` Emotional arc: ${beat.emotional_arc}` : '';
+    return `- ${label}: ${compactText(`${action}${emotional}`, 900)}`;
+}
+
+function buildTreatmentExpansionContract({ pitchData, charactersData, beatsData }) {
+    const pitch = compactText(JSON.stringify(pitchData || {}, null, 2), 2400);
+    const characters = Array.isArray(charactersData) && charactersData.length
+        ? charactersData.map(formatCharacterLock).join('\n')
+        : 'No character profiles provided.';
+    const beatMap = Array.isArray(beatsData) && beatsData.length
+        ? beatsData.map(sequence => {
+            const sequenceNumber = sequence.sequence_number || sequence.sequence || '?';
+            const title = sequence.sequence_title || sequence.sequence_number_and_title || `Sequence ${sequenceNumber}`;
+            const beats = Array.isArray(sequence.beats)
+                ? sequence.beats.map(formatBeatForContract).join('\n')
+                : compactText(JSON.stringify(sequence, null, 2), 1200);
+            return `Sequence ${sequenceNumber}: ${title}\n${beats}`;
+        }).join('\n\n')
+        : 'No beat sheet provided.';
+
+    return compactText(`## APPROVED FULL-STORY TREATMENT CONTRACT
+Stage 5 is an expansion pass. Be cinematic and specific inside the approved beat sheet, but do not rewrite the story architecture.
+
+### Locked Inputs
+Preserve the approved pitch, all named character functions, relationship logic, sequence order, causality, reveals, recurring props, rules, deaths/survival states, family counts, and payoffs established below unless the writer's current notes explicitly change them.
+
+### Creative Latitude
+You may add connective tissue, physical action, scene texture, emotional transitions, and subtextual behavior that make the beats read like a treatment. These additions must support the approved sequence, not replace or relocate it.
+
+### Approved Pitch
+${pitch}
+
+### Character Locks
+${characters}
+
+### Global 8-Sequence Beat Map
+Use this full-story map for continuity in every act call. Expand only the target sequences, but preserve setup/payoff logic from the whole map.
+${beatMap}
+
+### Fidelity Check
+- Do not move a beat into another sequence.
+- Do not drop a named reveal, gag, prop path, rule, relationship turn, or endpoint.
+- Do not solve local story pressure by inventing a new mechanic that was not in the approved pitch, characters, beat sheet, source packet, or writer notes.
+- If the local target section and global map appear to conflict, preserve the most specific approved beat/character fact and keep the output conservative.`, 14_000);
+}
+
+function formatPriorGeneratedContext(parts = [], maxChars = 18_000) {
+    return compactText(parts.filter(Boolean).join('\n\n'), maxChars);
+}
+
 function selectTreatmentFieldsForRevision(notes) {
     const text = String(notes || '');
     const lower = text.toLowerCase();
@@ -167,6 +242,8 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         temperature: 0.5,
     };
     const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 5 Treatment');
+    const treatmentContract = buildTreatmentExpansionContract({ pitchData, charactersData, beatsData });
+    const generationContext = [sourceBlock, treatmentContract].filter(Boolean).join('\n\n');
 
     // Revision Bypass Logic
     if (notes && currentTreatment) {
@@ -197,7 +274,9 @@ You are revising ONE treatment section at a time. Apply the user's notes only wh
             const originalText = revisedTreatment[field.key];
             if (onProgress) onProgress(i + 1, fieldsToRevise.length, `Revising ${field.label}...`);
 
-            const revisionPrompt = `${sourceBlock}USER NOTES:
+            const revisionPrompt = `${generationContext}
+
+USER NOTES:
 ${notes}
 
 FULL TREATMENT SECTION INDEX:
@@ -261,7 +340,9 @@ Return the complete target section after applying only the relevant notes. Prese
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)
     console.log("  Chain Step 1/4: Writing Title, Logline, Characters & Act I...");
     if (onProgress) onProgress(1, 4, 'Writing Act I (Sequences 1–2)...');
-    const step1Prompt = `${sourceBlock}Read Sequences 1 & 2. You must systematically expand EVERY SINGLE BEAT (Opening Image, Theme Stated, Setup, Catalyst, Debate) into full, multi-paragraph narrative prose. Do not skip any beats. Do not compress the timeline.
+    const step1Prompt = `${generationContext}
+
+Read Sequences 1 & 2. You must systematically expand EVERY SINGLE BEAT (Opening Image, Theme Stated, Setup, Catalyst, Debate) into full, multi-paragraph narrative prose. Do not skip any beats. Do not compress the timeline.
 
 PITCH: ${JSON.stringify(pitchData)}
 CHARACTERS: ${JSON.stringify(charactersData)}
@@ -283,11 +364,12 @@ Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave ot
     // Step 2: Act IIA (Sequences 3 & 4)
     console.log("  Chain Step 2/4: Writing Act II (Part 1)...");
     if (onProgress) onProgress(2, 4, 'Writing Act II – Part 1 (Sequences 3–4)...');
-    const step2Prompt = `${sourceBlock}Read Sequences 3 & 4. You must systematically expand EVERY SINGLE BEAT (Break into Two, B-Story, Fun and Games) into full, multi-paragraph narrative prose. Describe the micro-actions.
+    const step2Prompt = `${generationContext}
 
-PRIOR CONTEXT (Act I):
-${parsed1.title_logline_characters}
-${parsed1.act_1}
+Read Sequences 3 & 4. You must systematically expand EVERY SINGLE BEAT (Break into Two, B-Story, Fun and Games) into full, multi-paragraph narrative prose. Describe the micro-actions.
+
+PRIOR GENERATED CONTEXT (Sequences 1-2, for continuity only):
+${formatPriorGeneratedContext([parsed1.title_logline_characters, parsed1.act_1])}
 
 BEATS (Sequences 3-4): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 3 || s.sequence_number === 4))}
 
@@ -305,10 +387,12 @@ Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
     // Step 3: Act IIB (Sequences 5 & 6)
     console.log("  Chain Step 3/4: Writing Act II (Part 2)...");
     if (onProgress) onProgress(3, 4, 'Writing Act II – Part 2 (Sequences 5–6)...');
-    const step3Prompt = `${sourceBlock}Read Sequences 5 & 6. You must systematically expand EVERY SINGLE BEAT (Bad Guys Close In, All is Lost, Dark Night of the Soul) into full, multi-paragraph narrative prose. Maximize the emotional toll and physical stakes.
+    const step3Prompt = `${generationContext}
 
-PRIOR CONTEXT (Act I - IIA):
-${parsed2.act_2a}
+Read Sequences 5 & 6. You must systematically expand EVERY SINGLE BEAT (Bad Guys Close In, All is Lost, Dark Night of the Soul) into full, multi-paragraph narrative prose. Maximize the emotional toll and physical stakes.
+
+PRIOR GENERATED CONTEXT (Sequences 1-4, for continuity only):
+${formatPriorGeneratedContext([parsed1.title_logline_characters, parsed1.act_1, parsed2.act_2a])}
 
 BEATS (Sequences 5-6): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 5 || s.sequence_number === 6))}
 
@@ -326,10 +410,12 @@ Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
     // Step 4: Act III (Sequences 7 & 8)
     console.log("  Chain Step 4/4: Writing Act III...");
     if (onProgress) onProgress(4, 4, 'Writing Act III (Sequences 7–8)...');
-    const step4Prompt = `${sourceBlock}Read Sequences 7 & 8. You must systematically expand EVERY SINGLE BEAT (Break into Three, Finale, Final Image) into full, multi-paragraph narrative prose. Describe the climax beat-by-beat.
+    const step4Prompt = `${generationContext}
 
-PRIOR CONTEXT:
-${parsed3.act_2b}
+Read Sequences 7 & 8. You must systematically expand EVERY SINGLE BEAT (Break into Three, Finale, Final Image) into full, multi-paragraph narrative prose. Describe the climax beat-by-beat.
+
+PRIOR GENERATED CONTEXT (Sequences 1-6, for continuity only):
+${formatPriorGeneratedContext([parsed1.title_logline_characters, parsed1.act_1, parsed2.act_2a, parsed3.act_2b])}
 
 BEATS (Sequences 7-8): ${JSON.stringify(beatsData.filter(s => s.sequence_number === 7 || s.sequence_number === 8))}
 

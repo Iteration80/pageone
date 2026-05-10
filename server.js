@@ -1936,6 +1936,8 @@ function stageDataForReadiness(projectData, stageId) {
                 draft_text: scene.humanized_draft_text || scene.draft_text || ''
             })), null, 2);
         }
+        case 9:
+            return JSON.stringify(data.stage8_coverage || {}, null, 2);
         case 10:
             return JSON.stringify({
                 working: data.stage9_rewrites?.working || {},
@@ -1945,6 +1947,92 @@ function stageDataForReadiness(projectData, stageId) {
         default:
             return '';
     }
+}
+
+function collectBlueprintScenes(projectData) {
+    const scenes = [];
+    for (const seq of projectData?.data?.stage6_scenes || []) {
+        if (!Array.isArray(seq.scenes)) continue;
+        for (const scene of seq.scenes) {
+            scenes.push({
+                ...scene,
+                _sequence_number: seq.sequence_number,
+                _sequence_title: seq.sequence_title || ''
+            });
+        }
+    }
+    return scenes.sort((a, b) => Number(a.scene_number || 0) - Number(b.scene_number || 0));
+}
+
+function formatSceneLockItem(scene, label) {
+    if (!scene) return `${label}: None`;
+    const slugline = scene.scene_heading || scene.slugline || '';
+    return `${label}: Scene ${scene.scene_number}${slugline ? ` - ${slugline}` : ''}
+Narrative action: ${compactText(scene.narrative_action || '', 900)}
+Dramaturgical function: ${compactText(scene.dramaturgical_function || '', 500)}`;
+}
+
+function buildStage8SceneLockPacket(projectData, sceneNumber, targetedScene = null) {
+    const sceneNum = Number(sceneNumber);
+    const allScenes = collectBlueprintScenes(projectData);
+    const currentIndex = allScenes.findIndex(scene => Number(scene.scene_number) === sceneNum);
+    const currentScene = targetedScene || allScenes[currentIndex] || null;
+    if (!currentScene) return '';
+
+    const prevScene = currentIndex > 0 ? allScenes[currentIndex - 1] : null;
+    const nextScene = currentIndex >= 0 && currentIndex < allScenes.length - 1 ? allScenes[currentIndex + 1] : null;
+    const sequence = (projectData?.data?.stage6_scenes || []).find(seq => {
+        return Array.isArray(seq.scenes) && seq.scenes.some(scene => Number(scene.scene_number) === sceneNum);
+    });
+    const sequenceScenes = Array.isArray(sequence?.scenes) ? sequence.scenes : [];
+    const firstInSequence = sequenceScenes[0] || null;
+    const lastInSequence = sequenceScenes[sequenceScenes.length - 1] || null;
+
+    return compactText(`## APPROVED STAGE 8 SCENE LOCK PACKET
+This packet constrains the draft. The writer may create dialogue, action beats, pacing, and texture, but must preserve the approved blueprint facts and handoffs.
+
+Current sequence: ${sequence?.sequence_number || currentScene._sequence_number || 'unknown'}${sequence?.sequence_title || currentScene._sequence_title ? ` - ${sequence?.sequence_title || currentScene._sequence_title}` : ''}
+Sequence start: ${firstInSequence ? `Scene ${firstInSequence.scene_number} - ${firstInSequence.scene_heading || firstInSequence.slugline || ''}` : 'unknown'}
+Sequence endpoint: ${lastInSequence ? `Scene ${lastInSequence.scene_number} - ${lastInSequence.scene_heading || lastInSequence.slugline || ''}` : 'unknown'}
+
+${formatSceneLockItem(prevScene, 'Previous scene handoff')}
+
+${formatSceneLockItem(currentScene, 'Current scene to draft')}
+Estimated page count: ${currentScene.estimated_page_count || 'unknown'}
+
+${formatSceneLockItem(nextScene, 'Next scene handoff')}
+
+Rules:
+- Preserve the current scene's approved event, location, character placement, prop path, reveal, and endpoint.
+- Do not pull events from the previous or next scene into this scene.
+- Do not invent a new plot mechanism, death/survival state, source rule, or relationship turn to make the dialogue easier.
+- If revision notes ask for a change, apply them inside this scene without breaking the previous/next handoff.`, 8_500);
+}
+
+function buildStage10PlannerSceneList(allScenes = [], working = {}) {
+    return allScenes.map(scene => {
+        const sceneText = working[scene.scene_number] || scene.humanized_draft_text || scene.draft_text || '';
+        return `SCENE ${scene.scene_number} - ${scene.scene_heading || scene.slugline || ''}
+Blueprint: ${compactText(scene.narrative_action || '', 320)}
+Function: ${compactText(scene.dramaturgical_function || '', 220)}
+Draft excerpt: ${compactText(sceneText, 420)}`;
+    }).join('\n\n');
+}
+
+function buildStage10RewriteLockPacket(projectData, sceneNumber, sceneMeta = null, sceneText = '', plannedChange = '') {
+    const basePacket = buildStage8SceneLockPacket(projectData, sceneNumber, sceneMeta);
+    return compactText(`${basePacket}
+
+## CURRENT REWRITE CONTEXT
+Planned change for this pass:
+${plannedChange || 'Apply the priority task only where it affects this scene.'}
+
+Current scene text excerpt:
+${compactText(sceneText || '', 1200)}
+
+Stage 10 rule:
+- Fix the coverage task, but preserve approved blueprint facts and the previous/next scene handoff unless the planned change explicitly says to alter them.
+- If a broader continuity change is needed, keep the rewrite conservative and avoid introducing unrequested new canon.`, 10_000);
 }
 
 function stageHasReadinessOutput(projectData, stageId) {
@@ -1964,6 +2052,7 @@ function stageHasReadinessOutput(projectData, stageId) {
             }
             return scenes.some(scene => scene.draft_text || scene.humanized_draft_text);
         }
+        case 9: return !!data.stage8_coverage;
         case 10: return !!Object.keys(data.stage9_rewrites?.working || {}).length;
         default: return false;
     }
@@ -3030,12 +3119,13 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
 
         clearSceneFacts(projectData, sceneNum);
         const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+        const sceneLockPacket = buildStage8SceneLockPacket(projectData, sceneNum, targetedScene);
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 8, draftKnowledgeSeed);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
 
         console.log(`Humanizing draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -3107,12 +3197,13 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
 
         clearSceneFacts(projectData, sceneNum);
         const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+        const sceneLockPacket = buildStage8SceneLockPacket(projectData, sceneNum, targetedScene);
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${feedback}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 8, draftKnowledgeSeed, { userMessage: feedback });
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
 
         console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -3228,16 +3319,19 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         };
 
         console.log(`Generating Stage 9 Coverage for project ${projectId}...`);
-        const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfig(9));
+        const coverageKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${compactText(fullScriptText, 24_000)}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 9, coverageKnowledgeSeed, { userMessage: 'Generate screenplay coverage against approved project memory.' });
+        const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfigWithSourcePacket(9, sourcePacket));
 
         projectData.data = projectData.data || {};
         projectData.data.stage8_coverage = coverageResult;
         stampGenerated(projectData, 'stage8_coverage');
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(coverageResult, null, 2), 'coverage_generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        res.json({ result: coverageResult });
+        res.json({ result: coverageResult, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
         res.status(500).json({ error: "Failed to generate coverage" });
@@ -3959,9 +4053,10 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             };
             clearSceneFacts(projectData, sceneNum);
             const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+            const sceneLockPacket = buildStage8SceneLockPacket(projectData, sceneNum, targetedScene);
             const { styleContent, styleWarning } = await loadProjectStyle(projectData);
             const seed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${fixNotes}`;
-            const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
+            const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
             const humanized = await humanizeDraft(generated.result);
             targetedScene.draft_text = generated.result;
             targetedScene.humanized_draft_text = humanized.result;
@@ -4055,10 +4150,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
         allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-        // Send scene headings only — the planner just needs to know which scenes exist
-        const sceneList = allScenes
-            .map(s => `SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}`)
-            .join('\n');
+        const sceneList = buildStage10PlannerSceneList(allScenes, working);
 
         const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage10_planner.md'), 'utf8');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
@@ -4182,10 +4274,12 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
                 const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
                 const scenePacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${sceneText}\n${s.narrative_action || ''}`, { userMessage: priorityTask });
                 const rewriteModelConfig = getModelConfigWithSourcePacket(10, scenePacket);
+                const blueprint = buildStage10RewriteLockPacket(projectData, s.scene_number, s, sceneText, priorityTask);
                 return rewriteScene(sceneText, priorityTask, {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
+                    blueprint
                 }, '', rewriteModelConfig, styleContent, referenceContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
@@ -4272,9 +4366,10 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
 
         const sourcePlanSeed = `${priorityTask}\n${plannedChange || ''}\n${sceneText}\n${sceneMeta?.narrative_action || ''}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
+        const blueprint = buildStage10RewriteLockPacket(projectData, sceneNum, sceneMeta, sceneText, plannedChange || priorityTask);
         const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
-            { title, sceneNumber: sceneNum, slugline, characters: charProfiles },
+            { title, sceneNumber: sceneNum, slugline, characters: charProfiles, blueprint },
             plannedChange || '',
             getModelConfigWithSourcePacket(10, sourcePacket),
             styleContent,
@@ -4357,11 +4452,14 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         const enrichedFeedback = feedbackParts.join('\n\n---\n\n') || userFeedback;
         const sourcePlanSeed = `${priorityTask}\n${enrichedFeedback || ''}\n${currentText}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: enrichedFeedback || priorityTask });
+        const sceneNum = Number(sceneNumber);
+        const sceneMeta = Number.isFinite(sceneNum) ? findProjectScene(projectData, sceneNum) : null;
+        const blueprint = sceneMeta ? buildStage10RewriteLockPacket(projectData, sceneNum, sceneMeta, currentText, enrichedFeedback || priorityTask) : '';
 
         const { result: proposed_text, usage } = await rewriteScene(
             currentText,
             priorityTask,
-            { title, sceneNumber },
+            { title, sceneNumber, blueprint },
             enrichedFeedback,
             getModelConfigWithSourcePacket(10, sourcePacket),
         );

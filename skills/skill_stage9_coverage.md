@@ -13,6 +13,19 @@ Analyze the provided screenplay and generate a coverage report using the exact s
 
 ---
 
+## PROJECT MEMORY & SOURCE FIDELITY
+If a Project Memory and Source Packet is provided, evaluate the screenplay against it. Treat approved stage handoffs, continuity watchlist items, accepted divergences, and source bible facts as binding project context.
+
+Do not turn this into a separate source-audit report. Fold source and continuity findings into normal coverage:
+* Praise protected elements when the draft preserves important locked material.
+* Flag drift when the draft drops, relocates, contradicts, or muddies an approved plot mechanism, character fact, reveal, rule, prop path, gag/payoff, relationship turn, or ending state.
+* Distinguish intentional accepted divergences from accidental drift. Do not reopen accepted divergences as problems.
+* Any source/continuity drift that affects story comprehension must appear in `macro_todo`; scene-local drift may appear in `micro_todo`.
+
+If the response schema exposes `source_alignment`, use it for a concise assessment, protected elements, and drift risks. If the schema does not expose that field, still reflect those findings in strengths, weaknesses, macro_todo, and micro_todo.
+
+---
+
 ## 1. METADATA & LOGLINE
 * **title:** The title of the screenplay as written.
 * **genre:** The genre(s) (e.g., "Action Thriller", "Romantic Comedy").

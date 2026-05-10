@@ -6,6 +6,12 @@ const {
 const fs = require('fs');
 const path = require('path');
 
+function compactText(value, maxChars = 4000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
 /**
  * Stage 10: Scene Rewrite Agent
  * Applies a single coverage task to one scene. Returns the scene unchanged
@@ -50,12 +56,15 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const charSection = sceneContext.characters
         ? `\n## CHARACTER PROFILES\n${sceneContext.characters}\n`
         : '';
+    const blueprintSection = sceneContext.blueprint
+        ? `\n## APPROVED SCENE LOCKS\nPreserve these approved blueprint facts and neighboring-scene handoffs while applying the rewrite task. Do not solve one coverage issue by changing the scene's core event, location, prop path, reveal, or endpoint unless the planned change explicitly requires it.\n\n${compactText(sceneContext.blueprint, 6000)}\n`
+        : '';
     const sourceSection = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 10 Rewrite');
 
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-${plannedChangeSection}${referenceSection}${styleSection}${sourceSection}${charSection}
+${plannedChangeSection}${referenceSection}${styleSection}${sourceSection}${charSection}${blueprintSection}
 ## PRIORITY CONTEXT
 ${priorityTask}
 

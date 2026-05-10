@@ -5,6 +5,7 @@ const { agent5Treatment } = require('../agents/agent_5_treatment');
 const { generateStage6Scenes } = require('../agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('../agents/agent_6_revise');
 const { generateSceneDraft } = require('../agents/agent_8_draft');
+const { agent8Coverage } = require('../agents/agent_9_coverage');
 const { rewriteScene } = require('../agents/agent_10_rewrite');
 const {
     buildSourceGenerationPacket,
@@ -99,7 +100,14 @@ test('Stage 5 treatment generation carries project memory into each chained prom
     });
 
     assert.equal(calls.length, 4);
-    calls.forEach(call => assertSourceAwareCall(call, 'Stage 5 Treatment'));
+    calls.forEach(call => {
+        assertSourceAwareCall(call, 'Stage 5 Treatment');
+        const promptText = collectText(call.contents);
+        assert.match(promptText, /APPROVED FULL-STORY TREATMENT CONTRACT/);
+        assert.match(promptText, /Global 8-Sequence Beat Map/i);
+    });
+    assert.match(collectText(calls[2].contents), /PRIOR GENERATED CONTEXT \(Sequences 1-4/);
+    assert.match(collectText(calls[3].contents), /PRIOR GENERATED CONTEXT \(Sequences 1-6/);
 });
 
 test('Stage 6 scene generation carries project memory into every sequence prompt', async () => {
@@ -242,14 +250,71 @@ test('Stage 8 draft receives source packet, style, continuity, and scene context
     }, 'Keep the source key moment.', {
         knowledgeContext: packet.contextBlock,
         generateContentFn
-    }, 'Sparse dialogue and tense physical action.', '## CONTINUITY CONTEXT\nMara still has the blue key.');
+    }, 'Sparse dialogue and tense physical action.', '## CONTINUITY CONTEXT\nMara still has the blue key.', 'Previous scene handoff: Scene 11. Current scene to draft: Mara enters with the blue key. Next scene handoff: Scene 13.');
 
     assert.equal(calls.length, 1);
     assertSourceAwareCall(calls[0], 'Stage 8 Draft Scene');
     const promptText = collectText(calls[0].contents);
     assert.match(promptText, /STYLE DIRECTIVES/);
     assert.match(promptText, /CONTINUITY CONTEXT/);
+    assert.match(promptText, /SCENE LOCK PACKET/);
     assert.match(promptText, /SPECIFIC SCENE BLUEPRINT/);
+});
+
+test('Stage 9 coverage receives source packet and memory contract', async () => {
+    let callCount = 0;
+    const { calls, generateContentFn } = makeRecorder(() => {
+        callCount += 1;
+        if (callCount > 1) throw new Error('intentionally fail extra coverage passes');
+        return {
+            text: JSON.stringify({
+                title: 'Arcade Night',
+                genre: 'Thriller',
+                logline: 'Mara searches a flooded arcade for the blue key.',
+                evaluation_grid: {
+                    concept: 'Good',
+                    structure: 'Good',
+                    characterization: 'Good',
+                    pacing: 'Good',
+                    dialogue: 'Good'
+                },
+                synopsis: {
+                    setup: 'Mara enters the arcade.',
+                    escalation: 'The water rises.',
+                    resolution: 'Mara keeps the key.'
+                },
+                authenticity: { assessment: 'Mixed', red_flags: [] },
+                source_alignment: {
+                    assessment: 'Preserves the blue key.',
+                    protected_elements: ['Mara keeps the blue key.'],
+                    drift_risks: []
+                },
+                strengths: [{ headline: 'Protected lock', detail: 'The draft keeps the key with Mara.' }],
+                weaknesses: [],
+                macro_todo: [],
+                micro_todo: [],
+                recommendation: { grade: 'CONSIDER', justification: 'Promising and source-aligned.' }
+            }),
+            usage: { inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    await agent8Coverage('INT. FLOODED ARCADE - NIGHT\nMara grips the blue key.', {
+        title: 'Arcade Night',
+        genre: 'Thriller',
+        logline: 'Mara searches for the key.',
+        synopsis: 'Mara protects June.',
+        characters
+    }, {
+        knowledgeContext: BASE_KNOWLEDGE_PACKET,
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 3);
+    assertSourceAwareCall(calls[0], 'Stage 9 Coverage');
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /PROJECT MEMORY AND SOURCE PACKET/);
+    assert.match(promptText, /FULL SCREENPLAY/);
 });
 
 test('Stage 10 rewrite and planner prompts carry the memory contract', async () => {
@@ -265,7 +330,8 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
             title: 'Arcade Night',
             sceneNumber: 12,
             slugline: 'INT. FLOODED ARCADE - NIGHT',
-            characters: 'Mara: keeps source continuity visible.'
+            characters: 'Mara: keeps source continuity visible.',
+            blueprint: 'Current scene to draft: Mara keeps the blue key in the flooded arcade. Next scene handoff: June sees the key.'
         },
         'Keep the key with Mara.',
         {
@@ -281,6 +347,8 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
     const rewritePrompt = collectText(calls[0].contents);
     assert.match(rewritePrompt, /MACRO TO-DO P1/);
     assert.match(rewritePrompt, /PLANNED CHANGE FOR THIS SCENE/);
+    assert.match(rewritePrompt, /APPROVED SCENE LOCKS/);
+    assert.match(rewritePrompt, /Mara keeps the blue key in the flooded arcade/);
     assert.match(rewritePrompt, /STYLE DIRECTIVES/);
     assert.match(rewritePrompt, /CHARACTER PROFILES/);
 
@@ -292,7 +360,7 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
         priorityTask: 'MACRO TO-DO P1: Fix source continuity around the blue key.',
         feedbackSection: '\n\n## WRITER NOTES ON SCOPE\nOnly fix scenes in the arcade thread.',
         contextSection: '\n\n## BRAINSTORM CONTEXT\nThe writer wants source alignment.',
-        sceneList: 'SCENE 12 - INT. FLOODED ARCADE - NIGHT'
+        sceneList: 'SCENE 12 - INT. FLOODED ARCADE - NIGHT\nBlueprint: Mara enters with the blue key.\nDraft excerpt: Mara loses the key.'
     });
     const plannerSystem = buildStage10RewritePlannerSystemInstruction('Planner SOP');
 
@@ -300,6 +368,8 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
     assert.match(plannerPrompt, /Mara keeps the blue key/);
     assert.match(plannerPrompt, /MACRO TO-DO P1/);
     assert.match(plannerPrompt, /SCENE 12 - INT\. FLOODED ARCADE/);
+    assert.match(plannerPrompt, /Blueprint: Mara enters with the blue key/);
+    assert.match(plannerPrompt, /Draft excerpt: Mara loses the key/);
     assert.match(plannerSystem, /Planner SOP/);
     assert.match(plannerSystem, /MEMORY AND SOURCE CONTRACT/);
     assert.match(plannerSystem, /Stage 10 Rewrite Plan/);
