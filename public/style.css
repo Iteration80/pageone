@@ -228,6 +228,35 @@ body {
     box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px #ffffff;
 }
 
+.stage-source-readiness {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: auto;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: #64748b;
+    flex-shrink: 0;
+}
+.stage-source-readiness.source-readiness-ready,
+.stage-source-readiness.source-readiness-resolved {
+    background: #22c55e;
+    border-color: rgba(34, 197, 94, 0.5);
+}
+.stage-source-readiness.source-readiness-issues,
+.stage-source-readiness.source-readiness-stale,
+.stage-source-readiness.source-readiness-fixed_since_audit {
+    background: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.55);
+}
+.stage-source-readiness.source-readiness-needs_audit {
+    background: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.5);
+}
+.source-readiness-header-badge {
+    display: inline-flex;
+    align-items: center;
+}
+
 /* Stale stage indicator — amber dot after stage name */
 .stage-link.stage-stale::after {
     content: '';

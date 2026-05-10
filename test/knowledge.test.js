@@ -6,6 +6,7 @@ const {
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
     buildSourceReadiness,
+    buildSourceReadinessGate,
     buildSourceReadinessList,
     buildSourceAuditFixNotes,
     buildSourceUsePlan,
@@ -278,6 +279,20 @@ test('buildSourceReadiness reports stale, unresolved, and resolved audit state',
     });
     assert.equal(buildSourceReadiness(project, 6).status, 'fixed_since_audit');
     assert.ok(buildSourceReadinessList(project).some(item => item.stageId === 6));
+});
+
+test('buildSourceReadinessGate avoids AI audits when saved readiness is fresh', () => {
+    assert.deepEqual(buildSourceReadinessGate({ status: 'ready', stageName: 'Outline' }), {
+        action: 'proceed',
+        severity: 'ok',
+        canProceed: true,
+        shouldRunAudit: false,
+        message: 'Outline has a fresh source audit with no open findings.'
+    });
+    assert.equal(buildSourceReadinessGate({ status: 'issues', stageName: 'Scenes' }).action, 'resolve_audit');
+    assert.equal(buildSourceReadinessGate({ status: 'stale', stageName: 'Treatment' }).shouldRunAudit, true);
+    assert.equal(buildSourceReadinessGate({ status: 'needs_audit', stageName: 'Pitch' }).action, 'run_audit');
+    assert.equal(buildSourceReadinessGate({ status: 'no_sources', stageName: 'Style' }).canProceed, true);
 });
 
 test('persistChatAttachmentToKnowledge supports direct project upload tagging and dedupe', async () => {

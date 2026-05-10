@@ -4,6 +4,7 @@ setGlobalDispatcher(new Agent({ headersTimeout: 300_000, bodyTimeout: 300_000 })
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -1143,19 +1144,36 @@ function stageDataForReadiness(projectData, stageId) {
     const data = projectData?.data || {};
     switch (Number(stageId)) {
         case 1:
-            return JSON.stringify(data.stage1_pitch?.pitch || {}, null, 2);
+            return JSON.stringify({
+                pitch: data.stage1_pitch?.pitch || {},
+                notes: data.stage1_pitch?.notes || ''
+            }, null, 2);
         case 2:
-            return JSON.stringify(data.stage2_outline?.outline || [], null, 2);
+            return JSON.stringify({ outline: data.stage2_outline?.outline || [] }, null, 2);
         case 3:
-            return JSON.stringify(data.stage3_characters?.characters || [], null, 2);
+            return JSON.stringify({ characters: data.stage3_characters?.characters || [] }, null, 2);
         case 4:
             return JSON.stringify(data.stage4_beats || data.stage4_treatment || [], null, 2);
         case 5:
             return JSON.stringify(data.stage5_treatment || {}, null, 2);
         case 6:
             return JSON.stringify(data.stage6_scenes || [], null, 2);
-        case 7:
-            return JSON.stringify({ style: data.stage7_style || null }, null, 2);
+        case 7: {
+            const styleSlug = data.stage7_style || null;
+            let styleContent = '';
+            if (styleSlug) {
+                try {
+                    styleContent = fsSync.readFileSync(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
+                } catch {
+                    try {
+                        styleContent = fsSync.readFileSync(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
+                    } catch {
+                        styleContent = '';
+                    }
+                }
+            }
+            return JSON.stringify({ slug: styleSlug, content: styleContent }, null, 2);
+        }
         case 8: {
             const scenes = [];
             for (const seq of data.stage6_scenes || []) {
@@ -1168,7 +1186,11 @@ function stageDataForReadiness(projectData, stageId) {
             })), null, 2);
         }
         case 10:
-            return JSON.stringify(data.stage9_rewrites?.working || {}, null, 2);
+            return JSON.stringify({
+                working: data.stage9_rewrites?.working || {},
+                pending: data.stage9_rewrites?.pending || {},
+                priority_idx: data.stage9_rewrites?.priority_idx ?? null
+            }, null, 2);
         default:
             return '';
     }
@@ -1312,6 +1334,98 @@ function buildSourceReadiness(projectData, stageId, stageData = null) {
             isStale: !!plan.cachedPlan.isStale,
             sourceIds: plan.cachedPlan.sourceIds || []
         } : null
+    };
+}
+
+function buildSourceReadinessGate(readiness = {}) {
+    const status = readiness.status || 'unknown';
+    const stageName = readiness.stageName || `Stage ${readiness.stageId || ''}`;
+    if (status === 'no_sources') {
+        return {
+            action: 'proceed',
+            severity: 'none',
+            canProceed: true,
+            shouldRunAudit: false,
+            message: 'No saved project sources are available for this stage.'
+        };
+    }
+    if (status === 'ready') {
+        return {
+            action: 'proceed',
+            severity: 'ok',
+            canProceed: true,
+            shouldRunAudit: false,
+            message: `${stageName} has a fresh source audit with no open findings.`
+        };
+    }
+    if (status === 'resolved') {
+        return {
+            action: 'proceed',
+            severity: 'ok',
+            canProceed: true,
+            shouldRunAudit: false,
+            message: `${stageName} source findings have been addressed or accepted.`
+        };
+    }
+    if (status === 'issues') {
+        return {
+            action: 'resolve_audit',
+            severity: 'warning',
+            canProceed: false,
+            shouldRunAudit: false,
+            message: `${stageName} has unresolved source audit findings.`
+        };
+    }
+    if (status === 'stale') {
+        return {
+            action: 'run_audit',
+            severity: 'warning',
+            canProceed: false,
+            shouldRunAudit: true,
+            message: `${stageName} changed after the last source audit. Run Check Source again before approval.`
+        };
+    }
+    if (status === 'fixed_since_audit') {
+        return {
+            action: 'run_audit',
+            severity: 'warning',
+            canProceed: false,
+            shouldRunAudit: true,
+            message: `${stageName} has source fixes applied after the last audit. Recheck to confirm alignment.`
+        };
+    }
+    if (status === 'needs_audit') {
+        return {
+            action: 'run_audit',
+            severity: 'info',
+            canProceed: false,
+            shouldRunAudit: true,
+            message: `${stageName} has saved sources but no recorded source audit yet.`
+        };
+    }
+    return {
+        action: 'proceed',
+        severity: 'unknown',
+        canProceed: true,
+        shouldRunAudit: false,
+        message: `${stageName} source readiness is unknown.`
+    };
+}
+
+function sourceAuditForClient(audit = {}, readiness = null) {
+    if (!audit || typeof audit !== 'object') return null;
+    return {
+        stageId: audit.stageId || readiness?.stageId || null,
+        stageName: audit.stageName || readiness?.stageName || '',
+        sourceCount: audit.sourceCount || readiness?.sourceCount || 0,
+        acceptedDivergenceCount: audit.acceptedDivergenceCount || 0,
+        checkedAt: audit.checkedAt || null,
+        source_references: audit.source_references || audit.sourceReferences || [],
+        aligned_items: audit.aligned_items || [],
+        possible_source_mismatches: audit.possible_source_mismatches || [],
+        missing_source_elements: audit.missing_source_elements || [],
+        recommended_fixes: audit.recommended_fixes || [],
+        sourceReadiness: readiness || null
     };
 }
 
@@ -2710,6 +2824,7 @@ app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => 
                 acceptedDivergenceCount: 0,
                 checkedAt: new Date().toISOString(),
                 sourceReadiness: buildSourceReadiness(projectData, numericStageId, stageData),
+                knowledge: knowledgePayloadForClient(knowledge, projectData),
                 aligned_items: [],
                 possible_source_mismatches: [],
                 missing_source_elements: [],
@@ -2792,11 +2907,44 @@ Return concise, actionable findings.`;
         trackUsage(projectId, response.usage);
         res.json({
             ...auditPayload,
-            sourceReadiness
+            sourceReadiness,
+            knowledge: knowledgePayloadForClient(ensureProjectKnowledge(projectData), projectData)
         });
     } catch (error) {
         console.error('source-audit-stage error:', error.message);
         res.status(500).json({ error: 'Failed to check stage against source material' });
+    }
+});
+
+app.post('/api/source-readiness-stage', requireAuth, async (req, res) => {
+    try {
+        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
+        }
+
+        const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
+        const projectData = JSON.parse(content);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId, sceneNumber);
+        const overrideText = stageDataOverrideToText(stageDataOverride);
+        const stageData = overrideText === null ? builtStage.stageData : overrideText;
+        const readiness = buildSourceReadiness(projectData, numericStageId, stageData);
+        const gate = buildSourceReadinessGate(readiness);
+        const knowledge = ensureProjectKnowledge(projectData);
+        const audit = knowledge.stage_source_audits?.[sourcePlanCacheKey(numericStageId)] || null;
+
+        res.json({
+            stageId: numericStageId,
+            stageName: builtStage.stageName,
+            sourceReadiness: readiness,
+            gate,
+            sourceAudit: sourceAuditForClient(audit, readiness),
+            knowledge: knowledgePayloadForClient(knowledge, projectData)
+        });
+    } catch (error) {
+        console.error('source-readiness-stage error:', error.message);
+        res.status(500).json({ error: 'Failed to inspect source readiness' });
     }
 });
 
@@ -4726,6 +4874,7 @@ module.exports = {
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
     buildSourceReadiness,
+    buildSourceReadinessGate,
     buildSourceReadinessList,
     buildSourceUsePlan,
     buildSourceAuditFixNotes,

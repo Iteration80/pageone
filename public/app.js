@@ -186,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems[i] = document.getElementById(`nav-stage-${i}`) || document.getElementById(`nav-stage${i}`);
         workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
+    const SOURCE_READINESS_STAGES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10]);
 
     // Version History navigation
     const btnVersionHistory = document.getElementById('btnVersionHistory');
@@ -1135,6 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 updateStageNav(projectDetails.data);
             }
+            await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
         } catch (err) {
             console.error("Error loading project details:", err);
             window.location.hash = ''; // Revert to hub on error
@@ -1661,6 +1663,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 navItems[i].classList.toggle('stage-stale', !!isStale);
             }
         }
+        renderStageSourceReadinessBadges(data);
+    }
+
+    function sourceReadinessListFromData(data = window.currentProjectData) {
+        const list = data?.knowledge?.stage_source_readiness;
+        return Array.isArray(list) ? list : [];
+    }
+
+    function sourceReadinessForStage(stageId, data = window.currentProjectData) {
+        return sourceReadinessListFromData(data).find(item => Number(item.stageId) === Number(stageId)) || null;
+    }
+
+    function sourceReadinessStatusClass(status) {
+        return String(status || 'unknown').replace(/[^a-z_-]/g, '');
+    }
+
+    function setProjectKnowledge(knowledge) {
+        if (!knowledge) return;
+        if (window.currentProjectData) {
+            window.currentProjectData.knowledge = knowledge;
+            renderStageSourceReadinessBadges(window.currentProjectData);
+        }
+    }
+
+    function renderStageSourceReadinessBadges(data = window.currentProjectData) {
+        for (let stageId = 1; stageId <= 10; stageId++) {
+            const navEl = navItems[stageId];
+            navEl?.querySelector('.stage-source-readiness')?.remove();
+            workspaces[stageId]?.querySelector(`.source-readiness-header-badge[data-source-stage="${stageId}"]`)?.remove();
+
+            if (!SOURCE_READINESS_STAGES.has(stageId)) continue;
+            const readiness = sourceReadinessForStage(stageId, data);
+            if (!readiness || (!readiness.sourceCount && !readiness.hasAudit && !readiness.sourcePlan)) continue;
+
+            const statusClass = sourceReadinessStatusClass(readiness.status);
+            const title = `${readiness.stageName || `Stage ${stageId}`}: ${readiness.label || readiness.status || 'Source readiness unknown'}`;
+            if (navEl) {
+                const navBadge = document.createElement('span');
+                navBadge.className = `stage-source-readiness source-readiness-${statusClass}`;
+                navBadge.title = title;
+                navBadge.setAttribute('aria-label', title);
+                navEl.appendChild(navBadge);
+            }
+
+            const headerActions = workspaces[stageId]?.querySelector('.workspace-header > div:last-child');
+            if (headerActions) {
+                const headerBadge = document.createElement('span');
+                headerBadge.className = 'source-readiness-header-badge';
+                headerBadge.dataset.sourceStage = String(stageId);
+                headerBadge.innerHTML = renderSourceReadinessBadge(readiness);
+                headerActions.insertBefore(headerBadge, headerActions.firstChild);
+            }
+        }
+    }
+
+    async function refreshProjectKnowledgeSummary() {
+        if (!activeProjectId) return null;
+        const res = await fetch(`/api/projects/${activeProjectId}/knowledge`);
+        if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+        const data = await res.json();
+        setProjectKnowledge(data.knowledge);
+        return data.knowledge;
     }
 
     function switchToVersionHistory() {
@@ -3331,7 +3395,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/projects/${activeProjectId}/knowledge`);
             if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
             const data = await res.json();
-            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            setProjectKnowledge(data.knowledge);
             renderSourceLibrary(data.knowledge);
             await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('');
@@ -3359,7 +3423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
             const data = await res.json();
-            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            setProjectKnowledge(data.knowledge);
             renderSourceLibrary(data.knowledge);
             await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('Source bible rebuilt.');
@@ -3394,7 +3458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
             const data = await res.json();
-            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            setProjectKnowledge(data.knowledge);
             sourceUploadForm?.reset();
             renderSourceLibrary(data.knowledge);
             await loadKnowledgeDiagnostics();
@@ -3417,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
             const data = await res.json();
-            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            setProjectKnowledge(data.knowledge);
             renderSourceLibrary(data.knowledge);
             await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('Source deleted.');
@@ -3464,7 +3528,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
             const data = await res.json();
-            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            setProjectKnowledge(data.knowledge);
             renderSourceLibrary(data.knowledge);
             renderKnowledgeDiagnostics(data.diagnostics || {});
             setSourceLibraryStatus('Project memory updated.');
@@ -5783,6 +5847,40 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    async function requestStageSourceReadiness(stageId) {
+        const res = await fetch('/api/source-readiness-stage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: activeProjectId,
+                stageId,
+                stageDataOverride: getStageApprovalSnapshot(stageId),
+                sceneNumber: sourceRevisionSceneNumber(stageId)
+            })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+        const data = await res.json();
+        if (data.knowledge) setProjectKnowledge(data.knowledge);
+        return data;
+    }
+
+    async function requestStageSourceAudit(stageId) {
+        const res = await fetch('/api/source-audit-stage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: activeProjectId,
+                stageId,
+                stageDataOverride: getStageApprovalSnapshot(stageId),
+                sceneNumber: sourceRevisionSceneNumber(stageId)
+            })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+        const audit = await res.json();
+        if (audit.knowledge) setProjectKnowledge(audit.knowledge);
+        return audit;
+    }
+
     function buildSourceAuditRevisionNotes(audit = {}) {
         const lines = [
             `SOURCE ALIGNMENT FIX REQUEST`,
@@ -5820,7 +5918,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
         const data = await res.json();
-        if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+        setProjectKnowledge(data.knowledge);
     }
 
     async function saveAcceptedSourceDivergence(stageId, audit) {
@@ -5832,7 +5930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
         const data = await res.json();
-        if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+        setProjectKnowledge(data.knowledge);
         return data;
     }
 
@@ -5880,8 +5978,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return scrapeStage6();
                 case 7:
                     return stage7CurrentStyle
-                        ? { slug: stage7CurrentStyle.slug, meta: stage7CurrentStyle.meta, content: stage7CurrentStyle.content }
-                        : { style: window.currentProjectData?.stage7_style || null };
+                        ? { slug: stage7CurrentStyle.slug, content: stage7CurrentStyle.content || '' }
+                        : { slug: window.currentProjectData?.stage7_style || null, content: '' };
                 case 8:
                     stage8FlushEditor();
                     return getFlatScenes().map(scene => ({
@@ -5902,6 +6000,34 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn('Could not build approval snapshot:', err.message);
             return null;
         }
+    }
+
+    function showSourceReadinessGateModal(stageId, readiness = {}, gate = {}) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay approval-source-modal';
+            overlay.innerHTML = `
+                <div class="modal-content approval-source-content">
+                    <h3>Source Check Recommended</h3>
+                    <p>${escapeHtml(gate.message || `${readiness.stageName || `Stage ${stageId}`} should be checked against saved source material before approval.`)}</p>
+                    ${renderSourceReadinessSummary(readiness)}
+                    <div class="modal-actions approval-source-actions">
+                        <button type="button" class="secondary-btn" data-action="cancel">Cancel</button>
+                        <button type="button" class="primary-btn" data-action="run">Run Check Source</button>
+                    </div>
+                </div>
+            `;
+            const cleanup = (value) => {
+                overlay.remove();
+                resolve(value);
+            };
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) cleanup(false);
+            });
+            overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => cleanup(false));
+            overlay.querySelector('[data-action="run"]')?.addEventListener('click', () => cleanup(true));
+            document.body.appendChild(overlay);
+        });
     }
 
     function showApprovalSourceGuardModal(stageId, audit) {
@@ -5979,21 +6105,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalText = button?.textContent || '';
         if (button) {
             button.disabled = true;
-            button.textContent = 'Checking source...';
+            button.textContent = 'Checking readiness...';
         }
         try {
-            const res = await fetch('/api/source-audit-stage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: activeProjectId,
-                    stageId,
-                    stageDataOverride: getStageApprovalSnapshot(stageId),
-                    sceneNumber: sourceRevisionSceneNumber(stageId)
-                })
-            });
-            if (!res.ok) return true;
-            const audit = await res.json();
+            const readinessData = await requestStageSourceReadiness(stageId);
+            const readiness = readinessData.sourceReadiness || {};
+            const gate = readinessData.gate || {};
+            if (gate.action === 'proceed') return true;
+
+            if (gate.action === 'resolve_audit' && readinessData.sourceAudit) {
+                if (!sourceAuditHasActionableItems(readinessData.sourceAudit)) return true;
+                return await showApprovalSourceGuardModal(stageId, readinessData.sourceAudit);
+            }
+
+            const shouldRun = await showSourceReadinessGateModal(stageId, readiness, gate);
+            if (!shouldRun) return false;
+            if (button) button.textContent = 'Checking source...';
+            const audit = await requestStageSourceAudit(stageId);
             if (!sourceAuditHasActionableItems(audit)) return true;
             return await showApprovalSourceGuardModal(stageId, audit);
         } catch (err) {
@@ -6060,7 +6188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
                     const data = await res.json();
-                    if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+                    setProjectKnowledge(data.knowledge);
                     cleanup(true);
                 } catch (err) {
                     alert('Could not save project memory: ' + err.message);
@@ -6240,6 +6368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const project = await res.json();
         window.currentProjectData = project.data;
         updateStageNav(project.data);
+        await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
         return project.data;
     }
 
@@ -6298,7 +6427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const data = await res.json();
         applySourceRevisionResult(stageId, data);
-        if (data.knowledge && window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+        if (data.knowledge) setProjectKnowledge(data.knowledge);
         await refreshCurrentProjectData().catch(err => console.warn(err.message));
         return data;
     }
@@ -6314,21 +6443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const pending = chat.append('system', 'Checking against project source material...');
         try {
-            const res = await fetch('/api/source-audit-stage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: activeProjectId,
-                    stageId,
-                    stageDataOverride: getStageApprovalSnapshot(stageId),
-                    sceneNumber: sourceRevisionSceneNumber(stageId)
-                })
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
-                throw new Error(err.error || `Server error ${res.status}`);
-            }
-            const audit = await res.json();
+            const audit = await requestStageSourceAudit(stageId);
             pending.remove();
             const cardEl = chat.append('system', '', { html: renderSourceAuditCard(audit) });
             wireSourceAuditActions(stageId, audit, cardEl);
