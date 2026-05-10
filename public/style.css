@@ -228,6 +228,65 @@ body {
     box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px #ffffff;
 }
 
+.stage-regenerate-menu {
+    position: relative;
+}
+
+.stage-regenerate-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stage-regenerate-chevron {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.stage-regenerate-options {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 60;
+    width: 220px;
+    padding: 6px;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: #111827;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+
+.stage-regenerate-options button {
+    width: 100%;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 9px 10px;
+    text-align: left;
+}
+
+.stage-regenerate-options button:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.stage-regenerate-options span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stage-regenerate-options small {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    line-height: 1.25;
+}
+
 .stage-source-readiness {
     width: 8px;
     height: 8px;

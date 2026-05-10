@@ -16,6 +16,15 @@ When these two sources appear to conflict, honor the Beat Sheet's structural log
 
 * **Location Dictionary:** If a CANONICAL LOCATIONS list is provided, use those exact names in scene headings. Do not invent new locations unless the narrative explicitly describes a space not in the list. This prevents location name drift across sequences.
 
+## 3.5 APPROVED TREATMENT FIDELITY (LOCKED-CONTENT CONTRACT)
+Stage 6 is an expansion pass, not a story rewrite. Be creative inside the treatment; do not replace the treatment.
+
+* **Allowed Creative Expansion:** You may split paragraphs into scenes, sharpen scene headings, add physical blocking, clarify geography, design scene-level micro-conflict, choose visual props, and create minor connective business that makes the approved treatment shootable.
+* **Not Allowed Without Explicit User Instruction:** Do not change who is present for an approved moment, relocate a scene to a different story function, alter a discovery mechanism, duplicate a single body/identity, change a recurring prop's path, delete a named gag/payoff, rewrite a backstory reveal, change family counts, change death/survival outcomes, or add spectacle that creates a new rule or consequence.
+* **Specific Beats Beat Generic Craft:** If the treatment names a character, prop, speech, gag, reveal, or payoff, preserve it even if a generic scene-design rule might tempt you to simplify it. Do not swap named participants for generic guards, recruits, bystanders, or victims.
+* **Continuity Ledger Is Binding:** If a GLOBAL CONTINUITY LEDGER or CURRENT SEQUENCE CONTINUITY CONTRACT is provided, treat it as a checklist of approved locks to preserve. Use it to prevent cross-sequence drift while still adapting only the assigned sequence.
+* **Flag Conflicts Conservatively:** If the Beat Sheet, Treatment, Character Profiles, or Continuity Ledger appear to conflict, keep the most specific approved treatment/character fact and avoid inventing a new canon fact.
+
 ## 4. THE ANTI-REPETITION & BOUNDARY MANDATE (CRITICAL)
 Your absolute highest priority is maintaining linear chronological integrity. You are adapting only a specific, isolated segment of the story.
 

@@ -24,6 +24,127 @@ function parseSequenceBlocks(text) {
     return blocks;
 }
 
+function compactText(value, maxChars = 4000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
+function treatmentActTextForSequence(treatment = {}, sequenceNumber) {
+    if (sequenceNumber <= 2) return treatment.act_1 || '';
+    if (sequenceNumber <= 4) return treatment.act_2a || '';
+    if (sequenceNumber <= 6) return treatment.act_2b || '';
+    return treatment.act_3 || '';
+}
+
+function buildTreatmentSequenceIndex(parsedTreatmentBlocks = {}, treatment = {}) {
+    const lines = [];
+    for (let i = 1; i <= 8; i++) {
+        const block = parsedTreatmentBlocks[i] || treatmentActTextForSequence(treatment, i);
+        const titleMatch = String(block || '').match(/^\s*SEQUENCE\s+\d+\s*:\s*(.+?)\s*$/im);
+        const title = titleMatch ? titleMatch[1].trim() : `Sequence ${i}`;
+        lines.push(`Sequence ${i}: ${title}\n${compactText(block || 'No sequence text found.', 900)}`);
+    }
+    return lines.join('\n\n---\n\n');
+}
+
+function findSequenceContract(continuityLedger, sequenceNumber) {
+    const contracts = continuityLedger?.sequence_contracts;
+    if (!Array.isArray(contracts)) return null;
+    return contracts.find(item => Number(item.sequence_number) === Number(sequenceNumber)) || null;
+}
+
+function formatContinuityLedgerForPrompt(continuityLedger) {
+    if (!continuityLedger) return '';
+    return compactText(JSON.stringify(continuityLedger, null, 2), 9000);
+}
+
+async function buildContinuityLedger({
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey,
+    pitch,
+    characters,
+    beats,
+    fullTreatmentText,
+    sourceAuthorityBlock = ''
+}) {
+    const continuityLedgerSchema = {
+        type: 'object',
+        properties: {
+            global_locks: {
+                type: 'array',
+                description: 'Continuity-sensitive facts from the approved treatment and characters that Stage 6 must preserve.',
+                items: {
+                    type: 'object',
+                    properties: {
+                        category: { type: 'string' },
+                        detail: { type: 'string' },
+                        source_anchor: { type: 'string' },
+                        sequences: { type: 'array', items: { type: 'number' } }
+                    },
+                    required: ['category', 'detail', 'source_anchor', 'sequences']
+                }
+            },
+            sequence_contracts: {
+                type: 'array',
+                description: 'Per-sequence continuity contracts distilled from the approved treatment.',
+                items: {
+                    type: 'object',
+                    properties: {
+                        sequence_number: { type: 'number' },
+                        starts_after: { type: 'string' },
+                        ends_with: { type: 'string' },
+                        must_include: { type: 'array', items: { type: 'string' } },
+                        must_not_change: { type: 'array', items: { type: 'string' } },
+                        continuity_dependencies: { type: 'array', items: { type: 'string' } }
+                    },
+                    required: ['sequence_number', 'starts_after', 'ends_with', 'must_include', 'must_not_change', 'continuity_dependencies']
+                }
+            }
+        },
+        required: ['global_locks', 'sequence_contracts']
+    };
+
+    const prompt = `Build a Stage 6 continuity ledger from the approved upstream material.
+
+Purpose: the scene-blueprint agent will be creative with scene splitting, blocking, micro-conflict, and physical staging, but it must not arbitrarily alter approved plot mechanics, character facts, recurring props, captures/releases/deaths, body/identity rules, family counts, backstory reveals, named gags/payoffs, discovery mechanisms, or sequence endpoints.
+
+Extract concrete locks only. Do not invent new locks. Include details even if they seem small when they create a future payoff or continuity dependency.
+
+${sourceAuthorityBlock ? `PROJECT MEMORY / SOURCE AUTHORITY:\n${sourceAuthorityBlock}\n` : ''}
+PITCH:
+${JSON.stringify(pitch, null, 2)}
+
+CHARACTERS:
+${JSON.stringify(characters, null, 2)}
+
+BEATS:
+${JSON.stringify(beats, null, 2)}
+
+APPROVED TREATMENT:
+${fullTreatmentText}`;
+
+    const result = await generateContentFn({
+        model,
+        geminiApiKey,
+        anthropicApiKey,
+        contents: [prompt],
+        config: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+            responseSchema: continuityLedgerSchema
+        },
+        schema: continuityLedgerSchema
+    });
+
+    return {
+        ledger: JSON.parse(result.text),
+        usage: result.usage
+    };
+}
+
 /**
  * Stage 6 Scene Blueprint Agent
  * Translates an 8-sequence treatment into a scene-by-scene blueprint.
@@ -33,7 +154,7 @@ function parseSequenceBlocks(text) {
  *
  * Note: googleSearch tool is Gemini-only and silently dropped when using Claude.
  */
-const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '', modelConfig = {}) => {
+const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '', modelConfig = {}, generationNotes = '') => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
@@ -70,11 +191,12 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
 
     const config = {
         systemInstruction: buildMemorySourceSystemInstruction(scenesSOP, 'Stage 6 Scene Blueprint'),
-        temperature: 0.7,
+        temperature: 0.55,
         thinkingConfig: { thinkingLevel: 'HIGH' },
         tools: [{ googleSearch: {} }],  // Gemini-only; silently dropped for Claude by ai-client
     };
     const sourceBlock = buildMemorySourcePromptBlock(sourceAuthorityBlock, 'Stage 6 Scene Blueprint');
+    const writerNotes = String(generationNotes || '').trim();
 
     // --- Middleware Splitter ---
     // Build a single concatenated treatment string and parse it into
@@ -88,6 +210,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     ].join('\n\n');
 
     const parsedTreatmentBlocks = parseSequenceBlocks(fullTreatmentText);
+    const treatmentSequenceIndex = buildTreatmentSequenceIndex(parsedTreatmentBlocks, treatment);
 
     const usageList = [];
 
@@ -118,6 +241,31 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         console.warn('  Stage 6: Location extraction failed (non-fatal):', err.message);
     }
 
+    let continuityLedger = null;
+    let continuityLedgerText = '';
+    try {
+        console.log('  Stage 6: Building continuity ledger from approved treatment...');
+        const ledgerResult = await buildContinuityLedger({
+            generateContentFn,
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            pitch,
+            characters,
+            beats,
+            fullTreatmentText,
+            sourceAuthorityBlock
+        });
+        continuityLedger = ledgerResult.ledger;
+        continuityLedgerText = formatContinuityLedgerForPrompt(continuityLedger);
+        if (continuityLedger?.global_locks?.length) {
+            console.log(`  Stage 6: Extracted ${continuityLedger.global_locks.length} continuity locks.`);
+        }
+        usageList.push(ledgerResult.usage);
+    } catch (err) {
+        console.warn('  Stage 6: Continuity ledger extraction failed (non-fatal):', err.message);
+    }
+
     // --- Iterative Loop ---
     let allSequences = [];
     let previousSequenceClimax = 'N/A - Start of Film';
@@ -135,6 +283,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         if (!currentTreatmentText) {
             console.warn(`  Warning: No [SEQUENCE ${i} START/END] block found in treatment. Falling back to full act text.`);
         }
+        const currentSequenceContract = findSequenceContract(continuityLedger, i);
 
         const prompt = `${sourceBlock ? sourceBlock + '\n\n' : ''}PITCH:
 ${JSON.stringify(pitch, null, 2)}
@@ -142,17 +291,30 @@ ${JSON.stringify(pitch, null, 2)}
 CHARACTERS:
 ${JSON.stringify(characters, null, 2)}
 ${canonicalLocations ? `\nCANONICAL LOCATIONS (use these exact names in scene headings — do not invent new locations unless the narrative explicitly requires a space not in this list):\n${canonicalLocations}\n` : ''}
+GLOBAL TREATMENT SEQUENCE INDEX (full-story map for continuity only - do not adapt scenes outside Sequence ${i}, but preserve their setup/payoff logic):
+${treatmentSequenceIndex}
+
+${continuityLedgerText ? `GLOBAL CONTINUITY LEDGER (binding locks distilled from approved treatment and character profiles - preserve these unless the current sequence text explicitly revises them):\n${continuityLedgerText}\n` : ''}
+${currentSequenceContract ? `CURRENT SEQUENCE CONTINUITY CONTRACT (mandatory for Sequence ${i}):\n${JSON.stringify(currentSequenceContract, null, 2)}\n` : ''}
+${writerNotes ? `WRITER REGENERATION NOTES (apply as creative guidance without breaking the approved treatment locks):\n${writerNotes}\n` : ''}
 CURRENT SEQUENCE BEATS (Sequence ${i} only):
 ${JSON.stringify(currentBeats, null, 2)}
 
 CURRENT SEQUENCE NARRATIVE EXPANSION (Sequence ${i} only):
-${currentTreatmentText}
+${currentTreatmentText || treatmentActTextForSequence(treatment, i)}
 
 <previous_sequence_climax>
 ${previousSequenceClimax}
 </previous_sequence_climax>
 
-OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action. Return a JSON object for this sequence only.`;
+OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action.
+
+FIDELITY CHECK BEFORE YOU RESPOND:
+- Preserve every concrete event, character placement, prop path, discovery mechanism, named gag/payoff, body/identity rule, backstory reveal, family count, death/survival state, and sequence endpoint from the CURRENT SEQUENCE NARRATIVE EXPANSION and CURRENT SEQUENCE CONTINUITY CONTRACT.
+- You may invent connective blocking, minor obstacles, scene headings, and visual texture only when they do not replace, relocate, omit, or contradict approved treatment content.
+- If the approved treatment names a character in a scene, do not swap them for generic guards/recruits/victims. If it specifies one body, one prop, or one route, do not multiply it.
+
+Return a JSON object for this sequence only.`;
 
         try {
             const result = await generateContentFn({

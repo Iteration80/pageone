@@ -433,6 +433,18 @@ test('frontend chat attachment inputs advertise all supported source formats', (
     assert.doesNotMatch(indexHtml, /Attach PDF/);
 });
 
+test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(indexHtml, /Fresh Blueprint/);
+    assert.match(indexHtml, /Use Chat Notes/);
+    assert.match(indexHtml, /Previous Version/);
+    assert.doesNotMatch(indexHtml, /upstream/i);
+    assert.match(appJs, /Regenerate the blueprint with these notes:/);
+    assert.match(appJs, /shouldRegenerateStage6FromChat/);
+    assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
+});
+
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const project = {
         data: {

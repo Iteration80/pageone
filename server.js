@@ -2868,10 +2868,11 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 });
 
 app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res) => {
-    const { projectId } = req.body;
+    const { projectId, notes } = req.body;
     if (!isValidProjectId(projectId)) {
         return res.status(400).json({ error: "Missing or invalid projectId" });
     }
+    const generationNotes = typeof notes === 'string' ? notes.trim() : '';
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
     let projectData;
@@ -2905,15 +2906,16 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         if (sourceAuthorityBlock) {
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
         }
-        const stage6KnowledgeSeed = `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}`;
-        const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6KnowledgeSeed);
+        const stage6KnowledgeSeed = `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(characters, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}\n${generationNotes}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6KnowledgeSeed, { userMessage: generationNotes });
         const combinedSourceBlock = [sourceAuthorityBlock, sourcePacket.contextBlock].filter(Boolean).join('\n\n---\n\n');
 
         const { result: allSequences, usageList } = await generateStage6Scenes(
             pitch, characters, beats, treatment,
             (current, total) => send({ type: 'progress', current, total }),
             combinedSourceBlock,
-            getModelConfig(6)
+            getModelConfig(6),
+            generationNotes
         );
 
         projectData.data = projectData.data || {};

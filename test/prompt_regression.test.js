@@ -110,6 +110,27 @@ test('Stage 6 scene generation carries project memory into every sequence prompt
                 usage: { inputTokens: 1, outputTokens: 1 }
             };
         }
+        if (/Build a Stage 6 continuity ledger/.test(collectText(request.contents))) {
+            return {
+                text: JSON.stringify({
+                    global_locks: [{
+                        category: 'prop',
+                        detail: 'Mara keeps the blue key visible through the flooded arcade escape.',
+                        source_anchor: 'Approved treatment',
+                        sequences: [1, 2, 3]
+                    }],
+                    sequence_contracts: Array.from({ length: 8 }, (_, index) => ({
+                        sequence_number: index + 1,
+                        starts_after: index === 0 ? 'Start of film' : `Sequence ${index} climax`,
+                        ends_with: `Sequence ${index + 1} endpoint`,
+                        must_include: ['Mara keeps the blue key.'],
+                        must_not_change: ['Do not move the key to another character.'],
+                        continuity_dependencies: ['The key remains visible for later payoff.']
+                    }))
+                }),
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
 
         return {
             text: JSON.stringify({
@@ -131,9 +152,19 @@ test('Stage 6 scene generation carries project memory into every sequence prompt
         generateContentFn
     });
 
-    const sequenceCalls = calls.filter(call => !/Extract every distinct physical location/.test(collectText(call.contents)));
+    const sequenceCalls = calls.filter(call => {
+        const text = collectText(call.contents);
+        return !/Extract every distinct physical location/.test(text) && !/Build a Stage 6 continuity ledger/.test(text);
+    });
     assert.equal(sequenceCalls.length, 8);
-    sequenceCalls.forEach(call => assertSourceAwareCall(call, 'Stage 6 Scene Blueprint'));
+    sequenceCalls.forEach(call => {
+        assertSourceAwareCall(call, 'Stage 6 Scene Blueprint');
+        const promptText = collectText(call.contents);
+        assert.match(promptText, /GLOBAL TREATMENT SEQUENCE INDEX/);
+        assert.match(promptText, /GLOBAL CONTINUITY LEDGER/);
+        assert.match(promptText, /CURRENT SEQUENCE CONTINUITY CONTRACT/);
+        assert.match(promptText, /Mara keeps the blue key/);
+    });
 });
 
 test('Stage 6 revision carries project memory beside director feedback', async () => {

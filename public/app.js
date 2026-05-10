@@ -278,6 +278,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage6Submit = document.getElementById('btnStage6Submit');
     const btnStage6Approve = document.getElementById('btnStage6Approve');
     const btnStage6Revise = document.getElementById('btnStage6Revise');
+    const btnStage6Regenerate = document.getElementById('btnStage6Regenerate');
+    const stage6RegenerateMenu = document.getElementById('stage6RegenerateMenu');
     const stage6PdfUpload = document.getElementById('stage6PdfUpload');
     const stage6FileNameDisplay = document.getElementById('stage6FileNameDisplay');
 
@@ -4951,26 +4953,113 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingStateStage6 = document.getElementById('loadingStateStage6');
     const loadingTextStage6 = document.getElementById('loadingTextStage6');
 
-    async function generateStage6() {
+    function hasStage6Scenes(snapshot) {
+        return Array.isArray(snapshot) && snapshot.some(seq => Array.isArray(seq.scenes) && seq.scenes.length > 0);
+    }
+
+    function getStage6SnapshotForHistory() {
+        const hasRenderedCards = !!stage6Board?.querySelector('.scene-card:not(.ghost-card)');
+        if (hasRenderedCards) return scrapeStage6();
+        const savedScenes = window.currentProjectData?.stage6_scenes;
+        return Array.isArray(savedScenes) ? JSON.parse(JSON.stringify(savedScenes)) : [];
+    }
+
+    async function saveStage6SnapshotBeforeRegenerate() {
+        const currentBlueprint = getStage6SnapshotForHistory();
+        if (!hasStage6Scenes(currentBlueprint)) return;
+
+        const versionHistory6 = captureVersionSnapshot(6, 'stage6_scenes', 'Scenes', currentBlueprint);
+        const response = await fetch(`/api/projects/${activeProjectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: {
+                    stage6_scenes: currentBlueprint,
+                    stage7_approved: false,
+                    stage8_coverage: null,
+                    stage8_approved: false,
+                    versionHistory: versionHistory6
+                },
+                stampRevisedStage: 'stage6_scenes'
+            })
+        });
+
+        if (!response.ok) throw new Error('Failed to save current blueprint before regenerating');
+        const updatedProject = await response.json();
+        if (window.currentProjectData) window.currentProjectData = updatedProject.data;
+        updateStageNav(updatedProject.data);
+    }
+
+    function closeStage6RegenerateMenu() {
+        stage6RegenerateMenu?.classList.add('hidden');
+    }
+
+    async function handleStage6Regenerate(action) {
+        closeStage6RegenerateMenu();
+        if (action === 'history') {
+            switchToVersionHistory();
+            return;
+        }
+        if (action === 'notes') {
+            const chatInput = document.getElementById('stage6-chat-input');
+            if (chatInput) {
+                if (!chatInput.value.trim()) chatInput.value = 'Regenerate the blueprint with these notes: ';
+                chatInput.focus();
+                chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
+            }
+            return;
+        }
         if (!activeProjectId) return;
+
+        const confirmText = 'Create a fresh Scene Blueprint from the approved Pitch, Characters, Beats, and Treatment? The current blueprint will be saved in Version History first.';
+        if (!confirm(confirmText)) return;
+
+        const originalText = btnStage6Regenerate?.textContent;
+        try {
+            if (btnStage6Regenerate) {
+                btnStage6Regenerate.disabled = true;
+                btnStage6Regenerate.textContent = 'Regenerating...';
+            }
+            await saveStage6SnapshotBeforeRegenerate();
+            await generateStage6({ isRegenerate: true, throwOnError: true });
+        } catch (error) {
+            console.error('Stage 6 regenerate failed:', error);
+            alert(error.message || 'Could not regenerate the Scene Blueprint.');
+        } finally {
+            if (btnStage6Regenerate) {
+                btnStage6Regenerate.disabled = false;
+                btnStage6Regenerate.innerHTML = 'Regenerate <span class="stage-regenerate-chevron">⌄</span>';
+                if (originalText && originalText.includes('Regenerate')) {
+                    btnStage6Regenerate.innerHTML = 'Regenerate <span class="stage-regenerate-chevron">⌄</span>';
+                }
+            }
+        }
+    }
+
+    async function generateStage6(options = {}) {
+        if (!activeProjectId) return;
+        const { notes = '', isRegenerate = false, throwOnError = false } = options || {};
 
         if (btnStage6Approve) {
             btnStage6Approve.textContent = 'Approve';
             btnStage6Approve.classList.remove('approve-btn-green');
             btnStage6Approve.classList.add('hidden');
         }
+        if (btnStage6Regenerate) btnStage6Regenerate.disabled = true;
 
         // Clear old content and show loading state
         if (stage6Board) stage6Board.innerHTML = '';
         if (stage6Workshop) stage6Workshop.classList.add('hidden');
         if (loadingStateStage6) loadingStateStage6.classList.remove('hidden');
-        if (loadingTextStage6) loadingTextStage6.textContent = 'Generating Scene Blueprint...';
+        if (loadingTextStage6) loadingTextStage6.textContent = isRegenerate ? 'Regenerating Scene Blueprint...' : 'Generating Scene Blueprint...';
 
         try {
+            const requestBody = { projectId: activeProjectId };
+            if (notes) requestBody.notes = notes;
             const response = await fetch('/api/generate-stage6-scenes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -5007,10 +5096,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Stage 6 generation failed:', error);
+            if (throwOnError) throw error;
             alert('An error occurred during scene generation.');
         } finally {
             if (loadingStateStage6) loadingStateStage6.classList.add('hidden');
+            if (btnStage6Regenerate) btnStage6Regenerate.disabled = false;
         }
+    }
+
+    if (btnStage6Regenerate && stage6RegenerateMenu) {
+        btnStage6Regenerate.addEventListener('click', (event) => {
+            event.stopPropagation();
+            stage6RegenerateMenu.classList.toggle('hidden');
+        });
+        stage6RegenerateMenu.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const action = event.target.closest('[data-stage6-regenerate]')?.dataset.stage6Regenerate;
+            if (action) handleStage6Regenerate(action);
+        });
+        document.addEventListener('click', closeStage6RegenerateMenu);
     }
 
     if (btnStage6Submit) {
@@ -7314,11 +7418,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Build revision notes that include user requests + assistant summary
                 const buildRevisionNotes = (assistantSummary, conversationHistory) => {
-                    const userMessages = conversationHistory
-                        .filter(m => m.role === 'user')
+                    const userMessages = conversationHistory.filter(m => m.role === 'user');
+                    const latestUserMessage = userMessages[userMessages.length - 1]?.content || '';
+                    const allUserMessages = userMessages
                         .map(m => m.content)
                         .join('\n');
-                    return `USER REQUESTS:\n${userMessages}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
+                    return `LATEST USER REQUEST:\n${latestUserMessage}\n\nUSER REQUESTS:\n${allUserMessages}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
                 };
 
                 // After a revision completes, call brainstorm to continue the conversation
@@ -7626,6 +7731,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage 6
+    function latestUserRequestFromRevisionNotes(notes) {
+        const match = String(notes || '').match(/LATEST USER REQUEST:\n([\s\S]*?)\n\nUSER REQUESTS:/);
+        return (match ? match[1] : notes || '').trim();
+    }
+
+    function shouldRegenerateStage6FromChat(notes) {
+        const latest = latestUserRequestFromRevisionNotes(notes);
+        return /\b(regenerate|fresh blueprint|start over|new blueprint|new scene blueprint)\b/i.test(latest);
+    }
+
     stageChatWindows[6] = initStageChat({
         stageId: 6,
         threadId: 'stage6-chat-thread',
@@ -7633,6 +7748,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtnId: 'stage6-chat-send',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
+            if (shouldRegenerateStage6FromChat(notes)) {
+                await saveStage6SnapshotBeforeRegenerate();
+                await generateStage6({ notes, isRegenerate: true, throwOnError: true });
+                return;
+            }
             const res = await fetch('/api/revise-stage6', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

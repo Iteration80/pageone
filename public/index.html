@@ -602,6 +602,26 @@
                     <p>Manage and refine individual scenes organized by sequence.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <div class="stage-regenerate-menu">
+                        <button id="btnStage6Regenerate" class="secondary-btn stage-regenerate-trigger" type="button" style="font-size:0.8rem;white-space:nowrap">
+                            Regenerate
+                            <span class="stage-regenerate-chevron">⌄</span>
+                        </button>
+                        <div id="stage6RegenerateMenu" class="stage-regenerate-options hidden">
+                            <button type="button" data-stage6-regenerate="fresh">
+                                <span>Fresh Blueprint</span>
+                                <small>Start over from approved work</small>
+                            </button>
+                            <button type="button" data-stage6-regenerate="notes">
+                                <span>Use Chat Notes...</span>
+                                <small>Tell Assistant what to change</small>
+                            </button>
+                            <button type="button" data-stage6-regenerate="history">
+                                <span>Previous Version</span>
+                                <small>Restore from history</small>
+                            </button>
+                        </div>
+                    </div>
                     <button id="btnDownloadScenes" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
