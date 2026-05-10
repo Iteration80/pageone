@@ -244,6 +244,129 @@ const STOP_WORDS = new Set([
     'your'
 ]);
 
+const STAGE_SOURCE_PROFILES = {
+    1: {
+        label: 'Premise and adaptation promise',
+        maxSources: 4,
+        queryTerms: ['premise', 'theme', 'world', 'protagonist', 'conflict', 'ending'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'canon', 'notes'],
+        directives: [
+            'Use source material to anchor the premise, core conflict, and adaptation promise.',
+            'Keep invented pitch elements clearly compatible with source canon and accepted divergences.',
+            'Do not overfit to minor source details unless they define the concept.'
+        ]
+    },
+    2: {
+        label: 'Plot spine and act architecture',
+        maxSources: 6,
+        queryTerms: ['plot', 'act', 'sequence', 'turning point', 'timeline', 'climax', 'ending'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes', 'outline'],
+        directives: [
+            'Preserve source-supported chronology, major turns, and causal relationships.',
+            'Use accepted divergences to decide where adaptation structure intentionally departs from source order.',
+            'Avoid introducing new plot mechanics that contradict saved source facts.'
+        ]
+    },
+    3: {
+        label: 'Characters and relationships',
+        maxSources: 7,
+        queryTerms: ['character', 'relationship', 'motivation', 'backstory', 'arc', 'identity'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes', 'character'],
+        directives: [
+            'Ground character identities, relationships, motivations, and limits in saved source material.',
+            'Track merged, renamed, or omitted characters as project adaptation choices.',
+            'Prefer source-backed contradictions and tensions over generic traits.'
+        ]
+    },
+    4: {
+        label: 'Beats, causality, and set pieces',
+        maxSources: 7,
+        queryTerms: ['beat', 'set piece', 'cause', 'effect', 'reveal', 'choice', 'consequence'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes', 'beats'],
+        directives: [
+            'Use source references to preserve cause-and-effect logic between major moments.',
+            'Flag or avoid beats that skip a source-supported motivation or consequence.',
+            'Keep set pieces tied to source-supported stakes unless a divergence has been accepted.'
+        ]
+    },
+    5: {
+        label: 'Treatment continuity and emotional logic',
+        maxSources: 8,
+        queryTerms: ['treatment', 'emotion', 'arc', 'theme', 'timeline', 'scene', 'relationship'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes', 'treatment'],
+        directives: [
+            'Carry forward source-supported story logic while expanding cinematic connective tissue.',
+            'Preserve emotional turns, relationship changes, and timeline facts already established in source/project memory.',
+            'Make adaptation additions serve source-backed stakes or logged project decisions.'
+        ]
+    },
+    6: {
+        label: 'Scene blueprint continuity',
+        maxSources: 8,
+        queryTerms: ['scene', 'location', 'timeline', 'prop', 'action', 'continuity', 'sequence'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes', 'scene'],
+        directives: [
+            'Use source material to lock scene order, locations, recurring objects, and continuity-sensitive details.',
+            'Preserve established handoffs from earlier approved stages.',
+            'Avoid blueprint scenes that contradict source canon without an accepted divergence.'
+        ]
+    },
+    7: {
+        label: 'Style references without canon drift',
+        maxSources: 5,
+        queryTerms: ['style', 'tone', 'voice', 'dialogue', 'visual', 'pace', 'reference'],
+        preferredTypes: ['style_reference', 'source_reference', 'script_reference'],
+        preferredTags: ['style', 'source_reference', 'script'],
+        directives: [
+            'Use style references for tone, rhythm, point of view, and cinematic texture.',
+            'Do not let style exploration change source canon, character facts, or story decisions.',
+            'Separate tonal inspiration from source facts when giving the style directive.'
+        ]
+    },
+    8: {
+        label: 'Draft scene execution',
+        maxSources: 8,
+        queryTerms: ['scene', 'dialogue', 'action', 'location', 'prop', 'emotion', 'continuity'],
+        preferredTypes: ['source_reference', 'script_reference', 'style_reference'],
+        preferredTags: ['source_reference', 'script', 'style', 'scene'],
+        directives: [
+            'Use source references for concrete scene details, continuity, dialogue intent, and visual facts.',
+            'Preserve accepted divergences and approved handoffs while drafting cinematic prose.',
+            'Do not add source-incompatible business to solve a local scene problem.'
+        ]
+    },
+    9: {
+        label: 'Coverage against project memory',
+        maxSources: 6,
+        queryTerms: ['coverage', 'issue', 'continuity', 'theme', 'character', 'structure'],
+        preferredTypes: ['source_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'notes'],
+        directives: [
+            'Evaluate draft issues against source facts, project memory, and accepted divergences.',
+            'Distinguish source alignment problems from normal screenplay craft notes.',
+            'Do not reopen divergences the writer already accepted.'
+        ]
+    },
+    10: {
+        label: 'Rewrite changes with source accountability',
+        maxSources: 8,
+        queryTerms: ['rewrite', 'scene', 'priority', 'fix', 'continuity', 'character', 'dialogue'],
+        preferredTypes: ['source_reference', 'script_reference', 'development_notes'],
+        preferredTags: ['source_reference', 'script', 'notes', 'scene'],
+        directives: [
+            'Use source references to constrain rewrite fixes so they do not solve one problem by creating source drift.',
+            'Respect accepted divergences as intentional adaptation decisions.',
+            'When planning changes, identify the source/project-memory facts the rewrite must preserve.'
+        ]
+    }
+};
+
 /**
  * Load the style file for a project, if one is set and exists.
  * Returns { styleContent, styleWarning, referenceContent } where styleContent
@@ -341,6 +464,9 @@ function ensureProjectKnowledge(projectData) {
     if (!Array.isArray(knowledge.accepted_divergences)) knowledge.accepted_divergences = [];
     if (!knowledge.stage_handoffs || typeof knowledge.stage_handoffs !== 'object' || Array.isArray(knowledge.stage_handoffs)) {
         knowledge.stage_handoffs = {};
+    }
+    if (!knowledge.stage_source_plans || typeof knowledge.stage_source_plans !== 'object' || Array.isArray(knowledge.stage_source_plans)) {
+        knowledge.stage_source_plans = {};
     }
 
     projectData.data.knowledge = knowledge;
@@ -554,6 +680,53 @@ function relevantSourceSegments(knowledge, query, maxSegments = 5) {
     return scored.sort((a, b) => b.score - a.score).slice(0, maxSegments);
 }
 
+function stageSourceProfile(stageId) {
+    return STAGE_SOURCE_PROFILES[Number(stageId)] || {
+        label: STAGE_NAMES[stageId] || `Stage ${stageId}`,
+        maxSources: 5,
+        queryTerms: [],
+        preferredTypes: ['source_reference', 'development_notes', 'script_reference', 'style_reference'],
+        preferredTags: ['source_reference', 'notes', 'script', 'style'],
+        directives: [
+            'Use saved source material as concrete project memory.',
+            'Respect accepted divergences and approved stage handoffs.',
+            'Prefer source-supported facts over unsupported invention.'
+        ]
+    };
+}
+
+function sourceProfileBoost(source, profile) {
+    let boost = 0;
+    if ((profile.preferredTypes || []).includes(source.type)) boost += 4;
+    const tags = source.tags || [];
+    for (const tag of profile.preferredTags || []) {
+        if (tags.includes(tag)) boost += 2;
+    }
+    if (tags.includes('source_reference')) boost += 2;
+    return boost;
+}
+
+function relevantSourceSegmentsForStage(knowledge, query, stageId, maxSegments) {
+    const sources = knowledge.source_registry || [];
+    if (!sources.length) return [];
+    const profile = stageSourceProfile(stageId);
+    const keywords = tokenizeForKnowledge(`${profile.queryTerms.join(' ')}\n${query}`);
+    const scored = [];
+
+    for (const source of sources) {
+        const meta = `${source.name || ''} ${(source.tags || []).join(' ')} ${source.type || ''} ${source.summary || ''}`;
+        const metaScore = scoreAgainstKeywords(meta, keywords);
+        const profileBoost = sourceProfileBoost(source, profile);
+        for (const segment of sourceSegments(source)) {
+            const score = scoreAgainstKeywords(segment.text, keywords) + (metaScore * 2) + profileBoost;
+            if (score > 0) scored.push({ ...segment, score, keywords });
+        }
+    }
+
+    if (!scored.length) return relevantSourceSegments(knowledge, query, maxSegments || profile.maxSources || 5);
+    return scored.sort((a, b) => b.score - a.score).slice(0, maxSegments || profile.maxSources || 5);
+}
+
 function sourceReferenceForSegment(segment) {
     const source = segment?.source || {};
     return {
@@ -563,6 +736,184 @@ function sourceReferenceForSegment(segment) {
         label: segment?.label || source.name || 'Source',
         excerpt: excerptAroundKeywords(segment?.text || source.summary || '', segment?.keywords || [], 360)
     };
+}
+
+function sourcePlanDataHash(stageData = '') {
+    const text = typeof stageData === 'string' ? stageData : JSON.stringify(stageData ?? '', null, 2);
+    return crypto.createHash('sha256').update(text || '').digest('hex').slice(0, 20);
+}
+
+function sourcePlanCacheKey(stageId) {
+    return `stage${Number(stageId)}`;
+}
+
+function summarizeCachedSourcePlan(entry, currentStageHash) {
+    if (!entry || typeof entry !== 'object') return null;
+    const isStale = !!(entry.stageOutputHash && currentStageHash && entry.stageOutputHash !== currentStageHash);
+    return {
+        stageId: entry.stageId || null,
+        stageName: entry.stageName || '',
+        profile: entry.profile || '',
+        generatedAt: entry.generatedAt || null,
+        lastUsedAt: entry.lastUsedAt || null,
+        reason: entry.reason || '',
+        stageOutputHash: entry.stageOutputHash || '',
+        sourceIds: Array.isArray(entry.sourceIds) ? entry.sourceIds : [],
+        sourceReferences: Array.isArray(entry.sourceReferences) ? entry.sourceReferences : [],
+        localCheck: entry.localCheck || null,
+        isStale,
+        status: isStale ? 'stale' : (entry.lastUsedAt ? 'used' : 'cached')
+    };
+}
+
+function localSourcePlanCheck(knowledge, plan) {
+    const warnings = [];
+    const sources = knowledge.source_registry || [];
+    const sourceIds = new Set(sources.map(source => source.id).filter(Boolean));
+    const refs = Array.isArray(plan?.sourceReferences) ? plan.sourceReferences : [];
+
+    if (sources.length && !refs.length) {
+        warnings.push({
+            kind: 'no_selected_source_segments',
+            message: 'Saved source documents exist, but this stage plan selected no concrete source segment.'
+        });
+    }
+
+    for (const ref of refs) {
+        if (ref.sourceId && !sourceIds.has(ref.sourceId)) {
+            warnings.push({
+                kind: 'missing_selected_source',
+                message: `Selected source ${ref.sourceId} is no longer present in the project source registry.`
+            });
+        }
+    }
+
+    return {
+        ok: warnings.length === 0,
+        warnings
+    };
+}
+
+function compactSourcePlanReference(ref = {}) {
+    return {
+        sourceId: ref.sourceId || null,
+        name: compactText(ref.name || 'Untitled source', 180),
+        type: ref.type || 'source_material',
+        label: compactText(ref.label || ref.name || 'Source', 220)
+    };
+}
+
+function recordSourcePlanUsage(projectData, stageId, stageData = '', reason = 'generation', usedPlan = null) {
+    const numericStageId = Number(stageId);
+    if (!numericStageId || !STAGE_NAMES[numericStageId]) return null;
+
+    const knowledge = ensureProjectKnowledge(projectData);
+    const plan = usedPlan || buildSourceUsePlan(projectData, numericStageId, stageData);
+    const now = new Date().toISOString();
+    const sourceReferences = (plan.sourceReferences || []).map(compactSourcePlanReference);
+    const sourceIds = Array.from(new Set(sourceReferences.map(ref => ref.sourceId).filter(Boolean)));
+    const localCheck = localSourcePlanCheck(knowledge, plan);
+    const entry = {
+        stageId: numericStageId,
+        stageName: plan.stageName || STAGE_NAMES[numericStageId],
+        profile: plan.profile || stageSourceProfile(numericStageId).label,
+        generatedAt: now,
+        lastUsedAt: now,
+        reason,
+        stageOutputHash: sourcePlanDataHash(stageData),
+        sourceCount: plan.sourceCount || 0,
+        sourceIds,
+        sourceReferences,
+        directives: Array.isArray(plan.directives) ? plan.directives : [],
+        localCheck
+    };
+
+    knowledge.stage_source_plans[sourcePlanCacheKey(numericStageId)] = entry;
+
+    if (plan.hasKnowledge) {
+        const selectedSummary = sourceIds.length
+            ? `selected ${sourceIds.length} source${sourceIds.length === 1 ? '' : 's'}`
+            : 'used source bible/project knowledge with no specific source segment selected';
+        boundedKnowledgePush(knowledge.decision_log, {
+            type: 'source_plan_used',
+            stageId: numericStageId,
+            stageName: entry.stageName,
+            at: now,
+            summary: `${entry.stageName} ${reason.replace(/_/g, ' ')} ${selectedSummary}.`,
+            sourceIds,
+            warnings: localCheck.warnings.map(warning => warning.message)
+        }, 120);
+    }
+
+    return entry;
+}
+
+function buildSourceUsePlan(projectData, stageId, stageData = '') {
+    const numericStageId = Number(stageId);
+    const knowledge = ensureProjectKnowledge(projectData);
+    const profile = stageSourceProfile(numericStageId);
+    const stageName = STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`;
+    const stageOutputHash = sourcePlanDataHash(stageData);
+    const cachedPlan = summarizeCachedSourcePlan(
+        knowledge.stage_source_plans?.[sourcePlanCacheKey(numericStageId)],
+        stageOutputHash
+    );
+    const bibleSummary = sourceBibleSummary(knowledge);
+    const handoff = knowledge.stage_handoffs?.[`stage${numericStageId}`] || knowledge.stage_handoffs?.[numericStageId] || '';
+    const acceptedDivergences = (knowledge.accepted_divergences || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
+    const continuityWatchlist = (knowledge.continuity_watchlist || []).slice(-10).map(formatKnowledgeItem).filter(Boolean);
+    const query = `${profile.queryTerms.join(' ')}\n${stageName}\n${compactText(stageData, 8_000)}`;
+    const sourceReferences = relevantSourceSegmentsForStage(
+        knowledge,
+        query,
+        numericStageId,
+        profile.maxSources
+    ).map(sourceReferenceForSegment);
+    const hasKnowledge = !!(knowledge.source_registry.length || bibleSummary || handoff || acceptedDivergences.length || continuityWatchlist.length);
+
+    return {
+        stageId: numericStageId,
+        stageName,
+        profile: profile.label,
+        hasKnowledge,
+        sourceCount: knowledge.source_registry.length,
+        directives: profile.directives,
+        sourceReferences,
+        continuityWatchlist,
+        acceptedDivergences,
+        handoff: formatKnowledgeItem(handoff),
+        bibleSummary: compactText(bibleSummary, 1_600),
+        stageOutputHash,
+        cachedPlan,
+        freshness: cachedPlan?.status || 'not_used'
+    };
+}
+
+function formatSourceUsePlan(plan) {
+    if (!plan?.hasKnowledge) return '';
+    const sections = [
+        `## SOURCE-FIRST GENERATION PLAN`,
+        `Stage Focus: ${plan.profile || plan.stageName}`,
+        `Use this plan before generating or revising. It is a source-selection guide, not prose for the final output.`
+    ];
+    if (plan.directives?.length) {
+        sections.push(`### Stage-Specific Source Rules\n${plan.directives.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (plan.handoff) sections.push(`### Approved Stage Handoff\n${plan.handoff}`);
+    if (plan.continuityWatchlist?.length) {
+        sections.push(`### Continuity To Preserve\n${plan.continuityWatchlist.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (plan.acceptedDivergences?.length) {
+        sections.push(`### Accepted Divergences\n${plan.acceptedDivergences.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (plan.sourceReferences?.length) {
+        sections.push(`### Source References To Consult\n${plan.sourceReferences.map((ref, index) => {
+            return `${index + 1}. ${ref.name} (${ref.sourceId || 'source'}, ${ref.label || ref.type})\n${compactText(ref.excerpt || '', 420)}`;
+        }).join('\n\n')}`);
+    } else if (plan.sourceCount) {
+        sections.push('### Source References To Consult\nNo keyword-specific source segment was selected; fall back to the source bible and source library summaries.');
+    }
+    return compactText(sections.filter(Boolean).join('\n\n'), 8_000);
 }
 
 function formatKnowledgeItem(item) {
@@ -604,7 +955,9 @@ function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', st
     if (!hasKnowledge) return '';
 
     const query = `${userMessage}\n${stageName}\n${compactText(stageData, 8_000)}`;
-    const relevant = relevantSourceSegments(knowledge, query);
+    const relevant = stageId
+        ? relevantSourceSegmentsForStage(knowledge, query, stageId)
+        : relevantSourceSegments(knowledge, query);
     const sections = [
         '## PROJECT KNOWLEDGE (PERSISTENT MEMORY)\nUse this as source-aware project memory. Treat source material as reference/canon when it conflicts with assistant speculation.'
     ];
@@ -632,8 +985,10 @@ function buildGenerationKnowledgeContext(projectData, stageId, stageData = '') {
         stageData,
         maxChars: 12_000
     });
-    if (!block) return '';
-    return `${block}
+    const sourceUsePlan = formatSourceUsePlan(buildSourceUsePlan(projectData, stageId, stageData));
+    const sections = [block, sourceUsePlan].filter(Boolean);
+    if (!sections.length) return '';
+    return `${sections.join('\n\n---\n\n')}
 
 ## SOURCE CANON RULE
 Preserve concrete facts from project knowledge and source documents. If existing stage material conflicts with source canon, prefer the source unless the writer's explicit notes or an accepted source divergence say otherwise.`;
@@ -669,6 +1024,7 @@ function knowledgePayloadForClient(knowledge) {
         continuity_watchlist: knowledge.continuity_watchlist || [],
         decision_log: knowledge.decision_log || [],
         stage_handoffs: knowledge.stage_handoffs || {},
+        stage_source_plans: knowledge.stage_source_plans || {},
         accepted_divergences: knowledge.accepted_divergences || []
     };
 }
@@ -812,11 +1168,22 @@ function buildKnowledgeDiagnostics(projectData) {
         }
     }
 
+    for (const [key, plan] of Object.entries(knowledge.stage_source_plans || {})) {
+        if (!plan?.stageId) {
+            add('info', 'source_plan_shape', `${key} source plan is missing a stage id.`, 'Regenerate this stage to refresh source-plan metadata.');
+        }
+        const warnings = plan?.localCheck?.warnings || [];
+        for (const warning of warnings.slice(0, 3)) {
+            add('warning', 'source_plan_warning', `${STAGE_NAMES[plan.stageId] || key}: ${warning.message || warning}`, 'Open Source Plan for this stage and refresh the generation if needed.');
+        }
+    }
+
     return {
         generatedAt: new Date().toISOString(),
         counts: {
             sources: sourceCount,
             handoffs: Object.keys(knowledge.stage_handoffs || {}).length,
+            sourcePlans: Object.keys(knowledge.stage_source_plans || {}).length,
             continuityItems: (knowledge.continuity_watchlist || []).length,
             decisions: (knowledge.decision_log || []).length,
             acceptedDivergences: (knowledge.accepted_divergences || []).length,
@@ -1105,12 +1472,14 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
 
         console.log("Generating Stage 2 Outline...");
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notes || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 2, stage2KnowledgeSeed);
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfigWithKnowledge(2, projectData, stage2KnowledgeSeed));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
         projectData.data.stage2_outline = outlineData;
         notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
+        recordSourcePlanUsage(projectData, 2, JSON.stringify(outlineData, null, 2), notes ? 'revision' : 'generation', sourcePlan);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -1152,12 +1521,14 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
 
         console.log("Generating Stage 3 Characters...");
         const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notes || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 3, stage3KnowledgeSeed);
         const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfigWithKnowledge(3, projectData, stage3KnowledgeSeed));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
         projectData.data.stage3_characters = characterData;
         notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
+        recordSourcePlanUsage(projectData, 3, JSON.stringify(characterData, null, 2), notes ? 'revision' : 'generation', sourcePlan);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -1207,6 +1578,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     try {
         console.log("Generating Stage 4 Beats...");
         const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notes || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 4, stage4KnowledgeSeed);
         const { result: beatsResult, usage } = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
             (label) => send({ type: 'progress', label }),
@@ -1218,6 +1590,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
         notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
+        recordSourcePlanUsage(projectData, 4, JSON.stringify(beatsResult, null, 2), notes ? 'revision' : 'generation', sourcePlan);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -1274,6 +1647,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     try {
         console.log("Generating Stage 5 Chained Treatment...");
         const stage5KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedTreatment ? JSON.stringify(parsedTreatment, null, 2) : ''}\n${notes || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 5, stage5KnowledgeSeed);
         const { result: treatmentResult, usageList } = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notes,
             (step, total, label) => send({ type: 'progress', step, total, label }),
@@ -1283,6 +1657,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
         notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
+        recordSourcePlanUsage(projectData, 5, JSON.stringify(treatmentResult, null, 2), notes ? 'revision' : 'generation', sourcePlan);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
@@ -1336,7 +1711,9 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         if (sourceAuthorityBlock) {
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
         }
-        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 6, `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}`);
+        const stage6KnowledgeSeed = `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 6, stage6KnowledgeSeed);
+        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 6, stage6KnowledgeSeed);
         const combinedSourceBlock = [sourceAuthorityBlock, knowledgeSourceBlock].filter(Boolean).join('\n\n---\n\n');
 
         const { result: allSequences, usageList } = await generateStage6Scenes(
@@ -1349,6 +1726,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
         stampGenerated(projectData, 'stage6_scenes');
+        recordSourcePlanUsage(projectData, 6, JSON.stringify(allSequences, null, 2), 'generation', sourcePlan);
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
@@ -1383,11 +1761,14 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
 
         console.log("Revising Stage 6 Scene Blueprint...");
-        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithKnowledge(6, projectData, `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`));
+        const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 6, stage6RevisionSeed);
+        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithKnowledge(6, projectData, stage6RevisionSeed));
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
         stampRevised(projectData, 'stage6_scenes');
+        recordSourcePlanUsage(projectData, 6, JSON.stringify(updatedBlueprint, null, 2), 'revision', sourcePlan);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
@@ -1450,6 +1831,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 8, draftKnowledgeSeed);
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
 
         console.log(`Humanizing draft for Scene ${sceneNum}...`);
@@ -1457,6 +1839,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
+        recordSourcePlanUsage(projectData, 8, JSON.stringify(targetedScene, null, 2), 'generation', sourcePlan);
 
         console.log(`Running continuity check for Scene ${sceneNum}...`);
         const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
@@ -1525,6 +1908,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${feedback}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 8, draftKnowledgeSeed);
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
 
         console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
@@ -1533,6 +1917,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
         targetedScene.locked = false;
+        recordSourcePlanUsage(projectData, 8, JSON.stringify(targetedScene, null, 2), 'revision', sourcePlan);
 
         console.log(`Running continuity check for Scene ${sceneNum}...`);
         const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
@@ -2149,6 +2534,30 @@ Return concise, actionable findings.`;
     }
 });
 
+app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
+    try {
+        const { projectId, stageId, stageDataOverride } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
+        }
+
+        const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
+        const projectData = JSON.parse(content);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+        const overrideText = stageDataOverrideToText(stageDataOverride);
+        const stageData = overrideText === null ? builtStage.stageData : overrideText;
+        const plan = buildSourceUsePlan(projectData, numericStageId, stageData);
+        res.json({
+            ...plan,
+            sourceUsePlanText: formatSourceUsePlan(plan)
+        });
+    } catch (error) {
+        console.error('source-plan-stage error:', error.message);
+        res.status(500).json({ error: 'Failed to build source use plan' });
+    }
+});
+
 // Audit scope: which scenes does this task affect?
 app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
     try {
@@ -2191,7 +2600,9 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         } else if (plannerStyleContent) {
             styleNote = `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`;
         }
-        const knowledgeContext = buildGenerationKnowledgeContext(projectData, 10, `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`);
+        const sourcePlanSeed = `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
+        const knowledgeContext = buildGenerationKnowledgeContext(projectData, 10, sourcePlanSeed);
         const prompt = `${knowledgeContext ? `${knowledgeContext}\n\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
@@ -2236,6 +2647,8 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
 
         const plan = JSON.parse(response.text);
         console.log(`Stage 10 plan: ${plan.affected_scenes.length} scenes affected.`);
+        recordSourcePlanUsage(projectData, 10, JSON.stringify(plan, null, 2), 'rewrite_plan', sourcePlan);
+        await writeJSONQueued(filePath, projectData);
         if (response.usage) trackUsage(projectId, response.usage);
         res.json(plan);
     } catch (error) {
@@ -2272,6 +2685,11 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
 
         const { styleContent, referenceContent } = await loadProjectStyle(projectData);
         console.log(`Stage 10: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."${referenceContent ? ' [with style compliance]' : ''}`);
+        const sourcePlanSeed = `${priorityTask}\n${scopedScenes.map(s => {
+            const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
+            return `Scene ${s.scene_number}: ${s.scene_heading || s.slugline || ''}\n${s.narrative_action || ''}\n${compactText(sceneText, 1_200)}`;
+        }).join('\n\n')}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
 
         const results = await Promise.allSettled(
             scopedScenes.map(s => {
@@ -2296,6 +2714,8 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         });
 
         const usages = results.filter(r => r.status === 'fulfilled' && r.value.usage).map(r => r.value.usage);
+        recordSourcePlanUsage(projectData, 10, JSON.stringify(scenes, null, 2), 'rewrite_generation', sourcePlan);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usages);
 
         res.json({ scenes });
@@ -2340,9 +2760,13 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         if (plannedChange && deletionPattern.test(plannedChange)) {
             console.log(`Stage 10: deleting scene ${sceneNum} (per plan)`);
             // Persist deletion to disk immediately
-            const stage9 = projectData.data.stage9_rewrites || {};
+            projectData.data = projectData.data || {};
+            const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = '';
+            projectData.data.stage9_rewrites = stage9;
+            const deletionSourcePlan = buildSourceUsePlan(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`);
+            recordSourcePlanUsage(projectData, 10, '', 'single_scene_delete', deletionSourcePlan);
             await writeJSONQueued(filePath, projectData);
             return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true });
         }
@@ -2359,11 +2783,13 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             }).join('\n\n')
             : '';
 
+        const sourcePlanSeed = `${priorityTask}\n${plannedChange || ''}\n${sceneText}\n${sceneMeta?.narrative_action || ''}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
         const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
             { title, sceneNumber: sceneNum, slugline, characters: charProfiles },
             plannedChange || '',
-            getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${plannedChange || ''}\n${sceneText}\n${sceneMeta?.narrative_action || ''}`),
+            getModelConfigWithKnowledge(10, projectData, sourcePlanSeed),
             styleContent,
             referenceContent
         );
@@ -2372,11 +2798,14 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
 
         // Persist pending rewrite to disk immediately so it survives page refresh
         if (modified) {
-            const stage9 = projectData.data.stage9_rewrites || {};
+            projectData.data = projectData.data || {};
+            const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = proposed;
-            await writeJSONQueued(filePath, projectData);
+            projectData.data.stage9_rewrites = stage9;
         }
+        recordSourcePlanUsage(projectData, 10, proposed, 'single_scene_rewrite', sourcePlan);
+        await writeJSONQueued(filePath, projectData);
 
         trackUsage(projectId, usage);
         res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified });
@@ -2439,14 +2868,18 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         if (attachmentText) feedbackParts.push(`## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}`);
         if (userFeedback) feedbackParts.push(userFeedback);
         const enrichedFeedback = feedbackParts.join('\n\n---\n\n') || userFeedback;
+        const sourcePlanSeed = `${priorityTask}\n${enrichedFeedback || ''}\n${currentText}`;
+        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
 
         const { result: proposed_text, usage } = await rewriteScene(
             currentText,
             priorityTask,
             { title, sceneNumber },
             enrichedFeedback,
-            getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${enrichedFeedback || ''}\n${currentText}`),
+            getModelConfigWithKnowledge(10, projectData, sourcePlanSeed),
         );
+        recordSourcePlanUsage(projectData, 10, proposed_text, 'rewrite_feedback', sourcePlan);
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
         res.json(savedSource ? { proposed_text, savedSource } : { proposed_text });
     } catch (error) {
@@ -2509,8 +2942,10 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         }
 
         console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}...`);
+        const styleKnowledgeSeed = `${description || ''}\n${sceneSummaries}\n${conversationHistory.map(m => m.content).join('\n')}`;
+        const sourcePlan = projectData ? buildSourceUsePlan(projectData, 7, styleKnowledgeSeed) : null;
         const styleModelConfig = projectData
-            ? getModelConfigWithKnowledge(7, projectData, `${description || ''}\n${sceneSummaries}\n${conversationHistory.map(m => m.content).join('\n')}`)
+            ? getModelConfigWithKnowledge(7, projectData, styleKnowledgeSeed)
             : getModelConfig(7);
         const { result: styleContent, usage } = await generateStyleFile({
             description: description || '',
@@ -2530,6 +2965,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
+            recordSourcePlanUsage(projectData, 7, styleContent, 'generation', sourcePlan);
             await writeJSONQueued(filePath, projectData);
             if (projectId) trackUsage(projectId, usage);
         }
@@ -3790,9 +4226,13 @@ module.exports = {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceUsePlan,
     compactAuditForKnowledge,
+    formatSourceUsePlan,
+    recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
+    stageSourceProfile,
     stageDataOverrideToText,
     startServer
 };

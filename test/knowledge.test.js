@@ -5,9 +5,13 @@ const {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceUsePlan,
     compactAuditForKnowledge,
+    formatSourceUsePlan,
+    recordSourcePlanUsage,
     sanitizeStageCurationProposal,
-    sourceBibleSummary
+    sourceBibleSummary,
+    stageSourceProfile
 } = require('../server');
 
 test('ensureProjectKnowledge initializes persistent memory buckets without clobbering notes', () => {
@@ -28,6 +32,7 @@ test('ensureProjectKnowledge initializes persistent memory buckets without clobb
     assert.deepEqual(knowledge.source_registry, []);
     assert.deepEqual(knowledge.accepted_divergences, []);
     assert.deepEqual(knowledge.stage_handoffs, {});
+    assert.deepEqual(knowledge.stage_source_plans, {});
 });
 
 test('knowledge context includes accepted divergences and relevant source provenance', () => {
@@ -122,4 +127,81 @@ test('buildKnowledgeDiagnostics flags memory gaps and duplicate divergences', ()
     assert.ok(kinds.includes('no_sources'));
     assert.ok(kinds.includes('missing_stage_handoff'));
     assert.ok(kinds.includes('duplicate_divergence'));
+});
+
+test('buildSourceUsePlan applies stage-specific retrieval and accepted divergences', () => {
+    const project = {
+        data: {
+            knowledge: {
+                source_registry: [
+                    {
+                        id: 'src_plot',
+                        name: 'Plot Source.pdf',
+                        type: 'source_reference',
+                        tags: ['source_reference'],
+                        summary: 'The climax happens in the arcade.',
+                        text: 'The climax happens in the arcade after Mara chooses to save Jules.'
+                    },
+                    {
+                        id: 'src_style',
+                        name: 'Style Sample.fountain',
+                        type: 'style_reference',
+                        tags: ['style'],
+                        summary: 'Sparse dialogue and visual restraint.',
+                        text: 'Sparse dialogue. Visual restraint. Long silent beats.'
+                    }
+                ],
+                source_bible: { summary: 'Mara saves Jules.', curated_notes: [] },
+                continuity_watchlist: ['Mara keeps the blue key.'],
+                decision_log: [],
+                accepted_divergences: [{ summary: 'Jules is renamed June.' }],
+                stage_handoffs: {
+                    stage8: { summary: 'Draft scenes should preserve the arcade climax.' }
+                }
+            }
+        }
+    };
+
+    const plan = buildSourceUsePlan(project, 8, 'Mara enters the arcade with the blue key.');
+    const text = formatSourceUsePlan(plan);
+
+    assert.equal(stageSourceProfile(8).label, 'Draft scene execution');
+    assert.equal(plan.profile, 'Draft scene execution');
+    assert.ok(plan.sourceReferences.some(ref => ref.sourceId === 'src_plot'));
+    assert.match(text, /SOURCE-FIRST GENERATION PLAN/);
+    assert.match(text, /Jules is renamed June/);
+    assert.match(text, /arcade climax/);
+});
+
+test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
+    const project = {
+        data: {
+            knowledge: {
+                source_registry: [{
+                    id: 'src_plot',
+                    name: 'Plot Source.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'The arcade climax matters.',
+                    text: 'Mara saves Jules in the arcade climax.'
+                }],
+                source_bible: { summary: 'Mara saves Jules.', curated_notes: [] },
+                continuity_watchlist: [],
+                decision_log: [],
+                accepted_divergences: [],
+                stage_handoffs: {}
+            }
+        }
+    };
+
+    const usedPlan = buildSourceUsePlan(project, 6, 'Blueprint focuses on the arcade climax.');
+    const entry = recordSourcePlanUsage(project, 6, 'Generated blueprint output.', 'generation', usedPlan);
+    const freshPlan = buildSourceUsePlan(project, 6, 'Generated blueprint output.');
+    const stalePlan = buildSourceUsePlan(project, 6, 'Edited blueprint output.');
+
+    assert.equal(entry.stageId, 6);
+    assert.equal(freshPlan.freshness, 'used');
+    assert.equal(stalePlan.freshness, 'stale');
+    assert.equal(project.data.knowledge.stage_source_plans.stage6.sourceIds[0], 'src_plot');
+    assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_plan_used'));
 });

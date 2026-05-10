@@ -6020,6 +6020,65 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderSourcePlanCard(plan) {
+        const renderList = (title, items, emptyText) => {
+            const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            return `
+                <section>
+                    <h4>${escapeHtml(title)}</h4>
+                    ${safeItems.length
+                        ? `<ul>${safeItems.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>`
+                        : `<p class="source-audit-empty">${escapeHtml(emptyText)}</p>`}
+                </section>
+            `;
+        };
+        const refs = (plan.sourceReferences || []).slice(0, 6);
+        const cached = plan.cachedPlan || null;
+        const freshness = plan.freshness || cached?.status || 'not_used';
+        const statusCopy = {
+            used: 'Used in last generation',
+            stale: 'Plan stale',
+            cached: 'Cached',
+            not_used: 'Not used yet'
+        };
+        const statusClass = String(freshness).replace(/[^a-z_-]/g, '');
+        const lastUsed = cached?.lastUsedAt ? new Date(cached.lastUsedAt).toLocaleString() : '';
+        const cachedRefs = (cached?.sourceReferences || []).slice(0, 4);
+        const localWarnings = (cached?.localCheck?.warnings || []).map(warning => warning.message || warning);
+        return `
+            <div class="source-audit-card source-plan-card">
+                <div class="source-audit-card-header">
+                    <strong>Source Use Plan</strong>
+                    <span>${escapeHtml(plan.stageName || `Stage ${plan.stageId || ''}`)} - ${escapeHtml(plan.profile || 'Project source plan')}</span>
+                    <span class="source-plan-status source-plan-status-${escapeHtml(statusClass)}">${escapeHtml(statusCopy[freshness] || statusCopy.not_used)}</span>
+                </div>
+                ${lastUsed ? `<p class="source-plan-meta">Last generation use: ${escapeHtml(lastUsed)}${cached?.reason ? ` (${escapeHtml(cached.reason.replace(/_/g, ' '))})` : ''}</p>` : '<p class="source-plan-meta">This plan has not been recorded by a generation or revision yet.</p>'}
+                ${freshness === 'stale' ? '<p class="source-plan-meta source-plan-warning">The current stage text differs from the last recorded source-plan use.</p>' : ''}
+                ${plan.hasKnowledge ? '' : '<p class="source-audit-empty">No saved project knowledge yet. Upload source material or add project notes first.</p>'}
+                ${renderList('Stage Rules', plan.directives, 'No stage-specific rules available.')}
+                ${plan.handoff ? renderList('Current Handoff', [plan.handoff], '') : ''}
+                ${renderList('Continuity To Preserve', plan.continuityWatchlist, 'No continuity items selected.')}
+                ${renderList('Accepted Divergences', plan.acceptedDivergences, 'No accepted divergences for this stage.')}
+                ${cachedRefs.length ? renderList('Last Used Sources', cachedRefs.map(ref => `${ref.name || ref.sourceId || 'Source'}${ref.label ? ` - ${ref.label}` : ''}`), 'No cached source references yet.') : ''}
+                ${localWarnings.length ? renderList('Local Warnings', localWarnings, 'No local warnings.') : ''}
+                ${refs.length ? `
+                    <section>
+                        <h4>Source References</h4>
+                        <div class="source-audit-references">
+                            ${refs.map(ref => `
+                                <div class="source-audit-reference">
+                                    <strong>${escapeHtml(ref.name || 'Source')}</strong>
+                                    <span>${escapeHtml(ref.sourceId || ref.label || '')}</span>
+                                    ${ref.excerpt ? `<p>${escapeHtml(ref.excerpt)}</p>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
+                ` : ''}
+            </div>
+        `;
+    }
+
     function wireSourceAuditActions(stageId, audit, cardEl) {
         if (!cardEl) return;
         const chat = stageChatWindows[stageId];
@@ -6073,6 +6132,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function runSourcePlan(stageId, button) {
+        if (!activeProjectId) return;
+        const chat = stageChatWindows[stageId];
+        if (!chat) return;
+        const originalText = button?.textContent || 'Source Plan';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Planning...';
+        }
+        const pending = chat.append('system', 'Building source use plan...');
+        try {
+            const res = await fetch('/api/source-plan-stage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    stageId,
+                    stageDataOverride: getStageApprovalSnapshot(stageId)
+                })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                throw new Error(err.error || `Server error ${res.status}`);
+            }
+            const plan = await res.json();
+            pending.remove();
+            chat.append('system', '', { html: renderSourcePlanCard(plan) });
+        } catch (err) {
+            pending.remove();
+            chat.append('system', 'Source plan failed: ' + err.message);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
     function addSourceAuditButton(stageId) {
         if (![1, 2, 3, 4, 5, 6, 7, 8, 10].includes(stageId)) return;
         const chatEl = document.getElementById(`stage${stageId}-chat`);
@@ -6087,6 +6184,24 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', (event) => {
             event.stopPropagation();
             runSourceAudit(stageId, btn);
+        });
+        header.insertBefore(btn, collapseBtn || null);
+    }
+
+    function addSourcePlanButton(stageId) {
+        if (![1, 2, 3, 4, 5, 6, 7, 8, 10].includes(stageId)) return;
+        const chatEl = document.getElementById(`stage${stageId}-chat`);
+        const header = chatEl?.querySelector('.chat-header');
+        if (!header || header.querySelector('.source-plan-btn')) return;
+        const collapseBtn = header.querySelector('.chat-collapse-btn');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'source-plan-btn';
+        btn.textContent = 'Source Plan';
+        btn.title = 'Preview which saved sources will guide this stage';
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            runSourcePlan(stageId, btn);
         });
         header.insertBefore(btn, collapseBtn || null);
     }
@@ -6265,6 +6380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         addSourceAuditButton(stageId);
+        addSourcePlanButton(stageId);
         return chat;
     }
 
@@ -7532,6 +7648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
             addSourceAuditButton(10);
+            addSourcePlanButton(10);
 
             // Fetch AI opening message (presents Stage 9 priorities)
             try {
