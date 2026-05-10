@@ -1279,6 +1279,12 @@ textarea.synopsis-input {
 .source-plan-warning {
     color: #fde68a;
 }
+.source-fix-summary {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
 .source-audit-card section {
     margin-top: 10px;
 }

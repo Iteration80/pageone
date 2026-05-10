@@ -1060,6 +1060,26 @@ function summarizeAuditForDecision(audit = {}) {
     return parts.length ? parts.join(', ') : 'No source alignment issues recorded.';
 }
 
+function sourceAuditHasActionableItems(audit = {}) {
+    return ['possible_source_mismatches', 'missing_source_elements', 'recommended_fixes']
+        .some(key => Array.isArray(audit[key]) && audit[key].filter(Boolean).length > 0);
+}
+
+function buildSourceAuditFixNotes(audit = {}, { stageId, stageName, userInstruction = '' } = {}) {
+    const compact = compactAuditForKnowledge({ ...audit, stageId, stageName });
+    const section = (label, items) => items.length
+        ? `\n${label}:\n${items.map(item => `- ${item}`).join('\n')}`
+        : '';
+    return compactText(`Apply source-alignment fixes to ${stageName || `Stage ${stageId}`}.
+Preserve the existing structure, formatting shape, and approved creative intent. Only change content needed to resolve the source audit below.
+${userInstruction ? `\nAdditional writer instruction:\n${userInstruction}\n` : ''}
+${section('Possible source mismatches', compact.possible_source_mismatches)}
+${section('Missing source elements', compact.missing_source_elements)}
+${section('Recommended fixes', compact.recommended_fixes)}
+
+Return a coherent revised stage output, not commentary about the revision.`, 6_000);
+}
+
 function stageDataOverrideToText(value) {
     if (value === undefined || value === null) return null;
     if (typeof value === 'string') return value;
@@ -1289,6 +1309,21 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     }
 
     return { stageName, stageData };
+}
+
+function parseStageOverride(value) {
+    if (value === undefined || value === null || value === '') return null;
+    return typeof value === 'string' ? safeParse(value, null) : value;
+}
+
+function findProjectScene(projectData, sceneNumber) {
+    const sceneNum = Number(sceneNumber);
+    if (!sceneNum || !Array.isArray(projectData.data?.stage6_scenes)) return null;
+    for (const sequence of projectData.data.stage6_scenes) {
+        const scene = (sequence.scenes || []).find(s => Number(s.scene_number) === sceneNum);
+        if (scene) return scene;
+    }
+    return null;
 }
 
 const app = express();
@@ -2432,7 +2467,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
 // Lightweight source alignment check for the current stage output.
 app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => {
     try {
-        const { projectId, stageId, stageDataOverride } = req.body;
+        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body;
         const numericStageId = Number(stageId);
         if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
             return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
@@ -2441,7 +2476,7 @@ app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
         const projectData = JSON.parse(content);
-        const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId, sceneNumber);
         const stageName = builtStage.stageName;
         const overrideText = stageDataOverrideToText(stageDataOverride);
         const stageData = overrideText === null ? builtStage.stageData : overrideText;
@@ -2538,7 +2573,7 @@ Return concise, actionable findings.`;
 
 app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
     try {
-        const { projectId, stageId, stageDataOverride } = req.body || {};
+        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body || {};
         const numericStageId = Number(stageId);
         if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
             return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
@@ -2546,7 +2581,7 @@ app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
 
         const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
         const projectData = JSON.parse(content);
-        const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId, sceneNumber);
         const overrideText = stageDataOverrideToText(stageDataOverride);
         const stageData = overrideText === null ? builtStage.stageData : overrideText;
         const plan = buildSourceUsePlan(projectData, numericStageId, stageData);
@@ -2557,6 +2592,186 @@ app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('source-plan-stage error:', error.message);
         res.status(500).json({ error: 'Failed to build source use plan' });
+    }
+});
+
+app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) => {
+    try {
+        const { projectId, stageId, audit, stageDataOverride, sceneNumber, userInstruction } = req.body || {};
+        const numericStageId = Number(stageId);
+        const supportedStages = new Set([2, 3, 4, 5, 6, 8]);
+        if (!isValidProjectId(projectId) || !supportedStages.has(numericStageId)) {
+            return res.status(400).json({ error: 'Missing or unsupported projectId or stageId' });
+        }
+        if (!sourceAuditHasActionableItems(audit)) {
+            return res.status(400).json({ error: 'Source audit has no actionable mismatch, missing element, or recommended fix' });
+        }
+
+        const filePath = getProjectFilePath(projectId);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId, sceneNumber);
+        const stageName = builtStage.stageName;
+        const overrideText = stageDataOverrideToText(stageDataOverride);
+        const stageData = overrideText === null ? builtStage.stageData : overrideText;
+        const overrideData = parseStageOverride(stageDataOverride);
+        const fixNotes = buildSourceAuditFixNotes(audit, {
+            stageId: numericStageId,
+            stageName,
+            userInstruction
+        });
+        const sourcePlan = buildSourceUsePlan(projectData, numericStageId, `${stageData}\n${fixNotes}`);
+
+        projectData.data = projectData.data || {};
+        let result;
+        let stageKey;
+        let usagePayload;
+
+        if (numericStageId === 2) {
+            const pitchData = projectData.data.stage1_pitch?.pitch;
+            if (!pitchData) return res.status(400).json({ error: 'Stage 1 Pitch is required before revising Stage 2' });
+            const currentOutline = overrideData?.outline || projectData.data.stage2_outline?.outline || [];
+            const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(currentOutline, null, 2)}\n${fixNotes}`;
+            const generated = await agent2Outline(pitchData, currentOutline, fixNotes, null, getModelConfigWithKnowledge(2, projectData, seed));
+            result = generated.result;
+            usagePayload = generated.usage;
+            stageKey = 'stage2_outline';
+            projectData.data.stage2_outline = result;
+            stampRevised(projectData, stageKey);
+        } else if (numericStageId === 3) {
+            const pitchData = projectData.data.stage1_pitch?.pitch;
+            const beatsData = projectData.data.stage2_outline?.outline;
+            if (!pitchData || !beatsData) return res.status(400).json({ error: 'Stages 1 and 2 are required before revising Stage 3' });
+            const currentCharacters = overrideData?.characters || projectData.data.stage3_characters?.characters || [];
+            const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(currentCharacters, null, 2)}\n${fixNotes}`;
+            const generated = await agent3Characters(pitchData, beatsData, currentCharacters, fixNotes, null, getModelConfigWithKnowledge(3, projectData, seed));
+            result = generated.result;
+            usagePayload = generated.usage;
+            stageKey = 'stage3_characters';
+            projectData.data.stage3_characters = result;
+            stampRevised(projectData, stageKey);
+        } else if (numericStageId === 4) {
+            const pitchData = projectData.data.stage1_pitch?.pitch;
+            const beatsData = projectData.data.stage2_outline?.outline;
+            const charsData = projectData.data.stage3_characters?.characters;
+            if (!pitchData || !beatsData || !charsData) return res.status(400).json({ error: 'Stages 1-3 are required before revising Stage 4' });
+            const currentBeats = overrideData || projectData.data.stage4_beats || null;
+            const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${JSON.stringify(currentBeats, null, 2)}\n${fixNotes}`;
+            const generated = await agent4Beats(
+                pitchData, beatsData, charsData, currentBeats, fixNotes, null,
+                () => {},
+                getModelConfigWithKnowledge(4, projectData, seed)
+            );
+            result = generated.result;
+            usagePayload = generated.usage;
+            stageKey = 'stage4_beats';
+            projectData.data.stage4_beats = result;
+            stampRevised(projectData, stageKey);
+        } else if (numericStageId === 5) {
+            const pitchData = projectData.data.stage1_pitch?.pitch;
+            const charactersData = projectData.data.stage3_characters?.characters;
+            const beatsData = projectData.data.stage4_beats?.hybrid_beat_sheet;
+            if (!pitchData || !charactersData || !beatsData) return res.status(400).json({ error: 'Stages 1, 3, and 4 are required before revising Stage 5' });
+            const currentTreatment = overrideData || projectData.data.stage5_treatment || null;
+            const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(currentTreatment, null, 2)}\n${fixNotes}`;
+            const generated = await agent5Treatment(
+                pitchData, charactersData, beatsData, currentTreatment, fixNotes,
+                () => {},
+                getModelConfigWithKnowledge(5, projectData, seed)
+            );
+            result = generated.result;
+            usagePayload = generated.usageList;
+            stageKey = 'stage5_treatment';
+            projectData.data.stage5_treatment = result;
+            stampRevised(projectData, stageKey);
+        } else if (numericStageId === 6) {
+            const currentBlueprint = overrideData || projectData.data.stage6_scenes;
+            if (!currentBlueprint) return res.status(400).json({ error: 'Stage 6 Scene Blueprint is required before source revision' });
+            const seed = `${JSON.stringify(currentBlueprint, null, 2)}\n${fixNotes}`;
+            const generated = await reviseStage6Scenes(currentBlueprint, fixNotes, getModelConfigWithKnowledge(6, projectData, seed));
+            result = generated.result;
+            usagePayload = generated.usage;
+            stageKey = 'stage6_scenes';
+            projectData.data.stage6_scenes = result;
+            stampRevised(projectData, stageKey);
+        } else if (numericStageId === 8) {
+            const sceneNum = parseInt(sceneNumber, 10);
+            if (!sceneNum) return res.status(400).json({ error: 'sceneNumber is required for Stage 8 source revision' });
+            const targetedScene = findProjectScene(projectData, sceneNum);
+            if (!targetedScene) return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
+
+            const overrideScene = Array.isArray(overrideData)
+                ? overrideData.find(scene => Number(scene.scene_number) === sceneNum)
+                : null;
+            if (overrideScene?.draft_text) {
+                targetedScene.draft_text = overrideScene.draft_text;
+                targetedScene.humanized_draft_text = overrideScene.draft_text;
+            }
+
+            const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(field => !targetedScene[field]);
+            if (missingFields.length > 0) {
+                return res.status(400).json({ error: `Scene missing required fields: ${missingFields.join(', ')}` });
+            }
+
+            const projectContext = {
+                synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || '',
+                characters: projectData.data.stage3_characters?.characters || []
+            };
+            clearSceneFacts(projectData, sceneNum);
+            const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
+            const { styleContent, styleWarning } = await loadProjectStyle(projectData);
+            const seed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${fixNotes}`;
+            const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithKnowledge(8, projectData, seed), styleContent, continuityCtx);
+            const humanized = await humanizeDraft(generated.result);
+            targetedScene.draft_text = generated.result;
+            targetedScene.humanized_draft_text = humanized.result;
+            targetedScene.locked = false;
+            const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
+                humanized.result || generated.result,
+                targetedScene,
+                projectData,
+                { geminiApiKey: getModelConfig(8).geminiApiKey, anthropicApiKey: getModelConfig(8).anthropicApiKey }
+            );
+            applyCheckResult(projectData, checkResult, checkUsage);
+            result = {
+                scene_number: sceneNum,
+                draft_text: generated.result,
+                humanized_draft_text: humanized.result,
+                continuityErrors: checkResult.errors || [],
+                continuityWarnings: checkResult.warnings || [],
+                ...(styleWarning && { styleWarning })
+            };
+            usagePayload = [generated.usage, humanized.usage, checkUsage].filter(Boolean);
+            stageKey = 'stage6_scenes';
+        }
+
+        recordSourcePlanUsage(projectData, numericStageId, JSON.stringify(result, null, 2), 'source_audit_revision', sourcePlan);
+        const knowledge = ensureProjectKnowledge(projectData);
+        const now = new Date().toISOString();
+        boundedKnowledgePush(knowledge.decision_log, {
+            at: now,
+            type: 'source_audit_fixes_applied',
+            stageId: numericStageId,
+            stageName,
+            summary: `Applied source audit fixes to ${stageName}: ${summarizeAuditForDecision(audit)}`,
+            audit: compactAuditForKnowledge(audit)
+        }, 120);
+
+        await writeJSONQueued(filePath, projectData);
+        trackUsage(projectId, usagePayload);
+
+        res.json({
+            ok: true,
+            stageId: numericStageId,
+            stageName,
+            stageKey,
+            result,
+            sourceFixSummary: summarizeAuditForDecision(audit),
+            knowledge: knowledgePayloadForClient(knowledge)
+        });
+    } catch (error) {
+        console.error('source-revise-stage error:', error.message);
+        res.status(500).json({ error: 'Failed to apply source audit fixes' });
     }
 });
 
@@ -4280,12 +4495,14 @@ module.exports = {
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
     buildSourceUsePlan,
+    buildSourceAuditFixNotes,
     compactAuditForKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
+    sourceAuditHasActionableItems,
     stageSourceProfile,
     stageDataOverrideToText,
     startServer

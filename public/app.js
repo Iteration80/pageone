@@ -6145,6 +6145,27 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderSourceFixCard(revision = {}) {
+        return `
+            <div class="source-audit-card source-fix-card">
+                <div class="source-audit-card-header">
+                    <strong>Source Fix Applied</strong>
+                    <span>${escapeHtml(revision.stageName || `Stage ${revision.stageId || ''}`)}</span>
+                </div>
+                <section>
+                    <h4>Targeted Findings</h4>
+                    <p class="source-fix-summary">${escapeHtml(revision.sourceFixSummary || 'Source audit fixes were applied.')}</p>
+                </section>
+                ${revision.stageId === 8 && revision.result?.scene_number ? `
+                    <section>
+                        <h4>Scene</h4>
+                        <p class="source-fix-summary">Scene ${escapeHtml(revision.result.scene_number)} was revised and rechecked for continuity.</p>
+                    </section>
+                ` : ''}
+            </div>
+        `;
+    }
+
     function wireSourceAuditActions(stageId, audit, cardEl) {
         if (!cardEl) return;
         const chat = stageChatWindows[stageId];
@@ -6163,6 +6184,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function refreshCurrentProjectData() {
+        if (!activeProjectId) return null;
+        const res = await fetch(`/api/projects/${activeProjectId}`);
+        if (!res.ok) throw new Error(`Project refresh failed (${res.status})`);
+        const project = await res.json();
+        window.currentProjectData = project.data;
+        updateStageNav(project.data);
+        return project.data;
+    }
+
+    function sourceRevisionSceneNumber(stageId) {
+        return Number(stageId) === 8 ? currentDraftSceneNumber : null;
+    }
+
+    function applySourceRevisionResult(stageId, data = {}) {
+        const result = data.result;
+        if (!window.currentProjectData) window.currentProjectData = {};
+        if (Number(stageId) === 2 && result?.outline) {
+            window.currentProjectData.stage2_outline = result;
+            renderOutline(result.outline);
+            if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
+        } else if (Number(stageId) === 3 && result?.characters) {
+            window.currentProjectData.stage3_characters = result;
+            renderCharacters(result.characters);
+            if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
+        } else if (Number(stageId) === 4 && result) {
+            window.currentProjectData.stage4_beats = result;
+            renderTreatment(result);
+            if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); }
+        } else if (Number(stageId) === 5 && result) {
+            window.currentProjectData.stage5_treatment = result;
+            renderTreatmentStage5(result);
+            if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); }
+        } else if (Number(stageId) === 6 && result) {
+            window.currentProjectData.stage6_scenes = result;
+            renderStage6(result);
+            if (btnStage6Approve) { btnStage6Approve.textContent = 'Approve'; btnStage6Approve.classList.remove('approve-btn-green'); }
+        } else if (Number(stageId) === 8 && result) {
+            stage8LoadEditor(result.humanized_draft_text || result.draft_text || '');
+            showContinuityFeedback(result);
+            if (btnNextScene) btnNextScene.classList.remove('hidden');
+        }
+    }
+
+    async function applySourceAuditRevision(stageId, audit, button) {
+        const supported = [2, 3, 4, 5, 6, 8].includes(Number(stageId));
+        if (!supported) return null;
+
+        const res = await fetch('/api/source-revise-stage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: activeProjectId,
+                stageId,
+                audit,
+                stageDataOverride: getStageApprovalSnapshot(stageId),
+                sceneNumber: sourceRevisionSceneNumber(stageId)
+            })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+            throw new Error(err.error || `Server error ${res.status}`);
+        }
+        const data = await res.json();
+        applySourceRevisionResult(stageId, data);
+        if (data.knowledge && window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+        await refreshCurrentProjectData().catch(err => console.warn(err.message));
+        return data;
+    }
+
     async function runSourceAudit(stageId, button) {
         if (!activeProjectId) return;
         const chat = stageChatWindows[stageId];
@@ -6177,7 +6268,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/source-audit-stage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId, stageId })
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    stageId,
+                    stageDataOverride: getStageApprovalSnapshot(stageId),
+                    sceneNumber: sourceRevisionSceneNumber(stageId)
+                })
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
@@ -6215,7 +6311,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     projectId: activeProjectId,
                     stageId,
-                    stageDataOverride: getStageApprovalSnapshot(stageId)
+                    stageDataOverride: getStageApprovalSnapshot(stageId),
+                    sceneNumber: sourceRevisionSceneNumber(stageId)
                 })
             });
             if (!res.ok) {
@@ -6424,15 +6521,22 @@ document.addEventListener('DOMContentLoaded', () => {
             chat.setDisabled(true);
             const indicator = appendWorkingIndicator(chat, 'Applying source fixes');
             try {
-                await executeRevision(buildSourceAuditRevisionNotes(audit));
+                const sourceRevision = await applySourceAuditRevision(stageId, audit, button);
+                if (!sourceRevision) {
+                    await executeRevision(buildSourceAuditRevisionNotes(audit));
+                    await logKnowledgeDecision(
+                        'source_audit_fixes_applied',
+                        stageId,
+                        `Applied source audit fixes for ${audit.stageName || `Stage ${stageId}`}: ${summarizeAuditForUi(audit)}`,
+                        audit
+                    );
+                }
                 indicator.remove();
-                await logKnowledgeDecision(
-                    'source_audit_fixes_applied',
-                    stageId,
-                    `Applied source audit fixes for ${audit.stageName || `Stage ${stageId}`}: ${summarizeAuditForUi(audit)}`,
-                    audit
-                );
-                chat.append('system', 'Applied source fixes and logged the decision.');
+                if (sourceRevision) {
+                    chat.append('system', '', { html: renderSourceFixCard(sourceRevision) });
+                } else {
+                    chat.append('system', 'Applied source fixes and logged the decision.');
+                }
                 if (button) button.textContent = 'Applied';
             } catch (err) {
                 indicator.remove();

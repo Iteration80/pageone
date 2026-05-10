@@ -5,6 +5,7 @@ const {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceAuditFixNotes,
     buildSourceUsePlan,
     compactAuditForKnowledge,
     formatSourceUsePlan,
@@ -12,6 +13,7 @@ const {
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
+    sourceAuditHasActionableItems,
     stageSourceProfile
 } = require('../server');
 
@@ -89,6 +91,25 @@ test('compactAuditForKnowledge bounds noisy audit payloads', () => {
     assert.equal(compact.aligned_items.length, 5);
     assert.ok(compact.possible_source_mismatches[0].length < 650);
     assert.equal(compact.stageName, 'Beats');
+});
+
+test('source audit fix notes include only actionable audit buckets', () => {
+    const audit = {
+        stageId: 6,
+        stageName: 'Scene Blueprint',
+        aligned_items: ['Arcade location is present.'],
+        possible_source_mismatches: ['Scene 12 moves the key to the pier, but the source keeps it in the arcade.'],
+        missing_source_elements: [],
+        recommended_fixes: ['Keep the blue key discovery in the arcade.']
+    };
+
+    const notes = buildSourceAuditFixNotes(audit, { stageId: 6, stageName: 'Scene Blueprint' });
+
+    assert.equal(sourceAuditHasActionableItems(audit), true);
+    assert.match(notes, /Possible source mismatches/);
+    assert.match(notes, /Recommended fixes/);
+    assert.doesNotMatch(notes, /Arcade location is present/);
+    assert.equal(sourceAuditHasActionableItems({ aligned_items: ['ok'] }), false);
 });
 
 test('sanitizeStageCurationProposal provides safe fallback text', () => {
