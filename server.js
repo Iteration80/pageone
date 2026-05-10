@@ -928,6 +928,7 @@ function buildSourceUsePlan(projectData, stageId, stageData = '') {
         sourceCount: knowledge.source_registry.length,
         directives: profile.directives,
         sourceReferences,
+        hasStyleReferences: sourceReferences.some(ref => ref.type === 'style_reference'),
         continuityWatchlist,
         acceptedDivergences,
         handoff: formatKnowledgeItem(handoff),
@@ -949,6 +950,9 @@ function formatSourceUsePlan(plan) {
     ];
     if (plan.directives?.length) {
         sections.push(`### Stage-Specific Source Rules\n${plan.directives.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (plan.hasStyleReferences) {
+        sections.push('### Style Reference Boundary\nStyle references are tonal guidance only. Use them for voice, rhythm, texture, and cinematic handling; do not treat them as source canon for plot, character facts, chronology, settings, or continuity.');
     }
     if (plan.memorySnapshot?.hasSnapshot) {
         const lines = [];
@@ -1046,9 +1050,13 @@ function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', st
     const relevant = stageId
         ? relevantSourceSegmentsForStage(knowledge, query, stageId)
         : relevantSourceSegments(knowledge, query);
+    const hasStyleSources = sources.some(source => source.type === 'style_reference' || (source.tags || []).includes('style'));
     const sections = [
         '## PROJECT KNOWLEDGE (PERSISTENT MEMORY)\nUse this as source-aware project memory. Treat source material as reference/canon when it conflicts with assistant speculation.'
     ];
+    if (hasStyleSources) {
+        sections.push('### Source Type Boundary\nStyle references are tonal guidance only. Use them for voice, rhythm, texture, and cinematic handling; do not treat them as source canon for plot, character facts, chronology, settings, or continuity.');
+    }
 
     if (memorySnapshotBlock) sections.push(memorySnapshotBlock);
     if (bibleSummary) sections.push(`### Source Bible Summary\n${compactText(bibleSummary, 3_500)}`);

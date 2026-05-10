@@ -1137,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Restore persisted chat conversations
                 // Data keys don't change — map old conversation keys to new UI stage numbers
                 const savedConvos = projectDetails.data.conversations || {};
-                const CONVO_TO_CHAT = { stage1: 1, stage2: 2, stage3: 3, stage4: 4, stage5: 5, stage6: 6, stage7: 7, stage8: 8 };
+                const CONVO_TO_CHAT = { stage1: 1, stage2: 2, stage3: 3, stage4: 4, stage5: 5, stage6: 6, stage7: 7, stage8: 8, stage9: 10 };
                 for (const [key, chatIdx] of Object.entries(CONVO_TO_CHAT)) {
                     if (savedConvos[key]?.length && stageChatWindows[chatIdx]) {
                         stageChatWindows[chatIdx].restoreHistory(savedConvos[key]);
@@ -8425,6 +8425,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             stageChatWindows[10] = stage10Chat;
+            const savedStage10Convo = window.currentProjectData?.conversations?.stage9 || [];
+            if (savedStage10Convo.length && (!stage10Chat.history || stage10Chat.history.length === 0)) {
+                stage10Chat.restoreHistory(savedStage10Convo);
+            }
             stage10Chat.applySourceAudit = async (audit, button) => {
                 const originalText = button?.textContent || 'Apply Recommended Fixes';
                 if (button) {
@@ -8497,23 +8501,25 @@ document.addEventListener('DOMContentLoaded', () => {
             addSourcePlanButton(10);
 
             // Fetch AI opening message (presents Stage 9 priorities)
-            try {
-                stage10Chat.setThinking(true);
-                stage10Chat.setDisabled(true);
-                const initRes = await fetch('/api/brainstorm-rewrite', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
-                });
-                if (initRes.ok) {
-                    const initData = await initRes.json();
-                    stage10Chat.append('ai', initData.message);
+            if (!savedStage10Convo.length) {
+                try {
+                    stage10Chat.setThinking(true);
+                    stage10Chat.setDisabled(true);
+                    const initRes = await fetch('/api/brainstorm-rewrite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
+                    });
+                    if (initRes.ok) {
+                        const initData = await initRes.json();
+                        stage10Chat.append('ai', initData.message);
+                    }
+                } catch (e) {
+                    console.warn('Chat init failed:', e.message);
+                } finally {
+                    stage10Chat.setThinking(false);
+                    stage10Chat.setDisabled(false);
                 }
-            } catch (e) {
-                console.warn('Chat init failed:', e.message);
-            } finally {
-                stage10Chat.setThinking(false);
-                stage10Chat.setDisabled(false);
             }
         } catch (err) {
             console.error('initStage10 error:', err);

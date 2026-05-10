@@ -15,6 +15,7 @@ For ${label}, interpret project memory in this order:
 Rules:
 - Treat compact memory snapshots as the current project state.
 - Treat Source Bible, Source References, and relevant source document excerpts as source canon.
+- Treat style references as tone, rhythm, voice, and texture guidance only; never use them as plot, character, timeline, or setting canon.
 - If current user notes conflict with source canon and no accepted divergence covers the conflict, adapt conservatively and do not invent a new canon fact.
 - Use approved handoffs to maintain continuity across stages; do not undo approved decisions unless the user explicitly asks.
 - Prefer source-grounded specifics over generic invention. If the packet lacks support for a detail, keep the output neutral instead of adding unsupported canon.

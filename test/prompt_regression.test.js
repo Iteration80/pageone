@@ -229,7 +229,7 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
 
     await rewriteScene(
         'INT. FLOODED ARCADE - NIGHT\nMara loses the key.',
-        'Fix source continuity around the blue key.',
+        'MACRO TO-DO P1: Fix source continuity around the blue key.',
         {
             title: 'Arcade Night',
             sceneNumber: 12,
@@ -248,6 +248,7 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
     assert.equal(calls.length, 1);
     assertSourceAwareCall(calls[0], 'Stage 10 Rewrite');
     const rewritePrompt = collectText(calls[0].contents);
+    assert.match(rewritePrompt, /MACRO TO-DO P1/);
     assert.match(rewritePrompt, /PLANNED CHANGE FOR THIS SCENE/);
     assert.match(rewritePrompt, /STYLE DIRECTIVES/);
     assert.match(rewritePrompt, /CHARACTER PROFILES/);
@@ -257,7 +258,7 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
         title: 'Arcade Night',
         charBlock: '\n\n## CHARACTERS\nMara (Lead): arc=protect June, drive=keep the blue key',
         styleNote: '\n\n## STYLE CONTEXT\nThe rewrite agent will maintain this style.',
-        priorityTask: 'Fix source continuity around the blue key.',
+        priorityTask: 'MACRO TO-DO P1: Fix source continuity around the blue key.',
         feedbackSection: '\n\n## WRITER NOTES ON SCOPE\nOnly fix scenes in the arcade thread.',
         contextSection: '\n\n## BRAINSTORM CONTEXT\nThe writer wants source alignment.',
         sceneList: 'SCENE 12 - INT. FLOODED ARCADE - NIGHT'
@@ -266,6 +267,7 @@ test('Stage 10 rewrite and planner prompts carry the memory contract', async () 
 
     assert.match(plannerPrompt, /PROJECT MEMORY AND SOURCE PACKET/);
     assert.match(plannerPrompt, /Mara keeps the blue key/);
+    assert.match(plannerPrompt, /MACRO TO-DO P1/);
     assert.match(plannerPrompt, /SCENE 12 - INT\. FLOODED ARCADE/);
     assert.match(plannerSystem, /Planner SOP/);
     assert.match(plannerSystem, /MEMORY AND SOURCE CONTRACT/);

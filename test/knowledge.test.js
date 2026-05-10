@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 
 const {
     buildKnowledgeSnapshot,
@@ -207,6 +208,106 @@ test('buildSourceUsePlan applies stage-specific retrieval and accepted divergenc
     assert.match(text, /Compact Memory Snapshot/);
     assert.match(text, /Jules is renamed June/);
     assert.match(text, /arcade climax/);
+});
+
+test('stage 7 memory context treats style references as tonal guidance, not source canon', () => {
+    const project = {
+        data: {
+            knowledge: {
+                source_registry: [
+                    {
+                        id: 'src_story',
+                        name: 'Blue Key Source.pdf',
+                        type: 'source_reference',
+                        tags: ['source_reference'],
+                        summary: 'Mara finds the blue key in the flooded arcade.',
+                        text: 'Mara finds the blue key in the flooded arcade before escaping with June.'
+                    },
+                    {
+                        id: 'src_style',
+                        name: 'Sparse Style Sample.fountain',
+                        type: 'style_reference',
+                        tags: ['style'],
+                        summary: 'Sparse dialogue, long silences, and tactile dread.',
+                        text: 'Sparse dialogue. Long silences. Tactile dread around machines and water.'
+                    }
+                ],
+                source_bible: { summary: 'The blue key belongs to Mara.', curated_notes: [] },
+                continuity_watchlist: [],
+                decision_log: [],
+                accepted_divergences: [],
+                stage_handoffs: {}
+            }
+        }
+    };
+
+    const context = buildKnowledgeContextBlock(project, {
+        stageId: 7,
+        userMessage: 'What style should this use?',
+        stageName: 'Style',
+        stageData: 'Use a sparse voice for the flooded arcade.'
+    });
+    const planText = formatSourceUsePlan(buildSourceUsePlan(project, 7, 'Style voice for the flooded arcade.'));
+
+    assert.match(context, /Source Type Boundary/);
+    assert.match(context, /Style references are tonal guidance only/);
+    assert.match(context, /Sparse Style Sample\.fountain/);
+    assert.match(context, /Blue Key Source\.pdf/);
+    assert.match(planText, /Style Reference Boundary/);
+    assert.match(planText, /do not treat them as source canon/);
+});
+
+test('cross-stage source packet prefers compact handoffs over raw chat transcript', () => {
+    const handoffs = {};
+    for (let stageId = 1; stageId <= 6; stageId += 1) {
+        handoffs[`stage${stageId}`] = {
+            at: `2026-05-0${stageId}T00:00:00.000Z`,
+            summary: `Stage ${stageId} handoff keeps Mara, June, and the flooded arcade aligned.`
+        };
+    }
+    handoffs.stage6.summary = 'Scene Blueprint locks Scene 12 in the flooded arcade with Mara keeping the blue key.';
+
+    const project = {
+        data: {
+            conversations: {
+                stage1: [{ role: 'user', content: 'RAW CHAT SHOULD NOT BECOME MEMORY' }]
+            },
+            knowledge: {
+                source_registry: [{
+                    id: 'src_key',
+                    name: 'Graphic Novel.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'Mara finds the blue key in the flooded arcade.',
+                    text: 'Mara finds the blue key in the flooded arcade and refuses to abandon June.'
+                }],
+                source_bible: { summary: 'Mara keeps the blue key.', curated_notes: [] },
+                continuity_watchlist: ['Mara keeps the blue key through the arcade escape.'],
+                decision_log: [],
+                accepted_divergences: [{ summary: 'Jules is renamed June.' }],
+                stage_handoffs: handoffs
+            }
+        }
+    };
+
+    const packet = buildSourceGenerationPacket(project, 8, 'Draft Scene 12 in the flooded arcade.', {
+        userMessage: 'Draft the next scene from memory.'
+    });
+
+    assert.match(packet.contextBlock, /Compact Memory Snapshot/);
+    assert.match(packet.contextBlock, /Stage Handoffs/);
+    assert.match(packet.contextBlock, /Stage 1 handoff keeps Mara/);
+    assert.match(packet.contextBlock, /Scene Blueprint locks Scene 12/);
+    assert.match(packet.contextBlock, /Jules is renamed June/);
+    assert.doesNotMatch(packet.contextBlock, /RAW CHAT SHOULD NOT BECOME MEMORY/);
+    assert.ok(packet.contextBlock.length < 16_000);
+});
+
+test('frontend restores Stage 10 rewrite chat from persisted stage9 conversation key', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(appJs, /CONVO_TO_CHAT\s*=\s*\{[^}]*stage9:\s*10[^}]*\}/s);
+    assert.match(appJs, /savedStage10Convo\s*=\s*window\.currentProjectData\?\.conversations\?\.stage9/);
+    assert.match(appJs, /stage10Chat\.restoreHistory\(savedStage10Convo\)/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {

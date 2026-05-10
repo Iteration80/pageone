@@ -16,6 +16,7 @@ test('memory source contract defines precedence for source-aware agents', () => 
     assert.match(contract, /Approved stage handoffs/);
     assert.match(contract, /Source bible and source references/);
     assert.match(contract, /compact memory snapshots/);
+    assert.match(contract, /style references as tone, rhythm, voice, and texture guidance only/);
 });
 
 test('memory source prompt block wraps project knowledge without inventing content', () => {
