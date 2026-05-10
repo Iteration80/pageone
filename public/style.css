@@ -1271,6 +1271,46 @@ textarea.synopsis-input {
     color: #fde68a !important;
     background: rgba(251, 191, 36, 0.1);
 }
+.source-readiness-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 999px;
+    padding: 3px 7px;
+    color: #cbd5e1;
+    background: rgba(15, 23, 42, 0.82);
+    font-size: 0.66rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.source-readiness-ready,
+.source-readiness-resolved {
+    border-color: rgba(34, 197, 94, 0.32);
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.1);
+}
+.source-readiness-issues,
+.source-readiness-stale,
+.source-readiness-fixed_since_audit {
+    border-color: rgba(251, 191, 36, 0.34);
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.1);
+}
+.source-readiness-needs_audit,
+.source-readiness-no_sources {
+    border-color: rgba(148, 163, 184, 0.22);
+    color: #94a3b8;
+}
+.source-readiness-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 8px;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
 .source-plan-meta {
     margin: 0 0 8px;
     color: #94a3b8;
@@ -1583,6 +1623,19 @@ textarea.synopsis-input {
 .source-plan-ledger {
     margin-top: 12px;
 }
+.source-readiness-ledger {
+    margin-top: 12px;
+}
+.source-readiness-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 0.8fr) 80px minmax(110px, 0.8fr);
+    gap: 10px;
+    align-items: center;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    padding: 8px 0;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
 .source-plan-ledger-row {
     display: grid;
     grid-template-columns: minmax(180px, 1.5fr) minmax(130px, 1fr) 90px 90px;
@@ -1593,11 +1646,13 @@ textarea.synopsis-input {
     color: #94a3b8;
     font-size: 0.72rem;
 }
+.source-readiness-row strong,
 .source-plan-ledger-row strong {
     display: block;
     color: #e5e7eb;
     font-size: 0.76rem;
 }
+.source-readiness-row div span,
 .source-plan-ledger-row span {
     display: block;
     color: #64748b;
@@ -1608,6 +1663,7 @@ textarea.synopsis-input {
 }
 @media (max-width: 720px) {
     .source-upload-form,
+    .source-readiness-row,
     .source-plan-ledger-row {
         grid-template-columns: 1fr;
     }

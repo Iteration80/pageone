@@ -5,11 +5,14 @@ const {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceReadiness,
+    buildSourceReadinessList,
     buildSourceAuditFixNotes,
     buildSourceUsePlan,
     compactAuditForKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
+    recordStageSourceAudit,
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
@@ -36,6 +39,7 @@ test('ensureProjectKnowledge initializes persistent memory buckets without clobb
     assert.deepEqual(knowledge.accepted_divergences, []);
     assert.deepEqual(knowledge.stage_handoffs, {});
     assert.deepEqual(knowledge.stage_source_plans, {});
+    assert.deepEqual(knowledge.stage_source_audits, {});
 });
 
 test('knowledge context includes accepted divergences and relevant source provenance', () => {
@@ -226,6 +230,54 @@ test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     assert.equal(stalePlan.freshness, 'stale');
     assert.equal(project.data.knowledge.stage_source_plans.stage6.sourceIds[0], 'src_plot');
     assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_plan_used'));
+});
+
+test('buildSourceReadiness reports stale, unresolved, and resolved audit state', () => {
+    const project = {
+        data: {
+            stage6_scenes: [{
+                sequence_title: 'Arcade',
+                scenes: [{ scene_number: 1, scene_heading: 'INT. ARCADE', narrative_action: 'Mara finds the key.', dramaturgical_function: 'Discovery' }]
+            }],
+            knowledge: {
+                source_registry: [{
+                    id: 'src_plot',
+                    name: 'Plot Source.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'The key is in the arcade.',
+                    text: 'Mara finds the blue key in the arcade.'
+                }],
+                source_bible: { summary: 'The key is in the arcade.', curated_notes: [] },
+                continuity_watchlist: [],
+                decision_log: [],
+                accepted_divergences: [],
+                stage_handoffs: {}
+            }
+        }
+    };
+
+    const stageData = JSON.stringify(project.data.stage6_scenes, null, 2);
+    const audit = {
+        checkedAt: '2026-01-01T00:00:00.000Z',
+        possible_source_mismatches: ['The key moved to the pier.'],
+        missing_source_elements: [],
+        recommended_fixes: ['Keep the key in the arcade.']
+    };
+
+    recordStageSourceAudit(project, 6, 'Scene Blueprint', stageData, audit, [], { sourceCount: 1 });
+
+    assert.equal(buildSourceReadiness(project, 6).status, 'issues');
+    project.data.stage6_scenes[0].scenes[0].narrative_action = 'Mara finds the key at the pier.';
+    assert.equal(buildSourceReadiness(project, 6).status, 'stale');
+    project.data.knowledge.decision_log.push({
+        at: '2026-01-02T00:00:00.000Z',
+        type: 'source_audit_fixes_applied',
+        stageId: 6,
+        summary: 'Fixed source issue.'
+    });
+    assert.equal(buildSourceReadiness(project, 6).status, 'fixed_since_audit');
+    assert.ok(buildSourceReadinessList(project).some(item => item.stageId === 6));
 });
 
 test('persistChatAttachmentToKnowledge supports direct project upload tagging and dedupe', async () => {

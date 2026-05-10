@@ -3180,6 +3180,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `${counts.sources || 0} sources`,
             `${counts.handoffs || 0} handoffs`,
             `${counts.sourcePlans || 0} plans`,
+            `${counts.sourceAudits || 0} audits`,
             `${counts.continuityItems || 0} continuity`,
             `${counts.acceptedDivergences || 0} divergences`
         ].join(' · ');
@@ -3204,6 +3205,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderKnowledgeReview(knowledge = {}) {
         if (!knowledgeReviewPanel) return;
         const handoffs = knowledge.stage_handoffs || {};
+        const readiness = Array.isArray(knowledge.stage_source_readiness)
+            ? knowledge.stage_source_readiness
+            : [];
         const sourcePlans = Object.values(knowledge.stage_source_plans || {})
             .filter(Boolean)
             .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
@@ -3243,6 +3247,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${divergences.length ? `<ul>${divergences.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No accepted divergences yet.</p>'}
                 </section>
             </div>
+            <section class="source-readiness-ledger">
+                <h4>Source Readiness</h4>
+                ${readiness.length ? readiness.map(item => {
+                    const checked = item.checkedAt ? new Date(item.checkedAt).toLocaleString() : 'Not checked';
+                    const issues = item.issueCounts?.total || 0;
+                    const planStatus = item.sourcePlan?.status ? item.sourcePlan.status.replace(/_/g, ' ') : 'no recorded plan';
+                    return `
+                        <div class="source-readiness-row">
+                            <div>
+                                <strong>${escapeHtml(item.stageName || `Stage ${item.stageId || ''}`)}</strong>
+                                <span>${escapeHtml(checked)}</span>
+                            </div>
+                            <span class="source-readiness-pill source-readiness-${escapeHtml(item.status || 'unknown')}">${escapeHtml(item.label || item.status || 'Unknown')}</span>
+                            <div>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))}</div>
+                            <div>${escapeHtml(planStatus)}</div>
+                        </div>
+                    `;
+                }).join('') : '<p class="knowledge-empty">No source readiness data yet.</p>'}
+            </section>
             <section class="source-plan-ledger">
                 <h4>Source Plan Ledger</h4>
                 ${sourcePlans.length ? sourcePlans.map(plan => {
@@ -5740,6 +5763,26 @@ document.addEventListener('DOMContentLoaded', () => {
             : `Stage ${audit.stageId}: source audit reviewed with no issues flagged.`;
     }
 
+    function renderSourceReadinessBadge(readiness = {}) {
+        const status = String(readiness.status || 'unknown').replace(/[^a-z_-]/g, '');
+        return `<span class="source-readiness-pill source-readiness-${escapeHtml(status)}">${escapeHtml(readiness.label || readiness.status || 'Readiness unknown')}</span>`;
+    }
+
+    function renderSourceReadinessSummary(readiness = {}) {
+        if (!readiness || !readiness.status) return '';
+        const checked = readiness.checkedAt ? new Date(readiness.checkedAt).toLocaleString() : 'Not checked';
+        const issues = readiness.issueCounts?.total || 0;
+        const planStatus = readiness.sourcePlan?.status ? readiness.sourcePlan.status.replace(/_/g, ' ') : 'no recorded plan';
+        return `
+            <div class="source-readiness-summary">
+                ${renderSourceReadinessBadge(readiness)}
+                <span>${escapeHtml(checked)}</span>
+                <span>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))}</span>
+                <span>${escapeHtml(planStatus)}</span>
+            </div>
+        `;
+    }
+
     function buildSourceAuditRevisionNotes(audit = {}) {
         const lines = [
             `SOURCE ALIGNMENT FIX REQUEST`,
@@ -5874,6 +5917,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="modal-content approval-source-content">
                     <h3>Source Check Found Issues</h3>
                     <p>${escapeHtml(audit.stageName || `Stage ${stageId}`)} may not fully align with saved project source material.</p>
+                    ${renderSourceReadinessSummary(audit.sourceReadiness)}
                     <ul>${issues.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
                     <div class="modal-actions approval-source-actions">
                         <button type="button" class="secondary-btn" data-action="apply">Apply Fixes</button>
@@ -5944,7 +5988,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     projectId: activeProjectId,
                     stageId,
-                    stageDataOverride: getStageApprovalSnapshot(stageId)
+                    stageDataOverride: getStageApprovalSnapshot(stageId),
+                    sceneNumber: sourceRevisionSceneNumber(stageId)
                 })
             });
             if (!res.ok) return true;
@@ -6057,7 +6102,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="source-audit-card-header">
                     <strong>Source Alignment</strong>
                     <span>${escapeHtml(audit.stageName || `Stage ${audit.stageId || ''}`)} - ${audit.sourceCount || 0} source${audit.sourceCount === 1 ? '' : 's'}</span>
+                    ${audit.sourceReadiness ? renderSourceReadinessBadge(audit.sourceReadiness) : ''}
                 </div>
+                ${renderSourceReadinessSummary(audit.sourceReadiness)}
                 ${sourceRefs.length ? `
                     <section>
                         <h4>Sources Consulted</h4>
@@ -6151,7 +6198,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="source-audit-card-header">
                     <strong>Source Fix Applied</strong>
                     <span>${escapeHtml(revision.stageName || `Stage ${revision.stageId || ''}`)}</span>
+                    ${revision.sourceReadiness ? renderSourceReadinessBadge(revision.sourceReadiness) : ''}
                 </div>
+                ${renderSourceReadinessSummary(revision.sourceReadiness)}
                 <section>
                     <h4>Targeted Findings</h4>
                     <p class="source-fix-summary">${escapeHtml(revision.sourceFixSummary || 'Source audit fixes were applied.')}</p>

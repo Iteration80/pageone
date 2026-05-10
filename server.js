@@ -468,6 +468,9 @@ function ensureProjectKnowledge(projectData) {
     if (!knowledge.stage_source_plans || typeof knowledge.stage_source_plans !== 'object' || Array.isArray(knowledge.stage_source_plans)) {
         knowledge.stage_source_plans = {};
     }
+    if (!knowledge.stage_source_audits || typeof knowledge.stage_source_audits !== 'object' || Array.isArray(knowledge.stage_source_audits)) {
+        knowledge.stage_source_audits = {};
+    }
 
     projectData.data.knowledge = knowledge;
     return knowledge;
@@ -1019,7 +1022,7 @@ function summarizeSourceForClient(source) {
     };
 }
 
-function knowledgePayloadForClient(knowledge) {
+function knowledgePayloadForClient(knowledge, projectData = null) {
     return {
         source_registry: (knowledge.source_registry || []).map(summarizeSourceForClient),
         source_bible: knowledge.source_bible,
@@ -1027,6 +1030,8 @@ function knowledgePayloadForClient(knowledge) {
         decision_log: knowledge.decision_log || [],
         stage_handoffs: knowledge.stage_handoffs || {},
         stage_source_plans: knowledge.stage_source_plans || {},
+        stage_source_audits: knowledge.stage_source_audits || {},
+        stage_source_readiness: projectData ? buildSourceReadinessList(projectData) : [],
         accepted_divergences: knowledge.accepted_divergences || []
     };
 }
@@ -1134,6 +1139,199 @@ function latestVersionForStage(projectData, stageId) {
         .sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0))[0] || null;
 }
 
+function stageDataForReadiness(projectData, stageId) {
+    const data = projectData?.data || {};
+    switch (Number(stageId)) {
+        case 1:
+            return JSON.stringify(data.stage1_pitch?.pitch || {}, null, 2);
+        case 2:
+            return JSON.stringify(data.stage2_outline?.outline || [], null, 2);
+        case 3:
+            return JSON.stringify(data.stage3_characters?.characters || [], null, 2);
+        case 4:
+            return JSON.stringify(data.stage4_beats || data.stage4_treatment || [], null, 2);
+        case 5:
+            return JSON.stringify(data.stage5_treatment || {}, null, 2);
+        case 6:
+            return JSON.stringify(data.stage6_scenes || [], null, 2);
+        case 7:
+            return JSON.stringify({ style: data.stage7_style || null }, null, 2);
+        case 8: {
+            const scenes = [];
+            for (const seq of data.stage6_scenes || []) {
+                if (seq.scenes) scenes.push(...seq.scenes);
+            }
+            return JSON.stringify(scenes.map(scene => ({
+                scene_number: scene.scene_number,
+                slugline: scene.slugline || scene.scene_heading || '',
+                draft_text: scene.humanized_draft_text || scene.draft_text || ''
+            })), null, 2);
+        }
+        case 10:
+            return JSON.stringify(data.stage9_rewrites?.working || {}, null, 2);
+        default:
+            return '';
+    }
+}
+
+function stageHasReadinessOutput(projectData, stageId) {
+    const data = projectData?.data || {};
+    switch (Number(stageId)) {
+        case 1: return !!data.stage1_pitch?.pitch;
+        case 2: return !!data.stage2_outline?.outline?.length;
+        case 3: return !!data.stage3_characters?.characters?.length;
+        case 4: return !!(data.stage4_beats || data.stage4_treatment);
+        case 5: return !!data.stage5_treatment;
+        case 6: return !!data.stage6_scenes?.length;
+        case 7: return !!data.stage7_style;
+        case 8: {
+            const scenes = [];
+            for (const seq of data.stage6_scenes || []) {
+                if (seq.scenes) scenes.push(...seq.scenes);
+            }
+            return scenes.some(scene => scene.draft_text || scene.humanized_draft_text);
+        }
+        case 10: return !!Object.keys(data.stage9_rewrites?.working || {}).length;
+        default: return false;
+    }
+}
+
+function sourceAuditIssueCounts(audit = {}) {
+    const count = key => Array.isArray(audit[key]) ? audit[key].filter(Boolean).length : 0;
+    const possibleMismatches = count('possible_source_mismatches');
+    const missingElements = count('missing_source_elements');
+    const recommendedFixes = count('recommended_fixes');
+    return {
+        possibleMismatches,
+        missingElements,
+        recommendedFixes,
+        total: possibleMismatches + missingElements + recommendedFixes
+    };
+}
+
+function compactSourceAuditReference(ref = {}) {
+    return {
+        sourceId: ref.sourceId || null,
+        name: compactText(ref.name || 'Source', 180),
+        label: compactText(ref.label || ref.sourceId || '', 220),
+        excerpt: compactText(ref.excerpt || '', 260)
+    };
+}
+
+function recordStageSourceAudit(projectData, stageId, stageName, stageData, audit = {}, sourceReferences = [], { sourceCount = 0, acceptedDivergenceCount = 0 } = {}) {
+    const numericStageId = Number(stageId);
+    const knowledge = ensureProjectKnowledge(projectData);
+    const checkedAt = audit.checkedAt || new Date().toISOString();
+    const compactAudit = compactAuditForKnowledge({
+        ...audit,
+        stageId: numericStageId,
+        stageName,
+        checkedAt
+    });
+    const entry = {
+        ...compactAudit,
+        sourceCount,
+        acceptedDivergenceCount,
+        stageOutputHash: sourcePlanDataHash(stageData),
+        issueCounts: sourceAuditIssueCounts(compactAudit),
+        sourceReferences: sourceReferences.slice(0, 8).map(compactSourceAuditReference)
+    };
+    knowledge.stage_source_audits[sourcePlanCacheKey(numericStageId)] = entry;
+    return entry;
+}
+
+function latestSourceAuditResolution(knowledge, stageId, checkedAt) {
+    if (!checkedAt) return null;
+    const resolutionTypes = new Set([
+        'source_audit_fixes_applied',
+        'accepted_source_divergence',
+        'source_audit_approved_anyway'
+    ]);
+    return (knowledge.decision_log || [])
+        .filter(item => Number(item.stageId) === Number(stageId))
+        .filter(item => resolutionTypes.has(item.type))
+        .filter(item => item.at && new Date(item.at) >= new Date(checkedAt))
+        .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))[0] || null;
+}
+
+function buildSourceReadiness(projectData, stageId, stageData = null) {
+    const numericStageId = Number(stageId);
+    const knowledge = ensureProjectKnowledge(projectData);
+    const currentStageData = stageData === null ? stageDataForReadiness(projectData, numericStageId) : stageData;
+    const currentHash = sourcePlanDataHash(currentStageData);
+    const audit = knowledge.stage_source_audits?.[sourcePlanCacheKey(numericStageId)] || null;
+    const plan = buildSourceUsePlan(projectData, numericStageId, currentStageData);
+    const sourceCount = knowledge.source_registry?.length || 0;
+    const issueCounts = audit?.issueCounts || sourceAuditIssueCounts(audit || {});
+    const isStale = !!(audit?.stageOutputHash && audit.stageOutputHash !== currentHash);
+    const resolution = audit ? latestSourceAuditResolution(knowledge, numericStageId, audit.checkedAt) : null;
+
+    let status = 'no_sources';
+    let label = 'No saved sources';
+    if (sourceCount && !audit) {
+        status = 'needs_audit';
+        label = 'No source audit yet';
+    } else if (sourceCount && isStale && resolution) {
+        status = 'fixed_since_audit';
+        label = 'Fix applied, recheck recommended';
+    } else if (sourceCount && isStale) {
+        status = 'stale';
+        label = 'Audit stale';
+    } else if (sourceCount && issueCounts.total && resolution) {
+        status = 'resolved';
+        label = 'Issues addressed';
+    } else if (sourceCount && issueCounts.total) {
+        status = 'issues';
+        label = 'Issues found';
+    } else if (sourceCount) {
+        status = 'ready';
+        label = 'Source ready';
+    }
+
+    return {
+        stageId: numericStageId,
+        stageName: STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`,
+        status,
+        label,
+        sourceCount,
+        hasOutput: stageHasReadinessOutput(projectData, numericStageId),
+        hasAudit: !!audit,
+        checkedAt: audit?.checkedAt || null,
+        stageOutputHash: currentHash,
+        auditStageOutputHash: audit?.stageOutputHash || '',
+        isStale,
+        issueCounts,
+        lastResolution: resolution ? {
+            at: resolution.at,
+            type: resolution.type,
+            summary: resolution.summary || ''
+        } : null,
+        sourcePlan: plan.cachedPlan ? {
+            status: plan.freshness,
+            lastUsedAt: plan.cachedPlan.lastUsedAt || null,
+            isStale: !!plan.cachedPlan.isStale,
+            sourceIds: plan.cachedPlan.sourceIds || []
+        } : null
+    };
+}
+
+function buildSourceReadinessList(projectData) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const stageIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10]);
+    for (const key of Object.keys(knowledge.stage_source_audits || {})) {
+        const stageId = Number(key.replace('stage', ''));
+        if (stageId) stageIds.add(stageId);
+    }
+    for (const key of Object.keys(knowledge.stage_source_plans || {})) {
+        const stageId = Number(key.replace('stage', ''));
+        if (stageId) stageIds.add(stageId);
+    }
+    return Array.from(stageIds)
+        .sort((a, b) => a - b)
+        .map(stageId => buildSourceReadiness(projectData, stageId))
+        .filter(item => item.hasOutput || item.hasAudit || item.sourcePlan || item.sourceCount);
+}
+
 function buildKnowledgeDiagnostics(projectData) {
     const knowledge = ensureProjectKnowledge(projectData);
     const issues = [];
@@ -1200,17 +1398,35 @@ function buildKnowledgeDiagnostics(projectData) {
         }
     }
 
+    const readiness = buildSourceReadinessList(projectData);
+    if (sourceCount) {
+        for (const item of readiness) {
+            if (!item.hasOutput) continue;
+            if (item.status === 'needs_audit') {
+                add('warning', 'missing_source_audit', `${item.stageName} has output but no source audit.`, 'Run Check Source before approval or downstream generation.');
+            } else if (item.status === 'stale') {
+                add('warning', 'stale_source_audit', `${item.stageName} source audit is older than the current stage output.`, 'Run Check Source again.');
+            } else if (item.status === 'issues') {
+                add('warning', 'unresolved_source_audit', `${item.stageName} has unresolved source audit findings.`, 'Apply recommended fixes or accept a divergence.');
+            } else if (item.status === 'fixed_since_audit') {
+                add('info', 'source_fix_needs_recheck', `${item.stageName} had source fixes applied after the last audit.`, 'Run Check Source again to confirm alignment.');
+            }
+        }
+    }
+
     return {
         generatedAt: new Date().toISOString(),
         counts: {
             sources: sourceCount,
             handoffs: Object.keys(knowledge.stage_handoffs || {}).length,
             sourcePlans: Object.keys(knowledge.stage_source_plans || {}).length,
+            sourceAudits: Object.keys(knowledge.stage_source_audits || {}).length,
             continuityItems: (knowledge.continuity_watchlist || []).length,
             decisions: (knowledge.decision_log || []).length,
             acceptedDivergences: (knowledge.accepted_divergences || []).length,
             sourceBibleNotes: (knowledge.source_bible.curated_notes || []).length
         },
+        sourceReadiness: readiness,
         issues
     };
 }
@@ -2492,6 +2708,8 @@ app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => 
                 stageName,
                 sourceCount: 0,
                 acceptedDivergenceCount: 0,
+                checkedAt: new Date().toISOString(),
+                sourceReadiness: buildSourceReadiness(projectData, numericStageId, stageData),
                 aligned_items: [],
                 possible_source_mismatches: [],
                 missing_source_elements: [],
@@ -2552,18 +2770,29 @@ Return concise, actionable findings.`;
 
         const audit = safeParse(response.text, null);
         if (!audit) throw new Error('Audit response was not valid JSON');
-        trackUsage(projectId, response.usage);
-        res.json({
+        const checkedAt = new Date().toISOString();
+        const auditPayload = {
             stageId: numericStageId,
             stageName,
             sourceCount,
             acceptedDivergenceCount,
-            checkedAt: new Date().toISOString(),
+            checkedAt,
             source_references: auditReferences,
             aligned_items: audit.aligned_items || [],
             possible_source_mismatches: audit.possible_source_mismatches || [],
             missing_source_elements: audit.missing_source_elements || [],
             recommended_fixes: audit.recommended_fixes || []
+        };
+        recordStageSourceAudit(projectData, numericStageId, stageName, stageData, auditPayload, auditReferences, {
+            sourceCount,
+            acceptedDivergenceCount
+        });
+        const sourceReadiness = buildSourceReadiness(projectData, numericStageId, stageData);
+        await writeJSONQueued(filePath, projectData);
+        trackUsage(projectId, response.usage);
+        res.json({
+            ...auditPayload,
+            sourceReadiness
         });
     } catch (error) {
         console.error('source-audit-stage error:', error.message);
@@ -2756,6 +2985,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             summary: `Applied source audit fixes to ${stageName}: ${summarizeAuditForDecision(audit)}`,
             audit: compactAuditForKnowledge(audit)
         }, 120);
+        const sourceReadiness = buildSourceReadiness(projectData, numericStageId);
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usagePayload);
@@ -2767,7 +2997,8 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             stageKey,
             result,
             sourceFixSummary: summarizeAuditForDecision(audit),
-            knowledge: knowledgePayloadForClient(knowledge)
+            sourceReadiness,
+            knowledge: knowledgePayloadForClient(knowledge, projectData)
         });
     } catch (error) {
         console.error('source-revise-stage error:', error.message);
@@ -3803,7 +4034,7 @@ app.get('/api/projects/:id/knowledge', requireAuth, async (req, res) => {
         const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
         const projectData = JSON.parse(content);
         const knowledge = ensureProjectKnowledge(projectData);
-        res.json({ knowledge: knowledgePayloadForClient(knowledge) });
+        res.json({ knowledge: knowledgePayloadForClient(knowledge, projectData) });
     } catch (error) {
         console.error('knowledge load error:', error.message);
         res.status(500).json({ error: 'Failed to load project knowledge' });
@@ -3853,7 +4084,7 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
         res.json({
             ok: true,
             savedSource: savedSource ? { ...summarizeSourceForClient(savedSource), duplicate: !!uploadResult?.duplicate } : null,
-            knowledge: knowledgePayloadForClient(knowledge)
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject)
         });
     } catch (error) {
         console.error('knowledge source upload error:', error.message);
@@ -3888,7 +4119,7 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
         const knowledge = ensureProjectKnowledge(updatedProject);
         res.json({
             ok: true,
-            knowledge: knowledgePayloadForClient(knowledge)
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject)
         });
     } catch (error) {
         console.error('knowledge source delete error:', error.message);
@@ -3935,7 +4166,7 @@ app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) =
         });
 
         const knowledge = ensureProjectKnowledge(updatedProject);
-        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('knowledge decision log error:', error.message);
         res.status(500).json({ error: 'Failed to log project knowledge decision' });
@@ -3989,7 +4220,7 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
         });
 
         const knowledge = ensureProjectKnowledge(updatedProject);
-        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('accepted divergence log error:', error.message);
         res.status(500).json({ error: 'Failed to save accepted source divergence' });
@@ -4134,7 +4365,7 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
         });
 
         const knowledge = ensureProjectKnowledge(updatedProject);
-        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('stage curation apply error:', error.message);
         res.status(500).json({ error: 'Failed to apply project memory updates' });
@@ -4206,7 +4437,7 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
         const knowledge = ensureProjectKnowledge(updatedProject);
         res.json({
             ok: true,
-            knowledge: knowledgePayloadForClient(knowledge),
+            knowledge: knowledgePayloadForClient(knowledge, updatedProject),
             diagnostics: buildKnowledgeDiagnostics(updatedProject)
         });
     } catch (error) {
@@ -4303,7 +4534,7 @@ ${sourceMaterial}`,
         trackUsage(id, response.usage);
         const updatedKnowledge = ensureProjectKnowledge(updatedProject);
         res.json({
-            knowledge: knowledgePayloadForClient(updatedKnowledge)
+            knowledge: knowledgePayloadForClient(updatedKnowledge, updatedProject)
         });
     } catch (error) {
         console.error('source bible rebuild error:', error.message);
@@ -4494,11 +4725,14 @@ module.exports = {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceReadiness,
+    buildSourceReadinessList,
     buildSourceUsePlan,
     buildSourceAuditFixNotes,
     compactAuditForKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
+    recordStageSourceAudit,
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
