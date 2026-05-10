@@ -1221,6 +1221,48 @@ function updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags } = {
     return source;
 }
 
+function updateKnowledgeReview(projectData, { continuity_watchlist, curated_notes, stage_handoffs } = {}, { now = new Date().toISOString() } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+
+    if (Array.isArray(continuity_watchlist)) {
+        knowledge.continuity_watchlist = continuity_watchlist
+            .map(item => compactText(item, 600))
+            .filter(Boolean)
+            .slice(-80);
+    }
+    if (Array.isArray(curated_notes)) {
+        knowledge.source_bible.curated_notes = curated_notes
+            .map(item => compactText(item, 600))
+            .filter(Boolean)
+            .slice(-100);
+        knowledge.source_bible.updatedAt = now;
+    }
+    if (stage_handoffs && typeof stage_handoffs === 'object' && !Array.isArray(stage_handoffs)) {
+        const nextHandoffs = {};
+        for (const [key, value] of Object.entries(stage_handoffs)) {
+            if (!/^stage(?:[1-9]|10)$/.test(key)) continue;
+            const summary = typeof value === 'string' ? value : value?.summary;
+            if (!summary || !String(summary).trim()) continue;
+            const previous = knowledge.stage_handoffs[key] || {};
+            nextHandoffs[key] = {
+                ...previous,
+                at: now,
+                type: 'manual_memory_review',
+                summary: compactText(summary, 1_200)
+            };
+        }
+        knowledge.stage_handoffs = nextHandoffs;
+    }
+
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type: 'project_memory_review_updated',
+        summary: 'Project memory was manually reviewed and updated.'
+    }, 120);
+    compactProjectKnowledge(projectData, { now });
+    return knowledge;
+}
+
 function knowledgePayloadForClient(knowledge, projectData = null) {
     return {
         source_registry: (knowledge.source_registry || []).map(summarizeSourceForClient),
@@ -5050,47 +5092,8 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { continuity_watchlist, curated_notes, stage_handoffs } = req.body || {};
         const updatedProject = await updateProjectJSON(id, (projectData) => {
-            const knowledge = ensureProjectKnowledge(projectData);
-            const now = new Date().toISOString();
-
-            if (Array.isArray(continuity_watchlist)) {
-                knowledge.continuity_watchlist = continuity_watchlist
-                    .map(item => compactText(item, 600))
-                    .filter(Boolean)
-                    .slice(-80);
-            }
-            if (Array.isArray(curated_notes)) {
-                knowledge.source_bible.curated_notes = curated_notes
-                    .map(item => compactText(item, 600))
-                    .filter(Boolean)
-                    .slice(-100);
-                knowledge.source_bible.updatedAt = now;
-            }
-            if (stage_handoffs && typeof stage_handoffs === 'object' && !Array.isArray(stage_handoffs)) {
-                const nextHandoffs = {};
-                for (const [key, value] of Object.entries(stage_handoffs)) {
-                    if (!/^stage(?:[1-9]|10)$/.test(key)) continue;
-                    const summary = typeof value === 'string' ? value : value?.summary;
-                    if (!summary || !String(summary).trim()) continue;
-                    const previous = knowledge.stage_handoffs[key] || {};
-                    nextHandoffs[key] = {
-                        ...previous,
-                        at: now,
-                        type: 'manual_memory_review',
-                        summary: compactText(summary, 1_200)
-                    };
-                }
-                knowledge.stage_handoffs = nextHandoffs;
-            }
-
-            boundedKnowledgePush(knowledge.decision_log, {
-                at: now,
-                type: 'project_memory_review_updated',
-                summary: 'Project memory was manually reviewed and updated.'
-            }, 120);
-            compactProjectKnowledge(projectData, { now });
+            updateKnowledgeReview(projectData, req.body || {});
             return projectData;
         });
 
@@ -5408,5 +5411,6 @@ module.exports = {
     stageSourceProfile,
     stageDataOverrideToText,
     updateKnowledgeSourceMetadata,
+    updateKnowledgeReview,
     startServer
 };
