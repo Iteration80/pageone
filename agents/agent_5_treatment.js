@@ -136,7 +136,8 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage5_treatment.md');
@@ -160,6 +161,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         systemInstruction,
         temperature: 0.5,
     };
+    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
 
     // Revision Bypass Logic
     if (notes && currentTreatment) {
@@ -190,7 +192,7 @@ You are revising ONE treatment section at a time. Apply the user's notes only wh
             const originalText = revisedTreatment[field.key];
             if (onProgress) onProgress(i + 1, fieldsToRevise.length, `Revising ${field.label}...`);
 
-            const revisionPrompt = `USER NOTES:
+            const revisionPrompt = `${sourceBlock}USER NOTES:
 ${notes}
 
 FULL TREATMENT SECTION INDEX:
@@ -254,7 +256,7 @@ Return the complete target section after applying only the relevant notes. Prese
     // Step 1: Title/Logline/Characters + Act I (Sequences 1 & 2)
     console.log("  Chain Step 1/4: Writing Title, Logline, Characters & Act I...");
     if (onProgress) onProgress(1, 4, 'Writing Act I (Sequences 1–2)...');
-    const step1Prompt = `Read Sequences 1 & 2. You must systematically expand EVERY SINGLE BEAT (Opening Image, Theme Stated, Setup, Catalyst, Debate) into full, multi-paragraph narrative prose. Do not skip any beats. Do not compress the timeline.
+    const step1Prompt = `${sourceBlock}Read Sequences 1 & 2. You must systematically expand EVERY SINGLE BEAT (Opening Image, Theme Stated, Setup, Catalyst, Debate) into full, multi-paragraph narrative prose. Do not skip any beats. Do not compress the timeline.
 
 PITCH: ${JSON.stringify(pitchData)}
 CHARACTERS: ${JSON.stringify(charactersData)}
@@ -276,7 +278,7 @@ Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave ot
     // Step 2: Act IIA (Sequences 3 & 4)
     console.log("  Chain Step 2/4: Writing Act II (Part 1)...");
     if (onProgress) onProgress(2, 4, 'Writing Act II – Part 1 (Sequences 3–4)...');
-    const step2Prompt = `Read Sequences 3 & 4. You must systematically expand EVERY SINGLE BEAT (Break into Two, B-Story, Fun and Games) into full, multi-paragraph narrative prose. Describe the micro-actions.
+    const step2Prompt = `${sourceBlock}Read Sequences 3 & 4. You must systematically expand EVERY SINGLE BEAT (Break into Two, B-Story, Fun and Games) into full, multi-paragraph narrative prose. Describe the micro-actions.
 
 PRIOR CONTEXT (Act I):
 ${parsed1.title_logline_characters}
@@ -298,7 +300,7 @@ Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
     // Step 3: Act IIB (Sequences 5 & 6)
     console.log("  Chain Step 3/4: Writing Act II (Part 2)...");
     if (onProgress) onProgress(3, 4, 'Writing Act II – Part 2 (Sequences 5–6)...');
-    const step3Prompt = `Read Sequences 5 & 6. You must systematically expand EVERY SINGLE BEAT (Bad Guys Close In, All is Lost, Dark Night of the Soul) into full, multi-paragraph narrative prose. Maximize the emotional toll and physical stakes.
+    const step3Prompt = `${sourceBlock}Read Sequences 5 & 6. You must systematically expand EVERY SINGLE BEAT (Bad Guys Close In, All is Lost, Dark Night of the Soul) into full, multi-paragraph narrative prose. Maximize the emotional toll and physical stakes.
 
 PRIOR CONTEXT (Act I - IIA):
 ${parsed2.act_2a}
@@ -319,7 +321,7 @@ Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
     // Step 4: Act III (Sequences 7 & 8)
     console.log("  Chain Step 4/4: Writing Act III...");
     if (onProgress) onProgress(4, 4, 'Writing Act III (Sequences 7–8)...');
-    const step4Prompt = `Read Sequences 7 & 8. You must systematically expand EVERY SINGLE BEAT (Break into Three, Finale, Final Image) into full, multi-paragraph narrative prose. Describe the climax beat-by-beat.
+    const step4Prompt = `${sourceBlock}Read Sequences 7 & 8. You must systematically expand EVERY SINGLE BEAT (Break into Three, Finale, Final Image) into full, multi-paragraph narrative prose. Describe the climax beat-by-beat.
 
 PRIOR CONTEXT:
 ${parsed3.act_2b}

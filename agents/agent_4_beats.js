@@ -6,7 +6,8 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
@@ -53,7 +54,8 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
         if (onProgress) onProgress('Applying surgical revision...');
         const revisionSystemInstruction = `${beatsSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the 15-point beat sheet. You MUST keep unaffected beats 100% identical. HOWEVER, if the user's note creates a structural ripple effect, you must update subsequent beats to maintain narrative logic. Do not alter the overarching 8-sequence structure. Maintain the exact same JSON schema.`;
 
-        const revisionPrompt = `USER NOTE: ${notes}
+        const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
 
 EXISTING BEATS:
 ${JSON.stringify(currentBeats, null, 2)}
@@ -88,7 +90,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         });
     }
 
-    let contentsText = `Analyze the following story material and produce a COMPLETE 15-Beat Sheet mapped onto 8 sequences.
+    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    let contentsText = `${sourceBlock}Analyze the following story material and produce a COMPLETE 15-Beat Sheet mapped onto 8 sequences.
 
 APPROVED PITCH:
 ${JSON.stringify(pitchData, null, 2)}

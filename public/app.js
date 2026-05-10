@@ -190,6 +190,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Version History navigation
     const btnVersionHistory = document.getElementById('btnVersionHistory');
     const versionHistoryWorkspace = document.getElementById('version-history-view');
+    const btnSourceLibrary = document.getElementById('btnSourceLibrary');
+    const sourceLibraryModal = document.getElementById('sourceLibraryModal');
+    const sourceLibraryMeta = document.getElementById('sourceLibraryMeta');
+    const sourceBiblePanel = document.getElementById('sourceBiblePanel');
+    const sourceLibraryStatus = document.getElementById('sourceLibraryStatus');
+    const sourceLibraryList = document.getElementById('sourceLibraryList');
+    const btnRebuildSourceBible = document.getElementById('btnRebuildSourceBible');
+    const btnSourceLibraryClose = document.getElementById('btnSourceLibraryClose');
 
     // Legacy / Convenience references for existing stages
     const navStage1 = navItems[1];
@@ -1528,6 +1536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage1Approve.addEventListener('click', async () => {
         const expandedCard = document.querySelector('.pitch-card.expanded');
         if (!expandedCard) return;
+        if (!(await runApprovalSourceGuard(1, btnStage1Approve))) return;
 
         // Re-grab the edited data just in case they changed it during workshop
         const finalFields = expandedCard.querySelectorAll('.field-group .editable-field');
@@ -1563,6 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const updatedProject = await res.json();
 
             console.log('Final Approved Pitch Saved:', payload);
+            await offerStageMemoryCuration(1);
 
             toggleStage1EditMode(true);
 
@@ -1742,6 +1752,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Version history icon click
     btnVersionHistory?.addEventListener('click', () => {
         if (activeProjectId) switchToVersionHistory();
+    });
+    btnSourceLibrary?.addEventListener('click', () => openSourceLibrary());
+    btnSourceLibraryClose?.addEventListener('click', () => sourceLibraryModal?.classList.add('hidden'));
+    sourceLibraryModal?.addEventListener('click', (event) => {
+        if (event.target === sourceLibraryModal) sourceLibraryModal.classList.add('hidden');
+    });
+    btnRebuildSourceBible?.addEventListener('click', () => rebuildSourceBible());
+    sourceLibraryList?.addEventListener('click', (event) => {
+        const btn = event.target.closest('.source-library-delete');
+        if (!btn) return;
+        if (!confirm('Delete this source from project knowledge?')) return;
+        deleteSource(btn.dataset.sourceId);
     });
 
     // --- Version History Logic ---
@@ -2035,6 +2057,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveOutlineEdits(triggerBtn) {
         if (!activeProjectId) return;
+        if (!(await runApprovalSourceGuard(2, triggerBtn))) return;
 
         const updatedOutline = scrapeOutline();
         const originalText = triggerBtn.textContent;
@@ -2064,6 +2087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(putBody)
             });
             const updatedProject = await res.json();
+            await offerStageMemoryCuration(2);
 
             updateStageNav(updatedProject.data);
 
@@ -3033,6 +3057,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage3Approve) {
         btnStage3Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
+            if (!(await runApprovalSourceGuard(3, btnStage3Approve))) return;
 
             const currentCharacters = scrapeCharacters();
             const originalText = btnStage3Approve.textContent;
@@ -3064,6 +3089,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
+                await offerStageMemoryCuration(3);
                 updateStageNav(updatedProject.data);
 
                 btnStage3Approve.textContent = 'Approved ✓';
@@ -3099,6 +3125,127 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+    function formatCountLabel(count, singular, plural) {
+        return `${count} ${count === 1 ? singular : plural}`;
+    }
+
+    function setSourceLibraryStatus(message = '', isError = false) {
+        if (!sourceLibraryStatus) return;
+        sourceLibraryStatus.textContent = message;
+        sourceLibraryStatus.classList.toggle('source-library-status-error', !!isError);
+    }
+
+    function renderSourceBiblePanel(bible = {}) {
+        if (!sourceBiblePanel) return;
+        const facts = Array.isArray(bible.canon_facts) ? bible.canon_facts.slice(0, 8) : [];
+        const mustKeep = Array.isArray(bible.must_keep_elements) ? bible.must_keep_elements.slice(0, 6) : [];
+        const curatedNotes = Array.isArray(bible.curated_notes) ? bible.curated_notes.slice(-6) : [];
+        const updated = bible.updatedAt ? new Date(bible.updatedAt).toLocaleString() : 'Not built yet';
+        sourceBiblePanel.innerHTML = `
+            <div class="source-bible-header">
+                <div>
+                    <div class="source-bible-kicker">Source Bible</div>
+                    <div class="source-bible-updated">${escapeHtml(updated)}</div>
+                </div>
+                <span>${escapeHtml(formatCountLabel(bible.sourceCount || bible.sourceIds?.length || 0, 'source', 'sources'))}</span>
+            </div>
+            <p>${escapeHtml(bible.summary || 'No structured source bible yet.')}</p>
+            ${facts.length ? `<div class="source-bible-list"><strong>Canon</strong><ul>${facts.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+            ${mustKeep.length ? `<div class="source-bible-list"><strong>Must Keep</strong><ul>${mustKeep.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+            ${curatedNotes.length ? `<div class="source-bible-list"><strong>Project Notes</strong><ul>${curatedNotes.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+        `;
+    }
+
+    function renderSourceLibrary(knowledge = {}) {
+        const sources = knowledge.source_registry || [];
+        if (sourceLibraryMeta) {
+            sourceLibraryMeta.textContent = `${formatCountLabel(sources.length, 'source', 'sources')} saved`;
+        }
+        renderSourceBiblePanel(knowledge.source_bible || {});
+        if (!sourceLibraryList) return;
+        if (!sources.length) {
+            sourceLibraryList.innerHTML = '<div class="source-library-empty">No saved source documents yet.</div>';
+            return;
+        }
+        sourceLibraryList.innerHTML = sources.map(source => {
+            const tags = (source.tags || []).slice(0, 5).map(tag => `<span>${escapeHtml(tag)}</span>`).join('');
+            const uploaded = source.uploadedAt ? new Date(source.uploadedAt).toLocaleString() : '';
+            return `
+                <article class="source-library-item">
+                    <div class="source-library-item-main">
+                        <div class="source-library-item-title">${escapeHtml(source.name || 'Untitled source')}</div>
+                        <div class="source-library-item-meta">${escapeHtml(source.type || 'source_material')} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}</div>
+                        ${source.summary ? `<p>${escapeHtml(source.summary)}</p>` : ''}
+                        ${tags ? `<div class="source-library-tags">${tags}</div>` : ''}
+                    </div>
+                    <button class="source-library-delete" data-source-id="${escapeHtml(source.id)}">Delete</button>
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function loadSourceLibrary() {
+        if (!activeProjectId) return;
+        setSourceLibraryStatus('Loading...');
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge`);
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            renderSourceLibrary(data.knowledge);
+            setSourceLibraryStatus('');
+        } catch (err) {
+            setSourceLibraryStatus('Knowledge load failed: ' + err.message, true);
+        }
+    }
+
+    async function openSourceLibrary() {
+        if (!activeProjectId) return;
+        sourceLibraryModal?.classList.remove('hidden');
+        await loadSourceLibrary();
+    }
+
+    async function rebuildSourceBible() {
+        if (!activeProjectId || !btnRebuildSourceBible) return;
+        btnRebuildSourceBible.disabled = true;
+        const originalText = btnRebuildSourceBible.textContent;
+        btnRebuildSourceBible.textContent = 'Rebuilding...';
+        setSourceLibraryStatus('Reading saved sources...');
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/rebuild-source-bible`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            renderSourceLibrary(data.knowledge);
+            setSourceLibraryStatus('Source bible rebuilt.');
+        } catch (err) {
+            setSourceLibraryStatus('Rebuild failed: ' + err.message, true);
+        } finally {
+            btnRebuildSourceBible.disabled = false;
+            btnRebuildSourceBible.textContent = originalText;
+        }
+    }
+
+    async function deleteSource(sourceId) {
+        if (!activeProjectId || !sourceId) return;
+        setSourceLibraryStatus('Deleting source...');
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/sources/${encodeURIComponent(sourceId)}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            renderSourceLibrary(data.knowledge);
+            setSourceLibraryStatus('Source deleted.');
+        } catch (err) {
+            setSourceLibraryStatus('Delete failed: ' + err.message, true);
+        }
     }
 
     // =============================================
@@ -3493,6 +3640,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage4Approve) {
         btnStage4Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
+            if (!(await runApprovalSourceGuard(4, btnStage4Approve))) return;
 
             const currentS4Beats = scrapeTreatment();
             const originalText = btnStage4Approve.textContent;
@@ -3518,6 +3666,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
+                await offerStageMemoryCuration(4);
                 updateStageNav(updatedProject.data);
 
                 btnStage4Approve.textContent = 'Approved ✓';
@@ -3859,6 +4008,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage5Approve) {
         btnStage5Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
+            if (!(await runApprovalSourceGuard(5, btnStage5Approve))) return;
             const currentData = scrapeTreatmentStage5();
             const originalText = btnStage5Approve.textContent;
 
@@ -3883,6 +4033,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(putBody)
                 });
                 const updatedProject = await res.json();
+                await offerStageMemoryCuration(5);
                 updateStageNav(updatedProject.data);
 
                 btnStage5Approve.textContent = 'Approved ✓';
@@ -4257,6 +4408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage6Approve) {
         btnStage6Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
+            if (!(await runApprovalSourceGuard(6, btnStage6Approve))) return;
             const currentBlueprint = scrapeStage6();
             const originalText = btnStage6Approve.textContent;
 
@@ -4284,6 +4436,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnStage6Approve.textContent = 'Approved ✓';
                 btnStage6Approve.classList.add('approve-btn-green');
+                await offerStageMemoryCuration(6);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
@@ -4593,6 +4746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage8Approve.addEventListener('click', async () => {
             if (!activeProjectId) return;
             stage8FlushEditor(); // Save any pending manual edits
+            if (!(await runApprovalSourceGuard(8, btnStage8Approve))) return;
 
             const originalText = btnStage8Approve.textContent;
             btnStage8Approve.disabled = true;
@@ -4610,6 +4764,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error('Failed to save project');
 
                 const updatedProject = await response.json();
+                await offerStageMemoryCuration(8);
                 updateStageNav(updatedProject.data);
 
                 btnStage8Approve.textContent = 'Approved ✓';
@@ -5353,6 +5508,435 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const stageChatWindows = {};
 
+    function noteSavedSource(chat, savedSource) {
+        if (!chat || !savedSource) return;
+        const status = savedSource.duplicate ? 'Already in project knowledge' : 'Saved to project knowledge';
+        chat.append('system', `${status}: ${savedSource.name}`);
+    }
+
+    function sourceAuditHasActionableItems(audit = {}) {
+        const mismatches = (audit.possible_source_mismatches || []).filter(Boolean).length;
+        const missing = (audit.missing_source_elements || []).filter(Boolean).length;
+        const fixes = (audit.recommended_fixes || []).filter(Boolean).length;
+        if (mismatches || missing) return true;
+        return fixes > 0 && ((audit.sourceCount || 0) > 0 || (audit.acceptedDivergenceCount || 0) > 0);
+    }
+
+    function summarizeAuditForUi(audit = {}) {
+        const counts = [];
+        const mismatches = (audit.possible_source_mismatches || []).filter(Boolean).length;
+        const missing = (audit.missing_source_elements || []).filter(Boolean).length;
+        const fixes = (audit.recommended_fixes || []).filter(Boolean).length;
+        if (mismatches) counts.push(`${mismatches} mismatch${mismatches === 1 ? '' : 'es'}`);
+        if (missing) counts.push(`${missing} missing element${missing === 1 ? '' : 's'}`);
+        if (fixes) counts.push(`${fixes} recommended fix${fixes === 1 ? '' : 'es'}`);
+        return counts.length
+            ? `Stage ${audit.stageId}: ${counts.join(', ')}.`
+            : `Stage ${audit.stageId}: source audit reviewed with no issues flagged.`;
+    }
+
+    function buildSourceAuditRevisionNotes(audit = {}) {
+        const lines = [
+            `SOURCE ALIGNMENT FIX REQUEST`,
+            `Stage: ${audit.stageName || `Stage ${audit.stageId || ''}`}`,
+            '',
+            'Revise the current stage so it aligns with saved project source material. Preserve existing good work, but prefer concrete source canon over unsupported invention unless an accepted divergence is explicitly noted.'
+        ];
+        const addSection = (title, items) => {
+            const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            if (!safeItems.length) return;
+            lines.push('', `${title}:`);
+            safeItems.forEach(item => lines.push(`- ${item}`));
+        };
+        addSection('POSSIBLE SOURCE MISMATCHES TO RESOLVE', audit.possible_source_mismatches);
+        addSection('MISSING SOURCE ELEMENTS TO CONSIDER ADDING', audit.missing_source_elements);
+        addSection('RECOMMENDED FIXES', audit.recommended_fixes);
+        return lines.join('\n');
+    }
+
+    function appendWorkingIndicator(chat, label = 'Applying changes') {
+        const el = document.createElement('div');
+        el.className = 'chat-message chat-message-working';
+        el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
+        chat.thread.appendChild(el);
+        chat.thread.scrollTop = chat.thread.scrollHeight;
+        return el;
+    }
+
+    async function logKnowledgeDecision(type, stageId, summary, audit) {
+        if (!activeProjectId) return;
+        const res = await fetch(`/api/projects/${activeProjectId}/knowledge/decision`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, stageId, summary, audit })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+        const data = await res.json();
+        if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+    }
+
+    async function saveAcceptedSourceDivergence(stageId, audit) {
+        const summary = `Accepted source divergence for ${audit.stageName || `Stage ${stageId}`}: ${summarizeAuditForUi(audit)}`;
+        const res = await fetch(`/api/projects/${activeProjectId}/knowledge/accepted-divergence`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageId, summary, audit })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+        const data = await res.json();
+        if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+        return data;
+    }
+
+    async function acceptSourceDivergence(stageId, audit, button) {
+        if (!activeProjectId) return;
+        const chat = stageChatWindows[stageId];
+        const originalText = button?.textContent || 'Accept Divergence';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Saving...';
+        }
+        try {
+            await saveAcceptedSourceDivergence(stageId, audit);
+            chat?.append('system', 'Accepted divergence saved to project knowledge.');
+            if (button) button.textContent = 'Saved';
+        } catch (err) {
+            chat?.append('system', 'Could not save accepted divergence: ' + err.message);
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
+    function getStageApprovalSnapshot(stageId) {
+        try {
+            switch (Number(stageId)) {
+                case 1: {
+                    const expandedCard = document.querySelector('.pitch-card.expanded');
+                    const finalData = {};
+                    expandedCard?.querySelectorAll('.field-group .editable-field').forEach(field => {
+                        finalData[field.getAttribute('data-field')] = field.value;
+                    });
+                    return { pitch: finalData, notes: stage1Notes?.value ?? '' };
+                }
+                case 2:
+                    return { outline: scrapeOutline() };
+                case 3:
+                    return { characters: scrapeCharacters() };
+                case 4:
+                    return scrapeTreatment();
+                case 5:
+                    return scrapeTreatmentStage5();
+                case 6:
+                    return scrapeStage6();
+                case 7:
+                    return stage7CurrentStyle
+                        ? { slug: stage7CurrentStyle.slug, meta: stage7CurrentStyle.meta, content: stage7CurrentStyle.content }
+                        : { style: window.currentProjectData?.stage7_style || null };
+                case 8:
+                    stage8FlushEditor();
+                    return getFlatScenes().map(scene => ({
+                        scene_number: scene.scene_number,
+                        slugline: scene.slugline || scene.scene_heading || '',
+                        draft_text: scene.humanized_draft_text || scene.draft_text || ''
+                    }));
+                case 10:
+                    return {
+                        working: stage10State?.working || {},
+                        pending: stage10Pending || {},
+                        priority_idx: stage10State?.priority_idx ?? null
+                    };
+                default:
+                    return null;
+            }
+        } catch (err) {
+            console.warn('Could not build approval snapshot:', err.message);
+            return null;
+        }
+    }
+
+    function showApprovalSourceGuardModal(stageId, audit) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay approval-source-modal';
+            const issues = [
+                ...(audit.possible_source_mismatches || []).map(item => `Mismatch: ${item}`),
+                ...(audit.missing_source_elements || []).map(item => `Missing: ${item}`),
+                ...(audit.recommended_fixes || []).map(item => `Fix: ${item}`)
+            ].filter(Boolean).slice(0, 8);
+            overlay.innerHTML = `
+                <div class="modal-content approval-source-content">
+                    <h3>Source Check Found Issues</h3>
+                    <p>${escapeHtml(audit.stageName || `Stage ${stageId}`)} may not fully align with saved project source material.</p>
+                    <ul>${issues.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+                    <div class="modal-actions approval-source-actions">
+                        <button type="button" class="secondary-btn" data-action="apply">Apply Fixes</button>
+                        <button type="button" class="secondary-btn" data-action="diverge">Accept Divergence</button>
+                        <button type="button" class="secondary-btn" data-action="cancel">Cancel</button>
+                        <button type="button" class="primary-btn" data-action="approve">Approve Anyway</button>
+                    </div>
+                </div>
+            `;
+            const cleanup = (value) => {
+                overlay.remove();
+                resolve(value);
+            };
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) cleanup(false);
+            });
+            overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => cleanup(false));
+            overlay.querySelector('[data-action="approve"]')?.addEventListener('click', async (event) => {
+                event.currentTarget.disabled = true;
+                try {
+                    await logKnowledgeDecision(
+                        'source_audit_approved_anyway',
+                        stageId,
+                        `Approved ${audit.stageName || `Stage ${stageId}`} despite source audit warnings: ${summarizeAuditForUi(audit)}`,
+                        audit
+                    );
+                } catch (err) {
+                    console.warn('Approve-anyway decision log failed:', err.message);
+                }
+                cleanup(true);
+            });
+            overlay.querySelector('[data-action="diverge"]')?.addEventListener('click', async (event) => {
+                event.currentTarget.disabled = true;
+                try {
+                    await saveAcceptedSourceDivergence(stageId, audit);
+                    cleanup(true);
+                } catch (err) {
+                    alert('Could not save accepted divergence: ' + err.message);
+                    event.currentTarget.disabled = false;
+                }
+            });
+            overlay.querySelector('[data-action="apply"]')?.addEventListener('click', async (event) => {
+                event.currentTarget.disabled = true;
+                const chat = stageChatWindows[stageId];
+                if (chat?.applySourceAudit) {
+                    await chat.applySourceAudit(audit, event.currentTarget);
+                    cleanup(false);
+                } else {
+                    alert('This stage does not have an automatic source-fix path yet.');
+                    event.currentTarget.disabled = false;
+                }
+            });
+            document.body.appendChild(overlay);
+        });
+    }
+
+    async function runApprovalSourceGuard(stageId, button) {
+        if (!activeProjectId) return true;
+        const originalText = button?.textContent || '';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Checking source...';
+        }
+        try {
+            const res = await fetch('/api/source-audit-stage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    stageId,
+                    stageDataOverride: getStageApprovalSnapshot(stageId)
+                })
+            });
+            if (!res.ok) return true;
+            const audit = await res.json();
+            if (!sourceAuditHasActionableItems(audit)) return true;
+            return await showApprovalSourceGuardModal(stageId, audit);
+        } catch (err) {
+            console.warn('Approval source guard failed:', err.message);
+            return true;
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
+    function showMemoryCurationModal(stageId, proposal, { fallback = false } = {}) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay memory-curation-modal';
+            const listToText = (items = []) => items.filter(Boolean).join('\n');
+            overlay.innerHTML = `
+                <div class="modal-content memory-curation-content">
+                    <h3>Update Project Memory</h3>
+                    <p>${fallback ? 'The AI curator was unavailable, so PageOne prepared a conservative handoff.' : 'Review the proposed memory updates before downstream stages use them.'}</p>
+                    <label>Stage Handoff</label>
+                    <textarea class="modal-input" data-field="handoff" rows="4">${escapeHtml(proposal.handoff_summary || '')}</textarea>
+                    <label>Continuity Watchlist</label>
+                    <textarea class="modal-input" data-field="watchlist" rows="4" placeholder="One item per line">${escapeHtml(listToText(proposal.continuity_watchlist_additions))}</textarea>
+                    <label>Source Bible Notes</label>
+                    <textarea class="modal-input" data-field="bible" rows="4" placeholder="One note per line">${escapeHtml(listToText(proposal.source_bible_notes))}</textarea>
+                    <label>Decision Log</label>
+                    <textarea class="modal-input" data-field="decision" rows="2">${escapeHtml(proposal.decision_summary || '')}</textarea>
+                    <div class="modal-actions">
+                        <button type="button" class="secondary-btn" data-action="reject">Reject</button>
+                        <button type="button" class="primary-btn" data-action="accept">Save Memory</button>
+                    </div>
+                </div>
+            `;
+            const readLines = (field) => (overlay.querySelector(`[data-field="${field}"]`)?.value || '')
+                .split('\n')
+                .map(line => line.trim())
+                .filter(Boolean);
+            const cleanup = (value) => {
+                overlay.remove();
+                resolve(value);
+            };
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) cleanup(false);
+            });
+            overlay.querySelector('[data-action="reject"]')?.addEventListener('click', () => cleanup(false));
+            overlay.querySelector('[data-action="accept"]')?.addEventListener('click', async (event) => {
+                event.currentTarget.disabled = true;
+                const editedProposal = {
+                    stageId,
+                    stageName: proposal.stageName,
+                    handoff_summary: overlay.querySelector('[data-field="handoff"]')?.value.trim() || proposal.handoff_summary || '',
+                    continuity_watchlist_additions: readLines('watchlist'),
+                    source_bible_notes: readLines('bible'),
+                    decision_summary: overlay.querySelector('[data-field="decision"]')?.value.trim() || proposal.decision_summary || ''
+                };
+                try {
+                    const res = await fetch(`/api/projects/${activeProjectId}/knowledge/apply-stage-curation`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stageId, proposal: editedProposal })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+                    const data = await res.json();
+                    if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+                    cleanup(true);
+                } catch (err) {
+                    alert('Could not save project memory: ' + err.message);
+                    event.currentTarget.disabled = false;
+                }
+            });
+            document.body.appendChild(overlay);
+        });
+    }
+
+    async function offerStageMemoryCuration(stageId) {
+        if (!activeProjectId) return false;
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/propose-stage-curation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stageId, stageDataOverride: getStageApprovalSnapshot(stageId) })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            return await showMemoryCurationModal(stageId, data.proposal || {}, { fallback: !!data.fallback });
+        } catch (err) {
+            console.warn('Memory curation skipped:', err.message);
+            return false;
+        }
+    }
+
+    function renderSourceAuditCard(audit) {
+        const renderList = (title, items, emptyText) => {
+            const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            const body = safeItems.length
+                ? `<ul>${safeItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+                : `<p class="source-audit-empty">${escapeHtml(emptyText)}</p>`;
+            return `<section><h4>${escapeHtml(title)}</h4>${body}</section>`;
+        };
+        return `
+            <div class="source-audit-card">
+                <div class="source-audit-card-header">
+                    <strong>Source Alignment</strong>
+                    <span>${escapeHtml(audit.stageName || `Stage ${audit.stageId || ''}`)} - ${audit.sourceCount || 0} source${audit.sourceCount === 1 ? '' : 's'}</span>
+                </div>
+                ${renderList('Aligned', audit.aligned_items, 'No clear source alignments found yet.')}
+                ${renderList('Possible Mismatches', audit.possible_source_mismatches, 'No source mismatches flagged.')}
+                ${renderList('Missing Source Elements', audit.missing_source_elements, 'No missing source elements flagged.')}
+                ${renderList('Recommended Fixes', audit.recommended_fixes, 'No fixes recommended.')}
+                ${sourceAuditHasActionableItems(audit) ? `
+                    <div class="source-audit-actions">
+                        <button type="button" class="source-audit-action-btn source-audit-apply">Apply Recommended Fixes</button>
+                        <button type="button" class="source-audit-action-btn source-audit-divergence">Accept Divergence</button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function wireSourceAuditActions(stageId, audit, cardEl) {
+        if (!cardEl) return;
+        const chat = stageChatWindows[stageId];
+        const applyBtn = cardEl.querySelector('.source-audit-apply');
+        const divergenceBtn = cardEl.querySelector('.source-audit-divergence');
+        if (applyBtn) {
+            if (chat?.applySourceAudit) {
+                applyBtn.addEventListener('click', () => chat.applySourceAudit(audit, applyBtn));
+            } else {
+                applyBtn.disabled = true;
+                applyBtn.title = 'This stage does not have an automatic source-fix path yet.';
+            }
+        }
+        if (divergenceBtn) {
+            divergenceBtn.addEventListener('click', () => acceptSourceDivergence(stageId, audit, divergenceBtn));
+        }
+    }
+
+    async function runSourceAudit(stageId, button) {
+        if (!activeProjectId) return;
+        const chat = stageChatWindows[stageId];
+        if (!chat) return;
+        const originalText = button?.textContent || 'Check Source';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Checking...';
+        }
+        const pending = chat.append('system', 'Checking against project source material...');
+        try {
+            const res = await fetch('/api/source-audit-stage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, stageId })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                throw new Error(err.error || `Server error ${res.status}`);
+            }
+            const audit = await res.json();
+            pending.remove();
+            const cardEl = chat.append('system', '', { html: renderSourceAuditCard(audit) });
+            wireSourceAuditActions(stageId, audit, cardEl);
+        } catch (err) {
+            pending.remove();
+            chat.append('system', 'Source check failed: ' + err.message);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
+    function addSourceAuditButton(stageId) {
+        if (![1, 2, 3, 4, 5, 6, 7, 8, 10].includes(stageId)) return;
+        const chatEl = document.getElementById(`stage${stageId}-chat`);
+        const header = chatEl?.querySelector('.chat-header');
+        if (!header || header.querySelector('.source-audit-btn')) return;
+        const collapseBtn = header.querySelector('.chat-collapse-btn');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'source-audit-btn';
+        btn.textContent = 'Check Source';
+        btn.title = 'Check this stage against saved project source material';
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            runSourceAudit(stageId, btn);
+        });
+        header.insertBefore(btn, collapseBtn || null);
+    }
+
     // ─── STAGES 1–7 CHAT ─────────────────────────────────────────────────────
 
     async function readSSEStream(response, onEvent) {
@@ -5469,6 +6053,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 chat.setThinking(false);
+                noteSavedSource(chat, data.savedSource);
                 chat.append('ai', data.message);
                 if (data.suggest_plan && data.execute_immediately) {
                     // Clear directive — execute revision immediately, no confirmation needed
@@ -5491,6 +6076,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        chat.applySourceAudit = async (audit, button) => {
+            if (!executeRevision) {
+                chat.append('system', 'This stage does not have an automatic source-fix path yet.');
+                return;
+            }
+            const originalText = button?.textContent || 'Apply Recommended Fixes';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Applying...';
+            }
+            chat.setDisabled(true);
+            const indicator = appendWorkingIndicator(chat, 'Applying source fixes');
+            try {
+                await executeRevision(buildSourceAuditRevisionNotes(audit));
+                indicator.remove();
+                await logKnowledgeDecision(
+                    'source_audit_fixes_applied',
+                    stageId,
+                    `Applied source audit fixes for ${audit.stageName || `Stage ${stageId}`}: ${summarizeAuditForUi(audit)}`,
+                    audit
+                );
+                chat.append('system', 'Applied source fixes and logged the decision.');
+                if (button) button.textContent = 'Applied';
+            } catch (err) {
+                indicator.remove();
+                chat.append('ai', 'Something went wrong applying source fixes: ' + err.message);
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            } finally {
+                chat.setDisabled(false);
+            }
+        };
+        addSourceAuditButton(stageId);
         return chat;
     }
 
@@ -5973,6 +6593,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function stage7ApproveStyle() {
         if (!stage7CurrentStyle?.slug || !activeProjectId) return;
         const btnApprove = document.getElementById('btnStage7Approve');
+        if (!(await runApprovalSourceGuard(7, btnApprove))) return;
 
         try {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
@@ -5983,6 +6604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Approve failed');
             const updated = await res.json();
             window.currentProjectData = updated.data;
+            await offerStageMemoryCuration(7);
             updateStageNav(updated.data);
 
             if (btnApprove) {
@@ -6663,6 +7285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         stage10Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
+                        noteSavedSource(stage10Chat, data.savedSource);
                         stage10Pending[stage10CurrentScene] = data.proposed_text;
                         resetStage10ApproveBtn();
                         stage10SelectScene(stage10CurrentScene);
@@ -6680,11 +7303,81 @@ document.addEventListener('DOMContentLoaded', () => {
                         stage10Chat.setThinking(false);
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
+                        noteSavedSource(stage10Chat, data.savedSource);
                         stage10Chat.append('ai', data.message);
                         if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
                     }
                 }
             });
+            stageChatWindows[10] = stage10Chat;
+            stage10Chat.applySourceAudit = async (audit, button) => {
+                const originalText = button?.textContent || 'Apply Recommended Fixes';
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Applying...';
+                }
+                const notes = buildSourceAuditRevisionNotes(audit);
+                try {
+                    if (stage10CurrentScene === null) {
+                        stage10Chat.history.push({ role: 'user', content: notes });
+                        stage10Chat.append('system', 'Source audit findings added to the rewrite planning context.');
+                        await logKnowledgeDecision(
+                            'source_audit_fix_plan_requested',
+                            10,
+                            `Queued source audit fixes for Stage 10 planning: ${summarizeAuditForUi(audit)}`,
+                            audit
+                        );
+                        await stage10GeneratePlan();
+                        if (button) button.textContent = 'Queued';
+                        return;
+                    }
+
+                    const priorities = stage10GetPriorityList();
+                    const task = priorities[stage10State.priority_idx]?.task || 'Apply source alignment fixes.';
+                    const currentText = stage10ViewMode === 'formatted' && stage10Editor
+                        ? stage10Editor.toFountain()
+                        : (stage10Pending[stage10CurrentScene] ?? stage10State.working[stage10CurrentScene] ?? '');
+
+                    stage10Chat.setDisabled(true);
+                    stage10Chat.setThinking(true);
+                    const res = await fetch('/api/rewrite-scene-feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: activeProjectId,
+                            sceneNumber: stage10CurrentScene,
+                            priorityTask: task,
+                            userFeedback: notes,
+                            currentText
+                        })
+                    });
+                    stage10Chat.setThinking(false);
+                    if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+                    const data = await res.json();
+                    stage10Pending[stage10CurrentScene] = data.proposed_text;
+                    resetStage10ApproveBtn();
+                    stage10SelectScene(stage10CurrentScene);
+                    renderStage10SceneList();
+                    await logKnowledgeDecision(
+                        'source_audit_fixes_applied',
+                        10,
+                        `Applied source audit fixes to Stage 10 scene ${stage10CurrentScene}: ${summarizeAuditForUi(audit)}`,
+                        audit
+                    );
+                    stage10Chat.append('ai', `Scene ${stage10CurrentScene} updated from the source audit. Review the diff on the right.`);
+                    if (button) button.textContent = 'Applied';
+                } catch (err) {
+                    stage10Chat.setThinking(false);
+                    stage10Chat.append('system', 'Source audit apply failed: ' + err.message);
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                } finally {
+                    stage10Chat.setDisabled(false);
+                }
+            };
+            addSourceAuditButton(10);
 
             // Fetch AI opening message (presents Stage 9 priorities)
             try {
@@ -6904,6 +7597,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // ── Finalize Rewrite ──────────────────────────────────────────────────
         async function finalizeStage10() {
             stage10FlushEditPanel();
+            const approvalBtn = document.getElementById('btnStage10Approve') || btnFinalize;
+            if (!(await runApprovalSourceGuard(10, approvalBtn))) return;
             if (Object.keys(stage10Pending).length > 0) {
                 await fetch('/api/approve-rewrite-priority', {
                     method: 'POST',
@@ -6930,6 +7625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: { versionHistory: versionHistory9 } })
             });
+            await offerStageMemoryCuration(10);
 
             updateStageNav(projData.data);
 

@@ -23,7 +23,8 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage10_rewrite.md'), 'utf8');
@@ -44,11 +45,14 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const charSection = sceneContext.characters
         ? `\n## CHARACTER PROFILES\n${sceneContext.characters}\n`
         : '';
+    const sourceSection = knowledgeContext
+        ? `\n## PROJECT SOURCE CANON\n${knowledgeContext}\n`
+        : '';
 
     const prompt = `
 ## PROJECT
 Title: ${sceneContext.title || 'Untitled'}
-${plannedChangeSection}${referenceSection}${styleSection}${charSection}
+${plannedChangeSection}${referenceSection}${styleSection}${sourceSection}${charSection}
 ## PRIORITY CONTEXT
 ${priorityTask}
 
@@ -74,7 +78,7 @@ ${sceneText}
             console.warn(`Rewrite agent attempt ${attempt}/3 for scene ${sceneContext.sceneNumber}: ${error.message}`);
             if (attempt === 3) {
                 console.error(`Rewrite agent error for scene ${sceneContext.sceneNumber}: ${error.message}`);
-                return sceneText;
+                return { result: sceneText, usage: null };
             }
             await new Promise(r => setTimeout(r, 2000 * attempt));
         }

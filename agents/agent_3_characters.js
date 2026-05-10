@@ -6,7 +6,8 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage3_characters.md');
@@ -103,7 +104,8 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         console.log("  Surgical Revision Mode: Updating characters...");
         const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a full profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the user's note specifically addresses personality typing, voice, or behavioral patterns. If any character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY character's core traits change, regenerate \`relationship_dynamics\` for ALL characters (relationships are bidirectional).`;
 
-        const revisionPrompt = `USER NOTE: ${notes}
+        const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
 
 EXISTING CHARACTERS:
 ${JSON.stringify(currentCharacters, null, 2)}
@@ -137,7 +139,8 @@ Please apply the note surgically and return the full updated character list in J
         });
     }
 
-    let contentsText = `MANDATORY FIRST STEP — OUTLINE CHARACTER COVERAGE: Before creating any characters, read the outline below and identify every distinct character it describes — whether referred to by proper name (e.g., "Jax", "Silas") or by a specific role or function (e.g., "a hacker", "the engineer", "an acrobat", "an enforcer"). Every such individual MUST receive a full profile. Invent a proper name for any role-only character. Only after all outline characters are profiled may you invent additional characters.
+    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    let contentsText = `${sourceBlock}MANDATORY FIRST STEP — OUTLINE CHARACTER COVERAGE: Before creating any characters, read the outline below and identify every distinct character it describes — whether referred to by proper name (e.g., "Jax", "Silas") or by a specific role or function (e.g., "a hacker", "the engineer", "an acrobat", "an enforcer"). Every such individual MUST receive a full profile. Invent a proper name for any role-only character. Only after all outline characters are profiled may you invent additional characters.
 
 BEHAVIORAL ENGINE INSTRUCTIONS: For each character, after determining their psychological core and voice:
 1. Internally infer their MBTI type (from voice style, decision-making, social orientation) and Enneagram type + wing (from core_drive, fear, pressure response).

@@ -125,7 +125,7 @@ async function extractAttachmentText(attachment) {
     const name = (attachment.name || '').toLowerCase();
     const mime = (attachment.mimeType || '').toLowerCase();
     try {
-        if (mime === 'text/plain' || name.endsWith('.txt')) {
+        if (mime === 'text/plain' || name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.fountain')) {
             return buf.toString('utf8');
         }
         if (mime === 'application/pdf' || name.endsWith('.pdf')) {
@@ -222,6 +222,27 @@ const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
 const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
+const { generateContent } = require('./agents/ai-client');
+
+const STAGE_NAMES = {
+    1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
+    4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint',
+    7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite'
+};
+
+const SOURCE_TEXT_LIMIT = 60_000;
+const SOURCE_CHUNK_SIZE = 3_500;
+const SOURCE_CHUNK_OVERLAP = 300;
+const SOURCE_CHUNK_LIMIT = 40;
+const KNOWLEDGE_CONTEXT_LIMIT = 14_000;
+const STOP_WORDS = new Set([
+    'about', 'after', 'again', 'against', 'already', 'also', 'because', 'before',
+    'being', 'between', 'could', 'current', 'every', 'first', 'from', 'have',
+    'into', 'just', 'make', 'more', 'only', 'other', 'project', 'scene', 'stage',
+    'that', 'their', 'there', 'these', 'thing', 'this', 'through', 'under', 'want',
+    'were', 'what', 'when', 'where', 'which', 'while', 'with', 'would', 'writer',
+    'your'
+]);
 
 /**
  * Load the style file for a project, if one is set and exists.
@@ -280,6 +301,520 @@ async function uniqueStyleSlug(candidate) {
         suffix += 1;
     }
     return slug;
+}
+
+function compactText(value, maxChars = 4_000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
+function normalizeSourceText(text) {
+    return String(text || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim();
+}
+
+function ensureProjectKnowledge(projectData) {
+    if (!projectData.data) projectData.data = {};
+    const existing = projectData.data.knowledge;
+    const knowledge = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+
+    if (!Array.isArray(knowledge.source_registry)) knowledge.source_registry = [];
+    if (!knowledge.source_bible || typeof knowledge.source_bible !== 'object' || Array.isArray(knowledge.source_bible)) {
+        knowledge.source_bible = {
+            summary: typeof knowledge.source_bible === 'string' ? knowledge.source_bible : '',
+            sources_summary: '',
+            updatedAt: null,
+            sourceIds: []
+        };
+    } else {
+        knowledge.source_bible.summary = knowledge.source_bible.summary || '';
+        knowledge.source_bible.sources_summary = knowledge.source_bible.sources_summary || '';
+        if (!Array.isArray(knowledge.source_bible.sourceIds)) knowledge.source_bible.sourceIds = [];
+    }
+    if (!Array.isArray(knowledge.source_bible.curated_notes)) knowledge.source_bible.curated_notes = [];
+    if (!Array.isArray(knowledge.continuity_watchlist)) knowledge.continuity_watchlist = [];
+    if (!Array.isArray(knowledge.decision_log)) knowledge.decision_log = [];
+    if (!Array.isArray(knowledge.accepted_divergences)) knowledge.accepted_divergences = [];
+    if (!knowledge.stage_handoffs || typeof knowledge.stage_handoffs !== 'object' || Array.isArray(knowledge.stage_handoffs)) {
+        knowledge.stage_handoffs = {};
+    }
+
+    projectData.data.knowledge = knowledge;
+    return knowledge;
+}
+
+function inferSourceTypeAndTags(name, mimeType, stageId) {
+    const lowerName = String(name || '').toLowerCase();
+    const lowerMime = String(mimeType || '').toLowerCase();
+    const tags = new Set(['chat_upload']);
+    let type = 'source_material';
+
+    if (stageId) tags.add(`stage${stageId}`);
+    if (lowerMime.includes('pdf') || lowerName.endsWith('.pdf')) tags.add('pdf');
+    if (lowerName.endsWith('.docx') || lowerMime.includes('wordprocessingml')) tags.add('docx');
+    if (lowerName.endsWith('.fountain')) tags.add('screenplay');
+
+    if (/\b(graphic|comic|manga|novel|source|bible|canon|reference)\b/.test(lowerName)) {
+        type = 'source_reference';
+        tags.add('source_reference');
+    } else if (/\b(style|sample|voice)\b/.test(lowerName)) {
+        type = 'style_reference';
+        tags.add('style');
+    } else if (/\b(script|screenplay|draft|fountain)\b/.test(lowerName)) {
+        type = 'script_reference';
+        tags.add('script');
+    } else if (/\b(notes|outline|treatment|beats?)\b/.test(lowerName)) {
+        type = 'development_notes';
+        tags.add('notes');
+    }
+
+    return { type, tags: Array.from(tags) };
+}
+
+function buildSourceChunks(text) {
+    const chunks = [];
+    let index = 0;
+    let offset = 0;
+    while (offset < text.length && chunks.length < SOURCE_CHUNK_LIMIT) {
+        const end = Math.min(text.length, offset + SOURCE_CHUNK_SIZE);
+        chunks.push({
+            id: `chunk_${index + 1}`,
+            index,
+            start: offset,
+            text: text.slice(offset, end).trim()
+        });
+        index += 1;
+        offset = end >= text.length ? end : Math.max(offset + 1, end - SOURCE_CHUNK_OVERLAP);
+    }
+    return chunks;
+}
+
+function summarizeSourceText(text) {
+    const paragraphs = text
+        .split(/\n\s*\n+/)
+        .map(p => p.trim())
+        .filter(Boolean);
+    const lead = paragraphs.slice(0, 4).join('\n\n') || text;
+    return compactText(lead, 1_400);
+}
+
+function refreshSourceBibleSummary(knowledge) {
+    const bible = knowledge.source_bible;
+    const sourceBullets = knowledge.source_registry.slice(-20).map(source => {
+        const descriptor = source.summary || compactText(source.text || source.chunks?.[0]?.text || '', 700);
+        return `- ${source.name} (${source.type || 'source'}, ${source.uploadedAt || 'unknown date'}): ${descriptor}`;
+    });
+    bible.sources_summary = compactText(sourceBullets.join('\n'), 6_000);
+    bible.sourceIds = knowledge.source_registry.map(source => source.id);
+    bible.updatedAt = new Date().toISOString();
+}
+
+async function persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage } = {}) {
+    if (!attachment) return { fileText: '', savedSource: null };
+
+    const fileText = normalizeSourceText(await extractAttachmentText(attachment));
+    if (!fileText) return { fileText: '', savedSource: null };
+
+    const knowledge = ensureProjectKnowledge(projectData);
+    const now = new Date().toISOString();
+    const contentHash = crypto.createHash('sha256').update(fileText).digest('hex').slice(0, 20);
+    const existing = knowledge.source_registry.find(source => source.contentHash === contentHash);
+
+    if (existing) {
+        existing.lastReferencedAt = now;
+        existing.stagesReferenced = Array.from(new Set([...(existing.stagesReferenced || []), stageId].filter(Boolean)));
+        return {
+            fileText,
+            savedSource: {
+                id: existing.id,
+                name: existing.name,
+                duplicate: true,
+                charCount: existing.charCount || fileText.length,
+                type: existing.type || 'source_material'
+            }
+        };
+    }
+
+    const rawName = String(attachment.name || 'Untitled source').slice(0, 240);
+    const { type, tags } = inferSourceTypeAndTags(rawName, attachment.mimeType, stageId);
+    const entry = {
+        id: `src_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+        name: rawName,
+        mimeType: attachment.mimeType || 'application/octet-stream',
+        uploadedAt: now,
+        stageId: stageId || null,
+        type,
+        tags,
+        charCount: fileText.length,
+        contentHash,
+        summary: summarizeSourceText(fileText),
+        sourceNote: compactText(userMessage || '', 500)
+    };
+
+    if (fileText.length <= SOURCE_TEXT_LIMIT) {
+        entry.storage = 'text';
+        entry.text = fileText;
+    } else {
+        const chunks = buildSourceChunks(fileText);
+        entry.storage = 'chunks';
+        entry.chunks = chunks;
+        const lastChunk = chunks[chunks.length - 1];
+        entry.truncated = !lastChunk || (lastChunk.start + SOURCE_CHUNK_SIZE) < fileText.length;
+    }
+
+    knowledge.source_registry.push(entry);
+    refreshSourceBibleSummary(knowledge);
+
+    return {
+        fileText,
+        savedSource: {
+            id: entry.id,
+            name: entry.name,
+            duplicate: false,
+            charCount: entry.charCount,
+            type: entry.type
+        }
+    };
+}
+
+function tokenizeForKnowledge(text) {
+    const counts = new Map();
+    const source = String(text || '').toLowerCase().slice(0, 40_000);
+    for (const token of source.match(/[a-z0-9][a-z0-9'-]{2,}/g) || []) {
+        if (token.length < 4 || STOP_WORDS.has(token)) continue;
+        counts.set(token, (counts.get(token) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 35)
+        .map(([token]) => token);
+}
+
+function scoreAgainstKeywords(text, keywords) {
+    if (!text || !keywords.length) return 0;
+    const lower = String(text).toLowerCase();
+    let score = 0;
+    for (const keyword of keywords) {
+        if (lower.includes(keyword)) score += 1;
+    }
+    return score;
+}
+
+function excerptAroundKeywords(text, keywords, maxChars = 1_000) {
+    const source = String(text || '').trim();
+    if (source.length <= maxChars) return source;
+    const lower = source.toLowerCase();
+    const hit = keywords.map(k => lower.indexOf(k)).filter(i => i >= 0).sort((a, b) => a - b)[0];
+    if (hit === undefined) return compactText(source, maxChars);
+    const start = Math.max(0, hit - Math.floor(maxChars / 3));
+    const end = Math.min(source.length, start + maxChars);
+    return `${start > 0 ? '[...] ' : ''}${source.slice(start, end).trim()}${end < source.length ? ' [...]' : ''}`;
+}
+
+function sourceSegments(source) {
+    if (Array.isArray(source.chunks) && source.chunks.length) {
+        return source.chunks.map(chunk => ({ label: `${source.name} / chunk ${chunk.index + 1}`, text: chunk.text, source }));
+    }
+    if (source.text) {
+        return buildSourceChunks(source.text).map(chunk => ({ label: `${source.name} / chunk ${chunk.index + 1}`, text: chunk.text, source }));
+    }
+    if (source.summary) return [{ label: `${source.name} / summary`, text: source.summary, source }];
+    return [];
+}
+
+function relevantSourceSegments(knowledge, query, maxSegments = 5) {
+    const sources = knowledge.source_registry || [];
+    if (!sources.length) return [];
+    const keywords = tokenizeForKnowledge(query);
+    const scored = [];
+
+    for (const source of sources) {
+        const meta = `${source.name || ''} ${(source.tags || []).join(' ')} ${source.type || ''} ${source.summary || ''}`;
+        const metaScore = scoreAgainstKeywords(meta, keywords);
+        for (const segment of sourceSegments(source)) {
+            const score = scoreAgainstKeywords(segment.text, keywords) + (metaScore * 2);
+            if (score > 0) scored.push({ ...segment, score, keywords });
+        }
+    }
+
+    if (!scored.length) {
+        return sources.slice(-3).map(source => ({
+            label: `${source.name} / summary`,
+            text: source.summary || source.text || source.chunks?.[0]?.text || '',
+            source,
+            score: 0,
+            keywords
+        }));
+    }
+
+    return scored.sort((a, b) => b.score - a.score).slice(0, maxSegments);
+}
+
+function formatKnowledgeItem(item) {
+    if (typeof item === 'string') return item;
+    if (!item || typeof item !== 'object') return String(item || '');
+    return item.summary || item.decision || item.note || item.text || JSON.stringify(item);
+}
+
+function sourceBibleSummary(knowledge) {
+    const bible = knowledge.source_bible;
+    if (!bible) return '';
+    if (typeof bible === 'string') return bible;
+    const formatList = (label, items) => Array.isArray(items) && items.length
+        ? `${label}:\n${items.slice(0, 20).map(item => `- ${item}`).join('\n')}`
+        : '';
+    return [
+        bible.summary,
+        formatList('Canon Facts', bible.canon_facts),
+        formatList('Characters', bible.characters),
+        formatList('Settings', bible.settings),
+        formatList('Timeline', bible.timeline),
+        formatList('Rules', bible.rules),
+        formatList('Must Keep Elements', bible.must_keep_elements),
+        formatList('Project Adaptation Notes', bible.curated_notes),
+        formatList('Open Questions', bible.open_questions),
+        bible.sources_summary
+    ].filter(Boolean).join('\n\n');
+}
+
+function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', stageName = '', stageData = '', maxChars = KNOWLEDGE_CONTEXT_LIMIT } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const sources = knowledge.source_registry || [];
+    const bibleSummary = sourceBibleSummary(knowledge);
+    const watchlist = (knowledge.continuity_watchlist || []).slice(-12).map(formatKnowledgeItem).filter(Boolean);
+    const recentDecisions = (knowledge.decision_log || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
+    const acceptedDivergences = (knowledge.accepted_divergences || []).slice(-8).map(formatKnowledgeItem).filter(Boolean);
+    const handoff = knowledge.stage_handoffs?.[`stage${stageId}`] || knowledge.stage_handoffs?.[stageId] || '';
+    const hasKnowledge = sources.length || bibleSummary || watchlist.length || recentDecisions.length || acceptedDivergences.length || handoff;
+    if (!hasKnowledge) return '';
+
+    const query = `${userMessage}\n${stageName}\n${compactText(stageData, 8_000)}`;
+    const relevant = relevantSourceSegments(knowledge, query);
+    const sections = [
+        '## PROJECT KNOWLEDGE (PERSISTENT MEMORY)\nUse this as source-aware project memory. Treat source material as reference/canon when it conflicts with assistant speculation.'
+    ];
+
+    if (bibleSummary) sections.push(`### Source Bible Summary\n${compactText(bibleSummary, 3_500)}`);
+    if (watchlist.length) sections.push(`### Continuity Watchlist\n${watchlist.map(item => `- ${item}`).join('\n')}`);
+    if (relevant.length) {
+        sections.push(`### Relevant Source Documents\n${relevant.map(segment => {
+            const source = segment.source || {};
+            return `Source: ${source.name || 'Untitled'} (${source.type || 'source'}, id=${source.id || 'unknown'})\n${excerptAroundKeywords(segment.text, segment.keywords || [], 1_000)}`;
+        }).join('\n\n')}`);
+    }
+    if (recentDecisions.length) sections.push(`### Recent Decisions\n${recentDecisions.map(item => `- ${item}`).join('\n')}`);
+    if (acceptedDivergences.length) sections.push(`### Accepted Source Divergences\n${acceptedDivergences.map(item => `- ${item}`).join('\n')}`);
+    if (handoff) sections.push(`### Current Stage Handoff\n${formatKnowledgeItem(handoff)}`);
+
+    return compactText(sections.join('\n\n'), maxChars);
+}
+
+function buildGenerationKnowledgeContext(projectData, stageId, stageData = '') {
+    const block = buildKnowledgeContextBlock(projectData, {
+        stageId,
+        userMessage: `Generate or revise ${STAGE_NAMES[stageId] || `Stage ${stageId}`} using persistent source material.`,
+        stageName: STAGE_NAMES[stageId] || '',
+        stageData,
+        maxChars: 12_000
+    });
+    if (!block) return '';
+    return `${block}
+
+## SOURCE CANON RULE
+Preserve concrete facts from project knowledge and source documents. If existing stage material conflicts with source canon, prefer the source unless the writer's explicit notes or an accepted source divergence say otherwise.`;
+}
+
+function getModelConfigWithKnowledge(stageNum, projectData, stageData = '') {
+    const config = getModelConfig(stageNum);
+    const knowledgeContext = buildGenerationKnowledgeContext(projectData, stageNum, stageData);
+    return knowledgeContext ? { ...config, knowledgeContext } : config;
+}
+
+function summarizeSourceForClient(source) {
+    return {
+        id: source.id,
+        name: source.name,
+        mimeType: source.mimeType,
+        uploadedAt: source.uploadedAt,
+        lastReferencedAt: source.lastReferencedAt,
+        stageId: source.stageId,
+        stagesReferenced: source.stagesReferenced || [],
+        type: source.type || 'source_material',
+        tags: source.tags || [],
+        charCount: source.charCount || 0,
+        storage: source.storage || (source.text ? 'text' : source.chunks ? 'chunks' : 'summary'),
+        summary: source.summary || ''
+    };
+}
+
+function knowledgePayloadForClient(knowledge) {
+    return {
+        source_registry: (knowledge.source_registry || []).map(summarizeSourceForClient),
+        source_bible: knowledge.source_bible,
+        continuity_watchlist: knowledge.continuity_watchlist || [],
+        decision_log: knowledge.decision_log || [],
+        stage_handoffs: knowledge.stage_handoffs || {},
+        accepted_divergences: knowledge.accepted_divergences || []
+    };
+}
+
+function boundedKnowledgePush(list, item, maxItems = 100) {
+    list.push(item);
+    if (list.length > maxItems) list.splice(0, list.length - maxItems);
+}
+
+function compactAuditForKnowledge(audit = {}) {
+    const pick = (key, maxItems = 8) => Array.isArray(audit[key])
+        ? audit[key].filter(Boolean).slice(0, maxItems).map(item => compactText(item, 500))
+        : [];
+    return {
+        stageId: Number(audit.stageId) || null,
+        stageName: compactText(audit.stageName || '', 120),
+        checkedAt: audit.checkedAt || null,
+        aligned_items: pick('aligned_items', 5),
+        possible_source_mismatches: pick('possible_source_mismatches'),
+        missing_source_elements: pick('missing_source_elements'),
+        recommended_fixes: pick('recommended_fixes')
+    };
+}
+
+function summarizeAuditForDecision(audit = {}) {
+    const compact = compactAuditForKnowledge(audit);
+    const parts = [];
+    if (compact.possible_source_mismatches.length) parts.push(`${compact.possible_source_mismatches.length} mismatch${compact.possible_source_mismatches.length === 1 ? '' : 'es'}`);
+    if (compact.missing_source_elements.length) parts.push(`${compact.missing_source_elements.length} missing source element${compact.missing_source_elements.length === 1 ? '' : 's'}`);
+    if (compact.recommended_fixes.length) parts.push(`${compact.recommended_fixes.length} recommended fix${compact.recommended_fixes.length === 1 ? '' : 'es'}`);
+    return parts.length ? parts.join(', ') : 'No source alignment issues recorded.';
+}
+
+function stageDataOverrideToText(value) {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value, null, 2);
+}
+
+function sanitizeStageCurationProposal(proposal = {}, { stageId, stageName, stageData } = {}) {
+    const cleanList = (items, maxItems = 8, maxChars = 500) => Array.isArray(items)
+        ? items.map(item => compactText(item, maxChars)).filter(Boolean).slice(0, maxItems)
+        : [];
+    const fallbackSummary = `${stageName || `Stage ${stageId}`} approved. ${compactText(stageData || '', 700)}`;
+    return {
+        stageId: Number(stageId) || null,
+        stageName: stageName || STAGE_NAMES[stageId] || `Stage ${stageId}`,
+        handoff_summary: compactText(proposal.handoff_summary || fallbackSummary, 1_200),
+        continuity_watchlist_additions: cleanList(proposal.continuity_watchlist_additions, 8, 500),
+        source_bible_notes: cleanList(proposal.source_bible_notes, 8, 500),
+        decision_summary: compactText(proposal.decision_summary || `Approved ${stageName || `Stage ${stageId}`} and updated project memory.`, 800)
+    };
+}
+
+function buildFallbackStageCuration(stageId, stageName, stageData) {
+    return sanitizeStageCurationProposal({
+        handoff_summary: `${stageName || `Stage ${stageId}`} approved. ${compactText(stageData || '', 700)}`,
+        continuity_watchlist_additions: [],
+        source_bible_notes: [],
+        decision_summary: `Approved ${stageName || `Stage ${stageId}`} and saved a downstream handoff.`
+    }, { stageId, stageName, stageData });
+}
+
+function buildSourceBiblePrompt(knowledge) {
+    const sources = knowledge.source_registry || [];
+    return sources.map(source => {
+        const body = compactText(
+            source.text || (source.chunks || []).map(chunk => chunk.text).join('\n\n') || source.summary || '',
+            10_000
+        );
+        return `SOURCE ID: ${source.id}
+NAME: ${source.name}
+TYPE: ${source.type || 'source_material'}
+TAGS: ${(source.tags || []).join(', ')}
+SUMMARY: ${source.summary || ''}
+TEXT:
+${body}`;
+    }).join('\n\n---\n\n');
+}
+
+async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
+    const numericStageId = Number(stageId);
+    const stageName = STAGE_NAMES[numericStageId];
+    let stageData = '';
+
+    switch (numericStageId) {
+        case 1:
+            stageData = JSON.stringify(projectData.data?.stage1_pitch?.pitch || {}, null, 2);
+            break;
+        case 2:
+            stageData = JSON.stringify(projectData.data?.stage2_outline?.outline || [], null, 2);
+            break;
+        case 3:
+            stageData = JSON.stringify(projectData.data?.stage3_characters?.characters || [], null, 2);
+            break;
+        case 4:
+            stageData = JSON.stringify(projectData.data?.stage4_beats || [], null, 2);
+            break;
+        case 5: {
+            const t = projectData.data?.stage5_treatment || {};
+            stageData = [t.title_logline_characters, t.act_1, t.act_2a, t.act_2b, t.act_3].filter(Boolean).join('\n\n---\n\n');
+            break;
+        }
+        case 6:
+            stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2);
+            break;
+        case 7: {
+            const styleSlug = projectData.data?.stage7_style;
+            if (styleSlug) {
+                try {
+                    let styleContent;
+                    try {
+                        styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
+                    } catch {
+                        styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
+                    }
+                    stageData = `Current style file (${styleSlug}):\n${styleContent}`;
+                } catch {
+                    stageData = 'No style file loaded yet.';
+                }
+            } else {
+                stageData = 'No style selected yet. Help the writer define their style.';
+            }
+            const s6 = projectData.data?.stage6_scenes || [];
+            if (s6.length > 0) {
+                const sceneSummaries = [];
+                for (const seq of s6) {
+                    if (seq.scenes) for (const sc of seq.scenes) {
+                        sceneSummaries.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} - ${sc.narrative_action || ''}`);
+                    }
+                }
+                if (sceneSummaries.length) stageData += `\n\nStory scenes for context:\n${sceneSummaries.join('\n')}`;
+            }
+            break;
+        }
+        case 8: {
+            const draftScenes = [];
+            for (const seq of (projectData.data?.stage6_scenes || [])) {
+                if (seq.scenes) draftScenes.push(...seq.scenes);
+            }
+            const draftScene = draftScenes.find(s => s.scene_number === sceneNumber) || draftScenes[0];
+            stageData = draftScene
+                ? `Scene ${draftScene.scene_number}: ${draftScene.scene_heading || draftScene.slugline || ''}\n${draftScene.humanized_draft_text || draftScene.draft_text || ''}`
+                : 'No scene selected.';
+            break;
+        }
+        case 9:
+            stageData = JSON.stringify(projectData.data?.stage8_coverage || {}, null, 2);
+            break;
+        case 10:
+            stageData = JSON.stringify(projectData.data?.stage9_rewrites?.working || {}, null, 2);
+            break;
+        default:
+            throw new Error(`Unknown stageId: ${stageId}`);
+    }
+
+    return { stageName, stageData };
 }
 
 const app = express();
@@ -464,7 +999,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
 
         console.log("Generating Stage 2 Outline...");
-        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfig(2));
+        const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notes || ''}`;
+        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfigWithKnowledge(2, projectData, stage2KnowledgeSeed));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -510,7 +1046,8 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
 
         console.log("Generating Stage 3 Characters...");
-        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfig(3));
+        const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notes || ''}`;
+        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfigWithKnowledge(3, projectData, stage3KnowledgeSeed));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
@@ -564,10 +1101,11 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
     try {
         console.log("Generating Stage 4 Beats...");
+        const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notes || ''}`;
         const { result: beatsResult, usage } = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
             (label) => send({ type: 'progress', label }),
-            getModelConfig(4)
+            getModelConfigWithKnowledge(4, projectData, stage4KnowledgeSeed)
         );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
@@ -630,10 +1168,11 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 
     try {
         console.log("Generating Stage 5 Chained Treatment...");
+        const stage5KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedTreatment ? JSON.stringify(parsedTreatment, null, 2) : ''}\n${notes || ''}`;
         const { result: treatmentResult, usageList } = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notes,
             (step, total, label) => send({ type: 'progress', step, total, label }),
-            getModelConfig(5)
+            getModelConfigWithKnowledge(5, projectData, stage5KnowledgeSeed)
         );
 
         projectData.data = projectData.data || {};
@@ -692,11 +1231,13 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         if (sourceAuthorityBlock) {
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
         }
+        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 6, `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}`);
+        const combinedSourceBlock = [sourceAuthorityBlock, knowledgeSourceBlock].filter(Boolean).join('\n\n---\n\n');
 
         const { result: allSequences, usageList } = await generateStage6Scenes(
             pitch, characters, beats, treatment,
             (current, total) => send({ type: 'progress', current, total }),
-            sourceAuthorityBlock,
+            combinedSourceBlock,
             getModelConfig(6)
         );
 
@@ -737,7 +1278,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
 
         console.log("Revising Stage 6 Scene Blueprint...");
-        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfig(6));
+        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithKnowledge(6, projectData, `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`));
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
@@ -803,7 +1344,8 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNum}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfig(8), styleContent, continuityCtx);
+        const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}`;
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
 
         console.log(`Humanizing draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -877,7 +1419,8 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
 
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNum}...`);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfig(8), styleContent, continuityCtx);
+        const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${feedback}`;
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
 
         console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -1082,66 +1625,11 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const stageNames = {
-            1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
-            4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint',
-            7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite'
-        };
-
-        let stageData;
-        switch (stageId) {
-            case 1: stageData = JSON.stringify(projectData.data?.stage1_pitch?.pitch || {}, null, 2); break;
-            case 2: stageData = JSON.stringify(projectData.data?.stage2_outline?.outline || [], null, 2); break;
-            case 3: stageData = JSON.stringify(projectData.data?.stage3_characters?.characters || [], null, 2); break;
-            case 4: stageData = JSON.stringify(projectData.data?.stage4_beats || [], null, 2); break;
-            case 5: {
-                const t = projectData.data?.stage5_treatment || {};
-                stageData = [t.act_1, t.act_2a, t.act_2b, t.act_3].filter(Boolean).join('\n\n---\n\n');
-                break;
-            }
-            case 6: stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2); break;
-            case 7: {
-                // Style stage — provide current style file content if one exists
-                const styleSlug = projectData.data?.stage7_style;
-                if (styleSlug) {
-                    try {
-                        let styleContent;
-                        try {
-                            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
-                        } catch {
-                            styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
-                        }
-                        stageData = `Current style file (${styleSlug}):\n${styleContent}`;
-                    } catch { stageData = 'No style file loaded yet.'; }
-                } else {
-                    stageData = 'No style selected yet. Help the writer define their style.';
-                }
-                // Include scene summaries for context-aware suggestions
-                const s6 = projectData.data?.stage6_scenes || [];
-                if (s6.length > 0) {
-                    const sceneSummaries = [];
-                    for (const seq of s6) {
-                        if (seq.scenes) for (const sc of seq.scenes) {
-                            sceneSummaries.push(`Scene ${sc.scene_number}: ${sc.scene_heading || sc.slugline || ''} — ${sc.narrative_action || ''}`);
-                        }
-                    }
-                    if (sceneSummaries.length) stageData += `\n\nStory scenes for context:\n${sceneSummaries.join('\n')}`;
-                }
-                break;
-            }
-            case 8: {
-                // Draft stage — load scene text for chat context
-                const draftScenes = [];
-                for (const seq of (projectData.data?.stage6_scenes || [])) {
-                    if (seq.scenes) draftScenes.push(...seq.scenes);
-                }
-                const draftScene = draftScenes.find(s => s.scene_number === sceneNumber) || draftScenes[0];
-                stageData = draftScene
-                    ? `Scene ${draftScene.scene_number}: ${draftScene.scene_heading || draftScene.slugline || ''}\n${draftScene.humanized_draft_text || draftScene.draft_text || ''}`
-                    : 'No scene selected.';
-                break;
-            }
-            default: return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
+        let stageName, stageData;
+        try {
+            ({ stageName, stageData } = await buildStageDataForAssistant(projectData, stageId, sceneNumber));
+        } catch {
+            return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
         }
 
         // Build prior-stage conversation context
@@ -1158,11 +1646,28 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             }
         }
 
-        let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageNames[stageId]}\n${stageData}\n\n---\n\n`;
-        if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
+        const lastUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+        let attachmentText = '';
+        let savedSource = null;
         if (attachment) {
-            const fileText = await extractAttachmentText(attachment);
-            if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage: lastUserMessage });
+            attachmentText = persisted.fileText;
+            savedSource = persisted.savedSource;
+            if (savedSource) await writeJSONQueued(filePath, projectData);
+        }
+
+        const knowledgeContext = buildKnowledgeContextBlock(projectData, {
+            stageId,
+            userMessage: lastUserMessage,
+            stageName,
+            stageData
+        });
+
+        let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}\n\n---\n\n`;
+        if (knowledgeContext) conversationPrompt += `${knowledgeContext}\n\n---\n\n`;
+        if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
+        if (attachmentText) {
+            conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}\n\n---\n\n`;
         }
         if (isInit && stageId === 5) {
             // Stage 5 Entry Analysis — proactive editorial opening message
@@ -1277,7 +1782,7 @@ ${brainstormSop}`
             }
         }
 
-        res.json(result);
+        res.json(savedSource ? { ...result, savedSource } : result);
     } catch (error) {
         console.error('brainstorm error:', error.message);
         res.status(500).json({ error: 'Brainstorm request failed' });
@@ -1322,11 +1827,28 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         const charBlock = charSummary ? `\n\n## CHARACTERS\n${charSummary}` : '';
         const contextBlock = `## PROJECT: ${title}${charBlock}\n\n## STAGE 9 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
 
+        const lastUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+        let attachmentText = '';
+        let savedSource = null;
+        if (attachment && !isInit) {
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: lastUserMessage });
+            attachmentText = persisted.fileText;
+            savedSource = persisted.savedSource;
+            if (savedSource) await writeJSONQueued(filePath, projectData);
+        }
+
+        const knowledgeContext = buildKnowledgeContextBlock(projectData, {
+            stageId: 10,
+            userMessage: lastUserMessage,
+            stageName: STAGE_NAMES[10],
+            stageData: fullScript
+        });
+
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';
+        if (knowledgeContext) conversationPrompt += `${knowledgeContext}\n\n---\n\n`;
         if (attachment && !isInit) {
-            const fileText = await extractAttachmentText(attachment);
-            if (fileText?.trim()) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${fileText.trim()}\n\n---\n\n`;
+            if (attachmentText) conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}\n\n---\n\n`;
         }
         if (isInit) {
             // Check for character change context (from Stage 3 re-approval → Stage 10 flow)
@@ -1408,10 +1930,110 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
             }
         }
 
-        res.json(result);
+        res.json(savedSource ? { ...result, savedSource } : result);
     } catch (error) {
         console.error('brainstorm-rewrite error:', error.message);
         res.status(500).json({ error: 'Brainstorm rewrite request failed' });
+    }
+});
+
+// Lightweight source alignment check for the current stage output.
+app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => {
+    try {
+        const { projectId, stageId, stageDataOverride } = req.body;
+        const numericStageId = Number(stageId);
+        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
+        }
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const projectData = JSON.parse(content);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+        const stageName = builtStage.stageName;
+        const overrideText = stageDataOverrideToText(stageDataOverride);
+        const stageData = overrideText === null ? builtStage.stageData : overrideText;
+        const knowledge = ensureProjectKnowledge(projectData);
+        const bibleSummary = sourceBibleSummary(knowledge);
+        const sourceCount = knowledge.source_registry?.length || 0;
+        const acceptedDivergenceCount = knowledge.accepted_divergences?.length || 0;
+        const hasKnowledge = sourceCount || bibleSummary || knowledge.continuity_watchlist?.length || knowledge.decision_log?.length || acceptedDivergenceCount;
+
+        if (!hasKnowledge) {
+            return res.json({
+                stageId: numericStageId,
+                stageName,
+                sourceCount: 0,
+                acceptedDivergenceCount: 0,
+                aligned_items: [],
+                possible_source_mismatches: [],
+                missing_source_elements: [],
+                recommended_fixes: ['Add a source document through the stage chat attachment flow, then run the check again.']
+            });
+        }
+
+        const knowledgeContext = buildKnowledgeContextBlock(projectData, {
+            stageId: numericStageId,
+            userMessage: `Audit Stage ${numericStageId} against persistent source material.`,
+            stageName,
+            stageData,
+            maxChars: 18_000
+        });
+        const auditSchema = {
+            type: 'object',
+            properties: {
+                aligned_items: { type: 'array', items: { type: 'string' } },
+                possible_source_mismatches: { type: 'array', items: { type: 'string' } },
+                missing_source_elements: { type: 'array', items: { type: 'string' } },
+                recommended_fixes: { type: 'array', items: { type: 'string' } }
+            },
+            required: ['aligned_items', 'possible_source_mismatches', 'missing_source_elements', 'recommended_fixes']
+        };
+        const prompt = `${knowledgeContext}
+
+---
+
+## CURRENT STAGE OUTPUT
+Stage ${numericStageId}: ${stageName}
+${compactText(stageData, 45_000)}
+
+---
+
+Compare the current stage output against the persistent source material above.
+Be conservative: only flag a mismatch when the source context gives a concrete reason.
+Do not flag a conflict that is already covered by an accepted source divergence in project memory.
+Return concise, actionable findings.`;
+
+        const modelCfg = getModelConfig(numericStageId);
+        const response = await generateContent({
+            model: modelCfg.model,
+            geminiApiKey: modelCfg.geminiApiKey,
+            anthropicApiKey: modelCfg.anthropicApiKey,
+            contents: prompt,
+            config: {
+                systemInstruction: 'You are a source alignment editor for a screenplay development pipeline. Compare generated stage output against provided persistent source material. Do not invent canon that is not in the source context.',
+                temperature: 0.2
+            },
+            schema: auditSchema
+        });
+
+        const audit = safeParse(response.text, null);
+        if (!audit) throw new Error('Audit response was not valid JSON');
+        trackUsage(projectId, response.usage);
+        res.json({
+            stageId: numericStageId,
+            stageName,
+            sourceCount,
+            acceptedDivergenceCount,
+            checkedAt: new Date().toISOString(),
+            aligned_items: audit.aligned_items || [],
+            possible_source_mismatches: audit.possible_source_mismatches || [],
+            missing_source_elements: audit.missing_source_elements || [],
+            recommended_fixes: audit.recommended_fixes || []
+        });
+    } catch (error) {
+        console.error('source-audit-stage error:', error.message);
+        res.status(500).json({ error: 'Failed to check stage against source material' });
     }
 });
 
@@ -1457,7 +2079,8 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         } else if (plannerStyleContent) {
             styleNote = `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`;
         }
-        const prompt = `## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const knowledgeContext = buildGenerationKnowledgeContext(projectData, 10, `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`);
+        const prompt = `${knowledgeContext ? `${knowledgeContext}\n\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -1541,11 +2164,12 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         const results = await Promise.allSettled(
             scopedScenes.map(s => {
                 const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
+                const rewriteModelConfig = getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${sceneText}\n${s.narrative_action || ''}`);
                 return rewriteScene(sceneText, priorityTask, {
                     title,
                     sceneNumber: s.scene_number,
                     slugline: s.slugline || s.scene_heading || '',
-                }, '', getModelConfig(10), styleContent, referenceContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
+                }, '', rewriteModelConfig, styleContent, referenceContent).then(({ result: proposed, usage }) => ({ scene_number: s.scene_number, original_text: sceneText, proposed_text: proposed, usage }));
             })
         );
 
@@ -1591,7 +2215,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         let sceneMeta = null;
         for (const seq of stage6Scenes) {
             if (seq.scenes) {
-                sceneMeta = seq.scenes.find(s => s.scene_number === sceneNumber);
+                sceneMeta = seq.scenes.find(s => s.scene_number === sceneNum);
                 if (sceneMeta) break;
             }
         }
@@ -1627,7 +2251,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             sceneText, priorityTask,
             { title, sceneNumber: sceneNum, slugline, characters: charProfiles },
             plannedChange || '',
-            getModelConfig(10),
+            getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${plannedChange || ''}\n${sceneText}\n${sceneMeta?.narrative_action || ''}`),
             styleContent,
             referenceContent
         );
@@ -1681,7 +2305,7 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
 // Rewrite a single scene using the priority task + user feedback
 app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res) => {
     try {
-        const { projectId, sceneNumber, priorityTask, userFeedback, currentText } = req.body;
+        const { projectId, sceneNumber, priorityTask, userFeedback, currentText, attachment } = req.body;
         if (!isValidProjectId(projectId) || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
@@ -1690,9 +2314,29 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const { result: proposed_text, usage } = await rewriteScene(currentText, priorityTask, { title, sceneNumber }, userFeedback, getModelConfig(10));
+        let savedSource = null;
+        let attachmentText = '';
+        if (attachment) {
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: userFeedback || priorityTask });
+            attachmentText = persisted.fileText;
+            savedSource = persisted.savedSource;
+            if (savedSource) await writeJSONQueued(filePath, projectData);
+        }
+
+        const feedbackParts = [];
+        if (attachmentText) feedbackParts.push(`## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}`);
+        if (userFeedback) feedbackParts.push(userFeedback);
+        const enrichedFeedback = feedbackParts.join('\n\n---\n\n') || userFeedback;
+
+        const { result: proposed_text, usage } = await rewriteScene(
+            currentText,
+            priorityTask,
+            { title, sceneNumber },
+            enrichedFeedback,
+            getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${enrichedFeedback || ''}\n${currentText}`),
+        );
         trackUsage(projectId, usage);
-        res.json({ proposed_text });
+        res.json(savedSource ? { proposed_text, savedSource } : { proposed_text });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
@@ -1753,11 +2397,14 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         }
 
         console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}...`);
+        const styleModelConfig = projectData
+            ? getModelConfigWithKnowledge(7, projectData, `${description || ''}\n${sceneSummaries}\n${conversationHistory.map(m => m.content).join('\n')}`)
+            : getModelConfig(7);
         const { result: styleContent, usage } = await generateStyleFile({
             description: description || '',
             sceneSummaries,
             conversationHistory
-        }, getModelConfig(7));
+        }, styleModelConfig);
 
         // Parse the generated style to extract metadata
         const { meta } = parseStyleFile(styleContent);
@@ -1818,10 +2465,13 @@ app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) =>
             synopsis: pitch?.synopsis || '',
             characters: projectData.data?.stage3_characters?.characters || []
         };
+        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 7, `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(scene, null, 2)}`);
 
         // Use the Draft agent with style directives injected
         const draftSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage8_draft.md'), 'utf8');
         const prompt = `${draftSop}
+
+${knowledgeSourceBlock ? `## PROJECT SOURCE CANON\n${knowledgeSourceBlock}\n` : ''}
 
 ## STYLE DIRECTIVES
 Apply the following style to this scene:
@@ -2377,6 +3027,397 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
     } catch (error) {
         console.error("Error updating project:", error);
         res.status(500).json({ error: "Failed to update project" });
+    }
+});
+
+app.get('/api/projects/:id/knowledge', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        const projectData = JSON.parse(content);
+        const knowledge = ensureProjectKnowledge(projectData);
+        res.json({ knowledge: knowledgePayloadForClient(knowledge) });
+    } catch (error) {
+        console.error('knowledge load error:', error.message);
+        res.status(500).json({ error: 'Failed to load project knowledge' });
+    }
+});
+
+app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
+    try {
+        const { id, sourceId } = req.params;
+        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
+            return res.status(400).json({ error: 'Invalid project ID or source ID' });
+        }
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            const knowledge = ensureProjectKnowledge(projectData);
+            const before = knowledge.source_registry.length;
+            knowledge.source_registry = knowledge.source_registry.filter(source => source.id !== sourceId);
+            if (knowledge.source_registry.length === before) {
+                const err = new Error('Source not found');
+                err.statusCode = 404;
+                throw err;
+            }
+            refreshSourceBibleSummary(knowledge);
+            boundedKnowledgePush(knowledge.decision_log, {
+                at: new Date().toISOString(),
+                type: 'source_removed',
+                summary: `Removed source ${sourceId}`
+            });
+            return projectData;
+        });
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({
+            ok: true,
+            knowledge: knowledgePayloadForClient(knowledge)
+        });
+    } catch (error) {
+        console.error('knowledge source delete error:', error.message);
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 404 ? 'Source not found' : 'Failed to delete source' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { type, stageId, summary, details, audit } = req.body || {};
+        const numericStageId = stageId === undefined || stageId === null || stageId === '' ? null : Number(stageId);
+        if (numericStageId && !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Invalid stage ID' });
+        }
+
+        const cleanType = /^[a-z0-9_-]{1,60}$/i.test(type || '') ? type : 'project_knowledge_decision';
+        const cleanSummary = compactText(summary || details || summarizeAuditForDecision(audit), 1_000);
+        if (!cleanSummary) return res.status(400).json({ error: 'Decision summary is required' });
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            const knowledge = ensureProjectKnowledge(projectData);
+            const now = new Date().toISOString();
+            const entry = {
+                at: now,
+                type: cleanType,
+                stageId: numericStageId,
+                summary: cleanSummary
+            };
+            if (details) entry.details = compactText(details, 2_000);
+            if (audit) entry.audit = compactAuditForKnowledge(audit);
+
+            boundedKnowledgePush(knowledge.decision_log, entry, 120);
+            if (numericStageId) {
+                knowledge.stage_handoffs[`stage${numericStageId}`] = {
+                    at: now,
+                    type: cleanType,
+                    summary: cleanSummary
+                };
+            }
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+    } catch (error) {
+        console.error('knowledge decision log error:', error.message);
+        res.status(500).json({ error: 'Failed to log project knowledge decision' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { stageId, summary, audit } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Invalid stage ID' });
+        }
+
+        const compactAudit = compactAuditForKnowledge(audit);
+        const cleanSummary = compactText(
+            summary || `Accepted Stage ${numericStageId} source divergence: ${summarizeAuditForDecision(audit)}`,
+            1_000
+        );
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            const knowledge = ensureProjectKnowledge(projectData);
+            const now = new Date().toISOString();
+            const divergence = {
+                id: `div_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+                at: now,
+                stageId: numericStageId,
+                stageName: STAGE_NAMES[numericStageId],
+                summary: cleanSummary,
+                audit: compactAudit
+            };
+
+            boundedKnowledgePush(knowledge.accepted_divergences, divergence, 80);
+            boundedKnowledgePush(knowledge.decision_log, {
+                at: now,
+                type: 'accepted_source_divergence',
+                stageId: numericStageId,
+                summary: cleanSummary,
+                divergenceId: divergence.id,
+                audit: compactAudit
+            }, 120);
+            knowledge.stage_handoffs[`stage${numericStageId}`] = {
+                at: now,
+                type: 'accepted_source_divergence',
+                summary: cleanSummary
+            };
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+    } catch (error) {
+        console.error('accepted divergence log error:', error.message);
+        res.status(500).json({ error: 'Failed to save accepted source divergence' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/propose-stage-curation', requireAuth, aiLimiter, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { stageId, stageDataOverride } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Invalid stage ID' });
+        }
+
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        const projectData = JSON.parse(content);
+        const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
+        const stageName = builtStage.stageName;
+        const overrideText = stageDataOverrideToText(stageDataOverride);
+        const stageData = overrideText === null ? builtStage.stageData : overrideText;
+        const fallback = buildFallbackStageCuration(numericStageId, stageName, stageData);
+
+        const knowledgeContext = buildKnowledgeContextBlock(projectData, {
+            stageId: numericStageId,
+            userMessage: `Curate project memory after approving ${stageName}.`,
+            stageName,
+            stageData,
+            maxChars: 14_000
+        });
+        const curationSchema = {
+            type: 'object',
+            properties: {
+                handoff_summary: { type: 'string' },
+                continuity_watchlist_additions: { type: 'array', items: { type: 'string' } },
+                source_bible_notes: { type: 'array', items: { type: 'string' } },
+                decision_summary: { type: 'string' }
+            },
+            required: ['handoff_summary', 'continuity_watchlist_additions', 'source_bible_notes', 'decision_summary']
+        };
+        const prompt = `${knowledgeContext || 'No persistent project source knowledge has been saved yet.'}
+
+---
+
+## APPROVED STAGE OUTPUT
+Stage ${numericStageId}: ${stageName}
+${compactText(stageData, 42_000)}
+
+---
+
+Propose compact project-memory updates for downstream screenplay stages.
+Rules:
+- The handoff_summary should tell later assistants what creative facts and decisions this approved stage establishes.
+- continuity_watchlist_additions should include only concrete items worth tracking later.
+- source_bible_notes are project adaptation notes derived from this stage; do not rewrite source canon or invent source facts.
+- Keep every item concise and actionable.`;
+
+        try {
+            const modelCfg = getModelConfig(numericStageId);
+            const response = await generateContent({
+                model: modelCfg.model,
+                geminiApiKey: modelCfg.geminiApiKey,
+                anthropicApiKey: modelCfg.anthropicApiKey,
+                contents: prompt,
+                config: {
+                    systemInstruction: 'You are a screenplay project memory curator. Propose compact handoff and continuity memory updates from an approved stage. Never overwrite source canon; distinguish project adaptation choices from source facts.',
+                    temperature: 0.2,
+                    maxOutputTokens: 5000
+                },
+                schema: curationSchema
+            });
+            const proposal = safeParse(response.text, null);
+            if (!proposal) throw new Error('Curation response was not valid JSON');
+            trackUsage(id, response.usage);
+            return res.json({
+                stageId: numericStageId,
+                stageName,
+                proposal: sanitizeStageCurationProposal(proposal, { stageId: numericStageId, stageName, stageData })
+            });
+        } catch (aiError) {
+            console.warn('stage curation proposal fell back:', aiError.message);
+            return res.json({
+                stageId: numericStageId,
+                stageName,
+                fallback: true,
+                proposal: fallback
+            });
+        }
+    } catch (error) {
+        console.error('stage curation proposal error:', error.message);
+        res.status(500).json({ error: 'Failed to propose project memory updates' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { stageId, proposal } = req.body || {};
+        const numericStageId = Number(stageId);
+        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
+            return res.status(400).json({ error: 'Invalid stage ID' });
+        }
+        const cleanProposal = sanitizeStageCurationProposal(proposal, {
+            stageId: numericStageId,
+            stageName: STAGE_NAMES[numericStageId],
+            stageData: ''
+        });
+
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            const knowledge = ensureProjectKnowledge(projectData);
+            const now = new Date().toISOString();
+            knowledge.stage_handoffs[`stage${numericStageId}`] = {
+                at: now,
+                type: 'stage_approved_handoff',
+                summary: cleanProposal.handoff_summary
+            };
+
+            const watchItems = [
+                ...(knowledge.continuity_watchlist || []).map(formatKnowledgeItem),
+                ...cleanProposal.continuity_watchlist_additions
+            ].filter(Boolean);
+            knowledge.continuity_watchlist = Array.from(new Set(watchItems)).slice(-60);
+
+            const existingNotes = Array.isArray(knowledge.source_bible.curated_notes) ? knowledge.source_bible.curated_notes : [];
+            const stagedNotes = cleanProposal.source_bible_notes.map(note => `Stage ${numericStageId}: ${note}`);
+            knowledge.source_bible.curated_notes = Array.from(new Set([...existingNotes, ...stagedNotes])).slice(-80);
+            knowledge.source_bible.updatedAt = now;
+
+            boundedKnowledgePush(knowledge.decision_log, {
+                at: now,
+                type: 'stage_memory_curated',
+                stageId: numericStageId,
+                summary: cleanProposal.decision_summary,
+                handoff: cleanProposal.handoff_summary
+            }, 120);
+
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge) });
+    } catch (error) {
+        console.error('stage curation apply error:', error.message);
+        res.status(500).json({ error: 'Failed to apply project memory updates' });
+    }
+});
+
+app.post('/api/projects/:id/knowledge/rebuild-source-bible', requireAuth, aiLimiter, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        const projectData = JSON.parse(content);
+        const knowledge = ensureProjectKnowledge(projectData);
+        if (!knowledge.source_registry.length) {
+            return res.status(400).json({ error: 'No source documents saved yet' });
+        }
+
+        const sourceMaterial = buildSourceBiblePrompt(knowledge);
+        const sourceBibleSchema = {
+            type: 'object',
+            properties: {
+                summary: { type: 'string' },
+                canon_facts: { type: 'array', items: { type: 'string' } },
+                characters: { type: 'array', items: { type: 'string' } },
+                settings: { type: 'array', items: { type: 'string' } },
+                timeline: { type: 'array', items: { type: 'string' } },
+                rules: { type: 'array', items: { type: 'string' } },
+                must_keep_elements: { type: 'array', items: { type: 'string' } },
+                continuity_watchlist: { type: 'array', items: { type: 'string' } },
+                open_questions: { type: 'array', items: { type: 'string' } }
+            },
+            required: ['summary', 'canon_facts', 'characters', 'settings', 'timeline', 'rules', 'must_keep_elements', 'continuity_watchlist', 'open_questions']
+        };
+        const modelCfg = getModelConfig(3);
+        const response = await generateContent({
+            model: modelCfg.model,
+            geminiApiKey: modelCfg.geminiApiKey,
+            anthropicApiKey: modelCfg.anthropicApiKey,
+            contents: `Build a compact source bible for this project from the saved source documents below.
+
+Rules:
+- Extract only facts supported by the source text.
+- Keep items concise and screenplay-development useful.
+- If a fact is ambiguous, put it in open_questions rather than canon_facts.
+- Do not invent missing plot, character, setting, or timeline information.
+
+SAVED SOURCE DOCUMENTS:
+${sourceMaterial}`,
+            config: {
+                systemInstruction: 'You are a story canon archivist. Convert source documents into a compact, structured source bible for downstream screenplay generation.',
+                temperature: 0.2,
+                maxOutputTokens: 12000
+            },
+            schema: sourceBibleSchema
+        });
+
+        const extracted = safeParse(response.text, null);
+        if (!extracted) throw new Error('Source bible response was not valid JSON');
+
+        const updatedProject = await updateProjectJSON(id, (freshProject) => {
+            const freshKnowledge = ensureProjectKnowledge(freshProject);
+            const now = new Date().toISOString();
+            const sourceIds = freshKnowledge.source_registry.map(source => source.id);
+            const curatedNotes = Array.isArray(freshKnowledge.source_bible?.curated_notes)
+                ? freshKnowledge.source_bible.curated_notes
+                : [];
+            freshKnowledge.source_bible = {
+                ...extracted,
+                curated_notes: curatedNotes,
+                sources_summary: (freshKnowledge.source_registry || []).slice(-20).map(source => {
+                    const descriptor = source.summary || compactText(source.text || source.chunks?.[0]?.text || '', 700);
+                    return `- ${source.name} (${source.type || 'source'}, ${source.uploadedAt || 'unknown date'}): ${descriptor}`;
+                }).join('\n'),
+                updatedAt: now,
+                sourceIds,
+                sourceCount: sourceIds.length
+            };
+            const watchItems = [
+                ...(freshKnowledge.continuity_watchlist || []).map(formatKnowledgeItem),
+                ...(extracted.continuity_watchlist || [])
+            ].filter(Boolean);
+            freshKnowledge.continuity_watchlist = Array.from(new Set(watchItems)).slice(-40);
+            boundedKnowledgePush(freshKnowledge.decision_log, {
+                at: now,
+                type: 'source_bible_rebuilt',
+                summary: `Rebuilt source bible from ${sourceIds.length} source document${sourceIds.length === 1 ? '' : 's'}.`
+            }, 120);
+            return freshProject;
+        });
+
+        trackUsage(id, response.usage);
+        const updatedKnowledge = ensureProjectKnowledge(updatedProject);
+        res.json({
+            knowledge: knowledgePayloadForClient(updatedKnowledge)
+        });
+    } catch (error) {
+        console.error('source bible rebuild error:', error.message);
+        res.status(500).json({ error: 'Failed to rebuild source bible' });
     }
 });
 

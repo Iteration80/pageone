@@ -17,7 +17,8 @@ const generateDirective = async (input, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
@@ -29,6 +30,10 @@ const generateDirective = async (input, modelConfig = {}) => {
     } = input;
 
     let prompt = `${styleSop}\n\n`;
+
+    if (knowledgeContext) {
+        prompt += `## PROJECT SOURCE CANON\n${knowledgeContext}\n\n`;
+    }
 
     if (conversationHistory.length > 0) {
         prompt += `## CONVERSATION HISTORY\n`;
@@ -78,7 +83,8 @@ const generateTrainedStyle = async (input, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
@@ -99,6 +105,9 @@ const generateTrainedStyle = async (input, modelConfig = {}) => {
         const title = screenplayTitles[i] || `Screenplay ${i + 1}`;
 
         let prompt = `${styleSop}\n\n`;
+        if (knowledgeContext) {
+            prompt += `## PROJECT SOURCE CANON\n${knowledgeContext}\n\n`;
+        }
         prompt += `## MODE: TRAINED STYLE — SINGLE SCREENPLAY ANALYSIS\n\n`;
 
         if (conversationHistory.length > 0) {
@@ -137,6 +146,9 @@ Output ONLY the analysis — no preamble, no code blocks.`;
 
     // --- Step 2: Synthesize per-script analyses into full reference ---
     let synthPrompt = `${styleSop}\n\n`;
+    if (knowledgeContext) {
+        synthPrompt += `## PROJECT SOURCE CANON\n${knowledgeContext}\n\n`;
+    }
     synthPrompt += `## MODE: TRAINED STYLE — SYNTHESIS\n\n`;
 
     if (conversationHistory.length > 0) {

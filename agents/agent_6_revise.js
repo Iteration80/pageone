@@ -10,7 +10,8 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     // Strict JSON Schema matching agent_6_scenes.js
@@ -72,7 +73,8 @@ CRITICAL RULES:
         }))
     }));
 
-    const prompt = `CURRENT SCENE BLUEPRINT (JSON — narrative_action truncated for context; generate full versions for any scenes you modify):
+    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    const prompt = `${sourceBlock}CURRENT SCENE BLUEPRINT (JSON — narrative_action truncated for context; generate full versions for any scenes you modify):
 ${JSON.stringify(lightBlueprint)}
 
 DIRECTOR'S FEEDBACK:

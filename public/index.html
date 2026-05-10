@@ -194,6 +194,25 @@
         </div>
     </div>
 
+    <!-- Project Knowledge Modal -->
+    <div id="sourceLibraryModal" class="modal-overlay hidden">
+        <div class="modal-content source-library-modal">
+            <div class="source-library-header">
+                <div>
+                    <h3>Project Knowledge</h3>
+                    <p id="sourceLibraryMeta"></p>
+                </div>
+                <button id="btnSourceLibraryClose" class="source-library-close" title="Close">x</button>
+            </div>
+            <div id="sourceBiblePanel" class="source-bible-panel"></div>
+            <div class="source-library-actions">
+                <button id="btnRebuildSourceBible" class="primary-btn">Rebuild Source Bible</button>
+            </div>
+            <div id="sourceLibraryStatus" class="source-library-status"></div>
+            <div id="sourceLibraryList" class="source-library-list"></div>
+        </div>
+    </div>
+
     <!-- Main App Container (Hidden by default until a project is selected) -->
     <div id="appContainer" class="app-container hidden">
 
@@ -237,6 +256,12 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="1" x2="12" y2="23"></line>
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                </button>
+                <button id="btnSourceLibrary" class="sidebar-home-btn" title="Project Knowledge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"></path>
                     </svg>
                 </button>
             </div>

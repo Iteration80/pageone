@@ -10,7 +10,8 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     // Read the Screenwriting SOP rules
@@ -24,10 +25,14 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
     const revisionSection = revisionNotes
         ? `\n## REVISION NOTES\nApply the following notes to the existing draft while preserving the core scene structure and blueprint:\n${revisionNotes}\n\n## EXISTING DRAFT\n${sceneData.draft_text || 'No existing draft.'}\n`
         : '';
+    const sourceSection = knowledgeContext
+        ? `\n## PROJECT SOURCE CANON\n${knowledgeContext}\n`
+        : '';
 
     const prompt = `
 ${screenwritingRules}
 ${styleSection}
+${sourceSection}
 ${continuityContext}
 ## PROJECT CONTEXT
 SYNOPSIS:
