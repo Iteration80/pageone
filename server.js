@@ -473,12 +473,13 @@ function ensureProjectKnowledge(projectData) {
     return knowledge;
 }
 
-function inferSourceTypeAndTags(name, mimeType, stageId) {
+function inferSourceTypeAndTags(name, mimeType, stageId, originTag = 'chat_upload') {
     const lowerName = String(name || '').toLowerCase();
     const lowerMime = String(mimeType || '').toLowerCase();
-    const tags = new Set(['chat_upload']);
+    const tags = new Set();
     let type = 'source_material';
 
+    if (originTag) tags.add(originTag);
     if (stageId) tags.add(`stage${stageId}`);
     if (lowerMime.includes('pdf') || lowerName.endsWith('.pdf')) tags.add('pdf');
     if (lowerName.endsWith('.docx') || lowerMime.includes('wordprocessingml')) tags.add('docx');
@@ -539,7 +540,7 @@ function refreshSourceBibleSummary(knowledge) {
     bible.updatedAt = new Date().toISOString();
 }
 
-async function persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage } = {}) {
+async function persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag = 'chat_upload' } = {}) {
     if (!attachment) return { fileText: '', savedSource: null };
 
     const fileText = normalizeSourceText(await extractAttachmentText(attachment));
@@ -553,6 +554,7 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
     if (existing) {
         existing.lastReferencedAt = now;
         existing.stagesReferenced = Array.from(new Set([...(existing.stagesReferenced || []), stageId].filter(Boolean)));
+        existing.tags = Array.from(new Set([...(existing.tags || []), originTag].filter(Boolean)));
         return {
             fileText,
             savedSource: {
@@ -566,7 +568,7 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
     }
 
     const rawName = String(attachment.name || 'Untitled source').slice(0, 240);
-    const { type, tags } = inferSourceTypeAndTags(rawName, attachment.mimeType, stageId);
+    const { type, tags } = inferSourceTypeAndTags(rawName, attachment.mimeType, stageId, originTag);
     const entry = {
         id: `src_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
         name: rawName,
@@ -1309,7 +1311,7 @@ const upload = multer({
     limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB hard cap
     fileFilter(_req, file, cb) {
         const ext = (file.originalname || '').split('.').pop().toLowerCase();
-        const allowed = ['pdf', 'txt', 'fountain', 'fdx', 'docx'];
+        const allowed = ['pdf', 'txt', 'md', 'fountain', 'fdx', 'docx'];
         if (!allowed.includes(ext) && !ALLOWED_UPLOAD_MIMES.has(file.mimetype)) {
             return cb(new Error(`Unsupported file type: .${ext}`));
         }
@@ -3593,6 +3595,57 @@ app.get('/api/projects/:id/knowledge', requireAuth, async (req, res) => {
     }
 });
 
+app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sourceFile'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        if (!req.file) return res.status(400).json({ error: 'No source file uploaded' });
+
+        const attachment = {
+            name: req.file.originalname || 'Untitled source',
+            mimeType: req.file.mimetype || 'application/octet-stream',
+            data: req.file.buffer.toString('base64')
+        };
+        const sourceNote = compactText(req.body?.sourceNote || '', 800);
+        let uploadResult = null;
+
+        const updatedProject = await updateProjectJSON(id, async (projectData) => {
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, {
+                stageId: null,
+                userMessage: sourceNote,
+                originTag: 'project_upload'
+            });
+            if (!persisted.savedSource) {
+                const err = new Error('No readable text could be extracted from this source file');
+                err.statusCode = 400;
+                throw err;
+            }
+            uploadResult = persisted.savedSource;
+
+            const knowledge = ensureProjectKnowledge(projectData);
+            const now = new Date().toISOString();
+            boundedKnowledgePush(knowledge.decision_log, {
+                at: now,
+                type: persisted.savedSource.duplicate ? 'source_referenced' : 'source_uploaded',
+                sourceId: persisted.savedSource.id,
+                summary: `${persisted.savedSource.duplicate ? 'Referenced existing' : 'Uploaded'} project source: ${persisted.savedSource.name}`
+            }, 120);
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        const savedSource = knowledge.source_registry.find(source => source.id === uploadResult?.id);
+        res.json({
+            ok: true,
+            savedSource: savedSource ? { ...summarizeSourceForClient(savedSource), duplicate: !!uploadResult?.duplicate } : null,
+            knowledge: knowledgePayloadForClient(knowledge)
+        });
+    } catch (error) {
+        console.error('knowledge source upload error:', error.message);
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to upload source' });
+    }
+});
+
 app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
     try {
         const { id, sourceId } = req.params;
@@ -4229,6 +4282,7 @@ module.exports = {
     buildSourceUsePlan,
     compactAuditForKnowledge,
     formatSourceUsePlan,
+    persistChatAttachmentToKnowledge,
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,

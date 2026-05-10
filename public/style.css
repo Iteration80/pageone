@@ -1439,8 +1439,10 @@ textarea.synopsis-input {
 }
 .source-library-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 10px;
 }
 .source-library-status {
@@ -1554,7 +1556,55 @@ textarea.synopsis-input {
     color: #94a3b8;
     font-size: 0.75rem;
 }
+.source-upload-form {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(160px, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    flex: 1 1 520px;
+    width: 100%;
+}
+.source-upload-form input[type="file"] {
+    min-width: 0;
+    color: #94a3b8;
+    font-size: 0.74rem;
+}
+.source-upload-form .modal-input {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 0.76rem;
+}
+.source-plan-ledger {
+    margin-top: 12px;
+}
+.source-plan-ledger-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.5fr) minmax(130px, 1fr) 90px 90px;
+    gap: 10px;
+    align-items: center;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    padding: 8px 0;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+.source-plan-ledger-row strong {
+    display: block;
+    color: #e5e7eb;
+    font-size: 0.76rem;
+}
+.source-plan-ledger-row span {
+    display: block;
+    color: #64748b;
+    margin-top: 2px;
+}
+.source-plan-ledger-warning {
+    color: #fde68a;
+}
 @media (max-width: 720px) {
+    .source-upload-form,
+    .source-plan-ledger-row {
+        grid-template-columns: 1fr;
+    }
     .knowledge-review-grid,
     .knowledge-readonly-grid {
         grid-template-columns: 1fr;

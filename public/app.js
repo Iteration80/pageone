@@ -198,6 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const knowledgeDiagnosticsPanel = document.getElementById('knowledgeDiagnosticsPanel');
     const knowledgeReviewPanel = document.getElementById('knowledgeReviewPanel');
     const sourceLibraryList = document.getElementById('sourceLibraryList');
+    const sourceUploadForm = document.getElementById('sourceUploadForm');
+    const sourceKnowledgeUpload = document.getElementById('sourceKnowledgeUpload');
+    const sourceUploadNote = document.getElementById('sourceUploadNote');
+    const btnUploadSource = document.getElementById('btnUploadSource');
     const btnRebuildSourceBible = document.getElementById('btnRebuildSourceBible');
     const btnKnowledgeDiagnostics = document.getElementById('btnKnowledgeDiagnostics');
     const btnSourceLibraryClose = document.getElementById('btnSourceLibraryClose');
@@ -1763,6 +1767,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     btnRebuildSourceBible?.addEventListener('click', () => rebuildSourceBible());
     btnKnowledgeDiagnostics?.addEventListener('click', () => loadKnowledgeDiagnostics());
+    sourceUploadForm?.addEventListener('submit', uploadSourceToKnowledge);
     sourceLibraryList?.addEventListener('click', (event) => {
         const btn = event.target.closest('.source-library-delete');
         if (!btn) return;
@@ -3174,6 +3179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const countLine = [
             `${counts.sources || 0} sources`,
             `${counts.handoffs || 0} handoffs`,
+            `${counts.sourcePlans || 0} plans`,
             `${counts.continuityItems || 0} continuity`,
             `${counts.acceptedDivergences || 0} divergences`
         ].join(' · ');
@@ -3198,6 +3204,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderKnowledgeReview(knowledge = {}) {
         if (!knowledgeReviewPanel) return;
         const handoffs = knowledge.stage_handoffs || {};
+        const sourcePlans = Object.values(knowledge.stage_source_plans || {})
+            .filter(Boolean)
+            .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
         const handoffRows = Object.entries(handoffs).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([key, value]) => `
             <label>${escapeHtml(key.replace('stage', 'Stage '))}</label>
             <textarea class="modal-input knowledge-handoff-input" data-handoff-key="${escapeHtml(key)}" rows="3">${escapeHtml(value?.summary || value || '')}</textarea>
@@ -3234,6 +3243,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${divergences.length ? `<ul>${divergences.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No accepted divergences yet.</p>'}
                 </section>
             </div>
+            <section class="source-plan-ledger">
+                <h4>Source Plan Ledger</h4>
+                ${sourcePlans.length ? sourcePlans.map(plan => {
+                    const lastUsed = plan.lastUsedAt ? new Date(plan.lastUsedAt).toLocaleString() : 'Not used yet';
+                    const sourceCount = Array.isArray(plan.sourceIds) ? plan.sourceIds.length : 0;
+                    const warningCount = Array.isArray(plan.localCheck?.warnings) ? plan.localCheck.warnings.length : 0;
+                    const status = warningCount ? `${warningCount} warning${warningCount === 1 ? '' : 's'}` : 'clean';
+                    return `
+                        <div class="source-plan-ledger-row">
+                            <div>
+                                <strong>${escapeHtml(plan.stageName || `Stage ${plan.stageId || ''}`)}</strong>
+                                <span>${escapeHtml(plan.profile || '')}</span>
+                            </div>
+                            <div>${escapeHtml(lastUsed)}</div>
+                            <div>${escapeHtml(formatCountLabel(sourceCount, 'source', 'sources'))}</div>
+                            <div class="${warningCount ? 'source-plan-ledger-warning' : ''}">${escapeHtml(status)}</div>
+                        </div>
+                    `;
+                }).join('') : '<p class="knowledge-empty">No source plans have been recorded by generation yet.</p>'}
+            </section>
         `;
     }
 
@@ -3316,6 +3345,43 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btnRebuildSourceBible.disabled = false;
             btnRebuildSourceBible.textContent = originalText;
+        }
+    }
+
+    async function uploadSourceToKnowledge(event) {
+        event?.preventDefault();
+        if (!activeProjectId || !sourceKnowledgeUpload || !btnUploadSource) return;
+        const file = sourceKnowledgeUpload.files?.[0];
+        if (!file) {
+            setSourceLibraryStatus('Choose a source file first.', true);
+            return;
+        }
+
+        const originalText = btnUploadSource.textContent;
+        btnUploadSource.disabled = true;
+        btnUploadSource.textContent = 'Adding...';
+        setSourceLibraryStatus('Extracting source text...');
+        try {
+            const form = new FormData();
+            form.append('sourceFile', file);
+            form.append('sourceNote', sourceUploadNote?.value || '');
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/sources`, {
+                method: 'POST',
+                body: form
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            sourceUploadForm?.reset();
+            renderSourceLibrary(data.knowledge);
+            await loadKnowledgeDiagnostics();
+            const saved = data.savedSource;
+            setSourceLibraryStatus(saved?.duplicate ? 'Source already existed; reference refreshed.' : 'Source added to project knowledge.');
+        } catch (err) {
+            setSourceLibraryStatus('Source upload failed: ' + err.message, true);
+        } finally {
+            btnUploadSource.disabled = false;
+            btnUploadSource.textContent = originalText;
         }
     }
 

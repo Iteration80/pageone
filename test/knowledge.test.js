@@ -8,6 +8,7 @@ const {
     buildSourceUsePlan,
     compactAuditForKnowledge,
     formatSourceUsePlan,
+    persistChatAttachmentToKnowledge,
     recordSourcePlanUsage,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
@@ -204,4 +205,30 @@ test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     assert.equal(stalePlan.freshness, 'stale');
     assert.equal(project.data.knowledge.stage_source_plans.stage6.sourceIds[0], 'src_plot');
     assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_plan_used'));
+});
+
+test('persistChatAttachmentToKnowledge supports direct project upload tagging and dedupe', async () => {
+    const project = { data: {} };
+    const attachment = {
+        name: 'Source Notes.txt',
+        mimeType: 'text/plain',
+        data: Buffer.from('Mara finds a blue key under the arcade cabinet.').toString('base64')
+    };
+
+    const first = await persistChatAttachmentToKnowledge(project, attachment, {
+        userMessage: 'Core source upload',
+        originTag: 'project_upload'
+    });
+    const second = await persistChatAttachmentToKnowledge(project, attachment, {
+        stageId: 4,
+        userMessage: 'Duplicate through stage chat'
+    });
+
+    const knowledge = project.data.knowledge;
+    assert.equal(first.savedSource.duplicate, false);
+    assert.equal(second.savedSource.duplicate, true);
+    assert.equal(knowledge.source_registry.length, 1);
+    assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
+    assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
+    assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
 });

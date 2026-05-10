@@ -206,6 +206,11 @@
             </div>
             <div id="sourceBiblePanel" class="source-bible-panel"></div>
             <div class="source-library-actions">
+                <form id="sourceUploadForm" class="source-upload-form">
+                    <input id="sourceKnowledgeUpload" type="file" accept=".pdf,.txt,.md,.fountain,.fdx,.docx">
+                    <input id="sourceUploadNote" class="modal-input" type="text" placeholder="Optional source note">
+                    <button id="btnUploadSource" type="submit" class="secondary-btn">Add Source</button>
+                </form>
                 <button id="btnKnowledgeDiagnostics" class="secondary-btn">Run Diagnostics</button>
                 <button id="btnRebuildSourceBible" class="primary-btn">Rebuild Source Bible</button>
             </div>
