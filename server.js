@@ -2899,9 +2899,16 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
     res.flushHeaders();
 
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const heartbeat = setInterval(() => {
+        if (!res.destroyed && !res.writableEnded) {
+            res.write(': keep-alive\n\n');
+        }
+    }, 15000);
+    heartbeat.unref?.();
 
     try {
         console.log("Generating Stage 6 Scene Blueprint (Sequential Chain)...");
+        send({ type: 'status', message: generationNotes ? 'Preparing fresh blueprint with your notes...' : 'Preparing fresh blueprint...' });
         const sourceAuthorityBlock = buildSourceAuthorityBlock(projectData, 'stage6_scenes');
         if (sourceAuthorityBlock) {
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
@@ -2930,6 +2937,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         console.error('Stage 6 Scene Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate scene blueprint' });
     } finally {
+        clearInterval(heartbeat);
         res.end();
     }
 });

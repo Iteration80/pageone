@@ -5061,6 +5061,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (event.type === 'progress') {
                         if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
+                    } else if (event.type === 'status') {
+                        if (loadingTextStage6) loadingTextStage6.textContent = event.message || 'Preparing Scene Blueprint...';
                     } else if (event.type === 'complete') {
                         renderStage6(event.result);
                         if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
