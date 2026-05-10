@@ -1,4 +1,8 @@
 const { generateContent } = require('./ai-client');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 const fs = require('fs');
 const path = require('path');
 
@@ -45,9 +49,7 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
     const charSection = sceneContext.characters
         ? `\n## CHARACTER PROFILES\n${sceneContext.characters}\n`
         : '';
-    const sourceSection = knowledgeContext
-        ? `\n## PROJECT SOURCE CANON\n${knowledgeContext}\n`
-        : '';
+    const sourceSection = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 10 Rewrite');
 
     const prompt = `
 ## PROJECT
@@ -68,7 +70,7 @@ ${sceneText}
                 model, geminiApiKey, anthropicApiKey,
                 contents: prompt,
                 config: {
-                    systemInstruction: sop,
+                    systemInstruction: buildMemorySourceSystemInstruction(sop, 'Stage 10 Rewrite'),
                     temperature: 0.5,
                     thinkingConfig: { thinkingLevel: 'LOW' },
                 }

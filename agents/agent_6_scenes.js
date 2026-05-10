@@ -1,4 +1,8 @@
 const { generateContent } = require('./ai-client');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 const fs = require('fs');
 const path = require('path');
 
@@ -64,11 +68,12 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     };
 
     const config = {
-        systemInstruction: scenesSOP,
+        systemInstruction: buildMemorySourceSystemInstruction(scenesSOP, 'Stage 6 Scene Blueprint'),
         temperature: 0.7,
         thinkingConfig: { thinkingLevel: 'HIGH' },
         tools: [{ googleSearch: {} }],  // Gemini-only; silently dropped for Claude by ai-client
     };
+    const sourceBlock = buildMemorySourcePromptBlock(sourceAuthorityBlock, 'Stage 6 Scene Blueprint');
 
     // --- Middleware Splitter ---
     // Build a single concatenated treatment string and parse it into
@@ -130,7 +135,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
             console.warn(`  Warning: No [SEQUENCE ${i} START/END] block found in treatment. Falling back to full act text.`);
         }
 
-        const prompt = `${sourceAuthorityBlock ? sourceAuthorityBlock + '\n\n' : ''}PITCH:
+        const prompt = `${sourceBlock ? sourceBlock + '\n\n' : ''}PITCH:
 ${JSON.stringify(pitch, null, 2)}
 
 CHARACTERS:

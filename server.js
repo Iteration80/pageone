@@ -222,6 +222,10 @@ const { runContinuityCheck, applyCheckResult, buildContinuityContext, clearScene
 const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
 const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./agents/memory_contract');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
 const { generateContent } = require('./agents/ai-client');
 
@@ -3518,7 +3522,8 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         }
         const sourcePlanSeed = `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
-        const prompt = `${sourcePacket.contextBlock ? `${sourcePacket.contextBlock}\n\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const sourceBlock = buildMemorySourcePromptBlock(sourcePacket.contextBlock, 'Stage 10 Rewrite Plan');
+        const prompt = `${sourceBlock ? `${sourceBlock}\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -3552,7 +3557,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
             anthropicApiKey: modelCfg.anthropicApiKey,
             contents: prompt,
             config: {
-                systemInstruction: plannerSop,
+                systemInstruction: buildMemorySourceSystemInstruction(plannerSop, 'Stage 10 Rewrite Plan'),
                 temperature: 0.2,
                 responseMimeType: 'application/json',
                 responseSchema: plannerSchema,

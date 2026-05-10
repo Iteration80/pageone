@@ -1,4 +1,8 @@
 const { generateContent } = require('./ai-client');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 
 /**
  * Stage 6 Revision Agent
@@ -47,7 +51,7 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
     };
 
     const config = {
-        systemInstruction: `You are an elite Script Coordinator modifying a Scene Blueprint based on the director's feedback.
+        systemInstruction: buildMemorySourceSystemInstruction(`You are an elite Script Coordinator modifying a Scene Blueprint based on the director's feedback.
 
 CRITICAL RULES:
 - Return ONLY the sequences that contain changes. Do NOT return unmodified sequences.
@@ -56,7 +60,7 @@ CRITICAL RULES:
 - For unmodified scenes within a modified sequence, copy them verbatim from the input.
 - If a scene is split into multiple scenes, generate complete data for each new scene.
 - If scenes are merged, generate a single combined scene with updated data.
-- Preserve the original sequence_number so the system can merge your changes back into the full blueprint.`,
+- Preserve the original sequence_number so the system can merge your changes back into the full blueprint.`, 'Stage 6 Scene Blueprint Revision'),
         temperature: 0.5,
     };
 
@@ -73,7 +77,7 @@ CRITICAL RULES:
         }))
     }));
 
-    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 6 Scene Blueprint Revision');
     const prompt = `${sourceBlock}CURRENT SCENE BLUEPRINT (JSON — narrative_action truncated for context; generate full versions for any scenes you modify):
 ${JSON.stringify(lightBlueprint)}
 

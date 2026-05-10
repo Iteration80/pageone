@@ -1,4 +1,8 @@
 const { generateContent } = require('./ai-client');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 const fs = require('fs');
 const path = require('path');
 
@@ -143,7 +147,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
     const skillPath = path.join(__dirname, '../skills/skill_stage5_treatment.md');
     const treatmentSOP = fs.readFileSync(skillPath, 'utf8');
 
-    const systemInstruction = treatmentSOP;
+    const systemInstruction = buildMemorySourceSystemInstruction(treatmentSOP, 'Stage 5 Treatment');
 
     const treatmentSchema = {
         type: 'object',
@@ -161,7 +165,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         systemInstruction,
         temperature: 0.5,
     };
-    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 5 Treatment');
 
     // Revision Bypass Logic
     if (notes && currentTreatment) {
@@ -171,7 +175,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         const fieldsToRevise = selectTreatmentFieldsForRevision(notes);
         const usageList = [];
 
-        const revisionSystemInstruction = `${treatmentSOP}
+        const revisionSystemInstruction = `${systemInstruction}
 
 ROLE: Surgical Script Editor.
 You are revising ONE treatment section at a time. Apply the user's notes only when they are relevant to the target section. Do not rewrite or alter plot points, character names, pacing, sequence tags, or formatting outside the scope of the notes. If the notes apply to another section, return this target section unchanged. The JSON response schema overrides the SOP output template; the SOP formatting rules apply only to the text inside "revised_text".`;
