@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { Document, Packer, Paragraph } = require('docx');
 
 const {
     buildKnowledgeSnapshot,
@@ -405,6 +406,17 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
     assert.match(appJs, /source-plan-ledger-invalidated/);
 });
 
+test('frontend chat attachment inputs advertise all supported source formats', () => {
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+    const attachmentInputs = [...indexHtml.matchAll(/id="stage(?:[1-8]|10)-chat-attach" accept="([^"]+)"/g)];
+    assert.equal(attachmentInputs.length, 9);
+    for (const [, accept] of attachmentInputs) {
+        for (const ext of ['.pdf', '.txt', '.md', '.fountain', '.docx', '.fdx']) {
+            assert.ok(accept.includes(ext), `${accept} should include ${ext}`);
+        }
+    }
+});
+
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const project = {
         data: {
@@ -561,6 +573,48 @@ test('persistChatAttachmentToKnowledge supports direct project upload tagging an
     assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
     assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
     assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
+});
+
+test('persistChatAttachmentToKnowledge extracts markdown, fountain, docx, and fdx chat uploads', async () => {
+    const project = { data: {} };
+    const docx = new Document({
+        sections: [{
+            children: [new Paragraph('Docx source says Mara keeps the blue key.')]
+        }]
+    });
+    const docxBuffer = await Packer.toBuffer(docx);
+    const fdxText = `<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft>
+  <TitlePage><Content><Paragraph><Text>Blue Key</Text></Paragraph></Content></TitlePage>
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. FLOODED ARCADE - NIGHT</Text></Paragraph>
+    <Paragraph Type="Action"><Text>Mara finds the blue key in the flooded arcade.</Text></Paragraph>
+  </Content>
+</FinalDraft>`;
+    const attachments = [
+        ['Notes.md', 'text/markdown', '# Source Notes\nMara marks the arcade map.'],
+        ['Sample.fountain', 'text/x-fountain', 'Title: Sample\n\nINT. ARCADE - NIGHT\nMara opens the cabinet.'],
+        ['Draft.fdx', 'application/xml', fdxText],
+        ['Source.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', docxBuffer]
+    ];
+
+    for (const [name, mimeType, content] of attachments) {
+        await persistChatAttachmentToKnowledge(project, {
+            name,
+            mimeType,
+            data: Buffer.isBuffer(content) ? content.toString('base64') : Buffer.from(content).toString('base64')
+        }, { stageId: 2, userMessage: `Upload ${name}` });
+    }
+
+    const sources = project.data.knowledge.source_registry;
+    assert.equal(sources.length, 4);
+    assert.match(sources.find(source => source.name === 'Notes.md').text, /arcade map/);
+    assert.match(sources.find(source => source.name === 'Sample.fountain').text, /Mara opens the cabinet/);
+    assert.match(sources.find(source => source.name === 'Draft.fdx').text, /Mara finds the blue key/);
+    assert.match(sources.find(source => source.name === 'Source.docx').text, /Mara keeps the blue key/);
+    assert.ok(sources.find(source => source.name === 'Notes.md').tags.includes('markdown'));
+    assert.ok(sources.find(source => source.name === 'Draft.fdx').tags.includes('screenplay'));
+    assert.ok(sources.find(source => source.name === 'Source.docx').tags.includes('docx'));
 });
 
 test('updateKnowledgeSourceMetadata retags a saved source and records the decision', () => {

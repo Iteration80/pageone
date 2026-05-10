@@ -126,8 +126,18 @@ async function extractAttachmentText(attachment) {
     const name = (attachment.name || '').toLowerCase();
     const mime = (attachment.mimeType || '').toLowerCase();
     try {
-        if (mime === 'text/plain' || name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.fountain')) {
+        if (mime === 'text/plain' || mime === 'text/markdown' || name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.fountain')) {
             return buf.toString('utf8');
+        }
+        if (name.endsWith('.fdx')) {
+            const { parseFdx } = require('./utils/script-import');
+            const parsed = parseFdx(buf.toString('utf8'));
+            const parts = [];
+            if (parsed.title) parts.push(`Title: ${parsed.title}`);
+            if (parsed.scenes?.length) {
+                parts.push(parsed.scenes.map(scene => scene.text || scene.scene_heading || '').filter(Boolean).join('\n\n'));
+            }
+            return parts.join('\n\n');
         }
         if (mime === 'application/pdf' || name.endsWith('.pdf')) {
             const pdfParse = require('pdf-parse');
@@ -506,6 +516,8 @@ function inferSourceTypeAndTags(name, mimeType, stageId, originTag = 'chat_uploa
     if (lowerMime.includes('pdf') || lowerName.endsWith('.pdf')) tags.add('pdf');
     if (lowerName.endsWith('.docx') || lowerMime.includes('wordprocessingml')) tags.add('docx');
     if (lowerName.endsWith('.fountain')) tags.add('screenplay');
+    if (lowerName.endsWith('.fdx')) tags.add('screenplay');
+    if (lowerName.endsWith('.md') || lowerMime.includes('markdown')) tags.add('markdown');
 
     if (/\b(graphic|comic|manga|novel|source|bible|canon|reference)\b/.test(lowerName)) {
         type = 'source_reference';
@@ -2269,10 +2281,12 @@ const ALLOWED_UPLOAD_MIMES = new Set([
     'application/pdf',
     'text/plain',
     'application/octet-stream',        // .fountain / .fdx often land here
+    'text/markdown',
     'text/x-fountain',
     'application/x-fountain',
     'application/xml',
     'text/xml',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-word',
 ]);
 const upload = multer({
