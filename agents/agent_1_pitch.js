@@ -4,7 +4,8 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     const contents = [];
@@ -18,6 +19,9 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
     }
     if (prompt) {
         contents.push(prompt);
+    }
+    if (knowledgeContext) {
+        contents.push(`PROJECT SOURCE CANON:\n${knowledgeContext}`);
     }
 
     // If no prompt or PDF was provided, prompt for Random Ideas
@@ -43,7 +47,7 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
-            systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. Do not include conversational filler. You must output your response strictly according to the defined JSON schema. CRITICAL FORMATTING: You MUST separate Act I, Act II, and Act III in the Synopsis with double line breaks (\\n\\n) so they render as distinct paragraphs. Do not output the synopsis as a single block of text.",
+            systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. If PROJECT SOURCE CANON is provided, use it as authoritative adaptation context and avoid contradicting saved source facts. Do not include conversational filler. You must output your response strictly according to the defined JSON schema. CRITICAL FORMATTING: You MUST separate Act I, Act II, and Act III in the Synopsis with double line breaks (\\n\\n) so they render as distinct paragraphs. Do not output the synopsis as a single block of text.",
         },
         schema: {
             type: 'object',

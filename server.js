@@ -983,27 +983,101 @@ function buildKnowledgeContextBlock(projectData, { stageId, userMessage = '', st
     return compactText(sections.join('\n\n'), maxChars);
 }
 
-function buildGenerationKnowledgeContext(projectData, stageId, stageData = '') {
-    const block = buildKnowledgeContextBlock(projectData, {
-        stageId,
-        userMessage: `Generate or revise ${STAGE_NAMES[stageId] || `Stage ${stageId}`} using persistent source material.`,
-        stageName: STAGE_NAMES[stageId] || '',
-        stageData,
+function sourceGenerationWarnings(readiness = {}) {
+    const stageName = readiness.stageName || `Stage ${readiness.stageId || ''}`;
+    switch (readiness.status) {
+        case 'needs_audit':
+            return [`${stageName} has saved project sources but no recorded source audit yet. Generate conservatively from the source packet and avoid unsupported canon changes.`];
+        case 'stale':
+            return [`${stageName} changed after the last source audit. Treat source facts as authoritative and avoid compounding possible drift.`];
+        case 'issues':
+            return [`${stageName} has unresolved source audit findings. Do not rely on flagged stage material when it conflicts with saved source material.`];
+        case 'fixed_since_audit':
+            return [`${stageName} has source fixes applied after the last audit. Preserve the fixes and avoid reopening the same source drift.`];
+        default:
+            return [];
+    }
+}
+
+function formatSourceReadinessForGeneration(readiness = {}, gate = {}, warnings = []) {
+    if (!readiness.sourceCount && !readiness.hasAudit && !warnings.length) return '';
+    const lines = [
+        '## SOURCE READINESS',
+        `Status: ${readiness.label || readiness.status || 'Unknown'} (${readiness.status || 'unknown'})`
+    ];
+    if (readiness.checkedAt) lines.push(`Last source audit: ${readiness.checkedAt}`);
+    if (readiness.issueCounts?.total) lines.push(`Open audit findings: ${readiness.issueCounts.total}`);
+    if (gate.message) lines.push(`Gate note: ${gate.message}`);
+    if (warnings.length) {
+        lines.push('Generation warnings:');
+        warnings.forEach(warning => lines.push(`- ${warning}`));
+    }
+    return lines.join('\n');
+}
+
+function buildSourceGenerationPacket(projectData, stageId, stageData = '', { userMessage = '', maxChars = 16_000, readinessStageData = null } = {}) {
+    const numericStageId = Number(stageId);
+    const stageName = STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`;
+    const packetStageData = stageData === undefined || stageData === null ? '' : stageData;
+    const auditStageData = readinessStageData === null
+        ? stageDataForReadiness(projectData, numericStageId)
+        : readinessStageData;
+    const readiness = buildSourceReadiness(projectData, numericStageId, auditStageData);
+    const gate = buildSourceReadinessGate(readiness);
+    const warnings = sourceGenerationWarnings(readiness);
+    const sourceUsePlan = buildSourceUsePlan(projectData, numericStageId, packetStageData);
+    const knowledgeContext = buildKnowledgeContextBlock(projectData, {
+        stageId: numericStageId,
+        userMessage: userMessage || `Generate or revise ${stageName} using persistent source material.`,
+        stageName,
+        stageData: packetStageData,
         maxChars: 12_000
     });
-    const sourceUsePlan = formatSourceUsePlan(buildSourceUsePlan(projectData, stageId, stageData));
-    const sections = [block, sourceUsePlan].filter(Boolean);
-    if (!sections.length) return '';
-    return `${sections.join('\n\n---\n\n')}
+    const readinessBlock = formatSourceReadinessForGeneration(readiness, gate, warnings);
+    const sourceUsePlanText = formatSourceUsePlan(sourceUsePlan);
+    const sections = [readinessBlock, knowledgeContext, sourceUsePlanText].filter(Boolean);
+    const contextBlock = sections.length
+        ? `${compactText(sections.join('\n\n---\n\n'), maxChars)}
 
 ## SOURCE CANON RULE
-Preserve concrete facts from project knowledge and source documents. If existing stage material conflicts with source canon, prefer the source unless the writer's explicit notes or an accepted source divergence say otherwise.`;
+Preserve concrete facts from project knowledge and source documents. If existing stage material conflicts with source canon, prefer the source unless the writer's explicit notes or an accepted source divergence say otherwise.`
+        : '';
+
+    return {
+        stageId: numericStageId,
+        stageName,
+        stageDataHash: sourcePlanDataHash(packetStageData),
+        readinessStageDataHash: sourcePlanDataHash(auditStageData),
+        readiness,
+        gate,
+        warnings,
+        sourceUsePlan,
+        sourceUsePlanText,
+        knowledgeContext,
+        contextBlock
+    };
+}
+
+function sourceWarningsForResponse(packet = {}) {
+    return Array.isArray(packet.warnings) && packet.warnings.length ? packet.warnings : undefined;
+}
+
+function recordSourceGenerationUsage(projectData, packet, stageData = '', reason = 'generation') {
+    if (!packet?.stageId) return null;
+    return recordSourcePlanUsage(projectData, packet.stageId, stageData, reason, packet.sourceUsePlan);
+}
+
+function getModelConfigWithSourcePacket(stageNum, packet) {
+    const config = getModelConfig(stageNum);
+    return packet?.contextBlock ? { ...config, knowledgeContext: packet.contextBlock } : config;
+}
+
+function buildGenerationKnowledgeContext(projectData, stageId, stageData = '') {
+    return buildSourceGenerationPacket(projectData, stageId, stageData).contextBlock;
 }
 
 function getModelConfigWithKnowledge(stageNum, projectData, stageData = '') {
-    const config = getModelConfig(stageNum);
-    const knowledgeContext = buildGenerationKnowledgeContext(projectData, stageNum, stageData);
-    return knowledgeContext ? { ...config, knowledgeContext } : config;
+    return getModelConfigWithSourcePacket(stageNum, buildSourceGenerationPacket(projectData, stageNum, stageData));
 }
 
 function summarizeSourceForClient(source) {
@@ -1776,14 +1850,33 @@ app.use(express.json({ limit: '20mb' }));
 // API route
 app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
-        const { prompt } = req.body;
+        const { prompt, projectId } = req.body;
         const pdfFile = req.file;
+        let projectData = null;
+        let sourcePacket = null;
+
+        if (projectId) {
+            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
+            const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
+            projectData = JSON.parse(content);
+            const stage1Seed = `${prompt || 'Generate pitch options.'}\n${pdfFile?.originalname || ''}`;
+            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: prompt || '' });
+        }
 
         // Validation intentionally omitted — allows random pitch generation with no input
 
         console.log("Generating pitch options...");
-        const { result, usage } = await agent1Pitch(prompt, pdfFile, getModelConfig(1));
-        res.json({ result });
+        const { result, usage } = await agent1Pitch(
+            prompt,
+            pdfFile,
+            sourcePacket ? getModelConfigWithSourcePacket(1, sourcePacket) : getModelConfig(1)
+        );
+        if (projectData && sourcePacket) {
+            recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(result, null, 2), 'pitch_generation');
+            await writeJSONQueued(getProjectFilePath(projectId), projectData);
+            trackUsage(projectId, usage);
+        }
+        res.json({ result, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error("Error executing agent:", error);
         res.status(500).json({ error: "Failed to generate pitch" });
@@ -1792,7 +1885,7 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
 
 app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
-        const { currentPitch, userNote } = req.body || {};
+        const { currentPitch, userNote, projectId } = req.body || {};
         const pdfFile = req.file;
 
         if (!currentPitch || !userNote) {
@@ -1802,10 +1895,29 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         // currentPitch might be a string if sent via FormData
         const parsedPitch = safeParse(currentPitch);
         if (!parsedPitch) return res.status(400).json({ error: "Invalid currentPitch JSON" });
+        let projectData = null;
+        let sourcePacket = null;
+        if (projectId) {
+            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
+            const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
+            projectData = JSON.parse(content);
+            const stage1Seed = `${JSON.stringify(parsedPitch, null, 2)}\n${userNote}\n${pdfFile?.originalname || ''}`;
+            sourcePacket = buildSourceGenerationPacket(projectData, 1, stage1Seed, { userMessage: userNote });
+        }
 
         console.log("Revising pitch...");
-        const { result, usage } = await agent1Refine(JSON.stringify(parsedPitch), userNote, pdfFile, getModelConfig(1));
-        res.json({ result });
+        const { result, usage } = await agent1Refine(
+            JSON.stringify(parsedPitch),
+            userNote,
+            pdfFile,
+            sourcePacket ? getModelConfigWithSourcePacket(1, sourcePacket) : getModelConfig(1)
+        );
+        if (projectData && sourcePacket) {
+            recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(result, null, 2), 'pitch_revision');
+            await writeJSONQueued(getProjectFilePath(projectId), projectData);
+            trackUsage(projectId, usage);
+        }
+        res.json({ result, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error("Error executing refine agent:", error);
         res.status(500).json({ error: "Failed to refine pitch" });
@@ -1839,19 +1951,19 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
 
         console.log("Generating Stage 2 Outline...");
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notes || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 2, stage2KnowledgeSeed);
-        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfigWithKnowledge(2, projectData, stage2KnowledgeSeed));
+        const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notes || '' });
+        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notes, pdfFile, getModelConfigWithSourcePacket(2, sourcePacket));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
         projectData.data.stage2_outline = outlineData;
         notes ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
-        recordSourcePlanUsage(projectData, 2, JSON.stringify(outlineData, null, 2), notes ? 'revision' : 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notes ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: outlineData });
+        res.json({ result: outlineData, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Outline Gen Error:', error);
         res.status(500).json({ error: "Failed to generate outline" });
@@ -1888,19 +2000,19 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
 
         console.log("Generating Stage 3 Characters...");
         const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notes || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 3, stage3KnowledgeSeed);
-        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfigWithKnowledge(3, projectData, stage3KnowledgeSeed));
+        const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notes || '' });
+        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notes, pdfFile, getModelConfigWithSourcePacket(3, sourcePacket));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
         projectData.data.stage3_characters = characterData;
         notes ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
-        recordSourcePlanUsage(projectData, 3, JSON.stringify(characterData, null, 2), notes ? 'revision' : 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(characterData, null, 2), notes ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: characterData });
+        res.json({ result: characterData, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         res.status(500).json({ error: "Failed to generate characters" });
@@ -1945,11 +2057,11 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     try {
         console.log("Generating Stage 4 Beats...");
         const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notes || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 4, stage4KnowledgeSeed);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 4, stage4KnowledgeSeed, { userMessage: notes || '' });
         const { result: beatsResult, usage } = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notes, pdfFile,
             (label) => send({ type: 'progress', label }),
-            getModelConfigWithKnowledge(4, projectData, stage4KnowledgeSeed)
+            getModelConfigWithSourcePacket(4, sourcePacket)
         );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
@@ -1957,12 +2069,12 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
         notes ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
-        recordSourcePlanUsage(projectData, 4, JSON.stringify(beatsResult, null, 2), notes ? 'revision' : 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notes ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        send({ type: 'complete', result: beatsResult });
+        send({ type: 'complete', result: beatsResult, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate beats' });
@@ -2014,22 +2126,22 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     try {
         console.log("Generating Stage 5 Chained Treatment...");
         const stage5KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(charactersData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedTreatment ? JSON.stringify(parsedTreatment, null, 2) : ''}\n${notes || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 5, stage5KnowledgeSeed);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 5, stage5KnowledgeSeed, { userMessage: notes || '' });
         const { result: treatmentResult, usageList } = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notes,
             (step, total, label) => send({ type: 'progress', step, total, label }),
-            getModelConfigWithKnowledge(5, projectData, stage5KnowledgeSeed)
+            getModelConfigWithSourcePacket(5, sourcePacket)
         );
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
         notes ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
-        recordSourcePlanUsage(projectData, 5, JSON.stringify(treatmentResult, null, 2), notes ? 'revision' : 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(treatmentResult, null, 2), notes ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: treatmentResult });
+        send({ type: 'complete', result: treatmentResult, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -2079,9 +2191,8 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
             console.log("Stage 6: upstream revisions detected, injecting source authority block.");
         }
         const stage6KnowledgeSeed = `${JSON.stringify(pitch, null, 2)}\n${JSON.stringify(beats, null, 2)}\n${JSON.stringify(treatment, null, 2)}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 6, stage6KnowledgeSeed);
-        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 6, stage6KnowledgeSeed);
-        const combinedSourceBlock = [sourceAuthorityBlock, knowledgeSourceBlock].filter(Boolean).join('\n\n---\n\n');
+        const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6KnowledgeSeed);
+        const combinedSourceBlock = [sourceAuthorityBlock, sourcePacket.contextBlock].filter(Boolean).join('\n\n---\n\n');
 
         const { result: allSequences, usageList } = await generateStage6Scenes(
             pitch, characters, beats, treatment,
@@ -2093,11 +2204,11 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
         stampGenerated(projectData, 'stage6_scenes');
-        recordSourcePlanUsage(projectData, 6, JSON.stringify(allSequences, null, 2), 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(allSequences, null, 2), 'generation');
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: allSequences });
+        send({ type: 'complete', result: allSequences, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate scene blueprint' });
@@ -2129,18 +2240,18 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
 
         console.log("Revising Stage 6 Scene Blueprint...");
         const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 6, stage6RevisionSeed);
-        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithKnowledge(6, projectData, stage6RevisionSeed));
+        const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6RevisionSeed, { userMessage: feedback });
+        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithSourcePacket(6, sourcePacket));
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
         stampRevised(projectData, 'stage6_scenes');
-        recordSourcePlanUsage(projectData, 6, JSON.stringify(updatedBlueprint, null, 2), 'revision', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(updatedBlueprint, null, 2), 'revision');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: updatedBlueprint });
+        res.json({ result: updatedBlueprint, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
         res.status(500).json({ error: "Failed to revise scene blueprint" });
@@ -2198,15 +2309,15 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Generating draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 8, draftKnowledgeSeed);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 8, draftKnowledgeSeed);
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
 
         console.log(`Humanizing draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
-        recordSourcePlanUsage(projectData, 8, JSON.stringify(targetedScene, null, 2), 'generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(targetedScene, null, 2), 'generation');
 
         console.log(`Running continuity check for Scene ${sceneNum}...`);
         const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
@@ -2218,7 +2329,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), sourceWarnings: sourceWarningsForResponse(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -2275,8 +2386,8 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         const { styleContent, styleWarning } = await loadProjectStyle(projectData);
         console.log(`Revising draft for Scene ${sceneNum}...`);
         const draftKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${feedback}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 8, draftKnowledgeSeed);
-        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithKnowledge(8, projectData, draftKnowledgeSeed), styleContent, continuityCtx);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 8, draftKnowledgeSeed, { userMessage: feedback });
+        const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
 
         console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
         const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
@@ -2284,7 +2395,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
         targetedScene.locked = false;
-        recordSourcePlanUsage(projectData, 8, JSON.stringify(targetedScene, null, 2), 'revision', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(targetedScene, null, 2), 'revision');
 
         console.log(`Running continuity check for Scene ${sceneNum}...`);
         const { result: checkResult, usage: checkUsage } = await runContinuityCheck(
@@ -2296,7 +2407,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }) };
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), sourceWarnings: sourceWarningsForResponse(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -2997,7 +3108,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             stageName,
             userInstruction
         });
-        const sourcePlan = buildSourceUsePlan(projectData, numericStageId, `${stageData}\n${fixNotes}`);
+        const sourcePacket = buildSourceGenerationPacket(projectData, numericStageId, `${stageData}\n${fixNotes}`, { userMessage: fixNotes });
 
         projectData.data = projectData.data || {};
         let result;
@@ -3009,7 +3120,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             if (!pitchData) return res.status(400).json({ error: 'Stage 1 Pitch is required before revising Stage 2' });
             const currentOutline = overrideData?.outline || projectData.data.stage2_outline?.outline || [];
             const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(currentOutline, null, 2)}\n${fixNotes}`;
-            const generated = await agent2Outline(pitchData, currentOutline, fixNotes, null, getModelConfigWithKnowledge(2, projectData, seed));
+            const generated = await agent2Outline(pitchData, currentOutline, fixNotes, null, getModelConfigWithSourcePacket(2, sourcePacket));
             result = generated.result;
             usagePayload = generated.usage;
             stageKey = 'stage2_outline';
@@ -3021,7 +3132,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             if (!pitchData || !beatsData) return res.status(400).json({ error: 'Stages 1 and 2 are required before revising Stage 3' });
             const currentCharacters = overrideData?.characters || projectData.data.stage3_characters?.characters || [];
             const seed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(currentCharacters, null, 2)}\n${fixNotes}`;
-            const generated = await agent3Characters(pitchData, beatsData, currentCharacters, fixNotes, null, getModelConfigWithKnowledge(3, projectData, seed));
+            const generated = await agent3Characters(pitchData, beatsData, currentCharacters, fixNotes, null, getModelConfigWithSourcePacket(3, sourcePacket));
             result = generated.result;
             usagePayload = generated.usage;
             stageKey = 'stage3_characters';
@@ -3037,7 +3148,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             const generated = await agent4Beats(
                 pitchData, beatsData, charsData, currentBeats, fixNotes, null,
                 () => {},
-                getModelConfigWithKnowledge(4, projectData, seed)
+                getModelConfigWithSourcePacket(4, sourcePacket)
             );
             result = generated.result;
             usagePayload = generated.usage;
@@ -3054,7 +3165,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             const generated = await agent5Treatment(
                 pitchData, charactersData, beatsData, currentTreatment, fixNotes,
                 () => {},
-                getModelConfigWithKnowledge(5, projectData, seed)
+                getModelConfigWithSourcePacket(5, sourcePacket)
             );
             result = generated.result;
             usagePayload = generated.usageList;
@@ -3065,7 +3176,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             const currentBlueprint = overrideData || projectData.data.stage6_scenes;
             if (!currentBlueprint) return res.status(400).json({ error: 'Stage 6 Scene Blueprint is required before source revision' });
             const seed = `${JSON.stringify(currentBlueprint, null, 2)}\n${fixNotes}`;
-            const generated = await reviseStage6Scenes(currentBlueprint, fixNotes, getModelConfigWithKnowledge(6, projectData, seed));
+            const generated = await reviseStage6Scenes(currentBlueprint, fixNotes, getModelConfigWithSourcePacket(6, sourcePacket));
             result = generated.result;
             usagePayload = generated.usage;
             stageKey = 'stage6_scenes';
@@ -3098,7 +3209,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             const continuityCtx = buildContinuityContext(projectData, sceneNum, targetedScene);
             const { styleContent, styleWarning } = await loadProjectStyle(projectData);
             const seed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${fixNotes}`;
-            const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithKnowledge(8, projectData, seed), styleContent, continuityCtx);
+            const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx);
             const humanized = await humanizeDraft(generated.result);
             targetedScene.draft_text = generated.result;
             targetedScene.humanized_draft_text = humanized.result;
@@ -3122,7 +3233,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             stageKey = 'stage6_scenes';
         }
 
-        recordSourcePlanUsage(projectData, numericStageId, JSON.stringify(result, null, 2), 'source_audit_revision', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(result, null, 2), 'source_audit_revision');
         const knowledge = ensureProjectKnowledge(projectData);
         const now = new Date().toISOString();
         boundedKnowledgePush(knowledge.decision_log, {
@@ -3145,6 +3256,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             stageKey,
             result,
             sourceFixSummary: summarizeAuditForDecision(audit),
+            sourceWarnings: sourceWarningsForResponse(sourcePacket),
             sourceReadiness,
             knowledge: knowledgePayloadForClient(knowledge, projectData)
         });
@@ -3197,9 +3309,8 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
             styleNote = `\n\n## STYLE CONTEXT\nThis project has a writing style set. The rewrite agent will maintain this style during execution. Do not treat the style itself as a problem to fix — it is an intentional choice. Only flag style-related issues if the rewrite task explicitly raises them.`;
         }
         const sourcePlanSeed = `${priorityTask}\n${userFeedback || ''}\n${sceneList}\n${trimmedContext || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
-        const knowledgeContext = buildGenerationKnowledgeContext(projectData, 10, sourcePlanSeed);
-        const prompt = `${knowledgeContext ? `${knowledgeContext}\n\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
+        const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
+        const prompt = `${sourcePacket.contextBlock ? `${sourcePacket.contextBlock}\n\n---\n\n` : ''}## PROJECT\nTitle: ${title}${charBlock}${styleNote}\n\n## REWRITE TASK\n${priorityTask}${feedbackSection}${contextSection}\n\n## SCENE LIST\n${sceneList}`;
 
         const plannerSchema = {
             type: 'object',
@@ -3243,10 +3354,10 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
 
         const plan = JSON.parse(response.text);
         console.log(`Stage 10 plan: ${plan.affected_scenes.length} scenes affected.`);
-        recordSourcePlanUsage(projectData, 10, JSON.stringify(plan, null, 2), 'rewrite_plan', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(plan, null, 2), 'rewrite_plan');
         await writeJSONQueued(filePath, projectData);
         if (response.usage) trackUsage(projectId, response.usage);
-        res.json(plan);
+        res.json({ ...plan, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
         res.status(500).json({ error: 'Failed to generate rewrite plan' });
@@ -3285,12 +3396,13 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
             const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
             return `Scene ${s.scene_number}: ${s.scene_heading || s.slugline || ''}\n${s.narrative_action || ''}\n${compactText(sceneText, 1_200)}`;
         }).join('\n\n')}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
 
         const results = await Promise.allSettled(
             scopedScenes.map(s => {
                 const sceneText = working[s.scene_number] || s.humanized_draft_text || s.draft_text || '';
-                const rewriteModelConfig = getModelConfigWithKnowledge(10, projectData, `${priorityTask}\n${sceneText}\n${s.narrative_action || ''}`);
+                const scenePacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${sceneText}\n${s.narrative_action || ''}`, { userMessage: priorityTask });
+                const rewriteModelConfig = getModelConfigWithSourcePacket(10, scenePacket);
                 return rewriteScene(sceneText, priorityTask, {
                     title,
                     sceneNumber: s.scene_number,
@@ -3310,11 +3422,11 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         });
 
         const usages = results.filter(r => r.status === 'fulfilled' && r.value.usage).map(r => r.value.usage);
-        recordSourcePlanUsage(projectData, 10, JSON.stringify(scenes, null, 2), 'rewrite_generation', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(scenes, null, 2), 'rewrite_generation');
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usages);
 
-        res.json({ scenes });
+        res.json({ scenes, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('rewrite-for-priority error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scenes for priority' });
@@ -3361,10 +3473,10 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = '';
             projectData.data.stage9_rewrites = stage9;
-            const deletionSourcePlan = buildSourceUsePlan(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`);
-            recordSourcePlanUsage(projectData, 10, '', 'single_scene_delete', deletionSourcePlan);
+            const deletionPacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`, { userMessage: priorityTask });
+            recordSourceGenerationUsage(projectData, deletionPacket, '', 'single_scene_delete');
             await writeJSONQueued(filePath, projectData);
-            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true });
+            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, sourceWarnings: sourceWarningsForResponse(deletionPacket) });
         }
 
         const { styleContent, referenceContent } = await loadProjectStyle(projectData);
@@ -3380,12 +3492,12 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             : '';
 
         const sourcePlanSeed = `${priorityTask}\n${plannedChange || ''}\n${sceneText}\n${sceneMeta?.narrative_action || ''}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: priorityTask });
         const { result: proposed, usage } = await rewriteScene(
             sceneText, priorityTask,
             { title, sceneNumber: sceneNum, slugline, characters: charProfiles },
             plannedChange || '',
-            getModelConfigWithKnowledge(10, projectData, sourcePlanSeed),
+            getModelConfigWithSourcePacket(10, sourcePacket),
             styleContent,
             referenceContent
         );
@@ -3400,11 +3512,11 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             stage9.pending[sceneNum] = proposed;
             projectData.data.stage9_rewrites = stage9;
         }
-        recordSourcePlanUsage(projectData, 10, proposed, 'single_scene_rewrite', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, proposed, 'single_scene_rewrite');
         await writeJSONQueued(filePath, projectData);
 
         trackUsage(projectId, usage);
-        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified });
+        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene' });
@@ -3465,19 +3577,19 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         if (userFeedback) feedbackParts.push(userFeedback);
         const enrichedFeedback = feedbackParts.join('\n\n---\n\n') || userFeedback;
         const sourcePlanSeed = `${priorityTask}\n${enrichedFeedback || ''}\n${currentText}`;
-        const sourcePlan = buildSourceUsePlan(projectData, 10, sourcePlanSeed);
+        const sourcePacket = buildSourceGenerationPacket(projectData, 10, sourcePlanSeed, { userMessage: enrichedFeedback || priorityTask });
 
         const { result: proposed_text, usage } = await rewriteScene(
             currentText,
             priorityTask,
             { title, sceneNumber },
             enrichedFeedback,
-            getModelConfigWithKnowledge(10, projectData, sourcePlanSeed),
+            getModelConfigWithSourcePacket(10, sourcePacket),
         );
-        recordSourcePlanUsage(projectData, 10, proposed_text, 'rewrite_feedback', sourcePlan);
+        recordSourceGenerationUsage(projectData, sourcePacket, proposed_text, 'rewrite_feedback');
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
-        res.json(savedSource ? { proposed_text, savedSource } : { proposed_text });
+        res.json({ proposed_text, ...(savedSource && { savedSource }), sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
@@ -3539,9 +3651,11 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
 
         console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}...`);
         const styleKnowledgeSeed = `${description || ''}\n${sceneSummaries}\n${conversationHistory.map(m => m.content).join('\n')}`;
-        const sourcePlan = projectData ? buildSourceUsePlan(projectData, 7, styleKnowledgeSeed) : null;
+        const sourcePacket = projectData
+            ? buildSourceGenerationPacket(projectData, 7, styleKnowledgeSeed, { userMessage: description || '' })
+            : null;
         const styleModelConfig = projectData
-            ? getModelConfigWithKnowledge(7, projectData, styleKnowledgeSeed)
+            ? getModelConfigWithSourcePacket(7, sourcePacket)
             : getModelConfig(7);
         const { result: styleContent, usage } = await generateStyleFile({
             description: description || '',
@@ -3561,12 +3675,12 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
-            recordSourcePlanUsage(projectData, 7, styleContent, 'generation', sourcePlan);
+            recordSourceGenerationUsage(projectData, sourcePacket, styleContent, 'generation');
             await writeJSONQueued(filePath, projectData);
             if (projectId) trackUsage(projectId, usage);
         }
 
-        res.json({ slug, content: styleContent, meta });
+        res.json({ slug, content: styleContent, meta, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate style' });
@@ -3609,13 +3723,13 @@ app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) =>
             synopsis: pitch?.synopsis || '',
             characters: projectData.data?.stage3_characters?.characters || []
         };
-        const knowledgeSourceBlock = buildGenerationKnowledgeContext(projectData, 7, `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(scene, null, 2)}`);
+        const previewPacket = buildSourceGenerationPacket(projectData, 7, `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(scene, null, 2)}`, { userMessage: 'Preview this scene in the selected style.' });
 
         // Use the Draft agent with style directives injected
         const draftSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage8_draft.md'), 'utf8');
         const prompt = `${draftSop}
 
-${knowledgeSourceBlock ? `## PROJECT SOURCE CANON\n${knowledgeSourceBlock}\n` : ''}
+${previewPacket.contextBlock ? `## PROJECT SOURCE CANON\n${previewPacket.contextBlock}\n` : ''}
 
 ## STYLE DIRECTIVES
 Apply the following style to this scene:
@@ -3643,8 +3757,10 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             config: { temperature: 0.7 }
         });
 
+        recordSourceGenerationUsage(projectData, previewPacket, response.text, 'style_preview');
+        await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, response.usage);
-        res.json({ sceneNumber: scene.scene_number, previewText: response.text });
+        res.json({ sceneNumber: scene.scene_number, previewText: response.text, sourceWarnings: sourceWarningsForResponse(previewPacket) });
     } catch (error) {
         console.error('preview-style-scene error:', error.message);
         res.status(500).json({ error: 'Failed to preview style scene' });
@@ -3765,13 +3881,25 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
             return res.status(400).json({ error: 'At least one screenplay file is required for trained style generation' });
         }
 
+        let projectData = null;
+        let filePath = null;
+        let sourcePacket = null;
+        if (projectId) {
+            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
+            filePath = path.join(DATA_DIR, `${projectId}.json`);
+            const content = await fs.readFile(filePath, 'utf-8');
+            projectData = JSON.parse(content);
+            const styleKnowledgeSeed = `${styleName || ''}\n${screenplayTitles.join('\n')}\n${conversationHistory.map(m => m.content).join('\n')}`;
+            sourcePacket = buildSourceGenerationPacket(projectData, 7, styleKnowledgeSeed, { userMessage: styleName || 'Generate trained style.' });
+        }
+
         console.log(`Generating Tier 3 trained style from ${screenplayTexts.length} screenplay(s)...`);
         const { reference, directive, usageList } = await generateTrainedStyle({
             styleName: styleName || '',
             screenplayTexts,
             screenplayTitles,
             conversationHistory
-        }, getModelConfig(7));
+        }, sourcePacket ? getModelConfigWithSourcePacket(7, sourcePacket) : getModelConfig(7));
 
         // Extract slug from reference metadata
         const { meta: refMeta } = parseStyleFile(reference);
@@ -3782,20 +3910,17 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), directive);
 
         // Update project if within project context
-        if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
-            const filePath = path.join(DATA_DIR, `${projectId}.json`);
-            const content = await fs.readFile(filePath, 'utf-8');
-            const projectData = JSON.parse(content);
+        if (projectData && filePath) {
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
+            recordSourceGenerationUsage(projectData, sourcePacket, directive, 'trained_style_generation');
             await writeJSONQueued(filePath, projectData);
             trackUsage(projectId, usageList);
         }
 
         const { meta } = parseStyleFile(directive);
-        res.json({ slug, directive, reference, meta, tier: 'trained' });
+        res.json({ slug, directive, reference, meta, tier: 'trained', sourceWarnings: sourceWarningsForResponse(sourcePacket) });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate trained style' });
@@ -4873,6 +4998,7 @@ module.exports = {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceGenerationPacket,
     buildSourceReadiness,
     buildSourceReadinessGate,
     buildSourceReadinessList,

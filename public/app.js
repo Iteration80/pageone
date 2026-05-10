@@ -1227,6 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             if (prompt) formData.append('prompt', prompt);
             if (pdfFile) formData.append('pdfFile', pdfFile);
+            if (activeProjectId) formData.append('projectId', activeProjectId);
 
             const response = await fetch('/api/execute', {
                 method: 'POST',
@@ -1487,6 +1488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('currentPitch', JSON.stringify(currentPitch));
             formData.append('userNote', userNote);
+            if (activeProjectId) formData.append('projectId', activeProjectId);
             if (stage1PdfUpload && stage1PdfUpload.files[0]) {
                 formData.append('pdfFile', stage1PdfUpload.files[0]);
             }
@@ -6733,6 +6735,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('currentPitch', JSON.stringify(currentPitch));
             formData.append('userNote', notes);
+            if (activeProjectId) formData.append('projectId', activeProjectId);
             const res = await fetch('/api/refine-pitch', { method: 'POST', body: formData });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();

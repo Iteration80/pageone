@@ -5,6 +5,7 @@ const {
     ensureProjectKnowledge,
     buildKnowledgeContextBlock,
     buildKnowledgeDiagnostics,
+    buildSourceGenerationPacket,
     buildSourceReadiness,
     buildSourceReadinessGate,
     buildSourceReadinessList,
@@ -293,6 +294,41 @@ test('buildSourceReadinessGate avoids AI audits when saved readiness is fresh', 
     assert.equal(buildSourceReadinessGate({ status: 'stale', stageName: 'Treatment' }).shouldRunAudit, true);
     assert.equal(buildSourceReadinessGate({ status: 'needs_audit', stageName: 'Pitch' }).action, 'run_audit');
     assert.equal(buildSourceReadinessGate({ status: 'no_sources', stageName: 'Style' }).canProceed, true);
+});
+
+test('buildSourceGenerationPacket includes source contract without recording usage', () => {
+    const project = {
+        data: {
+            stage1_pitch: { pitch: { title: 'Blue Key', synopsis: 'Mara finds a key.' } },
+            knowledge: {
+                source_registry: [{
+                    id: 'src_key',
+                    name: 'Graphic Novel.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'Mara finds the blue key in the arcade.',
+                    text: 'The blue key is hidden in the flooded arcade before Mara escapes.'
+                }],
+                source_bible: { summary: 'The key is in the arcade.', curated_notes: [], sourceIds: ['src_key'] },
+                continuity_watchlist: [],
+                decision_log: [],
+                accepted_divergences: [],
+                stage_handoffs: {},
+                stage_source_plans: {},
+                stage_source_audits: {}
+            }
+        }
+    };
+
+    const packet = buildSourceGenerationPacket(project, 2, 'Mara moves through the arcade.');
+
+    assert.equal(packet.stageId, 2);
+    assert.equal(packet.readiness.status, 'needs_audit');
+    assert.ok(packet.warnings.some(item => item.includes('no recorded source audit')));
+    assert.match(packet.contextBlock, /SOURCE READINESS/);
+    assert.match(packet.contextBlock, /Graphic Novel\.pdf/);
+    assert.deepEqual(project.data.knowledge.stage_source_plans, {});
+    assert.deepEqual(project.data.knowledge.decision_log, []);
 });
 
 test('persistChatAttachmentToKnowledge supports direct project upload tagging and dedupe', async () => {

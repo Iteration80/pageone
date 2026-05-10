@@ -16,15 +16,17 @@ const agent1Refine = async (currentPitch, userNote, pdfFile, modelConfig = {}) =
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = ''
     } = modelConfig;
 
     // Revision Bypass Logic
     if (userNote && currentPitch) {
         console.log("  Surgical Revision Mode: Refining pitch...");
-        const revisionSystemInstruction = 'ROLE: Expert Pitch Doctor. Refine the provided pitch based strictly on the user\'s notes. Do not alter the core concept, genre, or title unless explicitly requested by the note. Maintain the exact same JSON schema.';
+        const revisionSystemInstruction = 'ROLE: Expert Pitch Doctor. Refine the provided pitch based strictly on the user\'s notes. Do not alter the core concept, genre, or title unless explicitly requested by the note. If PROJECT SOURCE CANON is provided, preserve source-backed facts and accepted divergences. Maintain the exact same JSON schema.';
 
-        const revisionPrompt = `USER NOTE: ${userNote}
+        const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        const revisionPrompt = `${sourceBlock}USER NOTE: ${userNote}
 
 EXISTING PITCH:
 ${JSON.stringify(currentPitch, null, 2)}
