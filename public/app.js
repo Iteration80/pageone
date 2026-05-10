@@ -1705,32 +1705,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderStageSourceReadinessBadges(data = window.currentProjectData) {
         for (let stageId = 1; stageId <= 10; stageId++) {
-            const navEl = navItems[stageId];
-            navEl?.querySelector('.stage-source-readiness')?.remove();
+            navItems[stageId]?.querySelector('.stage-source-readiness')?.remove();
             workspaces[stageId]?.querySelector(`.source-readiness-header-badge[data-source-stage="${stageId}"]`)?.remove();
-
-            if (!SOURCE_READINESS_STAGES.has(stageId)) continue;
-            const readiness = sourceReadinessForStage(stageId, data);
-            if (!readiness || (!readiness.sourceCount && !readiness.hasAudit && !readiness.sourcePlan)) continue;
-
-            const statusClass = sourceReadinessStatusClass(readiness.status);
-            const title = `${readiness.stageName || `Stage ${stageId}`}: ${readiness.label || readiness.status || 'Source readiness unknown'}`;
-            if (navEl) {
-                const navBadge = document.createElement('span');
-                navBadge.className = `stage-source-readiness source-readiness-${statusClass}`;
-                navBadge.title = title;
-                navBadge.setAttribute('aria-label', title);
-                navEl.appendChild(navBadge);
-            }
-
-            const headerActions = workspaces[stageId]?.querySelector('.workspace-header > div:last-child');
-            if (headerActions) {
-                const headerBadge = document.createElement('span');
-                headerBadge.className = 'source-readiness-header-badge';
-                headerBadge.dataset.sourceStage = String(stageId);
-                headerBadge.innerHTML = renderSourceReadinessBadge(readiness);
-                headerActions.insertBefore(headerBadge, headerActions.firstChild);
-            }
         }
     }
 
@@ -6647,7 +6623,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (opts.refreshKnowledge === false || !activeProjectId) return;
         await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
-        queuePostGenerationSourceVerification(stageId, payload, opts);
     }
 
     async function requestStageSourceReadiness(stageId) {
@@ -6904,38 +6879,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function runApprovalSourceGuard(stageId, button) {
-        if (!activeProjectId) return true;
-        const originalText = button?.textContent || '';
-        if (button) {
-            button.disabled = true;
-            button.textContent = 'Checking readiness...';
-        }
-        try {
-            const readinessData = await requestStageSourceReadiness(stageId);
-            const readiness = readinessData.sourceReadiness || {};
-            const gate = readinessData.gate || {};
-            if (gate.action === 'proceed') return true;
-
-            if (gate.action === 'resolve_audit' && readinessData.sourceAudit) {
-                if (!sourceAuditHasActionableItems(readinessData.sourceAudit)) return true;
-                return await showApprovalSourceGuardModal(stageId, readinessData.sourceAudit);
-            }
-
-            const shouldRun = await showSourceReadinessGateModal(stageId, readiness, gate);
-            if (!shouldRun) return false;
-            if (button) button.textContent = 'Checking source...';
-            const audit = await requestStageSourceAudit(stageId);
-            if (!sourceAuditHasActionableItems(audit)) return true;
-            return await showApprovalSourceGuardModal(stageId, audit);
-        } catch (err) {
-            console.warn('Approval source guard failed:', err.message);
-            return true;
-        } finally {
-            if (button) {
-                button.disabled = false;
-                button.textContent = originalText;
-            }
-        }
+        return true;
     }
 
     function showMemoryCurationModal(stageId, proposal, { fallback = false } = {}) {
@@ -7022,20 +6966,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function offerStageMemoryCuration(stageId) {
         if (!activeProjectId) return false;
-        await refreshStageMemoryHandoff(stageId);
-        try {
-            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/propose-stage-curation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stageId, stageDataOverride: getStageApprovalSnapshot(stageId) })
-            });
-            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
-            const data = await res.json();
-            return await showMemoryCurationModal(stageId, data.proposal || {}, { fallback: !!data.fallback });
-        } catch (err) {
-            console.warn('Memory curation skipped:', err.message);
-            return false;
-        }
+        return await refreshStageMemoryHandoff(stageId);
     }
 
     function renderSourceAuditCard(audit) {
@@ -7560,8 +7491,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 chat.setDisabled(false);
             }
         };
-        addSourceAuditButton(stageId);
-        addSourcePlanButton(stageId);
         return chat;
     }
 
@@ -8868,9 +8797,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage10Chat.setDisabled(false);
                 }
             };
-            addSourceAuditButton(10);
-            addSourcePlanButton(10);
-
             // Fetch AI opening message (presents Stage 9 priorities)
             if (!savedStage10Convo.length) {
                 try {
