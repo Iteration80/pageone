@@ -1479,6 +1479,81 @@ function updateKnowledgeReview(projectData, { continuity_watchlist, curated_note
     return knowledge;
 }
 
+function recordAcceptedSourceDivergence(projectData, { stageId, summary, audit } = {}, { now = new Date().toISOString(), divergenceId = null } = {}) {
+    const numericStageId = Number(stageId);
+    if (!numericStageId || !STAGE_NAMES[numericStageId]) throw new Error('Invalid stage ID');
+
+    const knowledge = ensureProjectKnowledge(projectData);
+    const compactAudit = compactAuditForKnowledge(audit);
+    const cleanSummary = compactText(
+        summary || `Accepted Stage ${numericStageId} source divergence: ${summarizeAuditForDecision(audit)}`,
+        1_000
+    );
+    const divergence = {
+        id: divergenceId || `div_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+        at: now,
+        stageId: numericStageId,
+        stageName: STAGE_NAMES[numericStageId],
+        summary: cleanSummary,
+        audit: compactAudit
+    };
+
+    boundedKnowledgePush(knowledge.accepted_divergences, divergence, 80);
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type: 'accepted_source_divergence',
+        stageId: numericStageId,
+        summary: cleanSummary,
+        divergenceId: divergence.id,
+        audit: compactAudit
+    }, 120);
+    knowledge.stage_handoffs[`stage${numericStageId}`] = {
+        at: now,
+        type: 'accepted_source_divergence',
+        summary: cleanSummary
+    };
+    compactProjectKnowledge(projectData, { now });
+    return divergence;
+}
+
+function applyStageCurationToKnowledge(projectData, { stageId, proposal } = {}, { now = new Date().toISOString(), stageData = '' } = {}) {
+    const numericStageId = Number(stageId);
+    if (!numericStageId || !STAGE_NAMES[numericStageId]) throw new Error('Invalid stage ID');
+
+    const cleanProposal = sanitizeStageCurationProposal(proposal, {
+        stageId: numericStageId,
+        stageName: STAGE_NAMES[numericStageId],
+        stageData
+    });
+    const knowledge = ensureProjectKnowledge(projectData);
+    knowledge.stage_handoffs[`stage${numericStageId}`] = {
+        at: now,
+        type: 'stage_approved_handoff',
+        summary: cleanProposal.handoff_summary
+    };
+
+    const watchItems = [
+        ...(knowledge.continuity_watchlist || []).map(formatKnowledgeItem),
+        ...cleanProposal.continuity_watchlist_additions
+    ].filter(Boolean);
+    knowledge.continuity_watchlist = Array.from(new Set(watchItems)).slice(-60);
+
+    const existingNotes = Array.isArray(knowledge.source_bible.curated_notes) ? knowledge.source_bible.curated_notes : [];
+    const stagedNotes = cleanProposal.source_bible_notes.map(note => `Stage ${numericStageId}: ${note}`);
+    knowledge.source_bible.curated_notes = Array.from(new Set([...existingNotes, ...stagedNotes])).slice(-80);
+    knowledge.source_bible.updatedAt = now;
+
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type: 'stage_memory_curated',
+        stageId: numericStageId,
+        summary: cleanProposal.decision_summary,
+        handoff: cleanProposal.handoff_summary
+    }, 120);
+    compactProjectKnowledge(projectData, { now });
+    return cleanProposal;
+}
+
 function knowledgePayloadForClient(knowledge, projectData = null) {
     return {
         source_registry: (knowledge.source_registry || []).map(summarizeSourceForClient),
@@ -5074,39 +5149,8 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
             return res.status(400).json({ error: 'Invalid stage ID' });
         }
 
-        const compactAudit = compactAuditForKnowledge(audit);
-        const cleanSummary = compactText(
-            summary || `Accepted Stage ${numericStageId} source divergence: ${summarizeAuditForDecision(audit)}`,
-            1_000
-        );
-
         const updatedProject = await updateProjectJSON(id, (projectData) => {
-            const knowledge = ensureProjectKnowledge(projectData);
-            const now = new Date().toISOString();
-            const divergence = {
-                id: `div_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-                at: now,
-                stageId: numericStageId,
-                stageName: STAGE_NAMES[numericStageId],
-                summary: cleanSummary,
-                audit: compactAudit
-            };
-
-            boundedKnowledgePush(knowledge.accepted_divergences, divergence, 80);
-            boundedKnowledgePush(knowledge.decision_log, {
-                at: now,
-                type: 'accepted_source_divergence',
-                stageId: numericStageId,
-                summary: cleanSummary,
-                divergenceId: divergence.id,
-                audit: compactAudit
-            }, 120);
-            knowledge.stage_handoffs[`stage${numericStageId}`] = {
-                at: now,
-                type: 'accepted_source_divergence',
-                summary: cleanSummary
-            };
-            compactProjectKnowledge(projectData, { now });
+            recordAcceptedSourceDivergence(projectData, { stageId: numericStageId, summary, audit });
             return projectData;
         });
 
@@ -5218,41 +5262,9 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
         if (!numericStageId || !STAGE_NAMES[numericStageId]) {
             return res.status(400).json({ error: 'Invalid stage ID' });
         }
-        const cleanProposal = sanitizeStageCurationProposal(proposal, {
-            stageId: numericStageId,
-            stageName: STAGE_NAMES[numericStageId],
-            stageData: ''
-        });
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
-            const knowledge = ensureProjectKnowledge(projectData);
-            const now = new Date().toISOString();
-            knowledge.stage_handoffs[`stage${numericStageId}`] = {
-                at: now,
-                type: 'stage_approved_handoff',
-                summary: cleanProposal.handoff_summary
-            };
-
-            const watchItems = [
-                ...(knowledge.continuity_watchlist || []).map(formatKnowledgeItem),
-                ...cleanProposal.continuity_watchlist_additions
-            ].filter(Boolean);
-            knowledge.continuity_watchlist = Array.from(new Set(watchItems)).slice(-60);
-
-            const existingNotes = Array.isArray(knowledge.source_bible.curated_notes) ? knowledge.source_bible.curated_notes : [];
-            const stagedNotes = cleanProposal.source_bible_notes.map(note => `Stage ${numericStageId}: ${note}`);
-            knowledge.source_bible.curated_notes = Array.from(new Set([...existingNotes, ...stagedNotes])).slice(-80);
-            knowledge.source_bible.updatedAt = now;
-
-            boundedKnowledgePush(knowledge.decision_log, {
-                at: now,
-                type: 'stage_memory_curated',
-                stageId: numericStageId,
-                summary: cleanProposal.decision_summary,
-                handoff: cleanProposal.handoff_summary
-            }, 120);
-            compactProjectKnowledge(projectData, { now });
-
+            applyStageCurationToKnowledge(projectData, { stageId: numericStageId, proposal });
             return projectData;
         });
 
@@ -5653,9 +5665,11 @@ module.exports = {
     buildMemoryRecallResponse,
     removeKnowledgeSource,
     persistChatAttachmentToKnowledge,
+    recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,
     refreshStageHandoff,
+    applyStageCurationToKnowledge,
     sanitizeStageCurationProposal,
     sourceBibleSummary,
     sourceAuditHasActionableItems,

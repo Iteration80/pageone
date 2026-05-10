@@ -18,9 +18,11 @@ const {
     compactProjectKnowledge,
     formatSourceUsePlan,
     persistChatAttachmentToKnowledge,
+    recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,
     refreshStageHandoff,
+    applyStageCurationToKnowledge,
     sanitizeStageCurationProposal,
     sourceResponseExtras,
     sourceMemoryForResponse,
@@ -615,6 +617,110 @@ test('persistChatAttachmentToKnowledge extracts markdown, fountain, docx, and fd
     assert.ok(sources.find(source => source.name === 'Notes.md').tags.includes('markdown'));
     assert.ok(sources.find(source => source.name === 'Draft.fdx').tags.includes('screenplay'));
     assert.ok(sources.find(source => source.name === 'Source.docx').tags.includes('docx'));
+});
+
+test('source lifecycle memory contract runs without browser, live AI, or route binding', async () => {
+    const project = {
+        data: {
+            stage1_pitch: {
+                pitch: {
+                    title: 'Blue Key',
+                    logline: 'Mara searches a flooded arcade for a key.'
+                }
+            },
+            stage2_outline: {
+                outline: [{
+                    sequence_number_and_title: 'Act I - Flooded Arcade',
+                    beats: [{
+                        beat_label: 'Key Discovery',
+                        description: 'Mara pockets a red key in the flooded arcade.'
+                    }]
+                }]
+            },
+            knowledge: {}
+        }
+    };
+    const sourceUpload = await persistChatAttachmentToKnowledge(project, {
+        name: 'Smoke Source.txt',
+        mimeType: 'text/plain',
+        data: Buffer.from('Mara finds the blue key in the flooded arcade and keeps it through the escape.').toString('base64')
+    }, {
+        stageId: 2,
+        userMessage: 'Source canon for the key.'
+    });
+    assert.equal(sourceUpload.savedSource.duplicate, false);
+
+    const stageData = JSON.stringify(project.data.stage2_outline, null, 2);
+    const usedPlan = buildSourceUsePlan(project, 2, stageData);
+    const planEntry = recordSourcePlanUsage(project, 2, stageData, 'deterministic_lifecycle_test', usedPlan);
+    assert.equal(planEntry.sourceIds.length, 1);
+    assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'source_plan_used'));
+
+    const audit = {
+        stageId: 2,
+        stageName: 'Outline',
+        checkedAt: '2026-05-10T16:00:00.000Z',
+        aligned_items: ['The outline keeps the key discovery in the flooded arcade.'],
+        possible_source_mismatches: ['Outline says red key, but source canon says blue key.'],
+        missing_source_elements: [],
+        recommended_fixes: ['Either make the key blue again or explicitly accept the red-key divergence.']
+    };
+    const auditRef = {
+        sourceId: sourceUpload.savedSource.id,
+        name: 'Smoke Source.txt',
+        excerpt: 'Mara finds the blue key in the flooded arcade.'
+    };
+    recordStageSourceAudit(project, 2, 'Outline', stageData, audit, [auditRef], { sourceCount: 1 });
+    assert.equal(buildSourceReadiness(project, 2, stageData).status, 'issues');
+
+    const divergence = recordAcceptedSourceDivergence(project, {
+        stageId: 2,
+        summary: 'Accepted source divergence: the outline temporarily uses a red key, while source canon remains blue.',
+        audit
+    }, {
+        now: '2026-05-10T16:05:00.000Z',
+        divergenceId: 'div_lifecycle_smoke'
+    });
+    assert.equal(divergence.id, 'div_lifecycle_smoke');
+    assert.equal(buildSourceReadiness(project, 2, stageData).status, 'resolved');
+
+    applyStageCurationToKnowledge(project, {
+        stageId: 2,
+        proposal: {
+            handoff_summary: 'Outline handoff: Mara finds the blue key in the flooded arcade; the accepted red-key divergence is approved only as a tracked departure.',
+            continuity_watchlist_additions: ['Track the key color whenever the arcade sequence changes.'],
+            source_bible_notes: ['Source canon says the key is blue and located in the flooded arcade.'],
+            decision_summary: 'Curated Stage 2 memory after source lifecycle audit.'
+        }
+    }, {
+        now: '2026-05-10T16:06:00.000Z',
+        stageData
+    });
+
+    const snapshot = buildKnowledgeSnapshot(project, { now: '2026-05-10T16:07:00.000Z' });
+    assert.match(snapshot.summary, /blue key/i);
+    assert.ok(snapshot.stageHandoffs.some(item => /flooded arcade/i.test(item.summary)));
+    assert.ok(snapshot.acceptedDivergences.some(item => /red key/i.test(String(item))));
+    assert.ok(project.data.knowledge.decision_log.some(item => item.type === 'stage_memory_curated'));
+
+    const recall = buildMemoryRecallResponse(project, {
+        stageId: 3,
+        stageName: 'Characters',
+        userMessage: 'What do we already know about the blue key?',
+        stageData: 'Mara is carrying the key.'
+    });
+    assert.match(recall.message, /compact project memory/);
+    assert.match(recall.message, /Smoke Source\.txt/);
+    assert.match(recall.message, /flooded arcade/i);
+    assert.match(recall.message, /red-key divergence|red key/i);
+
+    const packet = buildSourceGenerationPacket(project, 8, 'Draft scene: Mara studies the key.', {
+        userMessage: 'Keep source canon straight even if the current draft says red key.'
+    });
+    assert.match(packet.contextBlock, /Accepted Source Divergences/);
+    assert.match(packet.contextBlock, /Relevant Source Documents/);
+    assert.match(packet.contextBlock, /Smoke Source\.txt/);
+    assert.match(packet.contextBlock, /source canon says the key is blue/i);
 });
 
 test('updateKnowledgeSourceMetadata retags a saved source and records the decision', () => {
