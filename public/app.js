@@ -1239,6 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            await handleSourceGenerationResult(1, data);
             const pitches = data.result.pitch_options;
 
             if (pitches && Array.isArray(pitches)) {
@@ -1503,6 +1504,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            await handleSourceGenerationResult(1, data);
             const revisedPitch = data.result;
 
             if (revisedPitch) {
@@ -2028,6 +2030,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await res.json();
+            await handleSourceGenerationResult(2, data);
             renderOutline(data.result.outline);
             if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
         } catch (err) {
@@ -2295,6 +2298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await res.json();
+            await handleSourceGenerationResult(2, data);
             renderOutline(data.result.outline);
             if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
 
@@ -2794,6 +2798,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errData.error || "Failed to generate characters");
             }
             const data = await res.json();
+            await handleSourceGenerationResult(3, data);
 
             renderCharacters(data.result.characters);
             if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
@@ -2903,6 +2908,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(errData.error || "Failed to revise characters");
                 }
                 const data = await res.json();
+                await handleSourceGenerationResult(3, data);
                 renderCharacters(data.result.characters);
                 if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
 
@@ -3068,6 +3074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const projRes = await fetch(`/api/projects/${activeProjectId}`);
                             const projData = await projRes.json();
                             updateStageNav(projData.data);
+                            await handleSourceGenerationResult(4, event);
                         } else if (event.type === 'error') {
                             throw new Error(event.message);
                         }
@@ -3768,6 +3775,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
                         updateStageNav(projData.data);
+                        await handleSourceGenerationResult(4, event);
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
                     }
@@ -3915,6 +3923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 btnStage4Approve.textContent = 'Approve';
                                 btnStage4Approve.classList.remove('approve-btn-green');
                             }
+                            await handleSourceGenerationResult(4, event);
                         } else if (event.type === 'error') {
                             throw new Error(event.message);
                         }
@@ -4152,6 +4161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
                         updateStageNav(projData.data);
+                        await handleSourceGenerationResult(5, event);
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
                     }
@@ -4284,6 +4294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (stage5Notes) stage5Notes.value = '';
                             if (stage5PdfUpload) stage5PdfUpload.value = '';
                             if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
+                            await handleSourceGenerationResult(5, event);
                         } else if (event.type === 'error') {
                             throw new Error(event.message);
                         }
@@ -4590,6 +4601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (event.type === 'complete') {
                         renderStage6(event.result);
                         if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
+                        await handleSourceGenerationResult(6, event);
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
                     }
@@ -4632,6 +4644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const data = await response.json();
+                await handleSourceGenerationResult(6, data);
                 if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
 
                 // Clear feedback box
@@ -4843,6 +4856,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const revised = await response.json();
                         stage8LoadEditor(revised.result);
                         showContinuityFeedback(revised);
+                        await handleSourceGenerationResult(8, revised);
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         window.currentProjectData = (await projRes.json()).data;
                     } catch (err) {
@@ -4924,6 +4938,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 stage8LoadEditor(draftText);
                 showContinuityFeedback(data);
+                await handleSourceGenerationResult(8, data);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
@@ -5006,6 +5021,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 stage8LoadEditor(data.result);
                 showContinuityFeedback(data);
+                await handleSourceGenerationResult(8, data);
 
                 // Sync local project data
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -5135,6 +5151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     stage8LoadEditor(data.result);
                     showContinuityFeedback(data);
+                    await handleSourceGenerationResult(8, data, { refreshKnowledge: false });
 
                     // Sync local project data so getFlatScenes() reflects the new draft_text
                     const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -5157,6 +5174,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Finished or cancelled — restore UI
             isBatchGenerating = false;
             btnGenerateAll.textContent = 'Generate All Scenes';
+            await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
             initStage8(); // Full re-render to restore button states
         });
     }
@@ -5806,6 +5824,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!chat || !savedSource) return;
         const status = savedSource.duplicate ? 'Already in project knowledge' : 'Saved to project knowledge';
         chat.append('system', `${status}: ${savedSource.name}`);
+        refreshProjectKnowledgeSummary().catch(err => console.warn('Source library refresh skipped:', err.message));
     }
 
     function sourceAuditHasActionableItems(audit = {}) {
@@ -5847,6 +5866,76 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>${escapeHtml(planStatus)}</span>
             </div>
         `;
+    }
+
+    function normalizeSourceWarnings(warnings) {
+        return Array.isArray(warnings)
+            ? warnings.map(w => String(w || '').trim()).filter(Boolean)
+            : [];
+    }
+
+    function renderSourceWarningCard(warnings = [], stageId = null) {
+        const safeWarnings = normalizeSourceWarnings(warnings);
+        if (!safeWarnings.length) return '';
+        const stageLabel = STAGE_LABELS?.[Number(stageId)] || (stageId ? `Stage ${stageId}` : 'Stage');
+        return `
+            <div class="source-warning-card">
+                <div class="source-warning-card-header">
+                    <strong>Source Readiness Note</strong>
+                    <span>${escapeHtml(stageLabel)}</span>
+                </div>
+                <ul>
+                    ${safeWarnings.slice(0, 5).map(warning => `<li>${escapeHtml(warning)}</li>`).join('')}
+                </ul>
+                <p>Run Check Source for a fresh source alignment pass.</p>
+            </div>
+        `;
+    }
+
+    function showSourceWarningBanner(stageId, warnings = []) {
+        const safeWarnings = normalizeSourceWarnings(warnings);
+        const workspace = workspaces?.[Number(stageId)];
+        if (!workspace || !safeWarnings.length) return;
+
+        workspace.querySelector(`.source-generation-warning[data-source-warning-stage="${stageId}"]`)?.remove();
+        const banner = document.createElement('div');
+        banner.className = 'source-generation-warning';
+        banner.dataset.sourceWarningStage = String(stageId);
+        banner.innerHTML = `
+            <div>
+                <strong>Source readiness note</strong>
+                <span>${escapeHtml(safeWarnings[0])}</span>
+            </div>
+            <button type="button" class="source-warning-dismiss" title="Dismiss source readiness note">x</button>
+        `;
+        banner.querySelector('.source-warning-dismiss')?.addEventListener('click', () => banner.remove());
+
+        const scrollable = Number(stageId) === 10
+            ? workspace.querySelector('#stage10-workspace')
+            : workspace.querySelector('.workspace-scrollable');
+        if (scrollable) {
+            scrollable.insertBefore(banner, scrollable.firstChild);
+            return;
+        }
+
+        const header = workspace.querySelector('.workspace-header');
+        if (header?.nextSibling) {
+            workspace.insertBefore(banner, header.nextSibling);
+        } else {
+            workspace.insertBefore(banner, workspace.firstChild);
+        }
+    }
+
+    async function handleSourceGenerationResult(stageId, payload = {}, opts = {}) {
+        const warnings = normalizeSourceWarnings(payload?.sourceWarnings);
+        if (warnings.length) {
+            showSourceWarningBanner(stageId, warnings);
+            if (opts.chat) {
+                opts.chat.append('system', '', { html: renderSourceWarningCard(warnings, stageId) });
+            }
+        }
+        if (opts.refreshKnowledge === false || !activeProjectId) return;
+        await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
     }
 
     async function requestStageSourceReadiness(stageId) {
@@ -6430,6 +6519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         applySourceRevisionResult(stageId, data);
         if (data.knowledge) setProjectKnowledge(data.knowledge);
+        await handleSourceGenerationResult(stageId, data, { chat: stageChatWindows[stageId] });
         await refreshCurrentProjectData().catch(err => console.warn(err.message));
         return data;
     }
@@ -6652,6 +6742,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 chat.setThinking(false);
                 noteSavedSource(chat, data.savedSource);
+                if (normalizeSourceWarnings(data.sourceWarnings).length) {
+                    await handleSourceGenerationResult(stageId, data, { chat });
+                }
                 chat.append('ai', data.message);
                 if (data.suggest_plan && data.execute_immediately) {
                     // Clear directive — execute revision immediately, no confirmation needed
@@ -6739,6 +6832,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/refine-pitch', { method: 'POST', body: formData });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
+            await handleSourceGenerationResult(1, data, { chat: stageChatWindows[1] });
             if (data.result) {
                 currentFields.forEach(f => {
                     const key = f.getAttribute('data-field');
@@ -6778,6 +6872,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/generate-outline', { method: 'POST', body: formData });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
+            await handleSourceGenerationResult(2, data, { chat: stageChatWindows[2] });
             renderOutline(data.result.outline);
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
         }
@@ -6799,6 +6894,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/generate-characters', { method: 'POST', body: formData });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
+            await handleSourceGenerationResult(3, data, { chat: stageChatWindows[3] });
             renderCharacters(data.result.characters);
             if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
@@ -6823,6 +6919,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await readSSEStream(response, async (event) => {
                 if (event.type === 'complete') {
                     renderTreatment(event.result);
+                    await handleSourceGenerationResult(4, event, { chat: stageChatWindows[4] });
                     if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); }
                 } else if (event.type === 'error') throw new Error(event.message);
             });
@@ -6847,6 +6944,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await readSSEStream(response, async (event) => {
                 if (event.type === 'complete') {
                     renderTreatmentStage5(event.result);
+                    await handleSourceGenerationResult(5, event, { chat: stageChatWindows[5] });
                     if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); }
                 } else if (event.type === 'error') throw new Error(event.message);
             });
@@ -6895,6 +6993,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
+            await handleSourceGenerationResult(6, data, { chat: stageChatWindows[6] });
             renderStage6(data.result);
             if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
         }
@@ -7087,6 +7186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const data = await res.json();
             stage7DisplayStyle(data);
+            await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
             if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
             updateStageNav(window.currentProjectData);
         } catch (err) {
@@ -7189,6 +7289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             previewText.textContent = data.previewText;
             previewPanel.classList.remove('hidden');
+            await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
         } catch (err) {
             console.error('Preview error:', err);
             alert('Preview failed: ' + err.message);
@@ -7283,6 +7384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const data = await res.json();
+            await handleSourceGenerationResult(8, data, { chat: stageChatWindows[8] });
             stage8LoadEditor(data.result);
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
@@ -7650,6 +7752,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error);
             const plan = await res.json();
+            await handleSourceGenerationResult(10, plan, { chat: stage10Chat });
             window.stage10CurrentPlan = plan;
             stage10Chat.append('ai', '', { html: stage10RenderPlanCard(plan) });
             document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage10ExecutePlan(plan));
@@ -7698,6 +7801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     continue;
                 }
                 const data = await res.json();
+                await handleSourceGenerationResult(10, data, { chat: stage10Chat, refreshKnowledge: false });
                 if (data.modified) {
                     stage10Pending[data.scene_number] = data.proposed_text;
                     renderStage10SceneList();
@@ -7706,6 +7810,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             resetStage10ApproveBtn();
             window.stage10CurrentPlan = null;
+            await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
 
             const modCount = Object.keys(stage10Pending).length;
             const firstModified = Object.keys(stage10Pending).map(Number)[0];
@@ -7893,6 +7998,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         noteSavedSource(stage10Chat, data.savedSource);
+                        await handleSourceGenerationResult(10, data, { chat: stage10Chat });
                         stage10Pending[stage10CurrentScene] = data.proposed_text;
                         resetStage10ApproveBtn();
                         stage10SelectScene(stage10CurrentScene);
@@ -7911,6 +8017,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         noteSavedSource(stage10Chat, data.savedSource);
+                        if (normalizeSourceWarnings(data.sourceWarnings).length) {
+                            await handleSourceGenerationResult(10, data, { chat: stage10Chat });
+                        }
                         stage10Chat.append('ai', data.message);
                         if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
                     }
@@ -7961,6 +8070,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage10Chat.setThinking(false);
                     if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
                     const data = await res.json();
+                    await handleSourceGenerationResult(10, data, { chat: stage10Chat });
                     stage10Pending[stage10CurrentScene] = data.proposed_text;
                     resetStage10ApproveBtn();
                     stage10SelectScene(stage10CurrentScene);
