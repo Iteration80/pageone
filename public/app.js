@@ -1239,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            await handleSourceGenerationResult(1, data);
+            await handleSourceGenerationResult(1, data, { postGenerationCheck: false });
             const pitches = data.result.pitch_options;
 
             if (pitches && Array.isArray(pitches)) {
@@ -5175,6 +5175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isBatchGenerating = false;
             btnGenerateAll.textContent = 'Generate All Scenes';
             await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
+            await runPostGenerationSourceVerification(8).catch(err => console.warn('Post-generation source check skipped:', err.message));
             initStage8(); // Full re-render to restore button states
         });
     }
@@ -5892,6 +5893,33 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderPostGenerationSourceCheckCard(readiness = {}, gate = {}, warnings = []) {
+        const safeWarnings = normalizeSourceWarnings(warnings);
+        const shouldRunAudit = !!gate.shouldRunAudit;
+        const primaryLabel = shouldRunAudit ? 'Run Check Source' : 'Show Findings';
+        return `
+            <div class="source-post-check-card">
+                <div class="source-audit-card-header">
+                    <strong>Source Check Recommended</strong>
+                    <span>${escapeHtml(readiness.stageName || `Stage ${readiness.stageId || ''}`)}</span>
+                    ${renderSourceReadinessBadge(readiness)}
+                </div>
+                ${renderSourceReadinessSummary(readiness)}
+                <p>${escapeHtml(gate.message || 'This stage should be checked against saved project source material.')}</p>
+                ${safeWarnings.length ? `
+                    <ul>
+                        ${safeWarnings.slice(0, 3).map(warning => `<li>${escapeHtml(warning)}</li>`).join('')}
+                    </ul>
+                ` : ''}
+                <div class="source-audit-actions">
+                    <button type="button" class="source-audit-action-btn source-post-check-primary">${escapeHtml(primaryLabel)}</button>
+                    ${shouldRunAudit ? '' : '<button type="button" class="source-audit-action-btn source-post-check-run">Run Fresh Check</button>'}
+                    <button type="button" class="source-audit-action-btn source-post-check-dismiss">Dismiss</button>
+                </div>
+            </div>
+        `;
+    }
+
     function showSourceWarningBanner(stageId, warnings = []) {
         const safeWarnings = normalizeSourceWarnings(warnings);
         const workspace = workspaces?.[Number(stageId)];
@@ -5926,6 +5954,136 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const postGenerationSourceChecks = new Set();
+
+    function shouldOfferPostGenerationSourceCheck(readiness = {}, gate = {}, warnings = []) {
+        const stageId = Number(readiness.stageId);
+        if (!SOURCE_READINESS_STAGES.has(stageId)) return false;
+        if (!readiness.sourceCount || !readiness.hasOutput) return false;
+        if (gate.shouldRunAudit) return true;
+        if (readiness.status === 'issues') return true;
+        return normalizeSourceWarnings(warnings).length > 0 && readiness.status !== 'ready' && readiness.status !== 'resolved';
+    }
+
+    function postGenerationSourceCheckKey(readiness = {}) {
+        return [
+            readiness.stageId || 'stage',
+            readiness.stageOutputHash || 'nohash',
+            readiness.auditStageOutputHash || 'noaudit',
+            readiness.status || 'unknown'
+        ].join(':');
+    }
+
+    function showPostGenerationSourceBanner(stageId, readiness = {}, gate = {}, readinessData = {}) {
+        const workspace = workspaces?.[Number(stageId)];
+        if (!workspace) return null;
+        workspace.querySelector(`.source-post-generation-check[data-source-post-stage="${stageId}"]`)?.remove();
+        const banner = document.createElement('div');
+        banner.className = 'source-generation-warning source-post-generation-check';
+        banner.dataset.sourcePostStage = String(stageId);
+        const shouldRunAudit = !!gate.shouldRunAudit;
+        banner.innerHTML = `
+            <div>
+                <strong>Source check recommended</strong>
+                <span>${escapeHtml(gate.message || `${readiness.stageName || `Stage ${stageId}`} should be checked against saved source material.`)}</span>
+            </div>
+            <div class="source-post-check-banner-actions">
+                <button type="button" class="source-post-check-banner-run">${shouldRunAudit ? 'Run Check' : 'Show Findings'}</button>
+                <button type="button" class="source-warning-dismiss" title="Dismiss source check prompt">x</button>
+            </div>
+        `;
+        banner.querySelector('.source-warning-dismiss')?.addEventListener('click', () => banner.remove());
+        banner.querySelector('.source-post-check-banner-run')?.addEventListener('click', async (event) => {
+            const button = event.currentTarget;
+            if (shouldRunAudit) {
+                await runSourceAudit(stageId, button);
+            } else {
+                showExistingSourceAudit(stageId, readinessData, button);
+            }
+            banner.remove();
+        });
+
+        const scrollable = Number(stageId) === 10
+            ? workspace.querySelector('#stage10-workspace')
+            : workspace.querySelector('.workspace-scrollable');
+        if (scrollable) {
+            scrollable.insertBefore(banner, scrollable.firstChild);
+        } else {
+            const header = workspace.querySelector('.workspace-header');
+            workspace.insertBefore(banner, header?.nextSibling || workspace.firstChild);
+        }
+        return banner;
+    }
+
+    function showExistingSourceAudit(stageId, readinessData = {}, button = null) {
+        const chat = stageChatWindows[stageId];
+        const audit = readinessData.sourceAudit;
+        if (!chat || !audit) {
+            if (chat) chat.append('system', 'No saved source audit findings are available for this output yet.');
+            return;
+        }
+        const cardEl = chat.append('system', '', { html: renderSourceAuditCard(audit) });
+        wireSourceAuditActions(stageId, audit, cardEl);
+        if (button) button.textContent = 'Shown';
+    }
+
+    function wirePostGenerationSourceCheckActions(stageId, readinessData = {}, cardEl) {
+        if (!cardEl) return;
+        const readiness = readinessData.sourceReadiness || {};
+        const gate = readinessData.gate || {};
+        const shouldRunAudit = !!gate.shouldRunAudit;
+        const primaryBtn = cardEl.querySelector('.source-post-check-primary');
+        const runBtn = cardEl.querySelector('.source-post-check-run');
+        const dismissBtn = cardEl.querySelector('.source-post-check-dismiss');
+
+        primaryBtn?.addEventListener('click', async () => {
+            if (shouldRunAudit) {
+                await runSourceAudit(stageId, primaryBtn);
+            } else {
+                showExistingSourceAudit(stageId, readinessData, primaryBtn);
+            }
+        });
+        runBtn?.addEventListener('click', () => runSourceAudit(stageId, runBtn));
+        dismissBtn?.addEventListener('click', () => cardEl.remove());
+    }
+
+    function showPostGenerationSourceCheck(stageId, readinessData = {}, warnings = [], opts = {}) {
+        const readiness = readinessData.sourceReadiness || {};
+        const gate = readinessData.gate || {};
+        const chat = opts.chat || null;
+        if (chat) {
+            const cardEl = chat.append('system', '', {
+                html: renderPostGenerationSourceCheckCard(readiness, gate, warnings)
+            });
+            wirePostGenerationSourceCheckActions(stageId, readinessData, cardEl);
+            return;
+        }
+        showPostGenerationSourceBanner(stageId, readiness, gate, readinessData);
+    }
+
+    async function runPostGenerationSourceVerification(stageId, opts = {}) {
+        if (!activeProjectId || opts.postGenerationCheck === false) return;
+        const numericStageId = Number(stageId);
+        if (!SOURCE_READINESS_STAGES.has(numericStageId)) return;
+        const readinessData = await requestStageSourceReadiness(numericStageId);
+        const readiness = readinessData.sourceReadiness || {};
+        const gate = readinessData.gate || {};
+        if (!shouldOfferPostGenerationSourceCheck(readiness, gate, opts.warnings || [])) return;
+        const key = postGenerationSourceCheckKey(readiness);
+        if (postGenerationSourceChecks.has(key)) return;
+        postGenerationSourceChecks.add(key);
+        showPostGenerationSourceCheck(numericStageId, readinessData, opts.warnings || [], opts);
+    }
+
+    function queuePostGenerationSourceVerification(stageId, payload = {}, opts = {}) {
+        if (opts.postGenerationCheck === false || !activeProjectId) return;
+        const warnings = normalizeSourceWarnings(payload?.sourceWarnings);
+        window.setTimeout(() => {
+            runPostGenerationSourceVerification(stageId, { ...opts, warnings })
+                .catch(err => console.warn('Post-generation source check skipped:', err.message));
+        }, 0);
+    }
+
     async function handleSourceGenerationResult(stageId, payload = {}, opts = {}) {
         const warnings = normalizeSourceWarnings(payload?.sourceWarnings);
         if (warnings.length) {
@@ -5936,6 +6094,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (opts.refreshKnowledge === false || !activeProjectId) return;
         await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
+        queuePostGenerationSourceVerification(stageId, payload, opts);
     }
 
     async function requestStageSourceReadiness(stageId) {
@@ -6743,7 +6902,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chat.setThinking(false);
                 noteSavedSource(chat, data.savedSource);
                 if (normalizeSourceWarnings(data.sourceWarnings).length) {
-                    await handleSourceGenerationResult(stageId, data, { chat });
+                    await handleSourceGenerationResult(stageId, data, { chat, postGenerationCheck: false });
                 }
                 chat.append('ai', data.message);
                 if (data.suggest_plan && data.execute_immediately) {
@@ -7289,7 +7448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             previewText.textContent = data.previewText;
             previewPanel.classList.remove('hidden');
-            await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
+            await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7], postGenerationCheck: false });
         } catch (err) {
             console.error('Preview error:', err);
             alert('Preview failed: ' + err.message);
@@ -7752,7 +7911,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error((await res.json()).error);
             const plan = await res.json();
-            await handleSourceGenerationResult(10, plan, { chat: stage10Chat });
+            await handleSourceGenerationResult(10, plan, { chat: stage10Chat, postGenerationCheck: false });
             window.stage10CurrentPlan = plan;
             stage10Chat.append('ai', '', { html: stage10RenderPlanCard(plan) });
             document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage10ExecutePlan(plan));
@@ -7811,6 +7970,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetStage10ApproveBtn();
             window.stage10CurrentPlan = null;
             await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
+            await runPostGenerationSourceVerification(10, { chat: stage10Chat }).catch(err => console.warn('Post-generation source check skipped:', err.message));
 
             const modCount = Object.keys(stage10Pending).length;
             const firstModified = Object.keys(stage10Pending).map(Number)[0];
@@ -8018,7 +8178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const data = await res.json();
                         noteSavedSource(stage10Chat, data.savedSource);
                         if (normalizeSourceWarnings(data.sourceWarnings).length) {
-                            await handleSourceGenerationResult(10, data, { chat: stage10Chat });
+                            await handleSourceGenerationResult(10, data, { chat: stage10Chat, postGenerationCheck: false });
                         }
                         stage10Chat.append('ai', data.message);
                         if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();

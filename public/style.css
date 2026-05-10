@@ -1342,6 +1342,55 @@ textarea.synopsis-input {
     color: #94a3b8;
     font-size: 0.72rem;
 }
+.source-post-check-card {
+    width: min(720px, 100%);
+    background: #0f172a;
+    border: 1px solid rgba(96, 165, 250, 0.32);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: #cbd5e1;
+    font-style: normal;
+    text-align: left;
+}
+.source-post-check-card p {
+    margin: 0 0 8px;
+    color: #cbd5e1;
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+.source-post-check-card ul {
+    margin: 0 0 8px;
+    padding-left: 16px;
+    color: #fde68a;
+}
+.source-post-check-card li {
+    margin: 3px 0;
+    line-height: 1.45;
+}
+.source-post-check-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+.source-post-check-banner-run {
+    border: 1px solid rgba(96, 165, 250, 0.38);
+    background: rgba(37, 99, 235, 0.16);
+    color: #bfdbfe;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.source-post-check-banner-run:hover {
+    background: rgba(37, 99, 235, 0.24);
+}
+.source-post-check-banner-run:disabled {
+    opacity: 0.58;
+    cursor: default;
+}
 .source-audit-card-header {
     display: flex;
     flex-wrap: wrap;
