@@ -5046,6 +5046,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let stage6GenerationComplete = false;
+
+            const processStage6Event = async (event) => {
+                if (event.type === 'progress') {
+                    if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
+                } else if (event.type === 'status') {
+                    if (loadingTextStage6) loadingTextStage6.textContent = event.message || 'Preparing Scene Blueprint...';
+                } else if (event.type === 'complete') {
+                    stage6GenerationComplete = true;
+                    renderStage6(event.result);
+                    if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
+                    await handleSourceGenerationResult(6, event);
+                } else if (event.type === 'error') {
+                    throw new Error(event.message);
+                }
+            };
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -5058,18 +5074,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     const event = JSON.parse(line.slice(6));
+                    await processStage6Event(event);
+                }
+            }
 
-                    if (event.type === 'progress') {
-                        if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
-                    } else if (event.type === 'status') {
-                        if (loadingTextStage6) loadingTextStage6.textContent = event.message || 'Preparing Scene Blueprint...';
-                    } else if (event.type === 'complete') {
-                        renderStage6(event.result);
-                        if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
-                        await handleSourceGenerationResult(6, event);
-                    } else if (event.type === 'error') {
-                        throw new Error(event.message);
-                    }
+            if (buffer.trim().startsWith('data: ')) {
+                await processStage6Event(JSON.parse(buffer.trim().slice(6)));
+            }
+
+            if (!stage6GenerationComplete) {
+                const projectRes = await fetch(`/api/projects/${activeProjectId}`);
+                if (!projectRes.ok) throw new Error('Scene Blueprint was generated, but the project could not be refreshed.');
+                const project = await projectRes.json();
+                window.currentProjectData = project.data;
+                updateStageNav(project.data);
+                if (project.data?.stage6_scenes) {
+                    renderStage6(project.data.stage6_scenes);
+                    await handleSourceGenerationResult(6, {}, { refreshKnowledge: false });
                 }
             }
         } catch (error) {
