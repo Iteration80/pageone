@@ -21,6 +21,10 @@ const {
     recordSourcePlanUsage,
     refreshStageHandoff,
     sanitizeStageCurationProposal,
+    sourceResponseExtras,
+    sourceMemoryForResponse,
+    isMemoryRecallRequest,
+    buildMemoryRecallResponse,
     sourceBibleSummary,
     sourceAuditHasActionableItems,
     stageSourceProfile,
@@ -303,11 +307,92 @@ test('cross-stage source packet prefers compact handoffs over raw chat transcrip
     assert.ok(packet.contextBlock.length < 16_000);
 });
 
+test('source response extras expose short project memory provenance', () => {
+    const project = {
+        data: {
+            knowledge: {
+                source_registry: [{
+                    id: 'src_key',
+                    name: 'Graphic Novel.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'Mara finds the blue key in the flooded arcade.',
+                    text: 'Mara finds the blue key in the flooded arcade and refuses to abandon June.'
+                }],
+                source_bible: { summary: 'Mara keeps the blue key.', curated_notes: [] },
+                continuity_watchlist: ['Mara keeps the blue key.'],
+                decision_log: [],
+                accepted_divergences: [{ summary: 'Jules is renamed June.' }],
+                stage_handoffs: {
+                    stage6: { summary: 'Scene blueprint keeps the key in the arcade.' }
+                }
+            }
+        }
+    };
+
+    const packet = buildSourceGenerationPacket(project, 8, 'Draft the flooded arcade with the blue key.');
+    const extras = sourceResponseExtras(packet);
+
+    assert.ok(extras.sourceMemory);
+    assert.equal(extras.sourceMemory.stageId, 8);
+    assert.equal(extras.sourceMemory.sources[0].name, 'Graphic Novel.pdf');
+    assert.ok(extras.sourceMemory.handoffs.some(handoff => /Scene Blueprint/.test(handoff.stageName)));
+    assert.ok(extras.sourceMemory.acceptedDivergences.some(item => /Jules is renamed June/.test(item)));
+    assert.equal(sourceMemoryForResponse({}), undefined);
+});
+
+test('memory recall requests answer from compact project memory without transcript dependence', () => {
+    const project = {
+        data: {
+            conversations: {
+                stage2: [{ role: 'user', content: 'RAW CHAT SHOULD NOT BE THE ANSWER' }]
+            },
+            knowledge: {
+                source_registry: [{
+                    id: 'src_key',
+                    name: 'Graphic Novel.pdf',
+                    type: 'source_reference',
+                    tags: ['source_reference'],
+                    summary: 'Mara finds the blue key in the flooded arcade.',
+                    text: 'Mara finds the blue key in the flooded arcade.'
+                }],
+                source_bible: { summary: 'Mara finds the blue key in the arcade.', curated_notes: [] },
+                continuity_watchlist: ['Mara keeps the blue key.'],
+                decision_log: [],
+                accepted_divergences: [{ summary: 'Jules is renamed June.' }],
+                stage_handoffs: {
+                    stage3: { summary: 'Characters establish June as renamed Jules.' },
+                    stage6: { summary: 'Scenes keep Mara holding the blue key.' }
+                }
+            }
+        }
+    };
+
+    assert.equal(isMemoryRecallRequest('What do we already know about the blue key?'), true);
+    const recall = buildMemoryRecallResponse(project, {
+        stageId: 10,
+        stageName: 'Rewrite',
+        userMessage: 'What do we already know about the blue key?',
+        stageData: 'Mara reaches the arcade.'
+    });
+
+    assert.match(recall.message, /compact project memory/);
+    assert.match(recall.message, /Graphic Novel\.pdf/);
+    assert.match(recall.message, /Scenes keep Mara holding the blue key/);
+    assert.match(recall.message, /Jules is renamed June/);
+    assert.doesNotMatch(recall.message, /RAW CHAT SHOULD NOT BE THE ANSWER/);
+    assert.ok(recall.sourceMemory);
+});
+
 test('frontend restores Stage 10 rewrite chat from persisted stage9 conversation key', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     assert.match(appJs, /CONVO_TO_CHAT\s*=\s*\{[^}]*stage9:\s*10[^}]*\}/s);
     assert.match(appJs, /savedStage10Convo\s*=\s*window\.currentProjectData\?\.conversations\?\.stage9/);
     assert.match(appJs, /stage10Chat\.restoreHistory\(savedStage10Convo\)/);
+    assert.match(appJs, /Saved to project knowledge for reuse across stages/);
+    assert.match(appJs, /Using project memory/);
+    assert.match(appJs, /noteSourceMemoryUsed\(chat, data\.sourceMemory\)/);
+    assert.match(appJs, /stage10CurrentScene !== null && !isMemoryRecallPrompt\(text\)/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {

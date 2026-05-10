@@ -6031,9 +6031,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function noteSavedSource(chat, savedSource) {
         if (!chat || !savedSource) return;
-        const status = savedSource.duplicate ? 'Already in project knowledge' : 'Saved to project knowledge';
+        const status = savedSource.duplicate
+            ? 'Already in project knowledge for reuse across stages'
+            : 'Saved to project knowledge for reuse across stages';
         chat.append('system', `${status}: ${savedSource.name}`);
         refreshProjectKnowledgeSummary().catch(err => console.warn('Source library refresh skipped:', err.message));
+    }
+
+    function renderSourceMemoryUsageCard(memory = {}) {
+        const sources = (memory.sources || []).slice(0, 3);
+        const handoffs = (memory.handoffs || []).slice(-3);
+        const divergences = (memory.acceptedDivergences || []).slice(0, 2);
+        const continuity = (memory.continuity || []).slice(0, 2);
+        const rows = [];
+        if (sources.length) {
+            rows.push(`<li><strong>Sources</strong><span>${sources.map(source => escapeHtml(source.name || 'Untitled source')).join(', ')}</span></li>`);
+        }
+        if (handoffs.length) {
+            rows.push(`<li><strong>Handoffs</strong><span>${handoffs.map(handoff => escapeHtml(handoff.stageName || 'Stage handoff')).join(', ')}</span></li>`);
+        }
+        if (divergences.length) {
+            rows.push(`<li><strong>Divergences</strong><span>${divergences.map(escapeHtml).join('; ')}</span></li>`);
+        }
+        if (continuity.length) {
+            rows.push(`<li><strong>Continuity</strong><span>${continuity.map(escapeHtml).join('; ')}</span></li>`);
+        }
+        if (!rows.length && memory.summary) {
+            rows.push(`<li><strong>Snapshot</strong><span>${escapeHtml(memory.summary)}</span></li>`);
+        }
+        if (!rows.length) return '';
+        return `
+            <div class="source-memory-card">
+                <div class="source-memory-card-header">
+                    <strong>Using project memory</strong>
+                    <span>${escapeHtml(memory.stageName || '')}</span>
+                </div>
+                <ul>${rows.join('')}</ul>
+            </div>
+        `;
+    }
+
+    function noteSourceMemoryUsed(chat, memory) {
+        if (!chat || !memory) return;
+        const html = renderSourceMemoryUsageCard(memory);
+        if (!html) return;
+        const key = memory.key || JSON.stringify(memory);
+        chat._sourceMemoryNoticeKeys = chat._sourceMemoryNoticeKeys || new Set();
+        if (chat._sourceMemoryNoticeKeys.has(key)) return;
+        chat._sourceMemoryNoticeKeys.add(key);
+        chat.append('system', '', { html });
+    }
+
+    function isMemoryRecallPrompt(text = '') {
+        return /\b(what do (you|we) (already )?(remember|know)|what have we (already )?(established|decided)|what is in project memory|what's in project memory|what do you have in memory|what do you remember)\b/i.test(String(text || ''));
     }
 
     function sourceAuditHasActionableItems(audit = {}) {
@@ -6294,6 +6344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSourceGenerationResult(stageId, payload = {}, opts = {}) {
         const warnings = normalizeSourceWarnings(payload?.sourceWarnings);
+        if (opts.chat) noteSourceMemoryUsed(opts.chat, payload?.sourceMemory);
         if (warnings.length) {
             showSourceWarningBanner(stageId, warnings);
             if (opts.chat) {
@@ -7140,6 +7191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 chat.setThinking(false);
                 noteSavedSource(chat, data.savedSource);
+                noteSourceMemoryUsed(chat, data.sourceMemory);
                 if (normalizeSourceWarnings(data.sourceWarnings).length) {
                     await handleSourceGenerationResult(stageId, data, { chat, postGenerationCheck: false });
                 }
@@ -8377,7 +8429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sendBtnId: 'btnChatSend',
                 attachInputId: 'stage10-chat-attach',
                 onSend: async (text, history, attachment) => {
-                    if (stage10CurrentScene !== null) {
+                    if (stage10CurrentScene !== null && !isMemoryRecallPrompt(text)) {
                         // Scene selected: feedback for that scene
                         const priorities = stage10GetPriorityList();
                         const task = priorities[stage10State.priority_idx]?.task || '';
@@ -8397,6 +8449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         noteSavedSource(stage10Chat, data.savedSource);
+                        noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
                         await handleSourceGenerationResult(10, data, { chat: stage10Chat });
                         stage10Pending[stage10CurrentScene] = data.proposed_text;
                         resetStage10ApproveBtn();
@@ -8416,6 +8469,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!res.ok) throw new Error((await res.json()).error);
                         const data = await res.json();
                         noteSavedSource(stage10Chat, data.savedSource);
+                        noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
                         if (normalizeSourceWarnings(data.sourceWarnings).length) {
                             await handleSourceGenerationResult(10, data, { chat: stage10Chat, postGenerationCheck: false });
                         }

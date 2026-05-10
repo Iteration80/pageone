@@ -1150,7 +1150,149 @@ Preserve concrete facts from project knowledge and source documents. If existing
 }
 
 function sourceWarningsForResponse(packet = {}) {
+    if (!packet) return undefined;
     return Array.isArray(packet.warnings) && packet.warnings.length ? packet.warnings : undefined;
+}
+
+function compactMemoryLabels(items = [], maxItems = 4) {
+    const seen = new Set();
+    const output = [];
+    for (const item of items) {
+        const label = compactText(formatKnowledgeItem(item), 180);
+        const key = memoryDedupeKey(label);
+        if (!label || seen.has(key)) continue;
+        seen.add(key);
+        output.push(label);
+        if (output.length >= maxItems) break;
+    }
+    return output;
+}
+
+function sourceMemoryForResponse(packet = {}) {
+    const plan = packet?.sourceUsePlan;
+    if (!plan?.hasKnowledge) return undefined;
+
+    const sources = (plan.sourceReferences || []).slice(0, 3).map(ref => ({
+        sourceId: ref.sourceId || null,
+        name: ref.name || 'Untitled source',
+        type: ref.type || 'source',
+        label: ref.label || ref.name || 'Source'
+    }));
+    const handoffs = Array.isArray(plan.memorySnapshot?.stageHandoffs)
+        ? plan.memorySnapshot.stageHandoffs.slice(-4).map(item => ({
+            stageId: item.stageId || null,
+            stageName: item.stageName || (item.stageId ? `Stage ${item.stageId}` : 'Stage handoff'),
+            summary: compactText(formatKnowledgeItem(item.summary || item), 180)
+        })).filter(item => item.summary)
+        : [];
+    const acceptedDivergences = compactMemoryLabels(plan.acceptedDivergences || plan.memorySnapshot?.acceptedDivergences || [], 3);
+    const continuity = compactMemoryLabels(plan.continuityWatchlist || plan.memorySnapshot?.continuityWatchlist || [], 3);
+    const summary = compactText(plan.memorySnapshot?.summary || plan.bibleSummary || '', 280);
+
+    if (!sources.length && !handoffs.length && !acceptedDivergences.length && !continuity.length && !summary) {
+        return undefined;
+    }
+
+    const key = [
+        plan.stageId || packet.stageId || '',
+        sources.map(source => source.sourceId || source.name).join(','),
+        handoffs.map(handoff => `${handoff.stageId || handoff.stageName}:${handoff.summary}`).join(','),
+        acceptedDivergences.join(','),
+        continuity.join(',')
+    ].join('|');
+
+    return {
+        stageId: plan.stageId || packet.stageId || null,
+        stageName: plan.stageName || packet.stageName || '',
+        sources,
+        handoffs,
+        acceptedDivergences,
+        continuity,
+        summary,
+        key
+    };
+}
+
+function sourceResponseExtras(packet = {}) {
+    if (!packet) return {};
+    const warnings = sourceWarningsForResponse(packet);
+    const memory = sourceMemoryForResponse(packet);
+    return {
+        ...(warnings && { sourceWarnings: warnings }),
+        ...(memory && { sourceMemory: memory })
+    };
+}
+
+function memoryUsageForStage(projectData, stageId, stageData = '', userMessage = '') {
+    if (!projectData) return undefined;
+    const numericStageId = Number(stageId);
+    const plan = buildSourceUsePlan(projectData, numericStageId, `${userMessage || ''}\n${stageData || ''}`);
+    return sourceMemoryForResponse({
+        stageId: numericStageId,
+        stageName: STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`,
+        sourceUsePlan: plan
+    });
+}
+
+function isMemoryRecallRequest(message = '') {
+    const text = String(message || '').toLowerCase();
+    return /\b(what do (you|we) (already )?(remember|know)|what have we (already )?(established|decided)|what is in project memory|what's in project memory|what do you have in memory|what do you remember)\b/.test(text);
+}
+
+function buildMemoryRecallResponse(projectData, { stageId, stageName = '', userMessage = '', stageData = '' } = {}) {
+    if (!isMemoryRecallRequest(userMessage)) return null;
+
+    const numericStageId = Number(stageId);
+    const plan = buildSourceUsePlan(projectData, numericStageId, `${userMessage}\n${stageData}`);
+    const memory = sourceMemoryForResponse({
+        stageId: numericStageId,
+        stageName: stageName || STAGE_NAMES[numericStageId] || `Stage ${numericStageId}`,
+        sourceUsePlan: plan
+    });
+
+    if (!memory) {
+        return {
+            message: 'I do not see saved project memory for this stage yet. Upload source material or approve a stage handoff and I can carry it forward.',
+            sourceMemory: undefined
+        };
+    }
+
+    const lines = [`Here is the compact project memory I have for ${memory.stageName || `Stage ${numericStageId}`}:`];
+    if (memory.sources.length) {
+        lines.push('', 'Sources I can use:');
+        for (const source of memory.sources) {
+            lines.push(`- ${source.name}`);
+        }
+    }
+    if (memory.handoffs.length) {
+        lines.push('', 'Stage handoffs:');
+        for (const handoff of memory.handoffs) {
+            lines.push(`- ${handoff.stageName}: ${handoff.summary}`);
+        }
+    }
+    if (memory.continuity.length) {
+        lines.push('', 'Continuity to preserve:');
+        for (const item of memory.continuity) lines.push(`- ${item}`);
+    }
+    if (memory.acceptedDivergences.length) {
+        lines.push('', 'Accepted divergences:');
+        for (const item of memory.acceptedDivergences) lines.push(`- ${item}`);
+    }
+    lines.push('', 'I will use source references as canon, accepted divergences as approved departures, and compact handoffs as downstream story state.');
+
+    return {
+        message: lines.join('\n'),
+        sourceMemory: memory
+    };
+}
+
+async function persistStageConversation(filePath, projectData, stageKey, messages, assistantMessage) {
+    const convos = projectData.data.conversations || {};
+    const updated = [...messages, { role: 'assistant', content: assistantMessage }];
+    const MAX_HISTORY = 100;
+    convos[stageKey] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
+    projectData.data.conversations = convos;
+    await writeJSONQueued(filePath, projectData);
 }
 
 function recordSourceGenerationUsage(projectData, packet, stageData = '', reason = 'generation') {
@@ -2264,7 +2406,7 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
             await writeJSONQueued(getProjectFilePath(projectId), projectData);
             trackUsage(projectId, usage);
         }
-        res.json({ result, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ result, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing agent:", error);
         res.status(500).json({ error: "Failed to generate pitch" });
@@ -2305,7 +2447,7 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
             await writeJSONQueued(getProjectFilePath(projectId), projectData);
             trackUsage(projectId, usage);
         }
-        res.json({ result, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ result, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing refine agent:", error);
         res.status(500).json({ error: "Failed to refine pitch" });
@@ -2351,7 +2493,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: outlineData, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ result: outlineData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Outline Gen Error:', error);
         res.status(500).json({ error: "Failed to generate outline" });
@@ -2400,7 +2542,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: characterData, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ result: characterData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         res.status(500).json({ error: "Failed to generate characters" });
@@ -2462,7 +2604,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        send({ type: 'complete', result: beatsResult, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        send({ type: 'complete', result: beatsResult, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate beats' });
@@ -2529,7 +2671,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: treatmentResult, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        send({ type: 'complete', result: treatmentResult, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -2596,7 +2738,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: allSequences, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        send({ type: 'complete', result: allSequences, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate scene blueprint' });
@@ -2639,7 +2781,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: updatedBlueprint, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ result: updatedBlueprint, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
         res.status(500).json({ error: "Failed to revise scene blueprint" });
@@ -2717,7 +2859,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), sourceWarnings: sourceWarningsForResponse(sourcePacket) };
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -2795,7 +2937,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), sourceWarnings: sourceWarningsForResponse(sourcePacket) };
+        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -3018,6 +3160,26 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             stageName,
             stageData
         });
+        const sourceMemory = memoryUsageForStage(projectData, stageId, stageData, lastUserMessage);
+        const memoryRecall = !isInit ? buildMemoryRecallResponse(projectData, {
+            stageId,
+            stageName,
+            userMessage: lastUserMessage,
+            stageData
+        }) : null;
+        if (memoryRecall) {
+            const result = {
+                message: memoryRecall.message,
+                suggest_plan: false,
+                execute_immediately: false
+            };
+            await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, result.message);
+            return res.json({
+                ...result,
+                ...(savedSource && { savedSource }),
+                ...((memoryRecall.sourceMemory || sourceMemory) && { sourceMemory: memoryRecall.sourceMemory || sourceMemory })
+            });
+        }
 
         let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}\n\n---\n\n`;
         if (knowledgeContext) conversationPrompt += `${knowledgeContext}\n\n---\n\n`;
@@ -3125,20 +3287,13 @@ ${brainstormSop}`
         // Skip persistence for init messages — they are ephemeral and regenerated on each visit
         if (!isInit) {
             try {
-                const stageKey = `stage${stageId}`;
-                const convos = projectData.data.conversations || {};
-                const updated = [...messages, { role: 'assistant', content: result.message }];
-                // Cap conversation history to prevent unbounded memory growth
-                const MAX_HISTORY = 100;
-                convos[stageKey] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
-                projectData.data.conversations = convos;
-                await writeJSONQueued(filePath, projectData);
+                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, result.message);
             } catch (saveErr) {
                 console.error('Failed to persist conversation:', saveErr.message);
             }
         }
 
-        res.json(savedSource ? { ...result, savedSource } : result);
+        res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
         console.error('brainstorm error:', error.message);
         res.status(500).json({ error: 'Brainstorm request failed' });
@@ -3199,6 +3354,25 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
             stageName: STAGE_NAMES[10],
             stageData: fullScript
         });
+        const sourceMemory = memoryUsageForStage(projectData, 10, fullScript, lastUserMessage);
+        const memoryRecall = !isInit ? buildMemoryRecallResponse(projectData, {
+            stageId: 10,
+            stageName: STAGE_NAMES[10],
+            userMessage: lastUserMessage,
+            stageData: fullScript
+        }) : null;
+        if (memoryRecall) {
+            const result = {
+                message: memoryRecall.message,
+                suggest_plan: false
+            };
+            await persistStageConversation(filePath, projectData, 'stage9', messages, result.message);
+            return res.json({
+                ...result,
+                ...(savedSource && { savedSource }),
+                ...((memoryRecall.sourceMemory || sourceMemory) && { sourceMemory: memoryRecall.sourceMemory || sourceMemory })
+            });
+        }
 
         // Build conversation as a single prompt string
         let conversationPrompt = contextBlock + '\n\n---\n\n';
@@ -3275,18 +3449,13 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         // Persist stage 10 conversation (data key stays stage9 — don't rename data keys)
         if (!isInit) {
             try {
-                const convos = projectData.data.conversations || {};
-                const updated = [...messages, { role: 'assistant', content: result.message }];
-                const MAX_HISTORY = 100;
-                convos['stage9'] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
-                projectData.data.conversations = convos;
-                await writeJSONQueued(filePath, projectData);
+                await persistStageConversation(filePath, projectData, 'stage9', messages, result.message);
             } catch (saveErr) {
                 console.error('Failed to persist rewrite conversation:', saveErr.message);
             }
         }
 
-        res.json(savedSource ? { ...result, savedSource } : result);
+        res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
         console.error('brainstorm-rewrite error:', error.message);
         res.status(500).json({ error: 'Brainstorm rewrite request failed' });
@@ -3644,7 +3813,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             stageKey,
             result,
             sourceFixSummary: summarizeAuditForDecision(audit),
-            sourceWarnings: sourceWarningsForResponse(sourcePacket),
+            ...sourceResponseExtras(sourcePacket),
             sourceReadiness,
             knowledge: knowledgePayloadForClient(knowledge, projectData)
         });
@@ -3772,7 +3941,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(plan, null, 2), 'rewrite_plan');
         await writeJSONQueued(filePath, projectData);
         if (response.usage) trackUsage(projectId, response.usage);
-        res.json({ ...plan, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ ...plan, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
         res.status(500).json({ error: 'Failed to generate rewrite plan' });
@@ -3841,7 +4010,7 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usages);
 
-        res.json({ scenes, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ scenes, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-for-priority error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scenes for priority' });
@@ -3891,7 +4060,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             const deletionPacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`, { userMessage: priorityTask });
             recordSourceGenerationUsage(projectData, deletionPacket, '', 'single_scene_delete');
             await writeJSONQueued(filePath, projectData);
-            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, sourceWarnings: sourceWarningsForResponse(deletionPacket) });
+            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, ...sourceResponseExtras(deletionPacket) });
         }
 
         const { styleContent, referenceContent } = await loadProjectStyle(projectData);
@@ -3931,7 +4100,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         await writeJSONQueued(filePath, projectData);
 
         trackUsage(projectId, usage);
-        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene' });
@@ -4004,7 +4173,7 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         recordSourceGenerationUsage(projectData, sourcePacket, proposed_text, 'rewrite_feedback');
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
-        res.json({ proposed_text, ...(savedSource && { savedSource }), sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ proposed_text, ...(savedSource && { savedSource }), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
@@ -4095,7 +4264,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
             if (projectId) trackUsage(projectId, usage);
         }
 
-        res.json({ slug, content: styleContent, meta, sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ slug, content: styleContent, meta, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate style' });
@@ -4175,7 +4344,7 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         recordSourceGenerationUsage(projectData, previewPacket, response.text, 'style_preview');
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, response.usage);
-        res.json({ sceneNumber: scene.scene_number, previewText: response.text, sourceWarnings: sourceWarningsForResponse(previewPacket) });
+        res.json({ sceneNumber: scene.scene_number, previewText: response.text, ...sourceResponseExtras(previewPacket) });
     } catch (error) {
         console.error('preview-style-scene error:', error.message);
         res.status(500).json({ error: 'Failed to preview style scene' });
@@ -4335,7 +4504,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         }
 
         const { meta } = parseStyleFile(directive);
-        res.json({ slug, directive, reference, meta, tier: 'trained', sourceWarnings: sourceWarningsForResponse(sourcePacket) });
+        res.json({ slug, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate trained style' });
@@ -5464,6 +5633,10 @@ module.exports = {
     compactAuditForKnowledge,
     compactProjectKnowledge,
     formatSourceUsePlan,
+    sourceResponseExtras,
+    sourceMemoryForResponse,
+    isMemoryRecallRequest,
+    buildMemoryRecallResponse,
     removeKnowledgeSource,
     persistChatAttachmentToKnowledge,
     recordStageSourceAudit,

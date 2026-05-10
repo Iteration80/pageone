@@ -1342,6 +1342,53 @@ textarea.synopsis-input {
     color: #94a3b8;
     font-size: 0.72rem;
 }
+.source-memory-card {
+    width: min(640px, 100%);
+    background: #0b1220;
+    border: 1px solid rgba(45, 212, 191, 0.28);
+    border-radius: 8px;
+    padding: 9px 11px;
+    color: #cbd5e1;
+    font-style: normal;
+    text-align: left;
+}
+.source-memory-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.source-memory-card-header strong {
+    color: #99f6e4;
+    font-size: 0.76rem;
+}
+.source-memory-card-header span {
+    color: #64748b;
+    font-size: 0.68rem;
+}
+.source-memory-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.source-memory-card li {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 8px;
+    margin: 4px 0;
+    line-height: 1.35;
+}
+.source-memory-card li strong {
+    color: #5eead4;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.source-memory-card li span {
+    color: #cbd5e1;
+    font-size: 0.72rem;
+}
 .source-post-check-card {
     width: min(720px, 100%);
     background: #0f172a;
