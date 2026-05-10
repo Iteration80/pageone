@@ -6366,13 +6366,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function noteSourceMemoryUsed(chat, memory) {
         if (!chat || !memory) return;
-        const html = renderSourceMemoryUsageCard(memory);
-        if (!html) return;
         const key = memory.key || JSON.stringify(memory);
         chat._sourceMemoryNoticeKeys = chat._sourceMemoryNoticeKeys || new Set();
         if (chat._sourceMemoryNoticeKeys.has(key)) return;
         chat._sourceMemoryNoticeKeys.add(key);
-        chat.append('system', '', { html });
     }
 
     function isMemoryRecallPrompt(text = '') {

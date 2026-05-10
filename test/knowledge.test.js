@@ -395,9 +395,16 @@ test('frontend restores Stage 10 rewrite chat from persisted stage9 conversation
     assert.match(appJs, /savedStage10Convo\s*=\s*window\.currentProjectData\?\.conversations\?\.stage9/);
     assert.match(appJs, /stage10Chat\.restoreHistory\(savedStage10Convo\)/);
     assert.match(appJs, /Saved to project knowledge for reuse across stages/);
-    assert.match(appJs, /Using project memory/);
     assert.match(appJs, /noteSourceMemoryUsed\(chat, data\.sourceMemory\)/);
     assert.match(appJs, /stage10CurrentScene !== null && !isMemoryRecallPrompt\(text\)/);
+});
+
+test('frontend keeps project memory usage under the hood instead of posting chat cards', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const match = appJs.match(/function noteSourceMemoryUsed\(chat, memory\) \{([\s\S]*?)\n    \}/);
+    assert.ok(match, 'noteSourceMemoryUsed function should exist');
+    assert.doesNotMatch(match[1], /chat\.append/);
+    assert.match(appJs, /Using project memory/);
 });
 
 test('frontend project knowledge inspector exposes memory trust controls', () => {
