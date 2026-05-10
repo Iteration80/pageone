@@ -195,8 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const sourceLibraryMeta = document.getElementById('sourceLibraryMeta');
     const sourceBiblePanel = document.getElementById('sourceBiblePanel');
     const sourceLibraryStatus = document.getElementById('sourceLibraryStatus');
+    const knowledgeDiagnosticsPanel = document.getElementById('knowledgeDiagnosticsPanel');
+    const knowledgeReviewPanel = document.getElementById('knowledgeReviewPanel');
     const sourceLibraryList = document.getElementById('sourceLibraryList');
     const btnRebuildSourceBible = document.getElementById('btnRebuildSourceBible');
+    const btnKnowledgeDiagnostics = document.getElementById('btnKnowledgeDiagnostics');
     const btnSourceLibraryClose = document.getElementById('btnSourceLibraryClose');
 
     // Legacy / Convenience references for existing stages
@@ -1759,11 +1762,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target === sourceLibraryModal) sourceLibraryModal.classList.add('hidden');
     });
     btnRebuildSourceBible?.addEventListener('click', () => rebuildSourceBible());
+    btnKnowledgeDiagnostics?.addEventListener('click', () => loadKnowledgeDiagnostics());
     sourceLibraryList?.addEventListener('click', (event) => {
         const btn = event.target.closest('.source-library-delete');
         if (!btn) return;
         if (!confirm('Delete this source from project knowledge?')) return;
         deleteSource(btn.dataset.sourceId);
+    });
+    knowledgeReviewPanel?.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-action="save-knowledge-review"]');
+        if (!btn) return;
+        saveKnowledgeReview(btn);
     });
 
     // --- Version History Logic ---
@@ -3158,12 +3167,89 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderKnowledgeDiagnostics(diagnostics = {}) {
+        if (!knowledgeDiagnosticsPanel) return;
+        const issues = diagnostics.issues || [];
+        const counts = diagnostics.counts || {};
+        const countLine = [
+            `${counts.sources || 0} sources`,
+            `${counts.handoffs || 0} handoffs`,
+            `${counts.continuityItems || 0} continuity`,
+            `${counts.acceptedDivergences || 0} divergences`
+        ].join(' · ');
+        knowledgeDiagnosticsPanel.innerHTML = `
+            <div class="knowledge-panel-header">
+                <strong>Memory Health</strong>
+                <span>${escapeHtml(countLine)}</span>
+            </div>
+            ${issues.length ? `
+                <div class="knowledge-diagnostics-list">
+                    ${issues.slice(0, 10).map(issue => `
+                        <div class="knowledge-diagnostic-item knowledge-diagnostic-${escapeHtml(issue.severity || 'info')}">
+                            <strong>${escapeHtml(issue.message || '')}</strong>
+                            ${issue.recommendedAction ? `<p>${escapeHtml(issue.recommendedAction)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '<p class="knowledge-empty">No memory health issues found.</p>'}
+        `;
+    }
+
+    function renderKnowledgeReview(knowledge = {}) {
+        if (!knowledgeReviewPanel) return;
+        const handoffs = knowledge.stage_handoffs || {};
+        const handoffRows = Object.entries(handoffs).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([key, value]) => `
+            <label>${escapeHtml(key.replace('stage', 'Stage '))}</label>
+            <textarea class="modal-input knowledge-handoff-input" data-handoff-key="${escapeHtml(key)}" rows="3">${escapeHtml(value?.summary || value || '')}</textarea>
+        `).join('');
+        const continuityText = (knowledge.continuity_watchlist || []).map(formatKnowledgeItemForUi).join('\n');
+        const notesText = (knowledge.source_bible?.curated_notes || []).join('\n');
+        const decisions = (knowledge.decision_log || []).slice(-6).reverse();
+        const divergences = (knowledge.accepted_divergences || []).slice(-6).reverse();
+
+        knowledgeReviewPanel.innerHTML = `
+            <div class="knowledge-panel-header">
+                <strong>Project Memory Review</strong>
+                <button type="button" class="secondary-btn" data-action="save-knowledge-review">Save Memory Edits</button>
+            </div>
+            <div class="knowledge-review-grid">
+                <section>
+                    <h4>Stage Handoffs</h4>
+                    ${handoffRows || '<p class="knowledge-empty">No stage handoffs saved yet.</p>'}
+                </section>
+                <section>
+                    <h4>Continuity Watchlist</h4>
+                    <textarea class="modal-input" id="knowledgeContinuityEditor" rows="7" placeholder="One item per line">${escapeHtml(continuityText)}</textarea>
+                    <h4>Project Source Notes</h4>
+                    <textarea class="modal-input" id="knowledgeNotesEditor" rows="7" placeholder="One note per line">${escapeHtml(notesText)}</textarea>
+                </section>
+            </div>
+            <div class="knowledge-readonly-grid">
+                <section>
+                    <h4>Recent Decisions</h4>
+                    ${decisions.length ? `<ul>${decisions.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No decisions logged yet.</p>'}
+                </section>
+                <section>
+                    <h4>Accepted Divergences</h4>
+                    ${divergences.length ? `<ul>${divergences.map(item => `<li>${escapeHtml(formatKnowledgeItemForUi(item))}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No accepted divergences yet.</p>'}
+                </section>
+            </div>
+        `;
+    }
+
+    function formatKnowledgeItemForUi(item) {
+        if (typeof item === 'string') return item;
+        if (!item || typeof item !== 'object') return '';
+        return item.summary || item.decision || item.note || item.text || JSON.stringify(item);
+    }
+
     function renderSourceLibrary(knowledge = {}) {
         const sources = knowledge.source_registry || [];
         if (sourceLibraryMeta) {
             sourceLibraryMeta.textContent = `${formatCountLabel(sources.length, 'source', 'sources')} saved`;
         }
         renderSourceBiblePanel(knowledge.source_bible || {});
+        renderKnowledgeReview(knowledge);
         if (!sourceLibraryList) return;
         if (!sources.length) {
             sourceLibraryList.innerHTML = '<div class="source-library-empty">No saved source documents yet.</div>';
@@ -3195,6 +3281,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
             renderSourceLibrary(data.knowledge);
+            await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('');
         } catch (err) {
             setSourceLibraryStatus('Knowledge load failed: ' + err.message, true);
@@ -3222,6 +3309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
             renderSourceLibrary(data.knowledge);
+            await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('Source bible rebuilt.');
         } catch (err) {
             setSourceLibraryStatus('Rebuild failed: ' + err.message, true);
@@ -3242,9 +3330,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
             renderSourceLibrary(data.knowledge);
+            await loadKnowledgeDiagnostics();
             setSourceLibraryStatus('Source deleted.');
         } catch (err) {
             setSourceLibraryStatus('Delete failed: ' + err.message, true);
+        }
+    }
+
+    async function loadKnowledgeDiagnostics() {
+        if (!activeProjectId || !knowledgeDiagnosticsPanel) return;
+        knowledgeDiagnosticsPanel.innerHTML = '<p class="knowledge-empty">Inspecting project memory...</p>';
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/diagnostics`);
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            renderKnowledgeDiagnostics(data.diagnostics || {});
+        } catch (err) {
+            knowledgeDiagnosticsPanel.innerHTML = `<p class="source-library-status-error">Diagnostics failed: ${escapeHtml(err.message)}</p>`;
+        }
+    }
+
+    async function saveKnowledgeReview(button) {
+        if (!activeProjectId) return;
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Saving...';
+        const linesFrom = (selector) => (document.querySelector(selector)?.value || '')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+        const stage_handoffs = {};
+        document.querySelectorAll('.knowledge-handoff-input').forEach(input => {
+            stage_handoffs[input.dataset.handoffKey] = input.value.trim();
+        });
+        try {
+            const res = await fetch(`/api/projects/${activeProjectId}/knowledge/review`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    stage_handoffs,
+                    continuity_watchlist: linesFrom('#knowledgeContinuityEditor'),
+                    curated_notes: linesFrom('#knowledgeNotesEditor')
+                })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
+            const data = await res.json();
+            if (window.currentProjectData) window.currentProjectData.knowledge = data.knowledge;
+            renderSourceLibrary(data.knowledge);
+            renderKnowledgeDiagnostics(data.diagnostics || {});
+            setSourceLibraryStatus('Project memory updated.');
+        } catch (err) {
+            setSourceLibraryStatus('Memory update failed: ' + err.message, true);
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
         }
     }
 
@@ -5846,12 +5985,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<p class="source-audit-empty">${escapeHtml(emptyText)}</p>`;
             return `<section><h4>${escapeHtml(title)}</h4>${body}</section>`;
         };
+        const sourceRefs = (audit.source_references || []).slice(0, 5);
         return `
             <div class="source-audit-card">
                 <div class="source-audit-card-header">
                     <strong>Source Alignment</strong>
                     <span>${escapeHtml(audit.stageName || `Stage ${audit.stageId || ''}`)} - ${audit.sourceCount || 0} source${audit.sourceCount === 1 ? '' : 's'}</span>
                 </div>
+                ${sourceRefs.length ? `
+                    <section>
+                        <h4>Sources Consulted</h4>
+                        <div class="source-audit-references">
+                            ${sourceRefs.map(ref => `
+                                <div class="source-audit-reference">
+                                    <strong>${escapeHtml(ref.name || 'Source')}</strong>
+                                    <span>${escapeHtml(ref.sourceId || ref.label || '')}</span>
+                                    ${ref.excerpt ? `<p>${escapeHtml(ref.excerpt)}</p>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
+                ` : ''}
                 ${renderList('Aligned', audit.aligned_items, 'No clear source alignments found yet.')}
                 ${renderList('Possible Mismatches', audit.possible_source_mismatches, 'No source mismatches flagged.')}
                 ${renderList('Missing Source Elements', audit.missing_source_elements, 'No missing source elements flagged.')}

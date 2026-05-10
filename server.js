@@ -554,6 +554,17 @@ function relevantSourceSegments(knowledge, query, maxSegments = 5) {
     return scored.sort((a, b) => b.score - a.score).slice(0, maxSegments);
 }
 
+function sourceReferenceForSegment(segment) {
+    const source = segment?.source || {};
+    return {
+        sourceId: source.id || null,
+        name: source.name || 'Untitled source',
+        type: source.type || 'source_material',
+        label: segment?.label || source.name || 'Source',
+        excerpt: excerptAroundKeywords(segment?.text || source.summary || '', segment?.keywords || [], 360)
+    };
+}
+
 function formatKnowledgeItem(item) {
     if (typeof item === 'string') return item;
     if (!item || typeof item !== 'object') return String(item || '');
@@ -719,6 +730,100 @@ function buildFallbackStageCuration(stageId, stageName, stageData) {
         source_bible_notes: [],
         decision_summary: `Approved ${stageName || `Stage ${stageId}`} and saved a downstream handoff.`
     }, { stageId, stageName, stageData });
+}
+
+function stageHasApprovedOutput(projectData, stageId) {
+    const data = projectData?.data || {};
+    switch (Number(stageId)) {
+        case 1: return !!data.stage1_pitch?.pitch;
+        case 2: return !!data.stage2_outline?.outline?.length;
+        case 3: return !!data.stage3_characters?.characters?.length;
+        case 4: return !!data.stage4_beats;
+        case 5: return !!data.stage5_treatment;
+        case 6: return !!data.stage6_scenes?.length;
+        case 7: return !!data.stage7_style;
+        case 8: return !!data.stage7_approved;
+        case 9: return !!data.stage8_coverage;
+        case 10: return !!data.stage9_rewrites?.approved;
+        default: return false;
+    }
+}
+
+function latestVersionForStage(projectData, stageId) {
+    const history = projectData?.data?.versionHistory || [];
+    return history
+        .filter(entry => Number(entry.stage) === Number(stageId))
+        .sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0))[0] || null;
+}
+
+function buildKnowledgeDiagnostics(projectData) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const issues = [];
+    const add = (severity, kind, message, recommendedAction = '') => {
+        issues.push({ severity, kind, message, recommendedAction });
+    };
+
+    const sourceCount = knowledge.source_registry.length;
+    if (!sourceCount) {
+        add('info', 'no_sources', 'No source documents are saved yet.', 'Upload source material through any stage chat.');
+    }
+    if (sourceCount && !sourceBibleSummary(knowledge)) {
+        add('warning', 'empty_source_bible', 'Source documents exist, but the source bible is empty.', 'Open Project Knowledge and rebuild the source bible.');
+    }
+
+    for (const source of knowledge.source_registry) {
+        if (source.truncated) {
+            add('info', 'truncated_source', `${source.name || source.id} was stored in limited chunks.`, 'Review whether the uploaded source needs a shorter summary or focused excerpt.');
+        }
+        if ((source.storage === 'chunks' || source.chunks) && !Array.isArray(source.chunks)) {
+            add('warning', 'source_chunk_shape', `${source.name || source.id} is marked as chunked but has no chunk list.`, 'Re-upload or remove this source.');
+        }
+    }
+
+    for (const stageId of [1, 2, 3, 4, 5, 6, 7, 8, 10]) {
+        if (!stageHasApprovedOutput(projectData, stageId)) continue;
+        const key = `stage${stageId}`;
+        const handoff = knowledge.stage_handoffs[key];
+        if (!handoff) {
+            add('warning', 'missing_stage_handoff', `${STAGE_NAMES[stageId]} has approved output but no memory handoff.`, 'Approve the stage again or save a handoff in Project Knowledge.');
+            continue;
+        }
+        const latest = latestVersionForStage(projectData, stageId);
+        if (latest?.approvedAt && handoff?.at && new Date(handoff.at) < new Date(latest.approvedAt)) {
+            add('info', 'stale_stage_handoff', `${STAGE_NAMES[stageId]} handoff is older than the latest approved version.`, 'Review and refresh this stage handoff.');
+        }
+    }
+
+    const divergenceSummaries = new Map();
+    for (const divergence of knowledge.accepted_divergences || []) {
+        const key = String(divergence.summary || '').toLowerCase().trim();
+        if (!key) {
+            add('info', 'blank_divergence', 'An accepted divergence has no summary.', 'Edit or remove the divergence from project memory.');
+            continue;
+        }
+        divergenceSummaries.set(key, (divergenceSummaries.get(key) || 0) + 1);
+        if (!divergence.audit) {
+            add('info', 'divergence_without_audit', `Accepted divergence lacks audit detail: ${compactText(divergence.summary, 120)}`, 'Keep it if intentional, or re-run a source check for better provenance.');
+        }
+    }
+    for (const [summary, count] of divergenceSummaries.entries()) {
+        if (count > 1) {
+            add('info', 'duplicate_divergence', `Accepted divergence appears ${count} times: ${compactText(summary, 120)}`, 'Consolidate duplicate divergences during memory review.');
+        }
+    }
+
+    return {
+        generatedAt: new Date().toISOString(),
+        counts: {
+            sources: sourceCount,
+            handoffs: Object.keys(knowledge.stage_handoffs || {}).length,
+            continuityItems: (knowledge.continuity_watchlist || []).length,
+            decisions: (knowledge.decision_log || []).length,
+            acceptedDivergences: (knowledge.accepted_divergences || []).length,
+            sourceBibleNotes: (knowledge.source_bible.curated_notes || []).length
+        },
+        issues
+    };
 }
 
 function buildSourceBiblePrompt(knowledge) {
@@ -1979,6 +2084,11 @@ app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => 
             stageData,
             maxChars: 18_000
         });
+        const auditReferences = relevantSourceSegments(
+            knowledge,
+            `Audit Stage ${numericStageId} ${stageName}\n${compactText(stageData, 8_000)}`,
+            6
+        ).map(sourceReferenceForSegment);
         const auditSchema = {
             type: 'object',
             properties: {
@@ -2002,6 +2112,7 @@ ${compactText(stageData, 45_000)}
 Compare the current stage output against the persistent source material above.
 Be conservative: only flag a mismatch when the source context gives a concrete reason.
 Do not flag a conflict that is already covered by an accepted source divergence in project memory.
+When possible, include the source document name or id in each mismatch, missing element, or recommended fix.
 Return concise, actionable findings.`;
 
         const modelCfg = getModelConfig(numericStageId);
@@ -2026,6 +2137,7 @@ Return concise, actionable findings.`;
             sourceCount,
             acceptedDivergenceCount,
             checkedAt: new Date().toISOString(),
+            source_references: auditReferences,
             aligned_items: audit.aligned_items || [],
             possible_source_mismatches: audit.possible_source_mismatches || [],
             missing_source_elements: audit.missing_source_elements || [],
@@ -3325,6 +3437,80 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
     }
 });
 
+app.get('/api/projects/:id/knowledge/diagnostics', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        const projectData = JSON.parse(content);
+        res.json({ diagnostics: buildKnowledgeDiagnostics(projectData) });
+    } catch (error) {
+        console.error('knowledge diagnostics error:', error.message);
+        res.status(500).json({ error: 'Failed to inspect project knowledge' });
+    }
+});
+
+app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+
+        const { continuity_watchlist, curated_notes, stage_handoffs } = req.body || {};
+        const updatedProject = await updateProjectJSON(id, (projectData) => {
+            const knowledge = ensureProjectKnowledge(projectData);
+            const now = new Date().toISOString();
+
+            if (Array.isArray(continuity_watchlist)) {
+                knowledge.continuity_watchlist = continuity_watchlist
+                    .map(item => compactText(item, 600))
+                    .filter(Boolean)
+                    .slice(-80);
+            }
+            if (Array.isArray(curated_notes)) {
+                knowledge.source_bible.curated_notes = curated_notes
+                    .map(item => compactText(item, 600))
+                    .filter(Boolean)
+                    .slice(-100);
+                knowledge.source_bible.updatedAt = now;
+            }
+            if (stage_handoffs && typeof stage_handoffs === 'object' && !Array.isArray(stage_handoffs)) {
+                const nextHandoffs = {};
+                for (const [key, value] of Object.entries(stage_handoffs)) {
+                    if (!/^stage(?:[1-9]|10)$/.test(key)) continue;
+                    const summary = typeof value === 'string' ? value : value?.summary;
+                    if (!summary || !String(summary).trim()) continue;
+                    const previous = knowledge.stage_handoffs[key] || {};
+                    nextHandoffs[key] = {
+                        ...previous,
+                        at: now,
+                        type: 'manual_memory_review',
+                        summary: compactText(summary, 1_200)
+                    };
+                }
+                knowledge.stage_handoffs = nextHandoffs;
+            }
+
+            boundedKnowledgePush(knowledge.decision_log, {
+                at: now,
+                type: 'project_memory_review_updated',
+                summary: 'Project memory was manually reviewed and updated.'
+            }, 120);
+            return projectData;
+        });
+
+        const knowledge = ensureProjectKnowledge(updatedProject);
+        res.json({
+            ok: true,
+            knowledge: knowledgePayloadForClient(knowledge),
+            diagnostics: buildKnowledgeDiagnostics(updatedProject)
+        });
+    } catch (error) {
+        console.error('knowledge review update error:', error.message);
+        res.status(500).json({ error: 'Failed to update project memory review' });
+    }
+});
+
 app.post('/api/projects/:id/knowledge/rebuild-source-bible', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { id } = req.params;
@@ -3574,7 +3760,7 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Startup checks ───────────────────────────────────────────────────────────
-(async () => {
+async function startServer() {
     await initDb();
     await loadSettings();
 
@@ -3590,4 +3776,23 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
     app.listen(PORT, () => {
         console.log(`Server listening on port ${PORT}`);
     });
-})();
+}
+
+if (require.main === module) {
+    startServer().catch(error => {
+        console.error('Startup failed:', error);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    app,
+    ensureProjectKnowledge,
+    buildKnowledgeContextBlock,
+    buildKnowledgeDiagnostics,
+    compactAuditForKnowledge,
+    sanitizeStageCurationProposal,
+    sourceBibleSummary,
+    stageDataOverrideToText,
+    startServer
+};
