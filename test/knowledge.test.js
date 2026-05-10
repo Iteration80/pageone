@@ -395,6 +395,16 @@ test('frontend restores Stage 10 rewrite chat from persisted stage9 conversation
     assert.match(appJs, /stage10CurrentScene !== null && !isMemoryRecallPrompt\(text\)/);
 });
 
+test('frontend project knowledge inspector exposes memory trust controls', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(appJs, /data-action="run-source-check"/);
+    assert.match(appJs, /Audit needs refresh because source material changed/);
+    assert.match(appJs, /knowledge-handoff-status/);
+    assert.match(appJs, /Missing handoff/);
+    assert.match(appJs, /Stale handoff/);
+    assert.match(appJs, /source-plan-ledger-invalidated/);
+});
+
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const project = {
         data: {

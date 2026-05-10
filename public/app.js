@@ -1862,6 +1862,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     knowledgeReviewPanel?.addEventListener('click', (event) => {
+        const sourceCheckBtn = event.target.closest('[data-action="run-source-check"]');
+        if (sourceCheckBtn) {
+            runSourceAudit(Number(sourceCheckBtn.dataset.stageId), sourceCheckBtn);
+            return;
+        }
+
         const btn = event.target.closest('[data-action="save-knowledge-review"]');
         if (!btn) return;
         saveKnowledgeReview(btn);
@@ -3324,25 +3330,187 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function stageHasMemoryHandoffOutput(data = window.currentProjectData || {}, stageId) {
+        const d = data?.data && !data.stage1_pitch ? data.data : (data || {});
+        switch (Number(stageId)) {
+            case 1: return !!d.stage1_pitch?.pitch;
+            case 2: return !!d.stage2_outline?.outline?.length;
+            case 3: return !!d.stage3_characters?.characters?.length;
+            case 4: return !!(d.stage4_beats || d.stage4_treatment);
+            case 5: return !!d.stage5_treatment;
+            case 6: return !!(d.stage6_scenes && (
+                d.stage6_scenes.length > 0
+                || d.stage6_scenes.sequences?.length > 0
+                || d.stage6_scenes.scenes?.length > 0
+            ));
+            case 7: return !!d.stage7_style;
+            case 8: return !!d.stage7_approved;
+            case 9: return !!d.stage8_coverage;
+            case 10: return !!d.stage9_rewrites?.approved;
+            default: return false;
+        }
+    }
+
+    function latestVersionForStageUi(data = window.currentProjectData || {}, stageId) {
+        const d = data?.data && !data.versionHistory ? data.data : (data || {});
+        const history = Array.isArray(d.versionHistory) ? d.versionHistory : [];
+        return history
+            .filter(entry => Number(entry.stage) === Number(stageId))
+            .sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0))[0] || null;
+    }
+
+    function sourceCheckButtonForInspector(stageId, readiness = {}, { force = false, label = 'Run Check Source' } = {}) {
+        const numericStageId = Number(stageId);
+        const sourceCount = readiness.sourceCount ?? (window.currentProjectData?.knowledge?.source_registry || []).length;
+        const hasOutput = readiness.hasOutput || stageHasMemoryHandoffOutput(window.currentProjectData, numericStageId);
+        const status = readiness.status || '';
+        const needsCheck = force
+            || readiness.isAuditInvalidated
+            || readiness.sourcePlan?.isStale
+            || ['needs_audit', 'stale', 'fixed_since_audit'].includes(status);
+        if (!SOURCE_READINESS_STAGES.has(numericStageId) || !sourceCount || !hasOutput || !needsCheck) return '';
+        return `<button type="button" class="source-ledger-action" data-action="run-source-check" data-stage-id="${escapeHtml(String(numericStageId))}">${escapeHtml(label)}</button>`;
+    }
+
+    function sourceReadinessInspectorMessage(readiness = {}, audit = null, plan = null) {
+        const invalidatedReason = readiness.auditInvalidatedReason || audit?.invalidatedReason || plan?.invalidatedReason || '';
+        if (readiness.isAuditInvalidated || audit?.invalidatedAt) {
+            return `Audit needs refresh because source material changed${invalidatedReason ? `: ${invalidatedReason}` : '.'}`;
+        }
+        if (plan?.invalidatedAt) {
+            return `Source plan needs refresh because source material changed${invalidatedReason ? `: ${invalidatedReason}` : '.'}`;
+        }
+        if (!readiness.sourceCount) {
+            return 'No saved source documents are available for this stage.';
+        }
+        if (!readiness.hasAudit) {
+            return 'No audit yet for the active stage. Run Check Source when this output needs source trust.';
+        }
+        if (readiness.isStale || readiness.status === 'stale') {
+            return 'Audit needs refresh because the current stage output changed after the last check.';
+        }
+        if (readiness.status === 'fixed_since_audit') {
+            return 'Source fixes were applied after the last audit; a fresh check can confirm alignment.';
+        }
+        if (readiness.status === 'issues') {
+            return 'Latest audit has unresolved source findings.';
+        }
+        if (readiness.status === 'resolved') {
+            return 'Latest audit findings have been addressed or accepted.';
+        }
+        if (readiness.status === 'ready') {
+            return 'Latest source audit is fresh with no open findings.';
+        }
+        return 'Source readiness has not been computed for this stage yet.';
+    }
+
+    function sourceReadinessLedgerNote(readiness = {}) {
+        if (readiness.isAuditInvalidated) return readiness.auditInvalidatedReason || 'Audit invalidated after source material changed.';
+        if (readiness.isStale) return 'Stage output changed after the saved audit.';
+        if (readiness.status === 'needs_audit' && !readiness.hasAudit) return 'No audit yet for this stage output.';
+        if (readiness.status === 'fixed_since_audit') return 'Fixes were applied after the last audit.';
+        return '';
+    }
+
+    function sourcePlanLedgerStatus(plan = {}, readiness = {}) {
+        const warningCount = Array.isArray(plan.localCheck?.warnings) ? plan.localCheck.warnings.length : 0;
+        if (plan.invalidatedAt) {
+            return {
+                label: 'invalidated',
+                className: 'source-plan-ledger-invalidated',
+                note: plan.invalidatedReason || 'Plan references source material that changed or was removed.'
+            };
+        }
+        if (readiness.sourcePlan?.status === 'stale' || readiness.sourcePlan?.isStale || plan.isStale) {
+            return {
+                label: 'stale',
+                className: 'source-plan-ledger-warning',
+                note: 'Stage output changed after this source packet was recorded.'
+            };
+        }
+        if (warningCount) {
+            return {
+                label: `${warningCount} warning${warningCount === 1 ? '' : 's'}`,
+                className: 'source-plan-ledger-warning',
+                note: (plan.localCheck?.warnings || []).map(w => w.message || w).filter(Boolean).slice(0, 2).join(' ')
+            };
+        }
+        return {
+            label: plan.lastUsedAt ? 'used' : 'cached',
+            className: '',
+            note: ''
+        };
+    }
+
+    function renderHandoffRowsForInspector(knowledge = {}) {
+        const handoffs = knowledge.stage_handoffs || {};
+        const stageIds = new Set();
+        Object.keys(handoffs).forEach(key => {
+            const stageId = Number(String(key).replace('stage', ''));
+            if (stageId) stageIds.add(stageId);
+        });
+        for (let stageId = 1; stageId <= 10; stageId++) {
+            if (stageHasMemoryHandoffOutput(window.currentProjectData, stageId)) stageIds.add(stageId);
+        }
+        return Array.from(stageIds).sort((a, b) => a - b).map(stageId => {
+            const key = `stage${stageId}`;
+            const value = handoffs[key] || '';
+            const summary = typeof value === 'string' ? value : (value?.summary || '');
+            const updatedAt = typeof value === 'object' ? value?.at : '';
+            const latest = latestVersionForStageUi(window.currentProjectData, stageId);
+            const hasOutput = stageHasMemoryHandoffOutput(window.currentProjectData, stageId);
+            const missing = hasOutput && !String(summary || '').trim();
+            const stale = !!String(summary || '').trim()
+                && !!latest?.approvedAt
+                && (!updatedAt || new Date(updatedAt) < new Date(latest.approvedAt));
+            const statusClass = missing ? 'missing' : (stale ? 'stale' : (summary ? 'current' : 'idle'));
+            const statusLabel = missing ? 'Missing handoff' : (stale ? 'Stale handoff' : (summary ? 'Current handoff' : 'No output yet'));
+            const note = missing
+                ? 'Approved output exists for this stage, but no compact handoff has been saved for later assistants.'
+                : stale
+                    ? `Latest approval ${formatDateTimeForUi(latest.approvedAt)} is newer than this handoff${updatedAt ? ` (${formatDateTimeForUi(updatedAt)})` : ''}.`
+                    : updatedAt
+                        ? `Last updated ${formatDateTimeForUi(updatedAt)}.`
+                        : 'Leave blank to keep this stage out of compact memory.';
+            return `
+                <div class="knowledge-handoff-row knowledge-handoff-${escapeHtml(statusClass)}">
+                    <div class="knowledge-handoff-row-header">
+                        <label>${escapeHtml(STAGE_LABELS[stageId] || `Stage ${stageId}`)}</label>
+                        <span class="knowledge-handoff-status knowledge-handoff-status-${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>
+                    </div>
+                    <textarea class="modal-input knowledge-handoff-input" data-handoff-key="${escapeHtml(key)}" rows="3" placeholder="Add the compact handoff this stage should give later assistants.">${escapeHtml(summary)}</textarea>
+                    <p class="knowledge-handoff-note">${escapeHtml(note)}</p>
+                </div>
+            `;
+        }).join('');
+    }
+
     function renderKnowledgeReview(knowledge = {}) {
         if (!knowledgeReviewPanel) return;
-        const handoffs = knowledge.stage_handoffs || {};
         const readiness = Array.isArray(knowledge.stage_source_readiness)
             ? knowledge.stage_source_readiness
             : [];
-        const sourcePlans = Object.values(knowledge.stage_source_plans || {})
-            .filter(Boolean)
+        const readinessByStage = new Map(readiness.map(item => [Number(item.stageId), item]));
+        const sourcePlans = Object.entries(knowledge.stage_source_plans || {})
+            .map(([key, plan]) => ({
+                ...(plan || {}),
+                stageId: Number(plan?.stageId || String(key).replace('stage', '')) || null,
+                _cacheKey: key
+            }))
+            .filter(plan => plan && plan.stageId)
             .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
-        const handoffRows = Object.entries(handoffs).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([key, value]) => `
-            <label>${escapeHtml(key.replace('stage', 'Stage '))}</label>
-            <textarea class="modal-input knowledge-handoff-input" data-handoff-key="${escapeHtml(key)}" rows="3">${escapeHtml(value?.summary || value || '')}</textarea>
-        `).join('');
+        const handoffRows = renderHandoffRowsForInspector(knowledge);
         const continuityText = (knowledge.continuity_watchlist || []).map(formatKnowledgeItemForUi).join('\n');
         const notesText = (knowledge.source_bible?.curated_notes || []).join('\n');
         const decisions = (knowledge.decision_log || []).slice(-6).reverse();
         const divergences = (knowledge.accepted_divergences || []).slice(-6).reverse();
-        const audits = Object.values(knowledge.stage_source_audits || {})
-            .filter(Boolean)
+        const audits = Object.entries(knowledge.stage_source_audits || {})
+            .map(([key, audit]) => ({
+                ...(audit || {}),
+                stageId: Number(audit?.stageId || String(key).replace('stage', '')) || null,
+                _cacheKey: key
+            }))
+            .filter(audit => audit && audit.stageId)
             .sort((a, b) => Number(a.stageId || 0) - Number(b.stageId || 0));
         const currentReadiness = sourceReadinessForStage(activeStageNum, { knowledge }) || {};
         const currentPlan = sourcePlanForStage(knowledge, activeStageNum);
@@ -3350,6 +3518,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentRefs = Array.isArray(currentPlan?.sourceReferences) ? currentPlan.sourceReferences.slice(0, 4) : [];
         const currentWarnings = Array.isArray(currentPlan?.localCheck?.warnings) ? currentPlan.localCheck.warnings.slice(0, 3) : [];
         const currentStageLabel = STAGE_LABELS[activeStageNum] || `Stage ${activeStageNum}`;
+        const currentStageMessage = sourceReadinessInspectorMessage(currentReadiness, currentAudit, currentPlan);
+        const currentAction = sourceCheckButtonForInspector(activeStageNum, currentReadiness, {
+            force: !!(currentAudit?.invalidatedAt || currentPlan?.invalidatedAt)
+        });
 
         knowledgeReviewPanel.innerHTML = `
             <div class="knowledge-panel-header">
@@ -3360,7 +3532,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>
                     <h4>Current Stage</h4>
                     <span class="source-readiness-pill source-readiness-${escapeHtml(currentReadiness.status || 'unknown')}">${escapeHtml(currentStageLabel)}: ${escapeHtml(currentReadiness.label || 'No source status')}</span>
-                    <p>${escapeHtml(currentReadiness.checkedAt ? `Last audit ${formatDateTimeForUi(currentReadiness.checkedAt)}` : 'No audit recorded for the active stage yet.')}</p>
+                    <p>${escapeHtml(currentStageMessage)}</p>
+                    ${currentAction}
                 </div>
                 <div>
                     <h4>Used Source Packet</h4>
@@ -3368,20 +3541,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p>${escapeHtml(currentPlan.lastUsedAt ? `Last used ${formatDateTimeForUi(currentPlan.lastUsedAt)}` : 'Plan recorded, not yet used.')}</p>
                         ${currentRefs.length ? `<ul>${currentRefs.map(ref => `<li>${escapeHtml(ref.name || ref.sourceId || 'Source')} ${ref.label ? `<span>${escapeHtml(ref.label)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="knowledge-empty">No specific source excerpts were selected.</p>'}
                         ${currentWarnings.length ? `<p class="source-plan-ledger-warning">${escapeHtml(currentWarnings.map(w => w.message || w).join(' '))}</p>` : ''}
+                        ${currentPlan.invalidatedAt ? `<p class="source-plan-ledger-invalidated">${escapeHtml(currentPlan.invalidatedReason || 'This source packet was invalidated after source material changed.')}</p>` : ''}
                     ` : '<p class="knowledge-empty">No generation source packet has been recorded for this stage yet.</p>'}
                 </div>
                 <div>
                     <h4>Latest Audit Detail</h4>
                     ${currentAudit ? `
                         <p>${escapeHtml(formatCountLabel(currentAudit.issueCounts?.total || 0, 'open issue', 'open issues'))}</p>
+                        ${currentAudit.invalidatedAt ? `<p class="source-plan-ledger-invalidated">${escapeHtml(currentAudit.invalidatedReason || 'This source audit was invalidated after source material changed.')}</p>` : ''}
                         ${renderMiniList([...(currentAudit.possible_source_mismatches || []), ...(currentAudit.missing_source_elements || []), ...(currentAudit.recommended_fixes || [])], 'No audit issues recorded.')}
+                        ${currentAudit.invalidatedAt ? sourceCheckButtonForInspector(activeStageNum, currentReadiness, { force: true }) : ''}
                     ` : '<p class="knowledge-empty">No source audit detail saved for this stage.</p>'}
                 </div>
             </section>
             <div class="knowledge-review-grid">
                 <section>
                     <h4>Stage Handoffs</h4>
-                    ${handoffRows || '<p class="knowledge-empty">No stage handoffs saved yet.</p>'}
+                    ${handoffRows || '<p class="knowledge-empty">No stage output or handoffs saved yet.</p>'}
                 </section>
                 <section>
                     <h4>Continuity Watchlist</h4>
@@ -3406,15 +3582,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const checked = item.checkedAt ? new Date(item.checkedAt).toLocaleString() : 'Not checked';
                     const issues = item.issueCounts?.total || 0;
                     const planStatus = item.sourcePlan?.status ? item.sourcePlan.status.replace(/_/g, ' ') : 'no recorded plan';
+                    const note = sourceReadinessLedgerNote(item);
+                    const action = sourceCheckButtonForInspector(item.stageId, item);
                     return `
                         <div class="source-readiness-row">
                             <div>
                                 <strong>${escapeHtml(item.stageName || `Stage ${item.stageId || ''}`)}</strong>
                                 <span>${escapeHtml(checked)}</span>
+                                ${note ? `<span class="source-ledger-note">${escapeHtml(note)}</span>` : ''}
                             </div>
                             <span class="source-readiness-pill source-readiness-${escapeHtml(item.status || 'unknown')}">${escapeHtml(item.label || item.status || 'Unknown')}</span>
                             <div>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))}</div>
                             <div>${escapeHtml(planStatus)}</div>
+                            <div>${action || '<span class="source-ledger-muted">No action</span>'}</div>
                         </div>
                     `;
                 }).join('') : '<p class="knowledge-empty">No source readiness data yet.</p>'}
@@ -3422,16 +3602,21 @@ document.addEventListener('DOMContentLoaded', () => {
             <section class="source-audit-ledger">
                 <h4>Source Audit Results</h4>
                 ${audits.length ? audits.map(audit => {
+                    const stageReadiness = readinessByStage.get(Number(audit.stageId)) || {};
                     const checked = audit.checkedAt ? new Date(audit.checkedAt).toLocaleString() : 'Not checked';
                     const issues = audit.issueCounts?.total || 0;
                     const references = Array.isArray(audit.sourceReferences) ? audit.sourceReferences.length : 0;
+                    const invalidated = audit.invalidatedAt || stageReadiness.isAuditInvalidated;
+                    const invalidatedLabel = audit.invalidatedAt ? `Invalidated ${formatDateTimeForUi(audit.invalidatedAt)}` : 'Invalidated';
                     return `
-                        <details class="source-audit-ledger-item">
+                        <details class="source-audit-ledger-item${invalidated ? ' source-audit-ledger-invalidated' : ''}">
                             <summary>
                                 <strong>${escapeHtml(audit.stageName || `Stage ${audit.stageId || ''}`)}</strong>
-                                <span>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))} · ${escapeHtml(formatCountLabel(references, 'reference', 'references'))} · ${escapeHtml(checked)}</span>
+                                <span>${escapeHtml(formatCountLabel(issues, 'issue', 'issues'))} · ${escapeHtml(formatCountLabel(references, 'reference', 'references'))} · ${escapeHtml(invalidated ? invalidatedLabel : checked)}</span>
                             </summary>
                             <div class="source-audit-ledger-body">
+                                ${invalidated ? `<p class="source-ledger-note source-ledger-note-invalidated">${escapeHtml(audit.invalidatedReason || stageReadiness.auditInvalidatedReason || 'Audit needs refresh because source material changed.')}</p>` : ''}
+                                ${invalidated ? sourceCheckButtonForInspector(audit.stageId, stageReadiness, { force: true }) : ''}
                                 <label>Possible Mismatches</label>
                                 ${renderMiniList(audit.possible_source_mismatches || [], 'No possible mismatches.')}
                                 <label>Missing Source Elements</label>
@@ -3446,23 +3631,28 @@ document.addEventListener('DOMContentLoaded', () => {
             <section class="source-plan-ledger">
                 <h4>Source Plan Ledger</h4>
                 ${sourcePlans.length ? sourcePlans.map(plan => {
+                    const stageReadiness = readinessByStage.get(Number(plan.stageId)) || {};
                     const lastUsed = plan.lastUsedAt ? new Date(plan.lastUsedAt).toLocaleString() : 'Not used yet';
                     const sourceCount = Array.isArray(plan.sourceIds) ? plan.sourceIds.length : 0;
-                    const warningCount = Array.isArray(plan.localCheck?.warnings) ? plan.localCheck.warnings.length : 0;
-                    const status = warningCount ? `${warningCount} warning${warningCount === 1 ? '' : 's'}` : 'clean';
+                    const status = sourcePlanLedgerStatus(plan, stageReadiness);
                     const refs = Array.isArray(plan.sourceReferences) ? plan.sourceReferences.slice(0, 3) : [];
+                    const action = sourceCheckButtonForInspector(plan.stageId, stageReadiness, {
+                        force: !!(plan.invalidatedAt || status.label === 'stale')
+                    });
                     return `
-                        <div class="source-plan-ledger-row">
+                        <div class="source-plan-ledger-row${plan.invalidatedAt ? ' source-plan-ledger-row-invalidated' : ''}">
                             <div>
                                 <strong>${escapeHtml(plan.stageName || `Stage ${plan.stageId || ''}`)}</strong>
                                 <span>${escapeHtml(plan.profile || '')}</span>
                             </div>
                             <div>${escapeHtml(lastUsed)}</div>
                             <div>${escapeHtml(formatCountLabel(sourceCount, 'source', 'sources'))}</div>
-                            <div class="${warningCount ? 'source-plan-ledger-warning' : ''}">
-                                ${escapeHtml(status)}
+                            <div class="${escapeHtml(status.className)}">
+                                ${escapeHtml(status.label)}
                                 ${refs.length ? `<span>${escapeHtml(refs.map(ref => ref.name || ref.sourceId || 'Source').join(', '))}</span>` : ''}
+                                ${status.note ? `<span class="source-ledger-note">${escapeHtml(status.note)}</span>` : ''}
                             </div>
+                            <div>${action || '<span class="source-ledger-muted">No action</span>'}</div>
                         </div>
                     `;
                 }).join('') : '<p class="knowledge-empty">No source plans have been recorded by generation yet.</p>'}
@@ -6976,21 +7166,28 @@ document.addEventListener('DOMContentLoaded', () => {
     async function runSourceAudit(stageId, button) {
         if (!activeProjectId) return;
         const chat = stageChatWindows[stageId];
-        if (!chat) return;
         const originalText = button?.textContent || 'Check Source';
         if (button) {
             button.disabled = true;
             button.textContent = 'Checking...';
         }
-        const pending = chat.append('system', 'Checking against project source material...');
+        const pending = chat?.append('system', 'Checking against project source material...');
         try {
             const audit = await requestStageSourceAudit(stageId);
-            pending.remove();
-            const cardEl = chat.append('system', '', { html: renderSourceAuditCard(audit) });
-            wireSourceAuditActions(stageId, audit, cardEl);
+            pending?.remove();
+            if (chat) {
+                const cardEl = chat.append('system', '', { html: renderSourceAuditCard(audit) });
+                wireSourceAuditActions(stageId, audit, cardEl);
+            }
+            if (audit.knowledge) {
+                renderSourceLibrary(audit.knowledge);
+                await loadKnowledgeDiagnostics().catch(err => console.warn('Knowledge diagnostics refresh skipped:', err.message));
+            }
+            setSourceLibraryStatus(`${STAGE_LABELS[stageId] || `Stage ${stageId}`} source check updated.`);
         } catch (err) {
-            pending.remove();
-            chat.append('system', 'Source check failed: ' + err.message);
+            pending?.remove();
+            if (chat) chat.append('system', 'Source check failed: ' + err.message);
+            setSourceLibraryStatus('Source check failed: ' + err.message, true);
         } finally {
             if (button) {
                 button.disabled = false;
