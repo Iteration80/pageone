@@ -2,8 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    buildKnowledgeDiagnostics,
+    buildSourceReadiness,
     ensureProjectKnowledge,
     persistChatAttachmentToKnowledge,
+    recordStageSourceAudit,
+    recordSourcePlanUsage,
+    removeKnowledgeSource,
     updateKnowledgeReview,
     updateKnowledgeSourceMetadata
 } = require('../server');
@@ -72,4 +77,67 @@ test('project knowledge review sanitizes manual edits and refreshes compact memo
     assert.ok(knowledge.decision_log.some(item => item.type === 'project_memory_review_updated'));
     assert.match(knowledge.memory_snapshot.summary, /blue key/i);
     assert.match(knowledge.source_bible.sources_summary, /Source Notes\.txt/);
+});
+
+test('removing a source invalidates cached plans and audits that referenced it', async () => {
+    const now = '2026-05-10T13:00:00.000Z';
+    const project = {
+        id: '1779000000001',
+        title: 'Knowledge Delete Test',
+        data: {
+            stage1_pitch: {
+                pitch: {
+                    title: 'Blue Key',
+                    synopsis: 'Mara finds the blue key in the flooded arcade.'
+                }
+            },
+            knowledge: {}
+        }
+    };
+
+    await persistChatAttachmentToKnowledge(project, {
+        name: 'Blue Key Source.txt',
+        mimeType: 'text/plain',
+        data: Buffer.from('Mara finds the blue key under the flooded arcade cabinet.').toString('base64')
+    }, { originTag: 'project_upload' });
+    await persistChatAttachmentToKnowledge(project, {
+        name: 'Lantern Source.txt',
+        mimeType: 'text/plain',
+        data: Buffer.from('June waits outside the arcade with a brass lantern.').toString('base64')
+    }, { originTag: 'project_upload' });
+
+    const knowledge = ensureProjectKnowledge(project);
+    const removedSourceId = knowledge.source_registry.find(source => source.name === 'Blue Key Source.txt').id;
+    const stageData = JSON.stringify(project.data.stage1_pitch, null, 2);
+    const plan = recordSourcePlanUsage(project, 1, stageData, 'generation');
+    recordStageSourceAudit(project, 1, 'Pitch', stageData, {
+        checkedAt: '2026-05-10T12:30:00.000Z',
+        aligned_items: ['The pitch preserves the blue key source fact.'],
+        possible_source_mismatches: [],
+        missing_source_elements: [],
+        recommended_fixes: []
+    }, plan.sourceReferences, { sourceCount: 2 });
+
+    assert.equal(buildSourceReadiness(project, 1, stageData).status, 'ready');
+    assert.ok(knowledge.stage_source_plans.stage1.sourceIds.includes(removedSourceId));
+    assert.ok(knowledge.stage_source_audits.stage1.sourceReferences.some(ref => ref.sourceId === removedSourceId));
+
+    const removed = removeKnowledgeSource(project, removedSourceId, { now });
+    const updated = ensureProjectKnowledge(project);
+    const readiness = buildSourceReadiness(project, 1, stageData);
+    const diagnostics = buildKnowledgeDiagnostics(project);
+    const issueKinds = diagnostics.issues.map(issue => issue.kind);
+
+    assert.equal(removed.name, 'Blue Key Source.txt');
+    assert.equal(updated.source_registry.length, 1);
+    assert.deepEqual(updated.source_bible.sourceIds, [updated.source_registry[0].id]);
+    assert.equal(updated.stage_source_plans.stage1.invalidatedAt, now);
+    assert.equal(updated.stage_source_audits.stage1.invalidatedAt, now);
+    assert.ok(!updated.stage_source_plans.stage1.sourceIds.includes(removedSourceId));
+    assert.ok(!updated.stage_source_audits.stage1.sourceReferences.some(ref => ref.sourceId === removedSourceId));
+    assert.equal(readiness.status, 'needs_audit');
+    assert.equal(readiness.isAuditInvalidated, true);
+    assert.ok(issueKinds.includes('source_plan_invalidated'));
+    assert.ok(issueKinds.includes('source_audit_invalidated'));
+    assert.ok(updated.decision_log.some(item => item.type === 'source_removed' && item.sourceId === removedSourceId));
 });

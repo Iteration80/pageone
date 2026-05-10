@@ -773,7 +773,7 @@ function sourcePlanCacheKey(stageId) {
 
 function summarizeCachedSourcePlan(entry, currentStageHash) {
     if (!entry || typeof entry !== 'object') return null;
-    const isStale = !!(entry.stageOutputHash && currentStageHash && entry.stageOutputHash !== currentStageHash);
+    const isStale = !!(entry.invalidatedAt || (entry.stageOutputHash && currentStageHash && entry.stageOutputHash !== currentStageHash));
     return {
         stageId: entry.stageId || null,
         stageName: entry.stageName || '',
@@ -785,6 +785,8 @@ function summarizeCachedSourcePlan(entry, currentStageHash) {
         sourceIds: Array.isArray(entry.sourceIds) ? entry.sourceIds : [],
         sourceReferences: Array.isArray(entry.sourceReferences) ? entry.sourceReferences : [],
         localCheck: entry.localCheck || null,
+        invalidatedAt: entry.invalidatedAt || null,
+        invalidatedReason: entry.invalidatedReason || '',
         isStale,
         status: isStale ? 'stale' : (entry.lastUsedAt ? 'used' : 'cached')
     };
@@ -1217,6 +1219,58 @@ function updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags } = {
         sourceId,
         summary: `Updated source metadata for ${source.name || sourceId}.`
     }, 120);
+    compactProjectKnowledge(projectData, { now });
+    return source;
+}
+
+function removeKnowledgeSource(projectData, sourceId, { now = new Date().toISOString() } = {}) {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const source = knowledge.source_registry.find(item => item.id === sourceId);
+    if (!source) {
+        const err = new Error('Source not found');
+        err.statusCode = 404;
+        throw err;
+    }
+
+    const invalidatedReason = `Source ${source.name || sourceId} was removed from project knowledge.`;
+    knowledge.source_registry = knowledge.source_registry.filter(item => item.id !== sourceId);
+    refreshSourceBibleSummary(knowledge);
+
+    for (const plan of Object.values(knowledge.stage_source_plans || {})) {
+        if (!plan || typeof plan !== 'object') continue;
+        const sourceIds = Array.isArray(plan.sourceIds) ? plan.sourceIds : [];
+        const sourceReferences = Array.isArray(plan.sourceReferences) ? plan.sourceReferences : [];
+        const touched = sourceIds.includes(sourceId) || sourceReferences.some(ref => ref?.sourceId === sourceId);
+        if (!touched) continue;
+
+        plan.sourceIds = sourceIds.filter(id => id !== sourceId);
+        plan.sourceReferences = sourceReferences.filter(ref => ref?.sourceId !== sourceId);
+        plan.invalidatedAt = now;
+        plan.invalidatedReason = invalidatedReason;
+        plan.localCheck = localSourcePlanCheck(knowledge, plan);
+    }
+
+    for (const audit of Object.values(knowledge.stage_source_audits || {})) {
+        if (!audit || typeof audit !== 'object') continue;
+        const camelReferences = Array.isArray(audit.sourceReferences) ? audit.sourceReferences : [];
+        const snakeReferences = Array.isArray(audit.source_references) ? audit.source_references : [];
+        const touched = [...camelReferences, ...snakeReferences].some(ref => ref?.sourceId === sourceId);
+        if (!touched) continue;
+
+        audit.sourceReferences = camelReferences.filter(ref => ref?.sourceId !== sourceId);
+        if (snakeReferences.length) {
+            audit.source_references = snakeReferences.filter(ref => ref?.sourceId !== sourceId);
+        }
+        audit.invalidatedAt = now;
+        audit.invalidatedReason = invalidatedReason;
+    }
+
+    boundedKnowledgePush(knowledge.decision_log, {
+        at: now,
+        type: 'source_removed',
+        sourceId,
+        summary: invalidatedReason
+    });
     compactProjectKnowledge(projectData, { now });
     return source;
 }
@@ -1671,13 +1725,14 @@ function buildSourceReadiness(projectData, stageId, stageData = null) {
     const sourceCount = knowledge.source_registry?.length || 0;
     const issueCounts = audit?.issueCounts || sourceAuditIssueCounts(audit || {});
     const isStale = !!(audit?.stageOutputHash && audit.stageOutputHash !== currentHash);
+    const isAuditInvalidated = !!audit?.invalidatedAt;
     const resolution = audit ? latestSourceAuditResolution(knowledge, numericStageId, audit.checkedAt) : null;
 
     let status = 'no_sources';
     let label = 'No saved sources';
-    if (sourceCount && !audit) {
+    if (sourceCount && (!audit || isAuditInvalidated)) {
         status = 'needs_audit';
-        label = 'No source audit yet';
+        label = isAuditInvalidated ? 'Audit needs refresh' : 'No source audit yet';
     } else if (sourceCount && isStale && resolution) {
         status = 'fixed_since_audit';
         label = 'Fix applied, recheck recommended';
@@ -1707,6 +1762,9 @@ function buildSourceReadiness(projectData, stageId, stageData = null) {
         stageOutputHash: currentHash,
         auditStageOutputHash: audit?.stageOutputHash || '',
         isStale,
+        isAuditInvalidated,
+        auditInvalidatedAt: audit?.invalidatedAt || null,
+        auditInvalidatedReason: audit?.invalidatedReason || '',
         issueCounts,
         lastResolution: resolution ? {
             at: resolution.at,
@@ -1805,6 +1863,8 @@ function sourceAuditForClient(audit = {}, readiness = null) {
         sourceCount: audit.sourceCount || readiness?.sourceCount || 0,
         acceptedDivergenceCount: audit.acceptedDivergenceCount || 0,
         checkedAt: audit.checkedAt || null,
+        invalidatedAt: audit.invalidatedAt || null,
+        invalidatedReason: audit.invalidatedReason || '',
         source_references: audit.source_references || audit.sourceReferences || [],
         aligned_items: audit.aligned_items || [],
         possible_source_mismatches: audit.possible_source_mismatches || [],
@@ -1891,9 +1951,18 @@ function buildKnowledgeDiagnostics(projectData) {
         if (!plan?.stageId) {
             add('info', 'source_plan_shape', `${key} source plan is missing a stage id.`, 'Regenerate this stage to refresh source-plan metadata.');
         }
+        if (plan?.invalidatedAt) {
+            add('warning', 'source_plan_invalidated', `${STAGE_NAMES[plan.stageId] || key} source plan references removed source material.`, 'Regenerate this stage or refresh its source plan.');
+        }
         const warnings = plan?.localCheck?.warnings || [];
         for (const warning of warnings.slice(0, 3)) {
             add('warning', 'source_plan_warning', `${STAGE_NAMES[plan.stageId] || key}: ${warning.message || warning}`, 'Open Source Plan for this stage and refresh the generation if needed.');
+        }
+    }
+
+    for (const [key, audit] of Object.entries(knowledge.stage_source_audits || {})) {
+        if (audit?.invalidatedAt) {
+            add('warning', 'source_audit_invalidated', `${STAGE_NAMES[audit.stageId] || key} source audit references removed source material.`, 'Run Check Source again before relying on this audit.');
         }
     }
 
@@ -4712,21 +4781,7 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
         }
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
-            const knowledge = ensureProjectKnowledge(projectData);
-            const before = knowledge.source_registry.length;
-            knowledge.source_registry = knowledge.source_registry.filter(source => source.id !== sourceId);
-            if (knowledge.source_registry.length === before) {
-                const err = new Error('Source not found');
-                err.statusCode = 404;
-                throw err;
-            }
-            refreshSourceBibleSummary(knowledge);
-            boundedKnowledgePush(knowledge.decision_log, {
-                at: new Date().toISOString(),
-                type: 'source_removed',
-                summary: `Removed source ${sourceId}`
-            });
-            compactProjectKnowledge(projectData);
+            removeKnowledgeSource(projectData, sourceId);
             return projectData;
         });
         const knowledge = ensureProjectKnowledge(updatedProject);
@@ -5401,6 +5456,7 @@ module.exports = {
     compactAuditForKnowledge,
     compactProjectKnowledge,
     formatSourceUsePlan,
+    removeKnowledgeSource,
     persistChatAttachmentToKnowledge,
     recordStageSourceAudit,
     recordSourcePlanUsage,
