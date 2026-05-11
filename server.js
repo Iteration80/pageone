@@ -3032,11 +3032,19 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
 });
 
 app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
+    let heartbeat = null;
+    let streaming = false;
+    const send = (data) => {
+        if (streaming && !res.destroyed && !res.writableEnded) {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        }
+    };
     try {
-        const { projectId, feedback } = req.body;
+        const { projectId, feedback, stream } = req.body;
         if (!isValidProjectId(projectId) || !feedback) {
             return res.status(400).json({ error: "Missing or invalid projectId, or missing feedback" });
         }
+        streaming = stream === true || /\btext\/event-stream\b/i.test(req.headers.accept || '');
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -3052,6 +3060,20 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
             return res.status(400).json({ error: "No current Stage 6 blueprint found to revise" });
         }
 
+        if (streaming) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.flushHeaders();
+            heartbeat = setInterval(() => {
+                if (!res.destroyed && !res.writableEnded) {
+                    res.write(': keep-alive\n\n');
+                }
+            }, 15000);
+            heartbeat.unref?.();
+            send({ type: 'status', message: 'Revising scene blueprint...' });
+        }
+
         console.log("Revising Stage 6 Scene Blueprint...");
         const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6RevisionSeed, { userMessage: feedback });
@@ -3059,6 +3081,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithSourcePacket(6, sourcePacket));
         const changed = sourcePlanDataHash(JSON.stringify(updatedBlueprint || [])) !== beforeHash;
 
+        send({ type: 'status', message: changed ? 'Saving revised blueprint...' : 'Revision returned no blueprint changes...' });
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = updatedBlueprint;
         if (changed) stampRevised(projectData, 'stage6_scenes');
@@ -3067,10 +3090,22 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: updatedBlueprint, changed, ...sourceResponseExtras(sourcePacket) });
+        const payload = { result: updatedBlueprint, changed, ...sourceResponseExtras(sourcePacket) };
+        if (streaming) {
+            send({ type: 'complete', ...payload });
+        } else {
+            res.json(payload);
+        }
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
-        res.status(500).json({ error: "Failed to revise scene blueprint" });
+        if (streaming) {
+            send({ type: 'error', message: "Failed to revise scene blueprint" });
+        } else {
+            res.status(500).json({ error: "Failed to revise scene blueprint" });
+        }
+    } finally {
+        if (heartbeat) clearInterval(heartbeat);
+        if (streaming && !res.writableEnded) res.end();
     }
 });
 

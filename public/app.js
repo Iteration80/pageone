@@ -5130,23 +5130,14 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage6Submit.textContent = 'Revising...';
 
             try {
-                const response = await fetch('/api/revise-stage6', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        projectId: activeProjectId,
-                        feedback: feedback
-                    })
+                const data = await reviseStage6Blueprint(feedback, {
+                    onStatus: (message) => {
+                        btnStage6Submit.textContent = message || 'Revising...';
+                    }
                 });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to revise Stage 6');
+                if (data && data.changed === false) {
+                    throw new Error('The revision engine returned no blueprint changes.');
                 }
-
-                const data = await response.json();
-                await handleSourceGenerationResult(6, data);
-                if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
 
                 // Clear feedback box
                 if (stage6Notes) {
@@ -5154,9 +5145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage6Notes.style.height = 'auto'; // Reset auto-resize
                 }
 
-                // Render updated blueprint
-                renderStage6(data.result);
-                
                 // Success feedback
                 btnStage6Submit.textContent = 'Revised ✓';
                 setTimeout(() => {
@@ -7332,6 +7320,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        const processLine = async (line) => {
+            if (!line.startsWith('data: ')) return;
+            const event = JSON.parse(line.slice(6));
+            await onEvent(event);
+        };
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -7339,11 +7332,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const lines = buffer.split('\n');
             buffer = lines.pop();
             for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                const event = JSON.parse(line.slice(6));
-                await onEvent(event);
+                await processLine(line);
             }
         }
+        if (buffer.trim()) await processLine(buffer.trim());
     }
 
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
@@ -7732,6 +7724,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return /\b(regenerate|fresh blueprint|start over|new blueprint|new scene blueprint)\b/i.test(latest);
     }
 
+    async function reviseStage6Blueprint(feedback, { onStatus } = {}) {
+        const response = await fetch('/api/revise-stage6', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+            body: JSON.stringify({
+                projectId: activeProjectId,
+                feedback,
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: `Server error ${response.status}` }));
+            throw new Error(error.error || `Server error ${response.status}`);
+        }
+
+        let completeEvent = null;
+        await readSSEStream(response, async (event) => {
+            if (event.type === 'status' && onStatus) {
+                onStatus(event.message);
+            } else if (event.type === 'complete') {
+                completeEvent = event;
+            } else if (event.type === 'error') {
+                throw new Error(event.message || 'Failed to revise Stage 6');
+            }
+        });
+
+        if (!completeEvent) throw new Error('Revision finished without a completion event.');
+        await handleSourceGenerationResult(6, completeEvent, { chat: stageChatWindows[6] });
+        renderStage6(completeEvent.result);
+        if (window.currentProjectData) window.currentProjectData.stage6_scenes = completeEvent.result;
+        return completeEvent;
+    }
+
     stageChatWindows[6] = initStageChat({
         stageId: 6,
         threadId: 'stage6-chat-thread',
@@ -7744,17 +7770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await generateStage6({ notes, isRegenerate: true, throwOnError: true });
                 return;
             }
-            const res = await fetch('/api/revise-stage6', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId, feedback: notes })
-            });
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
-            const data = await res.json();
-            await handleSourceGenerationResult(6, data, { chat: stageChatWindows[6] });
-            renderStage6(data.result);
-            if (window.currentProjectData) window.currentProjectData.stage6_scenes = data.result;
-            return data;
+            return reviseStage6Blueprint(notes);
         }
     });
 
