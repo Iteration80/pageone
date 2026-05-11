@@ -525,6 +525,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Hub Styles Section ───────────────────────────────────────────────────
 
+    function styleTierLabel(tier) {
+        if (tier === 'trained') return 'Trained';
+        if (tier === 'preset') return 'Preset';
+        return 'Conversational';
+    }
+
+    function styleTierClass(tier) {
+        if (tier === 'trained') return 'trained';
+        if (tier === 'preset') return 'preset';
+        return 'conversational';
+    }
+
     async function loadHubStyles() {
         const grid = document.getElementById('stylesGrid');
         if (!grid) return;
@@ -542,8 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const style of data.styles) {
                 const card = document.createElement('div');
                 card.className = 'hub-style-card';
-                const tierClass = style.tier === 'trained' ? 'trained' : 'conversational';
-                const tierLabel = style.tier === 'trained' ? 'Trained' : 'Conversational';
+                const tierClass = styleTierClass(style.tier);
+                const tierLabel = styleTierLabel(style.tier);
                 card.innerHTML = `
                     <div style="font-weight:600;color:var(--text-primary);font-size:1rem">${escapeHtml(style.name)} <span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
                     <div style="font-size:0.85rem;color:var(--text-secondary)">${escapeHtml(style.tonal_summary || '')}</div>
@@ -572,13 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('styleDetailTonal').textContent = data.meta?.tonal_summary || '';
 
             const badge = document.getElementById('styleDetailTierBadge');
-            if (data.tier === 'trained') {
-                badge.textContent = 'Trained';
-                badge.className = 'style-tier-badge trained';
-            } else {
-                badge.textContent = 'Conversational';
-                badge.className = 'style-tier-badge conversational';
-            }
+            badge.textContent = styleTierLabel(data.tier);
+            badge.className = `style-tier-badge ${styleTierClass(data.tier)}`;
 
             // Reference section (Tier 3 only)
             const refSection = document.getElementById('styleDetailRefSection');
@@ -5389,8 +5396,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnGenerateScene.disabled = false;
         }
 
-        if (currentSceneData && currentSceneData.draft_text) {
-            stage8LoadEditor(currentSceneData.draft_text);
+        if (currentSceneData && (currentSceneData.humanized_draft_text || currentSceneData.draft_text)) {
+            stage8LoadEditor(currentSceneData.humanized_draft_text || currentSceneData.draft_text);
             btnNextScene.classList.remove('hidden');
         } else {
             stage8ShowPlaceholder(`<div class="text-gray-500 italic text-center mt-24 p-12">Ready to generate Scene ${currentDraftSceneNumber}...</div>`);
@@ -6764,7 +6771,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return scrapeStage6();
                 case 7:
                     return stage7CurrentStyle
-                        ? { slug: stage7CurrentStyle.slug, content: stage7CurrentStyle.content || '' }
+                        ? { slug: stage7CurrentStyle.slug, content: stage7CurrentStyle.content || stage7CurrentStyle.directive || '' }
                         : { slug: window.currentProjectData?.stage7_style || null, content: '' };
                 case 8:
                     stage8FlushEditor();
@@ -7363,7 +7370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let pendingNotes = '';
         const chat = new ChatWindow({
             threadId, inputId, sendBtnId,
-            attachInputId: explicitAttachId || `stage${stageId}-chat-attach`,
+            attachInputId: explicitAttachId === false ? null : (explicitAttachId || `stage${stageId}-chat-attach`),
             onSend: async (_text, history, attachment) => {
                 const showWorking = () => {
                     const el = document.createElement('div');
@@ -7862,7 +7869,7 @@ document.addEventListener('DOMContentLoaded', () => {
         threadId: 'stage7-chat-thread',
         inputId: 'stage7-chat-input',
         sendBtnId: 'stage7-chat-send',
-        attachInputId: 'stage7-chat-attach',
+        attachInputId: false,
         executeRevision: async (notes) => {
             // "Execute" from chat means "generate style from this conversation"
             await stage7GenerateFromChat(notes);
@@ -7870,6 +7877,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let stage7CurrentStyle = null; // { slug, content, meta }
+
+    function stage7SetChoicePanelVisible(visible) {
+        const panel = document.getElementById('stage7-choice-panel');
+        if (panel) panel.style.display = visible ? 'grid' : 'none';
+    }
+
+    function stage7ShowTrainedPanel(show = true) {
+        const panel = document.getElementById('stage7-trained-panel');
+        if (!panel) return;
+        panel.classList.toggle('hidden', !show);
+        if (show) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
     function initStage7() {
         const data = window.currentProjectData || {};
@@ -7889,8 +7908,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // If style already exists, load and show it
         if (data.stage7_style) {
+            stage7SetChoicePanelVisible(false);
+            stage7ShowTrainedPanel(false);
             stage7LoadExistingStyle(data.stage7_style);
         } else {
+            stage7SetChoicePanelVisible(true);
+            stage7ShowTrainedPanel(false);
             styleCard?.classList.add('hidden');
             document.getElementById('stage7-no-style')?.classList.remove('hidden');
             if (btnApprove) btnApprove.disabled = true;
@@ -7962,10 +7985,12 @@ document.addEventListener('DOMContentLoaded', () => {
         nameEl.textContent = styleData.meta?.name || styleData.slug || 'Custom Style';
         tonalEl.textContent = styleData.meta?.tonal_summary || '';
         const refs = styleData.meta?.references;
-        refsEl.textContent = refs?.length ? `References: ${Array.isArray(refs) ? refs.join(', ') : refs}` : '';
+        const tierText = styleTierLabel(styleData.tier || styleData.meta?.tier);
+        const refsText = refs?.length ? ` · References: ${Array.isArray(refs) ? refs.join(', ') : refs}` : '';
+        refsEl.textContent = `${tierText} Style${refsText}`;
 
         // Show the body content without YAML front matter
-        let body = styleData.content || '';
+        let body = styleData.content || styleData.directive || '';
         const fmEnd = body.indexOf('---', body.indexOf('---') + 3);
         if (fmEnd > 0) body = body.slice(fmEnd + 3).trim();
         bodyEl.textContent = body;
@@ -7977,6 +8002,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleBtn) toggleBtn.textContent = 'Show Full Details ▾';
 
         card.classList.remove('hidden');
+        stage7SetChoicePanelVisible(false);
+        stage7ShowTrainedPanel(false);
         document.getElementById('stage7-no-style')?.classList.add('hidden');
         document.getElementById('stage7-loading')?.classList.add('hidden');
         if (btnApprove) {
@@ -8024,6 +8051,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function stage7GenerateTrainedFromUpload() {
+        const files = document.getElementById('stage7-trained-files')?.files;
+        if (!files?.length) {
+            alert('Please select at least one screenplay file.');
+            return;
+        }
+
+        const progress = document.getElementById('stage7-trained-progress');
+        const btn = document.getElementById('btnStage7GenerateTrained');
+        if (progress) progress.classList.remove('hidden');
+        if (btn) { btn.disabled = true; btn.textContent = 'Analyzing...'; }
+
+        try {
+            const formData = new FormData();
+            formData.append('projectId', activeProjectId);
+            const styleName = document.getElementById('stage7-trained-name')?.value?.trim() || '';
+            if (styleName) formData.append('styleName', styleName);
+            const chat = stageChatWindows[7];
+            if (chat?.history?.length) formData.append('conversationHistory', JSON.stringify(chat.history));
+            for (const file of files) formData.append('screenplayFiles', file);
+
+            const res = await fetch('/api/generate-trained-style', {
+                method: 'POST',
+                body: formData
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Generation failed' }));
+                throw new Error(err.error || 'Generation failed');
+            }
+            const data = await res.json();
+            stage7DisplayStyle({ ...data, content: data.directive });
+            await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
+            if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
+            updateStageNav(window.currentProjectData);
+            stage7LoadInlineStyles();
+        } catch (err) {
+            console.error('Stage 7 trained style error:', err);
+            alert('Failed to create trained style: ' + err.message);
+        } finally {
+            if (progress) progress.classList.add('hidden');
+            if (btn) { btn.disabled = false; btn.textContent = 'Analyze & Create'; }
+        }
+    }
+
     // Load saved styles as inline cards in Stage 7
     function stage7MarkActiveCard(activeSlug) {
         document.querySelectorAll('.stage7-inline-style-card').forEach(c => {
@@ -8058,11 +8129,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.className = 'stage7-inline-style-card';
                 card.dataset.styleSlug = style.slug;
                 card.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;min-width:180px;max-width:240px;cursor:pointer;transition:border-color 0.2s,background 0.2s;display:flex;flex-direction:column;gap:4px';
-                const tierBadge = style.tier === 'trained'
-                    ? '<span style="font-size:0.65rem;background:#065f46;color:#6ee7b7;padding:1px 6px;border-radius:4px;margin-left:6px">Trained</span>'
-                    : '<span style="font-size:0.65rem;background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:4px;margin-left:6px">Conversational</span>';
+                const tierClass = styleTierClass(style.tier);
+                const tierLabel = styleTierLabel(style.tier);
                 card.innerHTML = `
-                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}${tierBadge}</div>
+                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
                     <div style="font-size:0.75rem;color:#6b7280">${escapeHtml(style.tonal_summary || '')}</div>
                     <button class="primary-btn" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start">Use This</button>
                 `;
@@ -8157,13 +8227,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stage 7 event listeners
     document.getElementById('btnStage7Approve')?.addEventListener('click', () => stage7ApproveStyle());
     document.getElementById('btnStage7Preview')?.addEventListener('click', () => stage7PreviewScene());
-    document.getElementById('btnStage7Regenerate')?.addEventListener('click', () => {
+    document.getElementById('btnStage7Describe')?.addEventListener('click', () => {
+        const input = document.getElementById('stage7-chat-input');
+        input?.focus();
+        document.getElementById('stage7-chat')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    document.getElementById('btnStage7Analyze')?.addEventListener('click', () => stage7ShowTrainedPanel(true));
+    document.getElementById('btnStage7CloseTrained')?.addEventListener('click', () => stage7ShowTrainedPanel(false));
+    document.getElementById('btnStage7GenerateTrained')?.addEventListener('click', () => stage7GenerateTrainedFromUpload());
+    document.getElementById('btnStage7Saved')?.addEventListener('click', () => {
+        document.getElementById('stage7-saved-styles')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    document.getElementById('btnStage7NoStyleChoice')?.addEventListener('click', () => {
+        document.getElementById('btnStage7Skip')?.click();
+    });
+    document.getElementById('btnStage7Regenerate')?.addEventListener('click', async () => {
+        stage7SetChoicePanelVisible(true);
+        stage7ShowTrainedPanel(false);
         document.getElementById('stage7-style-card')?.classList.add('hidden');
         document.getElementById('stage7-no-style')?.classList.remove('hidden');
         document.getElementById('btnStage7Approve').disabled = true;
         document.getElementById('btnStage7Approve').textContent = 'Approve →';
         document.getElementById('btnStage7Approve').classList.remove('approve-btn-green');
         stage7CurrentStyle = null;
+        if (window.currentProjectData) {
+            window.currentProjectData.stage7_style = null;
+            window.currentProjectData.stage7_style_skipped = false;
+            updateStageNav(window.currentProjectData);
+        }
+        if (activeProjectId) {
+            await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage7_style: null, stage7_style_skipped: false } })
+            }).catch(err => console.warn('Stage 7 style reset skipped:', err.message));
+        }
     });
     document.getElementById('btnStage7ClosePreview')?.addEventListener('click', () => {
         document.getElementById('stage7-preview-panel')?.classList.add('hidden');

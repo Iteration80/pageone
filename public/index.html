@@ -683,6 +683,49 @@
             </div>
 
             <div class="workspace-scrollable">
+                <!-- Style choice panel -->
+                <div id="stage7-choice-panel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px">
+                    <button id="btnStage7Describe" class="secondary-btn" style="text-align:left;padding:14px 16px">
+                        <div style="font-size:0.95rem;color:#e5e7eb;font-weight:650">Describe Style</div>
+                        <div style="font-size:0.76rem;color:#9ca3af;line-height:1.45;margin-top:4px">Chat your target voice and generate a custom directive.</div>
+                    </button>
+                    <button id="btnStage7Analyze" class="secondary-btn" style="text-align:left;padding:14px 16px">
+                        <div style="font-size:0.95rem;color:#e5e7eb;font-weight:650">Analyze Writing Sample</div>
+                        <div style="font-size:0.76rem;color:#9ca3af;line-height:1.45;margin-top:4px">Upload scripts to create a trained reference and directive.</div>
+                    </button>
+                    <button id="btnStage7Saved" class="secondary-btn" style="text-align:left;padding:14px 16px">
+                        <div style="font-size:0.95rem;color:#e5e7eb;font-weight:650">Use Saved Style</div>
+                        <div style="font-size:0.76rem;color:#9ca3af;line-height:1.45;margin-top:4px">Choose from PageOne presets and your saved styles.</div>
+                    </button>
+                    <button id="btnStage7NoStyleChoice" class="secondary-btn" style="text-align:left;padding:14px 16px">
+                        <div style="font-size:0.95rem;color:#e5e7eb;font-weight:650">No Style</div>
+                        <div style="font-size:0.76rem;color:#9ca3af;line-height:1.45;margin-top:4px">Draft in the default clean screenplay voice.</div>
+                    </button>
+                </div>
+
+                <!-- Trained style upload panel -->
+                <div id="stage7-trained-panel" class="hidden" style="background:#101827;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px">
+                        <div>
+                            <h3 style="margin:0;font-size:1rem;color:#e5e7eb">Analyze Writing Sample</h3>
+                            <p style="margin:4px 0 0;font-size:0.8rem;color:#94a3b8">Upload one or more scripts. PageOne will create a full style reference and a compact directive for drafting.</p>
+                        </div>
+                        <button id="btnStage7CloseTrained" class="secondary-btn" style="font-size:0.75rem;padding:5px 10px">Close</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,1.5fr) auto;gap:10px;align-items:end">
+                        <div>
+                            <label style="font-size:0.72rem;color:#9ca3af;display:block;margin-bottom:4px">Style Name</label>
+                            <input id="stage7-trained-name" type="text" placeholder="Optional" style="width:100%;padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e5e7eb;font-size:0.85rem">
+                        </div>
+                        <div>
+                            <label style="font-size:0.72rem;color:#9ca3af;display:block;margin-bottom:4px">Screenplay Files</label>
+                            <input id="stage7-trained-files" type="file" accept=".pdf,.txt,.md,.fountain,.fdx,.docx" multiple style="font-size:0.82rem;color:#9ca3af">
+                        </div>
+                        <button id="btnStage7GenerateTrained" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Analyze & Create</button>
+                    </div>
+                    <div id="stage7-trained-progress" class="hidden" style="font-size:0.8rem;color:#93c5fd;margin-top:10px">Analyzing samples...</div>
+                </div>
+
                 <!-- Style card (shown after generation) -->
                 <div id="stage7-style-card" class="hidden" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -702,9 +745,9 @@
                     </div>
                 </div>
 
-                <!-- Inline saved styles (shown when user has existing styles) -->
+                <!-- Inline style library (saved styles + PageOne presets) -->
                 <div id="stage7-saved-styles" class="hidden" style="margin-bottom:16px">
-                    <div style="font-size:0.75rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Your Saved Styles</div>
+                    <div style="font-size:0.75rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Style Library</div>
                     <div id="stage7-saved-styles-grid" style="display:flex;flex-wrap:wrap;gap:10px"></div>
                 </div>
 
@@ -726,7 +769,7 @@
                 <!-- No style prompt -->
                 <div id="stage7-no-style" class="hidden" style="text-align:center;padding:40px 0">
                     <p style="color:#6b7280;font-size:0.85rem;margin-bottom:16px">
-                        Chat with the assistant below to define your style, or pick a saved style above.
+                        Choose one of the style options above, or chat with the assistant below to define your style.
                     </p>
                     <div id="stage7-no-style-card" style="display:inline-flex;align-items:center;gap:10px;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 18px;cursor:pointer;transition:border-color 0.2s" title="Continue without a style">
                         <div>
@@ -744,10 +787,6 @@
                 <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
                 <div id="stage7-chat-thread" class="chat-thread"></div>
                 <div class="chat-input-row">
-                    <label for="stage7-chat-attach" class="chat-attach-btn" title="Attach writing sample (pdf, txt, md, fountain, docx, fdx)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        <input type="file" id="stage7-chat-attach" accept=".pdf,.txt,.md,.fountain,.docx,.fdx" class="hidden">
-                    </label>
                     <textarea id="stage7-chat-input" class="chat-input" placeholder="Describe the writing style you want..." rows="1"></textarea>
                     <button id="stage7-chat-send" class="chat-send-btn">Send</button>
                 </div>

@@ -422,14 +422,16 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
 test('frontend chat attachment inputs advertise all supported source formats', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const attachmentInputs = [...indexHtml.matchAll(/id="stage(?:[1-8]|10)-chat-attach" accept="([^"]+)"/g)];
-    assert.equal(attachmentInputs.length, 9);
+    assert.equal(attachmentInputs.length, 8);
     for (const [, accept] of attachmentInputs) {
         for (const ext of ['.pdf', '.txt', '.md', '.fountain', '.docx', '.fdx']) {
             assert.ok(accept.includes(ext), `${accept} should include ${ext}`);
         }
     }
 
-    for (const inputId of ['pdfUpload', 'sourceKnowledgeUpload', 'createStyleFiles']) {
+    assert.doesNotMatch(indexHtml, /id="stage7-chat-attach"/);
+
+    for (const inputId of ['pdfUpload', 'sourceKnowledgeUpload', 'createStyleFiles', 'stage7-trained-files']) {
         const match = indexHtml.match(new RegExp(`id="${inputId}"[^>]*accept="([^"]+)"`));
         assert.ok(match, `${inputId} should have an accept attribute`);
         for (const ext of ['.pdf', '.txt', '.md', '.fountain', '.docx', '.fdx']) {
@@ -438,6 +440,27 @@ test('frontend chat attachment inputs advertise all supported source formats', (
     }
     assert.match(indexHtml, /Attach Source/);
     assert.doesNotMatch(indexHtml, /Attach PDF/);
+});
+
+test('frontend Stage 7 offers four style paths and trained upload', () => {
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const styleCss = fs.readFileSync(require.resolve('../public/style.css'), 'utf8');
+    const styleSkill = fs.readFileSync(require.resolve('../skills/skill_stage7_style.md'), 'utf8');
+    const humanizerJs = fs.readFileSync(require.resolve('../agents/agent_humanizer.js'), 'utf8');
+
+    for (const label of ['Describe Style', 'Analyze Writing Sample', 'Use Saved Style', 'No Style']) {
+        assert.match(indexHtml, new RegExp(label));
+    }
+    assert.match(indexHtml, /id="stage7-trained-panel"/);
+    assert.match(appJs, /stage7GenerateTrainedFromUpload/);
+    assert.match(appJs, /attachInputId: false/);
+    assert.match(appJs, /styleTierLabel/);
+    assert.match(appJs, /humanized_draft_text \|\| currentSceneData\.draft_text/);
+    assert.match(humanizerJs, /PROJECT STYLE DIRECTIVES TO PRESERVE/);
+    assert.match(styleCss, /style-tier-badge\.preset/);
+    assert.match(styleSkill, /Tier 1 — Preset/);
+    assert.match(styleSkill, /Style Builder Contract/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {

@@ -5,7 +5,7 @@ const path = require('path');
 /**
  * Stage 7: The Style Agent
  * Generates style artifacts at two tiers:
- *   Tier 2 (Conversational): directive only — from chat description + training knowledge
+ *   Tier 2 (Conversational): directive only — from chat description + general craft knowledge
  *   Tier 3 (Trained): reference + directive — from uploaded screenplay analysis
  */
 
@@ -51,7 +51,8 @@ const generateDirective = async (input, modelConfig = {}) => {
     }
 
     prompt += `## INSTRUCTIONS
-Generate the style directive now. Output the complete file including YAML front matter and all six sections (Scene Construction, Action Lines, Dialogue, Tone, Signature Moves, Avoid).
+Generate the style directive now. Translate named references into neutral craft behaviors. Do not tell the draft agent to imitate, clone, or copy any specific writer, studio, franchise, or protected work.
+Output the complete file including YAML front matter and all six sections (Scene Construction, Action Lines, Dialogue, Tone, Signature Moves, Avoid).
 Use imperative voice throughout. Keep within 400-600 words (excluding front matter).
 The YAML front matter MUST include these fields: name, slug, created, tier: "conversational", source: "conversation", artifact_type: "directive", tonal_summary, word_count.
 Output ONLY the file content — no introductory text, no code blocks.`;

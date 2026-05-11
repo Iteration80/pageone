@@ -3168,7 +3168,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, null, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
 
         console.log(`Humanizing draft for Scene ${sceneNum}...`);
-        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
+        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText, styleContent);
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
@@ -3246,7 +3246,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         const { result: draftText, usage: draftUsage } = await generateSceneDraft(targetedScene, projectContext, feedback, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
 
         console.log(`Humanizing revised draft for Scene ${sceneNum}...`);
-        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText);
+        const { result: humanizedText, usage: humanizeUsage } = await humanizeDraft(draftText, styleContent);
 
         targetedScene.draft_text = draftText;
         targetedScene.humanized_draft_text = humanizedText;
@@ -4097,7 +4097,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
             const { styleContent, styleWarning } = await loadProjectStyle(projectData);
             const seed = `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(targetedScene, null, 2)}\n${fixNotes}`;
             const generated = await generateSceneDraft(targetedScene, projectContext, fixNotes, getModelConfigWithSourcePacket(8, sourcePacket), styleContent, continuityCtx, sceneLockPacket);
-            const humanized = await humanizeDraft(generated.result);
+            const humanized = await humanizeDraft(generated.result, styleContent);
             targetedScene.draft_text = generated.result;
             targetedScene.humanized_draft_text = humanized.result;
             targetedScene.locked = false;
@@ -4832,7 +4832,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         }
 
         const { meta } = parseStyleFile(directive);
-        res.json({ slug, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
+        res.json({ slug, content: directive, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate trained style' });

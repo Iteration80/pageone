@@ -15,14 +15,19 @@ const HUMANIZER_MODEL = 'gemini-3-flash-preview';
  * Does NOT change story beats, character decisions, or plot events.
  *
  * @param {string} draftText - Raw Fountain text from Stage 8
+ * @param {string} [styleContent] - Optional project style directive to preserve
  * @returns {Promise<string>} - Humanized Fountain text
  */
-const humanizeDraft = async (draftText) => {
+const humanizeDraft = async (draftText, styleContent = null) => {
     const rulesPath = path.join(__dirname, '../skills/skill_humanizer.md');
     const humanizerRules = fs.readFileSync(rulesPath, 'utf8');
+    const styleSection = styleContent
+        ? `\n## PROJECT STYLE DIRECTIVES TO PRESERVE\nThe scene has already been drafted in this style. During the surgical polish, do not flatten or remove intentional style choices that match these directives. Only fix clear AI-generation signals.\n\n${styleContent}\n`
+        : '';
 
     const prompt = `
 ${humanizerRules}
+${styleSection}
 
 ## SCENE TO POLISH
 ${draftText}
