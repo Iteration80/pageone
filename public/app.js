@@ -7359,14 +7359,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     return el;
                 };
 
-                // Build revision notes that include user requests + assistant summary
+                // Build revision notes that include user requests, the assistant's
+                // latest concrete proposal, and the final execution acknowledgement.
                 const buildRevisionNotes = (assistantSummary, conversationHistory) => {
                     const userMessages = conversationHistory.filter(m => m.role === 'user');
                     const latestUserMessage = userMessages[userMessages.length - 1]?.content || '';
                     const allUserMessages = userMessages
                         .map(m => m.content)
                         .join('\n');
-                    return `LATEST USER REQUEST:\n${latestUserMessage}\n\nUSER REQUESTS:\n${allUserMessages}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
+                    const recentAssistantMessages = conversationHistory
+                        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim())
+                        .slice(-4)
+                        .map(m => m.content.trim())
+                        .join('\n\n---\n\n');
+                    const recentConversation = conversationHistory
+                        .slice(-10)
+                        .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}:\n${m.content || ''}`)
+                        .join('\n\n---\n\n');
+                    const latestIsConfirmation = /\b(yes|yep|yeah|sure|ok|okay|do it|go ahead|apply|refine|revise|sounds good|make it|let's do it)\b/i.test(latestUserMessage)
+                        && latestUserMessage.length < 120;
+                    const confirmationHandoff = latestIsConfirmation
+                        ? '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.'
+                        : '';
+                    return `LATEST USER REQUEST:\n${latestUserMessage}\n\nUSER REQUESTS:\n${allUserMessages}${confirmationHandoff}\n\nRECENT ASSISTANT CONTEXT:\n${recentAssistantMessages || 'No prior assistant proposal captured.'}\n\nRECENT CONVERSATION CONTEXT:\n${recentConversation}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
                 };
 
                 // After a revision completes, call brainstorm to continue the conversation

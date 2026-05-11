@@ -92,6 +92,81 @@ function buildRevisionBlueprintContext(currentBlueprint = [], feedback = '') {
     };
 }
 
+function cloneValue(value) {
+    return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function normalizeSequenceKey(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : String(value ?? '');
+}
+
+function hasBlueprintChanged(previousBlueprint, nextBlueprint) {
+    return JSON.stringify(nextBlueprint || []) !== JSON.stringify(previousBlueprint || []);
+}
+
+function mergeModifiedSequences(currentBlueprint = [], modifiedSequences = []) {
+    const originalBlueprint = Array.isArray(currentBlueprint) ? currentBlueprint : [];
+    const modified = Array.isArray(modifiedSequences) ? modifiedSequences : [];
+
+    if (!modified.length) return cloneValue(originalBlueprint) || [];
+
+    const modifiedMap = new Map(
+        modified.map(seq => [normalizeSequenceKey(seq.sequence_number), cloneValue(seq)])
+    );
+    const originalKeys = new Set(originalBlueprint.map(seq => normalizeSequenceKey(seq.sequence_number)));
+
+    let updatedData = originalBlueprint.map(seq => {
+        const replacement = modifiedMap.get(normalizeSequenceKey(seq.sequence_number));
+        return replacement || cloneValue(seq);
+    });
+
+    for (const seq of modified) {
+        const key = normalizeSequenceKey(seq.sequence_number);
+        const alreadyPresent = updatedData.some(existing => normalizeSequenceKey(existing.sequence_number) === key);
+        if (!originalKeys.has(key) && !alreadyPresent) {
+            updatedData.push(cloneValue(seq));
+        }
+    }
+
+    // Build a lookup of existing draft data from the original blueprint, keyed by
+    // scene_heading (sluglines are stable identifiers). This survives structured
+    // output stripping fields not in the schema (draft_text, locked).
+    const existingDraftData = new Map();
+    originalBlueprint.forEach(seq => {
+        seq.scenes?.forEach(scene => {
+            if (scene.draft_text || scene.locked) {
+                existingDraftData.set(scene.scene_heading, {
+                    draft_text: scene.draft_text,
+                    humanized_draft_text: scene.humanized_draft_text,
+                    locked: scene.locked
+                });
+            }
+        });
+    });
+
+    // POST-PROCESSING: renumber scenes sequentially and restore lost fields.
+    let count = 1;
+    updatedData.forEach((sequence, idx) => {
+        sequence.sequence_number = idx + 1;
+
+        if (sequence.scenes && Array.isArray(sequence.scenes)) {
+            sequence.scenes.forEach(scene => {
+                scene.scene_number = count++;
+
+                const existing = existingDraftData.get(scene.scene_heading);
+                if (existing) {
+                    if (existing.draft_text) scene.draft_text = existing.draft_text;
+                    if (existing.humanized_draft_text) scene.humanized_draft_text = existing.humanized_draft_text;
+                    if (existing.locked) scene.locked = existing.locked;
+                }
+            });
+        }
+    });
+
+    return updatedData;
+}
+
 /**
  * Stage 6 Revision Agent
  * Modifies an existing Stage 6 Scene Blueprint based on user feedback.
@@ -172,78 +247,66 @@ FIDELITY RULES:
 - Preserve every unmentioned scene verbatim within any returned sequence unless renumbering/merging requires a local adjustment.
 - If the feedback says a source/treatment/character-bible item is locked, treat it as binding even if the current blueprint says otherwise.`;
 
-    // Retry up to 3 times on transient connection errors
-    let result;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            result = await generateContentFn({
-                model, geminiApiKey, anthropicApiKey,
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config,
-                schema: rootSchema
-            });
-            break;
-        } catch (err) {
-            console.warn(`Stage 6 Revision attempt ${attempt}/3: ${err.message}`);
-            if (attempt === 3) throw err;
-            await new Promise(r => setTimeout(r, 3000 * attempt));
+    const usageList = [];
+    const runRevisionPrompt = async (promptText, label = 'Stage 6 Revision') => {
+        let response;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                response = await generateContentFn({
+                    model, geminiApiKey, anthropicApiKey,
+                    contents: [{ role: 'user', parts: [{ text: promptText }] }],
+                    config,
+                    schema: rootSchema
+                });
+                if (response?.usage) usageList.push(response.usage);
+                return response;
+            } catch (err) {
+                console.warn(`${label} attempt ${attempt}/3: ${err.message}`);
+                if (attempt === 3) throw err;
+                await new Promise(r => setTimeout(r, 3000 * attempt));
+            }
         }
-    }
+        return response;
+    };
+
+    const parseAndMerge = (response) => {
+        const modifiedSequences = JSON.parse(response.text);
+        if (!Array.isArray(modifiedSequences)) {
+            throw new Error('Stage 6 revision response was not an array of modified sequences');
+        }
+        return {
+            modifiedSequences,
+            updatedData: mergeModifiedSequences(currentBlueprint, modifiedSequences)
+        };
+    };
 
     try {
-        const modifiedSequences = JSON.parse(result.text);
+        let result = await runRevisionPrompt(prompt);
+        let { modifiedSequences, updatedData } = parseAndMerge(result);
 
-        // Merge modified sequences back into the full blueprint
-        const modifiedMap = new Map(modifiedSequences.map(s => [s.sequence_number, s]));
-        let updatedData = currentBlueprint.map(seq => {
-            const modified = modifiedMap.get(seq.sequence_number);
-            return modified || seq;
-        });
-        // Handle new sequences (sequence_number higher than any existing)
-        const maxExisting = currentBlueprint.length;
-        for (const seq of modifiedSequences) {
-            if (seq.sequence_number > maxExisting) {
-                updatedData.push(seq);
-            }
+        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+            const enforcementPrompt = `${prompt}
+
+MANDATORY SECOND PASS:
+Your previous revision response produced no saved blueprint changes. That is not acceptable for an apply/revise request.
+
+FIRST ATTEMPT RETURNED:
+${compactText(result.text, 1600)}
+
+Apply the smallest concrete edits required by the director's feedback now.
+- Do not return [] unless the feedback explicitly asks for no change.
+- If the latest user message is a short confirmation, implement the most recent concrete proposal in RECENT ASSISTANT CONTEXT or RECENT CONVERSATION CONTEXT.
+- If scene numbers have shifted, use sequence titles, headings, quoted phrases, and narrative context to find the closest affected sequence.
+- Return at least one changed sequence with all of its scenes unless it is truly impossible.`;
+
+            result = await runRevisionPrompt(enforcementPrompt, 'Stage 6 Revision enforcement');
+            ({ modifiedSequences, updatedData } = parseAndMerge(result));
         }
 
-        // Build a lookup of existing draft data from the original blueprint, keyed by
-        // scene_heading (sluglines are stable identifiers). This survives Gemini's
-        // structured-output stripping of fields not in the schema (draft_text, locked).
-        const existingDraftData = new Map();
-        currentBlueprint.forEach(seq => {
-            seq.scenes?.forEach(scene => {
-                if (scene.draft_text || scene.locked) {
-                    existingDraftData.set(scene.scene_heading, {
-                        draft_text: scene.draft_text,
-                        humanized_draft_text: scene.humanized_draft_text,
-                        locked: scene.locked
-                    });
-                }
-            });
-        });
-
-        // POST-PROCESSING: renumber scenes sequentially and restore lost fields
-        let count = 1;
-        updatedData.forEach((sequence, idx) => {
-            sequence.sequence_number = idx + 1;
-
-            if (sequence.scenes && Array.isArray(sequence.scenes)) {
-                sequence.scenes.forEach(scene => {
-                    scene.scene_number = count++;
-
-                    // Restore draft_text, humanized_draft_text, and locked for surviving scenes
-                    const existing = existingDraftData.get(scene.scene_heading);
-                    if (existing) {
-                        if (existing.draft_text) scene.draft_text = existing.draft_text;
-                        if (existing.humanized_draft_text) scene.humanized_draft_text = existing.humanized_draft_text;
-                        if (existing.locked) scene.locked = existing.locked;
-                    }
-                });
-            }
-        });
-
-        return { result: updatedData, usage: result.usage };
+        return {
+            result: updatedData,
+            usage: usageList.length > 1 ? usageList : usageList[0]
+        };
     } catch (error) {
         console.error('Error in Stage 6 Revision Agent:', error);
         throw error;

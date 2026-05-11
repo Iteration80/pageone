@@ -462,6 +462,10 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /stream:\s*true/);
     assert.match(appJs, /readSSEStream\(response/);
     assert.match(appJs, /returned no blueprint changes/);
+    assert.match(appJs, /latestIsConfirmation/);
+    assert.match(appJs, /CONFIRMATION HANDOFF/);
+    assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
+    assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {

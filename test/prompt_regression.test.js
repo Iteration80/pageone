@@ -189,8 +189,15 @@ test('Stage 6 revision carries project memory beside director feedback', async (
             draft_text: 'INT. FLOODED ARCADE - NIGHT\nMara drops the key.'
         }]
     }];
+    const revisedBlueprint = [{
+        ...currentBlueprint[0],
+        scenes: [{
+            ...currentBlueprint[0].scenes[0],
+            narrative_action: 'Mara keeps the blue key.'
+        }]
+    }];
     const { calls, generateContentFn } = makeRecorder(() => ({
-        text: JSON.stringify(currentBlueprint),
+        text: JSON.stringify(revisedBlueprint),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
@@ -229,8 +236,15 @@ test('Stage 6 revision sends full text for explicitly targeted scenes', async ()
             estimated_page_count: 1
         }]
     }];
+    const revisedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{
+            ...currentBlueprint[0].scenes[0],
+            dramaturgical_function: 'The man who lied to her twenty years ago and the woman he lied to are now uneasy allies bound by her son.'
+        }]
+    };
     const { calls, generateContentFn } = makeRecorder(() => ({
-        text: JSON.stringify(currentBlueprint),
+        text: JSON.stringify([revisedSequence]),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
@@ -245,6 +259,83 @@ test('Stage 6 revision sends full text for explicitly targeted scenes', async ()
     assert.match(promptText, /Scenes: 33/);
     assert.match(promptText, /former childhood friends/);
     assert.match(promptText, /full-target-context/);
+});
+
+test('Stage 6 revision retries when the first response produces no saved changes', async () => {
+    const currentBlueprint = [{
+        sequence_number: 7,
+        sequence_title: 'Inside the Kaiju',
+        total_estimated_pages: 8,
+        scenes: [{
+            scene_number: 57,
+            scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
+            narrative_action: 'Slatern crosses porcelain and capes.',
+            dramaturgical_function: 'Connective tissue.',
+            estimated_page_count: 1
+        }]
+    }];
+    const revisedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{
+            ...currentBlueprint[0].scenes[0],
+            dramaturgical_function: 'Forces Slatern to confess that every preserved relic is another version of the mercy bargain he has avoided naming.'
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder((request, callNumber) => ({
+        text: callNumber === 1 ? JSON.stringify([]) : JSON.stringify([revisedSequence]),
+        usage: { model: 'test-model', inputTokens: callNumber, outputTokens: callNumber }
+    }));
+
+    const { result, usage } = await reviseStage6Scenes(
+        currentBlueprint,
+        'Yes, refine Scene 57 so the porcelain floor has a real value shift.',
+        { generateContentFn }
+    );
+
+    assert.equal(calls.length, 2);
+    assert.match(collectText(calls[1].contents), /MANDATORY SECOND PASS/);
+    assert.match(result[0].scenes[0].dramaturgical_function, /mercy bargain/);
+    assert.equal(usage.length, 2);
+});
+
+test('Stage 6 revision merges numeric sequence ids against string blueprint ids', async () => {
+    const currentBlueprint = [{
+        sequence_number: '7',
+        sequence_title: 'Inside the Kaiju',
+        total_estimated_pages: 8,
+        scenes: [{
+            scene_number: '57',
+            scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
+            narrative_action: 'Slatern crosses porcelain and capes.',
+            dramaturgical_function: 'Connective tissue.',
+            estimated_page_count: 1
+        }]
+    }];
+    const revisedSequence = {
+        sequence_number: 7,
+        sequence_title: 'Inside the Kaiju',
+        total_estimated_pages: 8,
+        scenes: [{
+            scene_number: 57,
+            scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
+            narrative_action: 'Slatern crosses porcelain and capes, but each object now mirrors a lie he preserved.',
+            dramaturgical_function: 'Turns the chamber into pressure on Slatern rather than travelogue.',
+            estimated_page_count: 1
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([revisedSequence]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await reviseStage6Scenes(
+        currentBlueprint,
+        'Scene 57: add a value shift to the porcelain chamber.',
+        { generateContentFn }
+    );
+
+    assert.equal(calls.length, 1);
+    assert.match(result[0].scenes[0].narrative_action, /mirrors a lie/);
 });
 
 test('Stage 8 draft receives source packet, style, continuity, and scene context', async () => {
