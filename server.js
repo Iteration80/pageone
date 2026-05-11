@@ -3092,7 +3092,10 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
 
         const payload = { result: updatedBlueprint, changed, ...sourceResponseExtras(sourcePacket) };
         if (streaming) {
-            send({ type: 'complete', ...payload });
+            // Keep the final SSE packet small. The browser refreshes the saved
+            // Stage 6 data after completion, which avoids large blueprint payloads
+            // being dropped by buffering/proxy layers.
+            send({ type: 'complete', changed, stageKey: 'stage6_scenes', ...sourceResponseExtras(sourcePacket) });
         } else {
             res.json(payload);
         }

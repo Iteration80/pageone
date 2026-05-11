@@ -7320,22 +7320,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        const processLine = async (line) => {
-            if (!line.startsWith('data: ')) return;
-            const event = JSON.parse(line.slice(6));
+        const processEventBlock = async (block) => {
+            const dataLines = [];
+            let eventName = '';
+            for (const rawLine of String(block || '').split(/\r?\n/)) {
+                const line = rawLine.trimEnd();
+                if (!line || line.startsWith(':')) continue;
+                if (line.startsWith('event:')) {
+                    eventName = line.slice(6).trim();
+                } else if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trimStart());
+                }
+            }
+            if (!dataLines.length) return;
+            const event = JSON.parse(dataLines.join('\n'));
+            if (eventName && !event.type) event.type = eventName;
             await onEvent(event);
         };
         while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+                buffer += decoder.decode();
+                break;
+            }
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-                await processLine(line);
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || '';
+            for (const block of blocks) {
+                await processEventBlock(block);
             }
         }
-        if (buffer.trim()) await processLine(buffer.trim());
+        if (buffer.trim()) await processEventBlock(buffer.trim());
     }
 
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
@@ -7740,6 +7755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function reviseStage6Blueprint(feedback, { onStatus } = {}) {
+        const beforeSerialized = JSON.stringify(window.currentProjectData?.stage6_scenes || null);
         const response = await fetch('/api/revise-stage6', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
@@ -7756,17 +7772,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let completeEvent = null;
-        await readSSEStream(response, async (event) => {
-            if (event.type === 'status' && onStatus) {
-                onStatus(event.message);
-            } else if (event.type === 'complete') {
-                completeEvent = event;
-            } else if (event.type === 'error') {
-                throw new Error(event.message || 'Failed to revise Stage 6');
-            }
-        });
+        let streamError = null;
+        try {
+            await readSSEStream(response, async (event) => {
+                if (event.type === 'status' && onStatus) {
+                    onStatus(event.message);
+                } else if (event.type === 'complete') {
+                    completeEvent = event;
+                } else if (event.type === 'error') {
+                    throw new Error(event.message || 'Failed to revise Stage 6');
+                }
+            });
+        } catch (err) {
+            streamError = err;
+        }
 
-        if (!completeEvent) throw new Error('Revision finished without a completion event.');
+        if (!completeEvent || !completeEvent.result) {
+            const refreshed = await refreshCurrentProjectData().catch(() => null);
+            const fallbackScenes = refreshed?.stage6_scenes;
+            if (fallbackScenes) {
+                const changed = JSON.stringify(fallbackScenes) !== beforeSerialized;
+                renderStage6(fallbackScenes);
+                completeEvent = {
+                    ...(completeEvent || {}),
+                    type: 'complete',
+                    result: fallbackScenes,
+                    changed,
+                    recoveredFromMissingCompletion: !completeEvent
+                };
+            }
+        }
+
+        if (!completeEvent) throw new Error(streamError?.message || 'Revision finished without a completion event.');
+        if (streamError && !completeEvent.result) throw streamError;
         await handleSourceGenerationResult(6, completeEvent, { chat: stageChatWindows[6] });
         renderStage6(completeEvent.result);
         if (window.currentProjectData) window.currentProjectData.stage6_scenes = completeEvent.result;

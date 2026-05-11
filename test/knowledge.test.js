@@ -454,6 +454,7 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
 
 test('frontend Stage 6 chat directly executes structured revision memos and guards no-op revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     assert.match(appJs, /function isStage6DirectRevisionRequest/);
     assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
@@ -461,11 +462,14 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /stream:\s*true/);
     assert.match(appJs, /readSSEStream\(response/);
+    assert.match(appJs, /refreshCurrentProjectData\(\)/);
+    assert.match(appJs, /recoveredFromMissingCompletion/);
     assert.match(appJs, /returned no blueprint changes/);
     assert.match(appJs, /latestIsConfirmation/);
     assert.match(appJs, /CONFIRMATION HANDOFF/);
     assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
     assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
+    assert.match(serverJs, /stageKey: 'stage6_scenes'/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
