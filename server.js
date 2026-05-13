@@ -3566,6 +3566,11 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
             }
 
+            // Stage 3-specific: keep character conversations inside the character artifact boundary
+            if (stageId === 3) {
+                conversationPrompt += `\n## STAGE 3 CHARACTER BOUNDARY\nYou are discussing the Characters stage. Keep the conversation anchored in character-profile mechanics: ghost/wound, lie, desire, psychological need, moral need, paradox, pressure behavior, tick gates, relationship dynamics, voice tags, and downstream handoff notes.\n\nUse the outline only as context for why a character mechanic matters. Do NOT prescribe sequence-level or scene-level plot placement unless the writer explicitly asks to change the outline, beats, treatment, or scene blueprint. Avoid saying things like "put this in Sequence E" or "this should happen in Scene 12." Instead, translate timing into character-arc language such as "mid-story regression," "late Act 2 pressure peak," "climax handoff," or "profile note for downstream stages."\n\nIf a generated character profile already mentions sequence labels, discuss whether the profile needs a clearer pressure ladder or tick gate, not where to stage the beat. Stage 3 execution means updating character profiles only. If the writer asks for structural placement, flag that it belongs in Stage 4+ and ask whether they want to carry the character note forward.\n\n`;
+            }
+
             // Stage 7-specific: tell the model what "execution" means for style generation
             if (stageId === 7) {
                 conversationPrompt += `\n## STAGE 7 CONTEXT\nYou are in the Style stage. "Executing" here means generating style directives from this conversation. When the writer confirms they want a specific style (e.g., "let's go with this", "yes, use that", "generate it", "sounds good"), set suggest_plan: true AND execute_immediately: true. The system will generate the style file from the full conversation. Give a brief forward-looking acknowledgment like "On it — generating the style directives now." Do NOT describe the result.\n\n`;

@@ -487,6 +487,15 @@ test('Claude client streams long Opus requests used by Stage 3 characters', () =
     assert.match(aiClient, /model === 'claude-opus-4-7'/);
 });
 
+test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    assert.match(serverJs, /STAGE 3 CHARACTER BOUNDARY/);
+    assert.match(serverJs, /ghost\/wound, lie, desire/);
+    assert.match(serverJs, /Do NOT prescribe sequence-level or scene-level plot placement/);
+    assert.match(serverJs, /mid-story regression/);
+    assert.match(serverJs, /Stage 3 execution means updating character profiles only/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
