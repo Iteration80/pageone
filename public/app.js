@@ -2364,13 +2364,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function normalizeStage3CharacterForEditor(character = {}) {
+        const core = character.psychological_core || {};
+        const voice = character.voice_and_behavior || {};
+        const ticks = character.ticks || {};
+        const normalized = {
+            ...character,
+            psychological_core: {
+                ghost_and_wound: core.ghost_and_wound || core.wound || core.ghost || '',
+                the_lie: core.the_lie || core.false_belief || core.lie || '',
+                fear: core.fear || '',
+                desire: core.desire || '',
+                psychological_need: core.psychological_need || core.need || '',
+                moral_need: core.moral_need || '',
+                paradox: core.paradox || voice.paradox || ''
+            },
+            voice_and_behavior: {
+                voice_tag: voice.voice_tag || '',
+                pressure_tag: voice.pressure_tag || '',
+                humor_tag: voice.humor_tag || '',
+                speech_patterns: voice.speech_patterns || '',
+                deflection_tactic: voice.deflection_tactic || ''
+            },
+            arc: {
+                core_drive: character.arc?.core_drive || '',
+                direction: character.arc?.direction || 'Growth'
+            },
+            ticks: {
+                enabled: ticks.enabled === true,
+                description: ticks.description || '',
+                frequency_gate: ticks.frequency_gate || ''
+            }
+        };
+        if (character._deep_profile) normalized._deep_profile = character._deep_profile;
+        if (character.subtlety_guidelines) normalized.subtlety_guidelines = character.subtlety_guidelines;
+        return normalized;
+    }
+
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
         _deepProfileCache = {};
 
         // Sort: Protagonist first, Antagonist second, Supporting last
-        const sorted = [...characters].sort((a, b) => {
+        const sorted = [...characters].map(normalizeStage3CharacterForEditor).sort((a, b) => {
             const rank = r => {
                 const role = (r.role || '').toLowerCase();
                 if (role.includes('protagonist')) return 0;
@@ -7455,6 +7492,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                if (Number(stageId) === 3 && isStage3DirectRevisionRequest(_text)) {
+                    chat.append('ai', 'Applying those character changes now.');
+                    chat.setDisabled(true);
+                    const indicator = showWorking();
+                    try {
+                        await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
+                        indicator.remove();
+                        await postRevisionFollowUp();
+                    } catch (err) {
+                        indicator.remove();
+                        chat.append('ai', 'I tried to apply that, but the character revision failed: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                    return;
+                }
+
                 if (Number(stageId) === 6 && isStage6DirectRevisionRequest(_text)) {
                     chat.append('ai', 'Applying those changes to the scene blueprint now.');
                     chat.setDisabled(true);
@@ -7649,7 +7703,10 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentCharacters', JSON.stringify(currentCharacters));
             formData.append('notes', notes);
             const res = await fetch('/api/generate-characters', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                throw new Error(err.error || `Server error ${res.status}`);
+            }
             const data = await res.json();
             await handleSourceGenerationResult(3, data, { chat: stageChatWindows[3] });
             renderCharacters(data.result.characters);
@@ -7736,6 +7793,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage 6
+    function isStage3DirectRevisionRequest(text) {
+        const value = String(text || '').trim();
+        if (value.length < 18) return false;
+
+        const asksForDiscussion = /[?]/.test(value) &&
+            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
+        if (asksForDiscussion) return false;
+
+        const referencesCharacters = /\b(character|characters|cast|profile|profiles|protagonist|antagonist)\b/i.test(value);
+        const containsDirective = /\b(regenerate|re-generate|redo|rebuild|recast|start over|from scratch|fresh pass|fresh set|revise|refine|apply|fix|add|remove|delete|replace|make|change|update|deepen|sharpen)\b/i.test(value);
+        const structuredMemo = /\n\s*(?:\d+\.|[-*]\s+|==)/.test(value);
+
+        return referencesCharacters && containsDirective && (structuredMemo || value.length > 80 || /\b(regenerate|re-generate|redo|rebuild|recast|from scratch)\b/i.test(value));
+    }
+
     function isStage6DirectRevisionRequest(text) {
         const value = String(text || '').trim();
         if (value.length < 24) return false;

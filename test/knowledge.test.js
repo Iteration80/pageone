@@ -463,6 +463,22 @@ test('frontend Stage 7 offers four style paths and trained upload', () => {
     assert.match(styleSkill, /Style Builder Contract/);
 });
 
+test('Stage 3 character regeneration handles legacy cards and direct rebuild requests', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const agent3Js = fs.readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
+
+    assert.match(appJs, /normalizeStage3CharacterForEditor/);
+    assert.match(appJs, /core\.false_belief/);
+    assert.match(appJs, /core\.wound/);
+    assert.match(appJs, /isStage3DirectRevisionRequest/);
+    assert.match(appJs, /Applying those character changes now/);
+
+    assert.match(agent3Js, /normalizeLegacyCharacter/);
+    assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
+    assert.match(agent3Js, /LEGACY MODERNIZATION/);
+    assert.match(agent3Js, /fresh character regeneration/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

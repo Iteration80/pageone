@@ -2,6 +2,69 @@ const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
+function normalizeLegacyCharacter(character = {}) {
+    const core = character.psychological_core || {};
+    const voice = character.voice_and_behavior || {};
+    const ticks = character.ticks || {};
+    const normalized = {
+        ...character,
+        psychological_core: {
+            ghost_and_wound: core.ghost_and_wound || core.wound || core.ghost || '',
+            the_lie: core.the_lie || core.false_belief || core.lie || '',
+            fear: core.fear || '',
+            desire: core.desire || '',
+            psychological_need: core.psychological_need || core.need || '',
+            moral_need: core.moral_need || '',
+            paradox: core.paradox || voice.paradox || ''
+        },
+        voice_and_behavior: {
+            voice_tag: voice.voice_tag || '',
+            pressure_tag: voice.pressure_tag || '',
+            humor_tag: voice.humor_tag || '',
+            speech_patterns: voice.speech_patterns || '',
+            deflection_tactic: voice.deflection_tactic || ''
+        },
+        arc: {
+            core_drive: character.arc?.core_drive || '',
+            direction: character.arc?.direction || 'Growth'
+        },
+        ticks: {
+            enabled: ticks.enabled === true,
+            description: ticks.description || '',
+            frequency_gate: ticks.frequency_gate || ''
+        }
+    };
+    if (character._deep_profile) normalized._deep_profile = character._deep_profile;
+    if (character.subtlety_guidelines) normalized.subtlety_guidelines = character.subtlety_guidelines;
+    return normalized;
+}
+
+function normalizeCurrentCharacters(currentCharacters) {
+    const list = Array.isArray(currentCharacters)
+        ? currentCharacters
+        : (Array.isArray(currentCharacters?.characters) ? currentCharacters.characters : []);
+    return list.map(normalizeLegacyCharacter);
+}
+
+function needsCharacterModernization(characters = []) {
+    return characters.some(char =>
+        !char._deep_profile ||
+        !char.psychological_core?.ghost_and_wound ||
+        !char.psychological_core?.the_lie ||
+        !char.psychological_core?.psychological_need ||
+        !char.arc?.core_drive ||
+        !char.voice_and_behavior?.voice_tag
+    );
+}
+
+function isFullCharacterRegenerationRequest(notes = '') {
+    const text = String(notes || '');
+    const asksForCharacters = /\b(character|characters|cast|profiles?)\b/i.test(text);
+    const asksForFreshPass = /\b(regenerate|re-generate|redo|rebuild|recast|start over|from scratch|fresh pass|fresh set|new cast|new profiles?)\b/i.test(text);
+    const surgicalQualifier = /\b(surgical|only|just|specific|one character|single character|leave all other|preserve all other)\b/i.test(text);
+    return asksForCharacters && asksForFreshPass && !surgicalQualifier;
+}
+
 const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
@@ -99,16 +162,23 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         }
     };
 
+    const normalizedCurrentCharacters = normalizeCurrentCharacters(currentCharacters);
+    const fullRegenerationRequested = isFullCharacterRegenerationRequest(notes);
+    const legacyModernizationNeeded = normalizedCurrentCharacters.length > 0 && needsCharacterModernization(normalizedCurrentCharacters);
+
     // Revision Bypass Logic
-    if (notes && currentCharacters) {
+    if (notes && normalizedCurrentCharacters.length > 0 && !fullRegenerationRequested) {
         console.log("  Surgical Revision Mode: Updating characters...");
-        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a full profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the user's note specifically addresses personality typing, voice, or behavioral patterns. If any character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY character's core traits change, regenerate \`relationship_dynamics\` for ALL characters (relationships are bidirectional).`;
+        const legacyInstruction = legacyModernizationNeeded
+            ? '\n\nLEGACY MODERNIZATION: Some existing character records come from an older schema and may be missing required fields such as voice tags, arc, ticks, or _deep_profile. Preserve their visible story intent, but fill every missing required field and generate missing _deep_profile objects. Do not preserve blank legacy fields as blanks.'
+            : '';
+        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a full profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the user's note specifically addresses personality typing, voice, or behavioral patterns, OR the character is missing \`_deep_profile\`. If any character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY character's core traits change, regenerate \`relationship_dynamics\` for ALL characters (relationships are bidirectional).${legacyInstruction}`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
         const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
 
 EXISTING CHARACTERS:
-${JSON.stringify(currentCharacters, null, 2)}
+${JSON.stringify(normalizedCurrentCharacters, null, 2)}
 
 Please apply the note surgically and return the full updated character list in JSON format.`;
 
@@ -153,8 +223,14 @@ ${JSON.stringify(pitchData, null, 2)}
 Here is the broad outline (beats):
 ${JSON.stringify(beatsData, null, 2)}`;
 
-    if (notes && currentCharacters) {
-        contentsText += `\n\nThe user has provided feedback for the characters. Revise the existing characters based on these notes.\n\nEXISTING CHARACTERS:\n${JSON.stringify(currentCharacters, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL cast of characters, including unrevised ones, in the proper JSON format.`;
+    if (notes) {
+        if (fullRegenerationRequested) {
+            contentsText += `\n\nThe user has requested a fresh character regeneration. Create a full regenerated cast from the approved pitch and outline while honoring these notes. Do not preserve legacy profiles merely because they already exist.\n\nNOTES: ${notes}`;
+        } else if (normalizedCurrentCharacters.length > 0) {
+            contentsText += `\n\nThe user has provided feedback for the characters. Revise the existing characters based on these notes.\n\nEXISTING CHARACTERS:\n${JSON.stringify(normalizedCurrentCharacters, null, 2)}\n\nNOTES: ${notes}\n\nEnsure you return the FULL cast of characters, including unrevised ones, in the proper JSON format.`;
+        } else {
+            contentsText += `\n\nThe user has provided guidance for character generation:\n${notes}`;
+        }
     }
     contents.push(contentsText);
 
