@@ -479,6 +479,14 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.match(agent3Js, /fresh character regeneration/);
 });
 
+test('Claude client streams long Opus requests used by Stage 3 characters', () => {
+    const aiClient = fs.readFileSync(require.resolve('../agents/ai-client.js'), 'utf8');
+    assert.match(aiClient, /client\.messages\.stream\(request\)/);
+    assert.match(aiClient, /stream\.finalMessage\(\)/);
+    assert.match(aiClient, /maxTokens >= 32000/);
+    assert.match(aiClient, /model === 'claude-opus-4-7'/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

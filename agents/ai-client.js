@@ -142,26 +142,38 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
         : { temperature: config?.temperature ?? 0.7 };
 
     const maxTokens = config?.maxOutputTokens ?? 16000;
-
-    // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
-    const response = await client.messages.create({
+    const request = {
         model,
         max_tokens: maxTokens,
         ...temperatureParam,
         ...(system ? { system } : {}),
         messages
-    });
-
-    const rawText = response.content.find(b => b.type === 'text')?.text ?? '';
-    const usage = {
-        model,
-        inputTokens: response.usage?.input_tokens || 0,
-        outputTokens: response.usage?.output_tokens || 0,
     };
-    // Strip markdown fences; when JSON is expected, also strip any prose preamble
-    let text = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    if (schema) text = extractJsonFromText(text, schema);
-    return { text, usage };
+
+    const normalizeClaudeMessage = (message) => {
+        const rawText = message.content.find(b => b.type === 'text')?.text ?? '';
+        const usage = {
+            model,
+            inputTokens: message.usage?.input_tokens || 0,
+            outputTokens: message.usage?.output_tokens || 0,
+        };
+        let text = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        if (schema) text = extractJsonFromText(text, schema);
+        return { text, usage };
+    };
+
+    // Some long Claude calls, especially Opus with large max_tokens, must use
+    // streaming even when the caller only needs a final accumulated response.
+    const shouldStream = maxTokens >= 32000 || model === 'claude-opus-4-7';
+    if (shouldStream) {
+        const stream = client.messages.stream(request);
+        const message = await stream.finalMessage();
+        return normalizeClaudeMessage(message);
+    }
+
+    // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
+    const response = await client.messages.create(request);
+    return normalizeClaudeMessage(response);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

@@ -53,6 +53,15 @@ function safeParse(str, fallback = null) {
     try { return JSON.parse(str); } catch { return fallback; }
 }
 
+function publicErrorDetail(error, maxChars = 240) {
+    const message = String(error?.message || '').trim();
+    if (!message) return '';
+    return message
+        .replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]')
+        .replace(/AIza[0-9A-Za-z_-]+/g, '[redacted]')
+        .slice(0, maxChars);
+}
+
 /**
  * Atomic file write — writes to a temp file in the same directory, then renames.
  * Prevents corruption from concurrent writes or interrupted I/O.
@@ -2814,7 +2823,8 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         res.json({ result: characterData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
-        res.status(500).json({ error: "Failed to generate characters" });
+        const detail = publicErrorDetail(error);
+        res.status(500).json({ error: detail ? `Failed to generate characters: ${detail}` : "Failed to generate characters" });
     }
 });
 
