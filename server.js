@@ -16,6 +16,7 @@ const SETTINGS_PATH = path.join(DATA_ROOT, 'settings.json');
 const DATA_DIR = path.join(DATA_ROOT, 'projects');
 const STYLES_DIR = path.join(DATA_ROOT, 'styles');
 const BUNDLED_STYLES_DIR = path.join(BUNDLED_DATA_ROOT, 'styles');
+const SOURCE_FILES_DIR = path.join(DATA_ROOT, 'source-files');
 
 // ─── Input validation helpers ─────────────────────────────────────────────────
 
@@ -478,6 +479,125 @@ function normalizeSourceText(text) {
         .trim();
 }
 
+function normalizeStoredRelativePath(filePath) {
+    return path.relative(DATA_ROOT, filePath).split(path.sep).join('/');
+}
+
+function sourceFileExtension(name = '', mimeType = '') {
+    const ext = path.extname(String(name || '')).toLowerCase().replace(/[^a-z0-9.]/g, '');
+    if (ext) return ext.slice(0, 16);
+    const mime = String(mimeType || '').toLowerCase();
+    if (mime.includes('pdf')) return '.pdf';
+    if (mime.includes('wordprocessingml')) return '.docx';
+    if (mime.includes('markdown')) return '.md';
+    if (mime.includes('xml')) return '.xml';
+    if (mime.includes('plain')) return '.txt';
+    return '.bin';
+}
+
+function sanitizeSourceAssetName(name, fallback = 'source') {
+    const base = path.basename(String(name || fallback))
+        .replace(/[\u0000-\u001f\u007f]/g, '')
+        .replace(/[^\w .@()+,-]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!base || base === '.' || base === '..') return fallback;
+    return base.slice(0, 160);
+}
+
+function markdownNameForSource(name, sourceId) {
+    const safeName = sanitizeSourceAssetName(name, sourceId || 'source');
+    const parsed = path.parse(safeName);
+    const base = (parsed.name || sourceId || 'source').slice(0, 140);
+    return `${base}.md`;
+}
+
+function buildExtractedMarkdownContent({ sourceId, name, mimeType, uploadedAt, contentHash, text }) {
+    const safeName = String(name || 'Untitled source').replace(/\r?\n/g, ' ').trim() || 'Untitled source';
+    const metadata = [
+        `original_name: ${JSON.stringify(safeName)}`,
+        `source_id: ${JSON.stringify(sourceId || '')}`,
+        `mime_type: ${JSON.stringify(mimeType || 'application/octet-stream')}`,
+        `extracted_at: ${JSON.stringify(uploadedAt || new Date().toISOString())}`,
+        `content_hash: ${JSON.stringify(contentHash || '')}`
+    ].join('\n');
+
+    return `---\n${metadata}\n---\n\n# ${safeName}\n\n${normalizeSourceText(text)}\n`;
+}
+
+async function persistKnowledgeSourceAssets({
+    projectId,
+    sourceId,
+    attachment,
+    fileText,
+    uploadedAt,
+    contentHash,
+    sourceRoot = SOURCE_FILES_DIR
+}) {
+    if (!projectId || !sourceId || !attachment?.data || !fileText) return null;
+    if (!isValidProjectId(String(projectId)) || !/^src_[a-zA-Z0-9_]+$/.test(String(sourceId))) return null;
+
+    const sourceDir = path.join(sourceRoot, String(projectId), String(sourceId));
+    await fs.mkdir(sourceDir, { recursive: true });
+
+    const originalBuffer = Buffer.from(attachment.data, 'base64');
+    const originalName = sanitizeSourceAssetName(
+        attachment.name || `source${sourceFileExtension('', attachment.mimeType)}`,
+        `source${sourceFileExtension('', attachment.mimeType)}`
+    );
+    const originalPath = path.join(sourceDir, originalName);
+    await fs.writeFile(originalPath, originalBuffer);
+
+    const markdownContent = buildExtractedMarkdownContent({
+        sourceId,
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+        uploadedAt,
+        contentHash,
+        text: fileText
+    });
+    const markdownName = markdownNameForSource(attachment.name, sourceId);
+    const markdownPath = path.join(sourceDir, markdownName);
+    await fs.writeFile(markdownPath, markdownContent, 'utf8');
+
+    return {
+        originalFile: {
+            filename: originalName,
+            path: normalizeStoredRelativePath(originalPath),
+            mimeType: attachment.mimeType || 'application/octet-stream',
+            byteCount: originalBuffer.length,
+            sha256: crypto.createHash('sha256').update(originalBuffer).digest('hex')
+        },
+        extractedMarkdown: {
+            filename: markdownName,
+            path: normalizeStoredRelativePath(markdownPath),
+            mimeType: 'text/markdown',
+            charCount: markdownContent.length,
+            sha256: crypto.createHash('sha256').update(markdownContent).digest('hex'),
+            generatedAt: uploadedAt || new Date().toISOString()
+        }
+    };
+}
+
+async function tryPersistKnowledgeSourceAssets(options) {
+    try {
+        return await persistKnowledgeSourceAssets(options);
+    } catch (error) {
+        console.error('source asset persistence error:', error.message);
+        return null;
+    }
+}
+
+async function removeKnowledgeSourceAssets(projectId, sourceId) {
+    if (!isValidProjectId(String(projectId)) || !/^src_[a-zA-Z0-9_]+$/.test(String(sourceId))) return;
+    await fs.rm(path.join(SOURCE_FILES_DIR, String(projectId), String(sourceId)), { recursive: true, force: true });
+}
+
+async function removeProjectSourceAssets(projectId) {
+    if (!isValidProjectId(String(projectId))) return;
+    await fs.rm(path.join(SOURCE_FILES_DIR, String(projectId)), { recursive: true, force: true });
+}
+
 function ensureProjectKnowledge(projectData) {
     if (!projectData.data) projectData.data = {};
     const existing = projectData.data.knowledge;
@@ -583,7 +703,7 @@ function refreshSourceBibleSummary(knowledge) {
     bible.updatedAt = new Date().toISOString();
 }
 
-async function persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag = 'chat_upload' } = {}) {
+async function persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag = 'chat_upload', projectId = null } = {}) {
     if (!attachment) return { fileText: '', savedSource: null };
 
     const fileText = normalizeSourceText(await extractAttachmentText(attachment));
@@ -593,11 +713,26 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
     const now = new Date().toISOString();
     const contentHash = crypto.createHash('sha256').update(fileText).digest('hex').slice(0, 20);
     const existing = knowledge.source_registry.find(source => source.contentHash === contentHash);
+    const sourceAssetProjectId = projectId || projectData.id || projectData.projectId || null;
 
     if (existing) {
         existing.lastReferencedAt = now;
         existing.stagesReferenced = Array.from(new Set([...(existing.stagesReferenced || []), stageId].filter(Boolean)));
         existing.tags = Array.from(new Set([...(existing.tags || []), originTag].filter(Boolean)));
+        if (sourceAssetProjectId && (!existing.originalFile || !existing.extractedMarkdown)) {
+            const assets = await tryPersistKnowledgeSourceAssets({
+                projectId: sourceAssetProjectId,
+                sourceId: existing.id,
+                attachment,
+                fileText,
+                uploadedAt: existing.uploadedAt || now,
+                contentHash
+            });
+            if (assets) {
+                existing.originalFile = existing.originalFile || assets.originalFile;
+                existing.extractedMarkdown = existing.extractedMarkdown || assets.extractedMarkdown;
+            }
+        }
         return {
             fileText,
             savedSource: {
@@ -605,7 +740,9 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
                 name: existing.name,
                 duplicate: true,
                 charCount: existing.charCount || fileText.length,
-                type: existing.type || 'source_material'
+                type: existing.type || 'source_material',
+                originalFile: existing.originalFile || null,
+                extractedMarkdown: existing.extractedMarkdown || null
             }
         };
     }
@@ -625,6 +762,19 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
         summary: summarizeSourceText(fileText),
         sourceNote: compactText(userMessage || '', 500)
     };
+
+    const assets = await tryPersistKnowledgeSourceAssets({
+        projectId: sourceAssetProjectId,
+        sourceId: entry.id,
+        attachment,
+        fileText,
+        uploadedAt: now,
+        contentHash
+    });
+    if (assets) {
+        entry.originalFile = assets.originalFile;
+        entry.extractedMarkdown = assets.extractedMarkdown;
+    }
 
     if (fileText.length <= SOURCE_TEXT_LIMIT) {
         entry.storage = 'text';
@@ -647,7 +797,9 @@ async function persistChatAttachmentToKnowledge(projectData, attachment, { stage
             name: entry.name,
             duplicate: false,
             charCount: entry.charCount,
-            type: entry.type
+            type: entry.type,
+            originalFile: entry.originalFile || null,
+            extractedMarkdown: entry.extractedMarkdown || null
         }
     };
 }
@@ -679,7 +831,7 @@ function appendUploadedSourceBlock(text, uploadContext) {
     return [base, block].filter(Boolean).join('\n\n');
 }
 
-async function prepareGenerationUpload(projectData, uploadedFile, { stageId, userMessage = '', originTag = 'stage_upload', forceTextBlock = false } = {}) {
+async function prepareGenerationUpload(projectData, uploadedFile, { stageId, userMessage = '', originTag = 'stage_upload', forceTextBlock = false, projectId = null } = {}) {
     const attachment = uploadFileToAttachment(uploadedFile);
     if (!attachment) {
         return { attachment: null, fileText: '', savedSource: null, agentFile: null, textBlock: '', isPdf: false };
@@ -688,7 +840,7 @@ async function prepareGenerationUpload(projectData, uploadedFile, { stageId, use
     let fileText = '';
     let savedSource = null;
     if (projectData) {
-        const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag });
+        const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage, originTag, projectId });
         fileText = persisted.fileText;
         savedSource = persisted.savedSource;
     } else {
@@ -1426,7 +1578,9 @@ function summarizeSourceForClient(source) {
         truncated: !!source.truncated,
         sourceNote: source.sourceNote || '',
         storage: source.storage || (source.text ? 'text' : source.chunks ? 'chunks' : 'summary'),
-        summary: source.summary || ''
+        summary: source.summary || '',
+        originalFile: source.originalFile || null,
+        extractedMarkdown: source.extractedMarkdown || null
     };
 }
 
@@ -3487,7 +3641,7 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         let attachmentText = '';
         let savedSource = null;
         if (attachment) {
-            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage: lastUserMessage });
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage: lastUserMessage, projectId });
             attachmentText = persisted.fileText;
             savedSource = persisted.savedSource;
             if (savedSource) await writeJSONQueued(filePath, projectData);
@@ -3686,7 +3840,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         let attachmentText = '';
         let savedSource = null;
         if (attachment && !isInit) {
-            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: lastUserMessage });
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: lastUserMessage, projectId });
             attachmentText = persisted.fileText;
             savedSource = persisted.savedSource;
             if (savedSource) await writeJSONQueued(filePath, projectData);
@@ -4495,7 +4649,7 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         let savedSource = null;
         let attachmentText = '';
         if (attachment) {
-            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: userFeedback || priorityTask });
+            const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: 10, userMessage: userFeedback || priorityTask, projectId });
             attachmentText = persisted.fileText;
             savedSource = persisted.savedSource;
             if (savedSource) await writeJSONQueued(filePath, projectData);
@@ -5259,7 +5413,8 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
             const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, {
                 stageId: null,
                 userMessage: sourceNote,
-                originTag: 'project_upload'
+                originTag: 'project_upload',
+                projectId: id
             });
             if (!persisted.savedSource) {
                 const err = new Error('No readable text could be extracted from this source file');
@@ -5303,6 +5458,9 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             removeKnowledgeSource(projectData, sourceId);
             return projectData;
+        });
+        await removeKnowledgeSourceAssets(id, sourceId).catch(error => {
+            console.error('source asset cleanup error:', error.message);
         });
         const knowledge = ensureProjectKnowledge(updatedProject);
         res.json({
@@ -5732,6 +5890,9 @@ app.delete('/api/projects/:id', requireAuth, async (req, res) => {
         }
 
         await fs.unlink(filePath);
+        await removeProjectSourceAssets(id).catch(error => {
+            console.error('source asset cleanup error:', error.message);
+        });
         res.json({ success: true });
     } catch (error) {
         console.error("Error deleting project:", error);

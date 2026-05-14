@@ -6,6 +6,8 @@ data/settings.json
 
 # Project data
 data/projects/
+data/source-files/
+data/projects-manifest.json
 
 # Node
 node_modules/
