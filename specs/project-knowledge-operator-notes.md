@@ -27,13 +27,13 @@ Style references are tone, rhythm, point of view, texture, and cinematic handlin
 
 1. Chat upload
 
-   A writer can attach source through stage chat. Supported chat formats are `.pdf`, `.txt`, `.md`, `.fountain`, `.docx`, and `.fdx`. The upload is extracted to text, saved into project knowledge, and marked with stage/upload tags.
+   A writer can attach source through stage chat. Supported chat formats are `.pdf`, `.txt`, `.md`, `.fountain`, `.docx`, and `.fdx`. The upload is extracted to text, saved into project knowledge, and marked with stage/upload tags. New uploads also store the original file, a normalized extracted `.md` copy, and a sidecar chunk index under `DATA_ROOT/source-files/<projectId>/<sourceId>/` so the project keeps a source-of-truth asset alongside summaries and prompt-ready retrieval chunks.
 
    The chat should show a short system note such as "Saved to project knowledge for reuse across stages." This is the first trust signal.
 
 2. Source registry and source bible
 
-   Saved uploads live in `knowledge.source_registry`. Each source keeps metadata, summary text, tags, type, storage mode, and references to stages that used it.
+   Saved uploads live in `knowledge.source_registry`. Each source keeps metadata, summary text, tags, type, storage mode, asset references, and references to stages that used it.
 
    The source bible is the compact source-facing summary. It includes source summaries and curated notes. It should stay compact and source-aware; it is not a raw transcript dump.
 

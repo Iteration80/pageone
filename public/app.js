@@ -3888,6 +3888,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const storage = source.storage === 'chunks'
                 ? `${formatCountLabel(source.chunkCount || 0, 'chunk', 'chunks')}${source.truncated ? ', truncated' : ''}`
                 : source.storage || 'summary';
+            const assetSummary = source.extractedMarkdown?.path
+                ? ` - extracted .md saved${source.chunkIndex?.path ? ' + full index' : ''}`
+                : '';
             const referenced = source.stagesReferenced?.length
                 ? ` - used in stages ${source.stagesReferenced.join(', ')}`
                 : '';
@@ -3895,7 +3898,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <article class="source-library-item">
                     <div class="source-library-item-main">
                         <div class="source-library-item-title">${escapeHtml(source.name || 'Untitled source')}</div>
-                        <div class="source-library-item-meta">${escapeHtml(formatSourceTypeLabel(source.type || 'source_material'))} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))} - ${escapeHtml(storage)}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}${updated}${escapeHtml(referenced)}</div>
+                        <div class="source-library-item-meta">${escapeHtml(formatSourceTypeLabel(source.type || 'source_material'))} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))} - ${escapeHtml(storage)}${escapeHtml(assetSummary)}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}${updated}${escapeHtml(referenced)}</div>
                         ${source.summary ? `<p>${escapeHtml(source.summary)}</p>` : ''}
                         ${source.sourceNote ? `<p class="source-library-note">${escapeHtml(source.sourceNote)}</p>` : ''}
                         ${tags ? `<div class="source-library-tags">${tags}</div>` : ''}

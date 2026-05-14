@@ -16,7 +16,6 @@ const {
 test('project knowledge review sanitizes manual edits and refreshes compact memory', async () => {
     const now = '2026-05-10T12:00:00.000Z';
     const project = {
-        id: '1779000000000',
         title: 'Knowledge Review Test',
         data: {
             stage1_pitch: {
@@ -82,7 +81,6 @@ test('project knowledge review sanitizes manual edits and refreshes compact memo
 test('removing a source invalidates cached plans and audits that referenced it', async () => {
     const now = '2026-05-10T13:00:00.000Z';
     const project = {
-        id: '1779000000001',
         title: 'Knowledge Delete Test',
         data: {
             stage1_pitch: {
