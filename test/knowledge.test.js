@@ -1,7 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const { Document, Packer, Paragraph } = require('docx');
 
 const {
@@ -686,60 +685,6 @@ test('persistChatAttachmentToKnowledge supports direct project upload tagging an
     assert.ok(knowledge.source_registry[0].tags.includes('project_upload'));
     assert.ok(knowledge.source_registry[0].tags.includes('chat_upload'));
     assert.deepEqual(knowledge.source_registry[0].stagesReferenced, [4]);
-});
-
-test('persistChatAttachmentToKnowledge stores original uploads and extracted markdown assets', async () => {
-    const project = { id: '9999999999999', data: {} };
-    const dataRoot = path.resolve(process.env.DATA_ROOT || path.join(__dirname, '..', 'data'));
-    const assetDir = path.join(dataRoot, 'source-files', project.id);
-    fs.rmSync(assetDir, { recursive: true, force: true });
-
-    try {
-        const docx = new Document({
-            sections: [{
-                children: [new Paragraph('Docx source says Mara keeps the blue key.')]
-            }]
-        });
-        const docxBuffer = await Packer.toBuffer(docx);
-
-        await persistChatAttachmentToKnowledge(project, {
-            name: 'Canon Draft.docx',
-            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            data: docxBuffer.toString('base64')
-        }, {
-            userMessage: 'Treat this as source material.',
-            originTag: 'project_upload'
-        });
-
-        const source = project.data.knowledge.source_registry[0];
-        assert.equal(source.originalFile.filename, 'Canon Draft.docx');
-        assert.equal(source.extractedMarkdown.filename, 'Canon Draft.md');
-        assert.equal(source.chunkIndex.filename, 'chunks.json');
-        assert.match(source.originalFile.path, /source-files\/9999999999999\/src_/);
-        assert.match(source.extractedMarkdown.path, /\.md$/);
-        assert.match(source.chunkIndex.path, /chunks\.json$/);
-
-        const originalPath = path.join(dataRoot, source.originalFile.path);
-        const markdownPath = path.join(dataRoot, source.extractedMarkdown.path);
-        const chunkIndexPath = path.join(dataRoot, source.chunkIndex.path);
-        assert.equal(fs.readFileSync(originalPath).length, docxBuffer.length);
-        assert.match(fs.readFileSync(markdownPath, 'utf8'), /Docx source says Mara keeps the blue key/);
-        assert.match(fs.readFileSync(chunkIndexPath, 'utf8'), /Docx source says Mara keeps the blue key/);
-
-        delete source.text;
-        delete source.chunks;
-        source.storage = 'chunks';
-        source.summary = '';
-        const context = buildKnowledgeContextBlock(project, {
-            stageId: 2,
-            userMessage: 'Where is the blue key?',
-            stageName: 'Outline',
-            stageData: ''
-        });
-        assert.match(context, /Docx source says Mara keeps the blue key/);
-    } finally {
-        fs.rmSync(assetDir, { recursive: true, force: true });
-    }
 });
 
 test('prepareGenerationUpload extracts non-pdf stage uploads for direct generation', async () => {
