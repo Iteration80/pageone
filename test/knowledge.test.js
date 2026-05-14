@@ -410,6 +410,9 @@ test('frontend keeps project memory usage under the hood instead of posting chat
 
 test('frontend project knowledge inspector exposes memory trust controls', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+    assert.match(indexHtml, /id="btnSourceLibrary" class="sidebar-home-btn" title="Project Knowledge" aria-label="Project Knowledge"/);
+    assert.doesNotMatch(indexHtml, /id="btnSourceLibrary"[^>]*hidden/);
     assert.match(appJs, /data-action="run-source-check"/);
     assert.match(appJs, /Audit needs refresh because source material changed/);
     assert.match(appJs, /knowledge-handoff-status/);

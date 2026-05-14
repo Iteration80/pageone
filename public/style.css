@@ -100,6 +100,8 @@ body {
     margin-top: auto;
     display: flex;
     justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .sidebar-home-btn {
