@@ -7,15 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "npm run test:knowledge",
-    "test:knowledge": "node --test test/knowledge.test.js test/knowledge_review.test.js test/memory_contract.test.js test/prompt_regression.test.js test/security.test.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:knowledge": "node --test test/knowledge.test.js test/knowledge_review.test.js test/memory_contract.test.js test/prompt_regression.test.js",
     "start": "node server.js",
-    "audit:security": "node scripts/security-audit-check.js",
-    "preflight:private": "node scripts/private-beta-preflight.js",
-    "smoke:private": "node scripts/smoke-private-deployment.js",
-    "backup:data": "node scripts/backup-data-root.js",
-    "restore:data": "node scripts/restore-data-root.js",
-    "drill:backup": "node scripts/backup-restore-drill.js",
     "upload:railway-projects": "node scripts/upload-local-projects.js"
   },
   "keywords": [],

@@ -6,9 +6,6 @@ data/settings.json
 
 # Project data
 data/projects/
-data/projects-manifest.json
-data/logs/
-backups/
 
 # Node
 node_modules/
