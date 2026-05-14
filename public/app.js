@@ -4,11 +4,53 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeStageNum = 1;
     let currentDraftSceneNumber = 1;
     let isBatchGenerating = false;
-    const AUTH_STORAGE_KEY = 'pageone_access_key';
+    const AUTH_STORAGE_KEY = 'pageone_auth_session';
+    const AUTH_TTL_MS = 8 * 60 * 60 * 1000;
     const nativeFetch = window.fetch.bind(window);
 
-    function getAuthSecret() {
-        return sessionStorage.getItem(AUTH_STORAGE_KEY) || '';
+    function getAuthSession() {
+        const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+        if (!raw) return null;
+        try {
+            const saved = JSON.parse(raw);
+            if ((!saved?.token && saved?.authRequired !== false) || !saved?.expiresAt || Date.now() > saved.expiresAt) {
+                sessionStorage.removeItem(AUTH_STORAGE_KEY);
+                return null;
+            }
+            return saved;
+        } catch {
+            sessionStorage.removeItem(AUTH_STORAGE_KEY);
+            return null;
+        }
+    }
+
+    function getAuthToken() {
+        return getAuthSession()?.token || '';
+    }
+
+    function isAdminSession() {
+        return getAuthSession()?.role === 'admin';
+    }
+
+    function setAuthSession(session) {
+        if (!session?.token && session?.authRequired !== false) {
+            sessionStorage.removeItem(AUTH_STORAGE_KEY);
+            applyAuthRole();
+            return;
+        }
+        sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+            token: session.token,
+            authRequired: session.authRequired !== false,
+            expiresAt: session.expiresAt || Date.now() + AUTH_TTL_MS,
+            label: session.label || '',
+            role: session.role || (session.authRequired === false ? 'admin' : 'tester')
+        }));
+        applyAuthRole();
+    }
+
+    function clearAuthSession() {
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        applyAuthRole();
     }
 
     function isApiRequest(resource) {
@@ -31,20 +73,82 @@ document.addEventListener('DOMContentLoaded', () => {
         if (error) error.textContent = '';
     }
 
+    function showRuntimeErrorBanner() {
+        let banner = document.getElementById('runtimeErrorBanner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'runtimeErrorBanner';
+            banner.className = 'runtime-error-banner';
+            banner.textContent = 'PageOne hit a UI error. Refresh the page or return home; saved project data remains on the server.';
+            document.body.appendChild(banner);
+        }
+        banner.classList.add('visible');
+    }
+
+    window.addEventListener('error', showRuntimeErrorBanner);
+    window.addEventListener('unhandledrejection', showRuntimeErrorBanner);
+
+    function applyAuthRole() {
+        const adminOnlyIds = [
+            'btnOpenSettingsHub',
+            'btnOpenSettings',
+            'importScriptBtn',
+            'btnStyleDetailDelete',
+            'btnStyleDetailEdit',
+            'btnDownloadPitch',
+            'btnDownloadOutline',
+            'btnDownloadCharacters',
+            'btnDownloadBeats',
+            'btnDownloadTreatment',
+            'btnDownloadScenes',
+            'btnDownloadDraft',
+            'btnExportDraftPdf',
+            'btnDownloadCoverage',
+            'btnDownloadRewriteFountain',
+            'btnDownloadRewritePdf',
+            'btn-loopback-export'
+        ];
+        const isAdmin = isAdminSession();
+        document.body.dataset.authRole = isAdmin ? 'admin' : 'tester';
+        adminOnlyIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', !isAdmin);
+        });
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.classList.toggle('hidden', !isAdmin);
+        });
+    }
+
+    function logout() {
+        const token = getAuthToken();
+        if (token) {
+            nativeFetch('/api/auth/session', {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => {});
+        }
+        clearAuthSession();
+        activeProjectId = null;
+        targetProjectId = null;
+        window.location.hash = '';
+        showAuthOverlay('Signed out.');
+    }
+
     window.fetch = async (resource, options = {}) => {
         const shouldAuth = isApiRequest(resource);
         const requestOptions = { ...options };
         if (shouldAuth) {
             const headers = new Headers(requestOptions.headers || (resource instanceof Request ? resource.headers : undefined));
-            const secret = getAuthSecret();
-            if (secret && !headers.has('Authorization') && !headers.has('X-Api-Key')) {
-                headers.set('Authorization', `Bearer ${secret}`);
+            const token = getAuthToken();
+            if (token && !headers.has('Authorization') && !headers.has('X-Api-Key')) {
+                headers.set('Authorization', `Bearer ${token}`);
             }
             requestOptions.headers = headers;
         }
         const response = await nativeFetch(resource, requestOptions);
         if (shouldAuth && response.status === 401) {
-            showAuthOverlay('Invalid or missing access key.');
+            clearAuthSession();
+            showAuthOverlay('Session expired or missing. Enter the access key again.');
         }
         return response;
     };
@@ -62,10 +166,14 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = true;
             if (error) error.textContent = '';
             try {
-                const headers = secret ? { Authorization: `Bearer ${secret}` } : {};
-                const res = await nativeFetch('/api/projects', { headers });
+                const res = await nativeFetch('/api/auth/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accessKey: secret })
+                });
                 if (!res.ok) throw new Error('Access denied');
-                if (secret) sessionStorage.setItem(AUTH_STORAGE_KEY, secret);
+                const session = await res.json();
+                setAuthSession(session);
                 hideAuthOverlay();
                 if (window.location.hash.startsWith('#project-')) {
                     handleHashChange();
@@ -82,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupAuthGate();
+    applyAuthRole();
 
     function autoResize(textarea) {
         if (!textarea) return;
@@ -176,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.getElementById('appContainer');
     const projectsGrid = document.getElementById('projectsGrid');
     const createNewProjectBtn = document.getElementById('createNewProjectBtn');
+    const btnLoadMoreProjects = document.getElementById('btnLoadMoreProjects');
     const btnReturnHome = document.getElementById('btnReturnHome');
 
     // Navigation
@@ -398,6 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteModal = document.getElementById('deleteModal');
     const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const projectPageState = {
+        limit: 60,
+        nextOffset: 0,
+        hasMore: false,
+        loading: false
+    };
 
     // --- Modal Logic ---
     function openRenameModal(id, currentTitle) {
@@ -461,18 +577,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Project Hub Logic ---
     async function initHub() {
-        try {
-            const res = await fetch('/api/projects');
-            const data = await res.json();
-            renderProjects(data.projects || []);
-        } catch (error) {
-            console.error("Failed to load projects:", error);
-        }
+        await loadProjectsPage({ reset: true });
         loadHubStyles();
     }
 
-    function renderProjects(projects) {
-        projectsGrid.innerHTML = '';
+    async function loadProjectsPage({ reset = false } = {}) {
+        if (projectPageState.loading) return;
+        projectPageState.loading = true;
+        updateProjectLoadMoreButton();
+        try {
+            const offset = reset ? 0 : (projectPageState.nextOffset || 0);
+            const params = new URLSearchParams({
+                limit: String(projectPageState.limit),
+                offset: String(offset)
+            });
+            const res = await fetch(`/api/projects?${params.toString()}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load projects');
+            const pagination = data.pagination || {};
+            projectPageState.nextOffset = pagination.nextOffset;
+            projectPageState.hasMore = !!pagination.hasMore;
+            renderProjects(data.projects || [], { append: !reset });
+        } catch (error) {
+            console.error("Failed to load projects:", error);
+            if (reset) renderProjects([]);
+        } finally {
+            projectPageState.loading = false;
+            updateProjectLoadMoreButton();
+        }
+    }
+
+    function updateProjectLoadMoreButton() {
+        if (!btnLoadMoreProjects) return;
+        btnLoadMoreProjects.classList.toggle('hidden', !projectPageState.hasMore && !projectPageState.loading);
+        btnLoadMoreProjects.disabled = projectPageState.loading;
+        btnLoadMoreProjects.textContent = projectPageState.loading ? 'Loading...' : 'Load More';
+    }
+
+    function renderProjects(projects, { append = false } = {}) {
+        if (!append) projectsGrid.innerHTML = '';
         projects.forEach(project => {
             const card = document.createElement('div');
             card.className = 'project-card';
@@ -482,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="edit-btn" data-id="${project.id}" title="Rename Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
-                    <button class="delete-btn" data-id="${project.id}" title="Delete Project">
+                    <button class="delete-btn admin-only" data-id="${project.id}" title="Delete Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     </button>
                 </div>
@@ -511,7 +654,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             projectsGrid.appendChild(card);
         });
+        applyAuthRole();
     }
+
+    btnLoadMoreProjects?.addEventListener('click', () => loadProjectsPage());
 
     createNewProjectBtn.addEventListener('click', async () => {
         try {
@@ -1206,6 +1352,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnReturnHome.addEventListener('click', () => {
         window.location.hash = '';
     });
+    document.getElementById('btnLogout')?.addEventListener('click', logout);
+    document.getElementById('btnLogoutHub')?.addEventListener('click', logout);
 
     // Initialize the app state based on URL
     handleHashChange();
@@ -4786,6 +4934,102 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 6 Logic: Scene Blueprint ---
 
+    function initStage6DragAndDrop(updateSceneNumbers) {
+        let draggedCard = null;
+
+        function markStage6Edited() {
+            if (!btnStage6Approve) return;
+            btnStage6Approve.textContent = 'Approve';
+            btnStage6Approve.classList.remove('approve-btn-green');
+            btnStage6Approve.disabled = false;
+        }
+
+        function insertDraggedCard(container, event) {
+            if (!draggedCard || !container) return;
+            const target = event.target.closest('.scene-card:not(.ghost-card)');
+            const ghost = container.querySelector('.ghost-card');
+
+            if (target && target !== draggedCard && target.parentElement === container) {
+                const rect = target.getBoundingClientRect();
+                const insertAfter = event.clientY > rect.top + rect.height / 2;
+                container.insertBefore(draggedCard, insertAfter ? target.nextSibling : target);
+                return;
+            }
+
+            if (ghost && draggedCard.parentElement !== container) {
+                container.insertBefore(draggedCard, ghost);
+            }
+        }
+
+        document.querySelectorAll('.scene-cards-container').forEach(containerEL => {
+            containerEL.addEventListener('dragover', event => {
+                if (!draggedCard) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                containerEL.classList.add('drag-over');
+                insertDraggedCard(containerEL, event);
+            });
+
+            containerEL.addEventListener('dragleave', event => {
+                if (!containerEL.contains(event.relatedTarget)) {
+                    containerEL.classList.remove('drag-over');
+                }
+            });
+
+            containerEL.addEventListener('drop', event => {
+                if (!draggedCard) return;
+                event.preventDefault();
+                containerEL.classList.remove('drag-over');
+                insertDraggedCard(containerEL, event);
+                updateSceneNumbers();
+                markStage6Edited();
+            });
+        });
+
+        document.querySelectorAll('.scene-card:not(.ghost-card)').forEach(card => {
+            const grip = card.querySelector('.card-grip');
+            card.draggable = false;
+            grip?.addEventListener('mousedown', () => { card.draggable = true; });
+            grip?.addEventListener('keydown', event => {
+                const previousKey = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+                const nextKey = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+                if (!previousKey && !nextKey) return;
+                event.preventDefault();
+                const sibling = previousKey
+                    ? card.previousElementSibling
+                    : card.nextElementSibling?.classList.contains('ghost-card') ? null : card.nextElementSibling;
+                if (!sibling || sibling.classList.contains('ghost-card')) return;
+                if (previousKey) card.parentElement.insertBefore(card, sibling);
+                else card.parentElement.insertBefore(sibling, card);
+                updateSceneNumbers();
+                markStage6Edited();
+                grip.focus();
+            });
+            grip?.setAttribute('tabindex', '0');
+            grip?.setAttribute('role', 'button');
+            grip?.setAttribute('aria-label', 'Reorder scene');
+
+            card.addEventListener('dragstart', event => {
+                if (!card.draggable) {
+                    event.preventDefault();
+                    return;
+                }
+                draggedCard = card;
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', card.querySelector('.scene-number')?.textContent || 'Scene');
+                requestAnimationFrame(() => card.classList.add('dragging'));
+            });
+
+            card.addEventListener('dragend', () => {
+                card.draggable = false;
+                card.classList.remove('dragging');
+                document.querySelectorAll('.scene-cards-container.drag-over').forEach(el => el.classList.remove('drag-over'));
+                draggedCard = null;
+                updateSceneNumbers();
+            });
+        });
+    }
+
     function renderStage6(data) {
         const container = document.getElementById('stage6-blueprint-container');
         if (!container) return;
@@ -4940,19 +5184,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
-        // Re-initialize SortableJS on every sequence container
-        if (typeof Sortable !== 'undefined') {
-            document.querySelectorAll('.scene-cards-container').forEach(containerEL => {
-                new Sortable(containerEL, {
-                    group: 'shared',
-                    animation: 150,
-                    handle: '.card-grip',
-                    onEnd: updateSceneNumbers
-                });
-            });
-        } else {
-            console.warn('SortableJS library not found. Drag and drop disabled.');
-        }
+        initStage6DragAndDrop(updateSceneNumbers);
 
         if (stage6Workshop) {
             stage6Workshop.classList.remove('hidden');
@@ -5339,14 +5571,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 : '';
 
             card.innerHTML = `
-                <div class="accordion-header p-3 cursor-pointer flex justify-between items-center" onclick="selectDraftScene(${scene.scene_number})">
+                <div class="accordion-header p-3 cursor-pointer flex justify-between items-center">
                     <div class="flex-1 pr-4">
                         <div class="text-[10px] text-blue-400 font-bold mb-1">SCENE ${scene.scene_number}${lockBadge}${draftBadge}</div>
                         <div class="text-xs text-gray-200 font-semibold leading-snug">${escapeHtml(scene.scene_heading)}</div>
                     </div>
-                    <div class="p-2 hover:bg-white/10 rounded-full transition-colors" onclick="toggleSceneDetails(this, event)">
+                    <button type="button" class="stage8-details-toggle p-2 hover:bg-white/10 rounded-full transition-colors" aria-label="Toggle scene details">
                         <svg class="w-4 h-4 text-gray-400 transform transition-transform duration-200 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
+                    </button>
                 </div>
                 <div class="accordion-body hidden p-3 bg-gray-950 border-t border-gray-700">
                     <div class="text-[9px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Narrative Action</div>
@@ -5355,6 +5587,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="text-xs text-blue-400/80">${escapeHtml(scene.dramaturgical_function)}</p>
                 </div>
             `;
+            card.querySelector('.accordion-header')?.addEventListener('click', () => window.selectDraftScene(scene.scene_number));
+            card.querySelector('.stage8-details-toggle')?.addEventListener('click', event => window.toggleSceneDetails(event.currentTarget, event));
             toc.appendChild(card);
         });
     }
@@ -5888,9 +6122,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (container) {
                     container.innerHTML = `
                         <div class="text-center mt-24">
-                            <p class="text-red-400 text-sm mb-4">Failed to generate coverage: ${error.message}</p>
-                            <button onclick="window.retryStage9Coverage()" class="primary-btn">Try Again</button>
+                            <p class="text-red-400 text-sm mb-4">Failed to generate coverage: ${escapeHtml(error.message || 'Unknown error')}</p>
+                            <button type="button" class="primary-btn stage9-retry-coverage">Try Again</button>
                         </div>`;
+                    container.querySelector('.stage9-retry-coverage')?.addEventListener('click', () => window.retryStage9Coverage());
                 }
             }
         }
@@ -9147,24 +9382,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('stage10-scene-list');
         if (!container || !stage10State) return;
         const entries = Object.keys(stage10State.working).map(n => parseInt(n)).sort((a, b) => a - b);
-        container.innerHTML = entries.map(n => {
+        container.innerHTML = '';
+        entries.forEach(n => {
             const hasPending  = !!stage10Pending[n];
             const hasApproved = !!stage10ApprovedScenes[n];
-            const dot = hasPending
-                ? '<span class="text-blue-400 ml-1 text-xs">●</span>'
-                : hasApproved
-                    ? '<span class="text-green-500 ml-1 text-xs">✓</span>'
-                    : '';
             const isActive = n === stage10CurrentScene ? 'bg-white/10' : 'hover:bg-white/5';
-            // Get slugline from stage6 data
             const allScenes = getFlatScenes();
             const sceneData = allScenes.find(s => s.scene_number === n);
             const label = sceneData?.scene_heading || sceneData?.slugline || `Scene ${n}`;
-            return `<button onclick="window.stage10SelectSceneBtn(${n})"
-                class="w-full text-left px-3 py-2 rounded text-xs text-gray-300 transition-colors ${isActive} flex items-center justify-between gap-2">
-                <span class="truncate">${n}. ${escapeHtml(label)}</span>${dot}
-            </button>`;
-        }).join('');
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `w-full text-left px-3 py-2 rounded text-xs text-gray-300 transition-colors ${isActive} flex items-center justify-between gap-2`;
+            button.addEventListener('click', () => window.stage10SelectSceneBtn(n));
+
+            const text = document.createElement('span');
+            text.className = 'truncate';
+            text.textContent = `${n}. ${label}`;
+            button.appendChild(text);
+
+            if (hasPending || hasApproved) {
+                const dot = document.createElement('span');
+                dot.className = `${hasPending ? 'text-blue-400' : 'text-green-500'} ml-1 text-xs`;
+                dot.textContent = hasPending ? '●' : '✓';
+                button.appendChild(dot);
+            }
+
+            container.appendChild(button);
+        });
     }
 
     let stage10Editor = null;

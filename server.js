@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const BUNDLED_DATA_ROOT = path.join(__dirname, 'data');
 const DATA_ROOT = path.resolve(process.env.DATA_ROOT || BUNDLED_DATA_ROOT);
 const SETTINGS_PATH = path.join(DATA_ROOT, 'settings.json');
+const PROJECTS_MANIFEST_PATH = path.join(DATA_ROOT, 'projects-manifest.json');
 const DATA_DIR = path.join(DATA_ROOT, 'projects');
 const STYLES_DIR = path.join(DATA_ROOT, 'styles');
 const BUNDLED_STYLES_DIR = path.join(BUNDLED_DATA_ROOT, 'styles');
@@ -80,6 +81,7 @@ async function atomicWriteJSON(targetPath, obj) {
 
 // ─── Project write queue ─────────────────────────────────────────────────────
 const projectWriteQueues = new Map();
+let projectManifestQueue = Promise.resolve();
 
 function getProjectFilePath(projectId) {
     return path.join(DATA_DIR, `${projectId}.json`);
@@ -104,10 +106,17 @@ async function withProjectWriteLock(projectId, task) {
     return run;
 }
 
+function withProjectManifestLock(task) {
+    const run = projectManifestQueue.catch(() => {}).then(task);
+    projectManifestQueue = run.catch(() => {});
+    return run;
+}
+
 async function writeProjectJSON(projectId, projectData) {
     await withProjectWriteLock(projectId, async () => {
         await atomicWriteJSON(getProjectFilePath(projectId), projectData);
     });
+    await upsertProjectManifestEntry(projectData);
 }
 
 async function writeJSONQueued(targetPath, obj) {
@@ -124,7 +133,154 @@ async function updateProjectJSON(projectId, updater) {
         const updated = await updater(project, filePath);
         const nextProject = updated || project;
         await atomicWriteJSON(filePath, nextProject);
+        await upsertProjectManifestEntry(nextProject);
         return nextProject;
+    });
+}
+
+function projectDateFromId(id) {
+    if (!isValidProjectId(id)) return null;
+    const timestamp = Number(id);
+    if (!Number.isFinite(timestamp)) return null;
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function buildProjectStageStatus(data = {}) {
+    const completedStages = [];
+    if (data.stage1_pitch) completedStages.push(1);
+    if (data.stage2_outline) completedStages.push(2);
+    if (data.stage3_characters) completedStages.push(3);
+    if (data.stage4_beats || data.stage4_treatment) completedStages.push(4);
+    if (data.stage5_treatment) completedStages.push(5);
+    if (data.stage6_scenes) completedStages.push(6);
+    if (data.stage7_style || data.stage7_style_skipped) completedStages.push(7);
+    if (Array.isArray(data.stage6_scenes) && data.stage6_scenes.some(seq => (seq.scenes || []).some(scene => scene.draft_text || scene.humanized_draft_text))) {
+        completedStages.push(8);
+    }
+    if (data.stage8_coverage) completedStages.push(9);
+    if (data.stage9_rewrites) completedStages.push(10);
+    return {
+        completedStages,
+        imported: !!data.imported,
+        sourceCount: data.knowledge?.source_registry?.length || 0
+    };
+}
+
+async function projectManifestEntry(projectData) {
+    const id = String(projectData?.id || '');
+    if (!isValidProjectId(id)) return null;
+    const stat = await fs.stat(getProjectFilePath(id)).catch(() => null);
+    const data = projectData.data || {};
+    return {
+        id,
+        title: String(projectData.title || data.stage1_pitch?.pitch?.title || 'Untitled').slice(0, 240),
+        createdAt: projectData.createdAt || projectDateFromId(id),
+        updatedAt: projectData.updatedAt || stat?.mtime?.toISOString() || new Date().toISOString(),
+        status: buildProjectStageStatus(data)
+    };
+}
+
+function sortProjectManifestEntries(projects) {
+    projects.sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+async function readProjectsManifestUnchecked() {
+    try {
+        const raw = await fs.readFile(PROJECTS_MANIFEST_PATH, 'utf-8');
+        const manifest = JSON.parse(raw);
+        if (!manifest || manifest.version !== 1 || !Array.isArray(manifest.projects)) return null;
+        return manifest;
+    } catch {
+        return null;
+    }
+}
+
+async function buildProjectsManifestFromFiles() {
+    const projects = [];
+    const files = await fs.readdir(DATA_DIR).catch(() => []);
+    for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        const id = path.basename(file, '.json');
+        if (!isValidProjectId(id)) continue;
+        try {
+            const content = await fs.readFile(path.join(DATA_DIR, file), 'utf-8');
+            const projectData = JSON.parse(content);
+            const entry = await projectManifestEntry({ ...projectData, id: projectData.id || id });
+            if (entry) projects.push(entry);
+        } catch (error) {
+            console.warn(`Skipping project manifest entry for ${file}: ${error.message}`);
+        }
+    }
+    sortProjectManifestEntries(projects);
+    return {
+        version: 1,
+        rebuiltAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        projects
+    };
+}
+
+async function writeProjectsManifest(manifest) {
+    await fs.mkdir(DATA_ROOT, { recursive: true });
+    await atomicWriteJSON(PROJECTS_MANIFEST_PATH, manifest);
+}
+
+async function rebuildProjectsManifest() {
+    return withProjectManifestLock(async () => {
+        const manifest = await buildProjectsManifestFromFiles();
+        await writeProjectsManifest(manifest);
+        return manifest;
+    });
+}
+
+async function manifestMatchesProjectFiles(manifest) {
+    const files = await fs.readdir(DATA_DIR).catch(() => []);
+    const fileIds = files
+        .filter(file => file.endsWith('.json'))
+        .map(file => path.basename(file, '.json'))
+        .filter(isValidProjectId)
+        .sort();
+    const manifestIds = (manifest.projects || [])
+        .map(project => project.id)
+        .filter(isValidProjectId)
+        .sort();
+    return fileIds.length === manifestIds.length && fileIds.every((id, idx) => id === manifestIds[idx]);
+}
+
+async function ensureProjectsManifest({ validateFiles = false } = {}) {
+    const manifest = await readProjectsManifestUnchecked();
+    if (!manifest) return rebuildProjectsManifest();
+    if (validateFiles && !(await manifestMatchesProjectFiles(manifest))) {
+        return rebuildProjectsManifest();
+    }
+    sortProjectManifestEntries(manifest.projects);
+    return manifest;
+}
+
+async function upsertProjectManifestEntry(projectData) {
+    const entry = await projectManifestEntry(projectData);
+    if (!entry) return;
+    await withProjectManifestLock(async () => {
+        let manifest = await readProjectsManifestUnchecked();
+        if (!manifest) manifest = await buildProjectsManifestFromFiles();
+        manifest.projects = (manifest.projects || []).filter(project => project.id !== entry.id);
+        manifest.projects.push(entry);
+        sortProjectManifestEntries(manifest.projects);
+        manifest.updatedAt = new Date().toISOString();
+        await writeProjectsManifest(manifest);
+    });
+}
+
+async function removeProjectManifestEntry(projectId) {
+    if (!isValidProjectId(projectId)) return;
+    await withProjectManifestLock(async () => {
+        let manifest = await readProjectsManifestUnchecked();
+        if (!manifest) manifest = await buildProjectsManifestFromFiles();
+        manifest.projects = (manifest.projects || []).filter(project => project.id !== projectId);
+        sortProjectManifestEntries(manifest.projects);
+        manifest.updatedAt = new Date().toISOString();
+        await writeProjectsManifest(manifest);
     });
 }
 
@@ -178,7 +334,9 @@ async function loadSettings() {
 }
 
 const APP_SECRET = process.env.APP_SECRET;
-const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!APP_SECRET && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
+const ACCESS_KEYS_FILE = process.env.ACCESS_KEYS_FILE ? path.resolve(process.env.ACCESS_KEYS_FILE) : '';
+const AUTH_CREDENTIALS_CONFIGURED = !!(APP_SECRET || process.env.ACCESS_KEYS || ACCESS_KEYS_FILE);
+const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!AUTH_CREDENTIALS_CONFIGURED && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
 
 /** Returns the model + API keys to use for a given stage number (1–10). */
 function getModelConfig(stageNum) {
@@ -2521,8 +2679,815 @@ function findProjectScene(projectData, sceneNumber) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const REQUIRE_PRODUCTION_ENV = IS_PRODUCTION || process.env.REQUIRE_PRODUCTION_ENV === 'true';
+const ALLOW_RUNTIME_KEYS_IN_PRODUCTION = process.env.ALLOW_RUNTIME_API_KEYS_IN_PRODUCTION === 'true';
+const ALLOWED_ORIGINS = new Set(
+    (process.env.ALLOWED_ORIGINS || '')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean)
+);
+const LOG_FILE_PATH = process.env.LOG_FILE_PATH ? path.resolve(process.env.LOG_FILE_PATH) : '';
+const LOG_DRAIN_URL = process.env.LOG_DRAIN_URL || '';
+const LOG_DRAIN_TOKEN = process.env.LOG_DRAIN_TOKEN || '';
+const LOG_DRAIN_TIMEOUT_MS = envInt('LOG_DRAIN_TIMEOUT_MS', 2_000);
+
+function envInt(name, fallback) {
+    const value = Number.parseInt(process.env[name] || '', 10);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function envFloat(name, fallback) {
+    const value = Number.parseFloat(process.env[name] || '');
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function hashForLog(value) {
+    return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, 16);
+}
+
+let logFileReady = false;
+let logDrainFailureReported = false;
+
+function appendLogFile(line) {
+    if (!LOG_FILE_PATH) return;
+    try {
+        if (!logFileReady) {
+            fsSync.mkdirSync(path.dirname(LOG_FILE_PATH), { recursive: true });
+            logFileReady = true;
+        }
+        fsSync.appendFileSync(LOG_FILE_PATH, `${line}\n`);
+    } catch (error) {
+        if (!logDrainFailureReported) {
+            logDrainFailureReported = true;
+            console.warn(JSON.stringify({
+                at: new Date().toISOString(),
+                level: 'warn',
+                event: 'logging.file_failed',
+                error: error.message
+            }));
+        }
+    }
+}
+
+function drainLogEvent(record) {
+    if (!LOG_DRAIN_URL || typeof fetch !== 'function') return;
+    const headers = { 'Content-Type': 'application/json' };
+    if (LOG_DRAIN_TOKEN) headers.Authorization = `Bearer ${LOG_DRAIN_TOKEN}`;
+    fetch(LOG_DRAIN_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(record),
+        signal: AbortSignal.timeout(LOG_DRAIN_TIMEOUT_MS)
+    }).catch(error => {
+        if (!logDrainFailureReported) {
+            logDrainFailureReported = true;
+            console.warn(JSON.stringify({
+                at: new Date().toISOString(),
+                level: 'warn',
+                event: 'logging.drain_failed',
+                error: error.message
+            }));
+        }
+    });
+}
+
+function logEvent(event, fields = {}, level = 'info') {
+    const record = {
+        at: new Date().toISOString(),
+        level,
+        event,
+        ...Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined))
+    };
+    const line = JSON.stringify(record);
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else console.log(line);
+    appendLogFile(line);
+    drainLogEvent(record);
+}
+
+function requestLogger(req, res, next) {
+    const startedAt = Date.now();
+    req.id = req.get('x-request-id') || crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.id);
+    res.on('finish', () => {
+        if (process.env.LOG_REQUESTS === 'false') return;
+        logEvent('http.request', {
+            requestId: req.id,
+            method: req.method,
+            path: req.originalUrl.split('?')[0],
+            status: res.statusCode,
+            durationMs: Date.now() - startedAt,
+            ipHash: hashForLog(req.ip || req.socket?.remoteAddress || ''),
+            contentLength: res.getHeader('content-length')
+        }, res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info');
+    });
+    next();
+}
+
+function isAllowedOrigin(req) {
+    const origin = req.get('origin');
+    if (!origin) return true;
+    if (ALLOWED_ORIGINS.has(origin)) return true;
+    try {
+        const originUrl = new URL(origin);
+        return originUrl.host === req.get('host');
+    } catch {
+        return false;
+    }
+}
+
+function enforceAllowedOrigin(req, res, next) {
+    if (isAllowedOrigin(req)) return next();
+    logEvent('security.origin_rejected', {
+        requestId: req.id,
+        method: req.method,
+        path: req.originalUrl.split('?')[0],
+        origin: req.get('origin'),
+        host: req.get('host')
+    }, 'warn');
+    return res.status(403).json({ error: 'Origin not allowed' });
+}
+
+function constantTimeEquals(value, expected) {
+    if (typeof value !== 'string' || typeof expected !== 'string') return false;
+    const actualBuffer = Buffer.from(value);
+    const expectedBuffer = Buffer.from(expected);
+    return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+const AUTH_FAILURE_WINDOW_MS = envInt('AUTH_FAILURE_WINDOW_MS', 5 * 60 * 1000);
+const AUTH_FAILURE_MAX = envInt('AUTH_FAILURE_MAX', 20);
+const authFailureBuckets = new Map();
+
+function authFailureKey(req) {
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function getAuthFailureBucket(req) {
+    const key = authFailureKey(req);
+    const now = Date.now();
+    const bucket = authFailureBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+        const fresh = { count: 0, resetAt: now + AUTH_FAILURE_WINDOW_MS };
+        authFailureBuckets.set(key, fresh);
+        return fresh;
+    }
+    return bucket;
+}
+
+function authFailureLimited(req) {
+    return getAuthFailureBucket(req).count >= AUTH_FAILURE_MAX;
+}
+
+function recordAuthFailure(req) {
+    const bucket = getAuthFailureBucket(req);
+    bucket.count += 1;
+}
+
+function clearAuthFailures(req) {
+    authFailureBuckets.delete(authFailureKey(req));
+}
+
+const AUTH_SESSION_TTL_MS = envInt('AUTH_SESSION_TTL_MS', 8 * 60 * 60 * 1000);
+const AUTH_SESSION_ISSUER = 'pageone';
+const AUTH_SESSION_SECRET = process.env.AUTH_SESSION_SECRET || APP_SECRET || crypto.randomBytes(32).toString('hex');
+const ALLOW_DIRECT_APP_SECRET_AUTH = process.env.ALLOW_DIRECT_APP_SECRET_AUTH === 'true';
+
+function normalizeAccessRole(value) {
+    const role = String(value || 'tester').trim().toLowerCase();
+    return role === 'admin' ? 'admin' : 'tester';
+}
+
+function normalizeAccessKeyRecord(record, source, index) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new Error(`${source}[${index}] must be an object`);
+    }
+    const label = String(record.label || record.name || '').trim();
+    const key = String(record.key || record.accessKey || '').trim();
+    if (!/^[a-zA-Z0-9_.@-]{1,80}$/.test(label)) {
+        throw new Error(`${source}[${index}] has an invalid label`);
+    }
+    if (key.length < 16) {
+        throw new Error(`${source}[${index}] key must be at least 16 characters`);
+    }
+    const roles = new Set();
+    if (Array.isArray(record.roles)) {
+        record.roles.forEach(role => roles.add(normalizeAccessRole(role)));
+    } else {
+        roles.add(normalizeAccessRole(record.role || (record.admin ? 'admin' : 'tester')));
+    }
+    const role = roles.has('admin') ? 'admin' : 'tester';
+    return {
+        label,
+        key,
+        role,
+        roles: Array.from(roles)
+    };
+}
+
+function parseAccessKeys(raw, source = 'ACCESS_KEYS') {
+    if (!raw || !String(raw).trim()) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+        return parsed.map((record, index) => normalizeAccessKeyRecord(record, source, index));
+    }
+    if (parsed && typeof parsed === 'object') {
+        return Object.entries(parsed).map(([label, value], index) => {
+            if (typeof value === 'string') return normalizeAccessKeyRecord({ label, key: value }, source, index);
+            return normalizeAccessKeyRecord({ label, ...value }, source, index);
+        });
+    }
+    throw new Error(`${source} must be a JSON array or object`);
+}
+
+function configuredAccessKeys() {
+    const records = [];
+    if (APP_SECRET) {
+        records.push({ label: 'root', key: APP_SECRET, role: 'admin', roles: ['admin'] });
+    }
+    records.push(...parseAccessKeys(process.env.ACCESS_KEYS || '', 'ACCESS_KEYS'));
+    if (ACCESS_KEYS_FILE) {
+        records.push(...parseAccessKeys(fsSync.readFileSync(ACCESS_KEYS_FILE, 'utf8'), 'ACCESS_KEYS_FILE'));
+    }
+
+    const labels = new Set();
+    const keyHashes = new Set();
+    for (const record of records) {
+        if (labels.has(record.label)) throw new Error(`Duplicate access key label: ${record.label}`);
+        labels.add(record.label);
+        const keyHash = hashForLog(record.key);
+        if (keyHashes.has(keyHash)) throw new Error(`Duplicate access key value for label: ${record.label}`);
+        keyHashes.add(keyHash);
+    }
+    return records;
+}
+
+function authConfigured() {
+    try {
+        return configuredAccessKeys().length > 0;
+    } catch {
+        return true;
+    }
+}
+
+function findAccessCredential(presentedKey) {
+    if (!presentedKey) return null;
+    let records;
+    try {
+        records = configuredAccessKeys();
+    } catch (error) {
+        logEvent('security.access_keys_invalid', { error: error.message }, 'error');
+        return null;
+    }
+    return records.find(record => constantTimeEquals(presentedKey, record.key)) || null;
+}
+
+function base64UrlJSON(value) {
+    return Buffer.from(JSON.stringify(value)).toString('base64url');
+}
+
+function signAuthSessionPayload(encodedPayload) {
+    return crypto.createHmac('sha256', AUTH_SESSION_SECRET).update(encodedPayload).digest('base64url');
+}
+
+function issueAuthSession({ label = 'shared', role = 'tester', roles = null } = {}) {
+    const now = Date.now();
+    const normalizedRole = normalizeAccessRole(role);
+    const cleanRoles = Array.isArray(roles) && roles.length
+        ? Array.from(new Set(roles.map(normalizeAccessRole)))
+        : [normalizedRole];
+    if (normalizedRole === 'admin' && !cleanRoles.includes('admin')) cleanRoles.push('admin');
+    const payload = {
+        iss: AUTH_SESSION_ISSUER,
+        v: 1,
+        sid: crypto.randomBytes(16).toString('hex'),
+        label: compactText(label, 80) || 'shared',
+        role: normalizedRole,
+        roles: cleanRoles,
+        iat: now,
+        exp: now + AUTH_SESSION_TTL_MS
+    };
+    const encodedPayload = base64UrlJSON(payload);
+    const signature = signAuthSessionPayload(encodedPayload);
+    return {
+        token: `p1s.${encodedPayload}.${signature}`,
+        expiresAt: payload.exp,
+        sessionId: payload.sid,
+        label: payload.label,
+        role: payload.role,
+        roles: payload.roles
+    };
+}
+
+function verifyAuthSessionToken(token) {
+    if (typeof token !== 'string' || !token.startsWith('p1s.')) return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [, encodedPayload, signature] = parts;
+    const expected = signAuthSessionPayload(encodedPayload);
+    if (!constantTimeEquals(signature, expected)) return null;
+    let payload;
+    try {
+        payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+    } catch {
+        return null;
+    }
+    if (payload?.iss !== AUTH_SESSION_ISSUER || payload?.v !== 1) return null;
+    if (!payload.sid || !payload.exp || Date.now() > payload.exp) return null;
+    return {
+        type: 'session',
+        sessionId: payload.sid,
+        label: payload.label || 'shared',
+        role: normalizeAccessRole(payload.role),
+        roles: Array.isArray(payload.roles) ? payload.roles.map(normalizeAccessRole) : [normalizeAccessRole(payload.role)],
+        expiresAt: payload.exp
+    };
+}
+
+function bearerOrApiKey(req) {
+    return req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+}
+
+function auditLog(req, action, fields = {}) {
+    logEvent(`audit.${action}`, {
+        requestId: req.id,
+        method: req.method,
+        path: req.originalUrl.split('?')[0],
+        ipHash: hashForLog(req.ip || req.socket?.remoteAddress || ''),
+        authSessionId: req.auth?.sessionId,
+        authLabel: req.auth?.label,
+        authRole: req.auth?.role,
+        ...fields
+    });
+}
+
+function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function badRequest(message) {
+    const error = new Error(message);
+    error.statusCode = 400;
+    return error;
+}
+
+function validateSettingsPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Settings payload must be an object');
+    const { geminiApiKey, anthropicApiKey, stageModels } = body;
+    if (geminiApiKey !== undefined && typeof geminiApiKey !== 'string') throw badRequest('geminiApiKey must be a string');
+    if (anthropicApiKey !== undefined && typeof anthropicApiKey !== 'string') throw badRequest('anthropicApiKey must be a string');
+    if (stageModels !== undefined) {
+        if (!isPlainObject(stageModels)) throw badRequest('stageModels must be an object');
+        for (const [stage, model] of Object.entries(stageModels)) {
+            if (!/^stage([1-9]|10)$/.test(stage)) throw badRequest(`Invalid stage model key: ${stage}`);
+            if (typeof model !== 'string' || !/^[a-zA-Z0-9._:-]{1,100}$/.test(model)) {
+                throw badRequest(`Invalid model value for ${stage}`);
+            }
+        }
+    }
+    return { geminiApiKey, anthropicApiKey, stageModels };
+}
+
+function sanitizeProjectUpdates(body) {
+    if (!isPlainObject(body)) throw badRequest('Project update payload must be an object');
+    const allowedKeys = new Set(['title', 'data', 'stampRevisedStage']);
+    for (const key of Object.keys(body)) {
+        if (!allowedKeys.has(key)) throw badRequest(`Unsupported project update field: ${key}`);
+    }
+    if (body.title !== undefined && (typeof body.title !== 'string' || body.title.trim().length > 240)) {
+        throw badRequest('Project title must be a string up to 240 characters');
+    }
+    if (body.data !== undefined) {
+        if (!isPlainObject(body.data)) throw badRequest('Project data update must be an object');
+        assertPayloadSize(body.data, 'Project data update', 12_000_000);
+        for (const key of Object.keys(body.data)) {
+            if (!/^[a-zA-Z0-9_-]{1,100}$/.test(key)) throw badRequest(`Invalid project data key: ${key}`);
+        }
+    }
+    if (body.stampRevisedStage !== undefined && !/^[a-z0-9_]{1,80}$/i.test(String(body.stampRevisedStage))) {
+        throw badRequest('Invalid revised stage key');
+    }
+    return body;
+}
+
+function stringSize(value) {
+    if (typeof value === 'string') return value.length;
+    try {
+        return JSON.stringify(value ?? '').length;
+    } catch {
+        throw badRequest('Request payload contains unsupported data');
+    }
+}
+
+function assertPayloadSize(value, label, maxChars) {
+    if (value === undefined || value === null) return;
+    if (stringSize(value) > maxChars) throw badRequest(`${label} is too large`);
+}
+
+function cleanString(value, label, { required = false, max = 8_000, trim = true } = {}) {
+    if (value === undefined || value === null || value === '') {
+        if (required) throw badRequest(`${label} is required`);
+        return '';
+    }
+    if (typeof value !== 'string') throw badRequest(`${label} must be a string`);
+    const clean = trim ? value.trim() : value;
+    if (required && !clean) throw badRequest(`${label} is required`);
+    if (clean.length > max) throw badRequest(`${label} is too long`);
+    return clean;
+}
+
+function cleanBoolean(value, label, fallback = false) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'boolean') throw badRequest(`${label} must be a boolean`);
+    return value;
+}
+
+function cleanProjectId(value, label = 'projectId') {
+    if (!isValidProjectId(value)) throw badRequest(`Missing or invalid ${label}`);
+    return value;
+}
+
+function cleanOptionalProjectId(value, label = 'projectId') {
+    if (value === undefined || value === null || value === '') return '';
+    return cleanProjectId(value, label);
+}
+
+function cleanStageId(value, { label = 'stageId', allowedStages = null, required = true } = {}) {
+    if ((value === undefined || value === null || value === '') && !required) return null;
+    const numeric = Number(value);
+    const allowed = allowedStages || new Set(Object.keys(STAGE_NAMES).map(Number));
+    if (!Number.isInteger(numeric) || !allowed.has(numeric)) throw badRequest(`Missing or invalid ${label}`);
+    return numeric;
+}
+
+function cleanSceneNumber(value, { required = false, label = 'sceneNumber' } = {}) {
+    if (value === undefined || value === null || value === '') {
+        if (required) throw badRequest(`${label} is required`);
+        return undefined;
+    }
+    const numeric = Number(value);
+    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 10_000) throw badRequest(`Invalid ${label}`);
+    return numeric;
+}
+
+function cleanMessages(value, { maxMessages = 80, maxContent = 30_000 } = {}) {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) throw badRequest('messages must be an array');
+    if (value.length > maxMessages) throw badRequest('messages has too many entries');
+    return value.map((message, index) => {
+        if (!isPlainObject(message)) throw badRequest(`messages[${index}] must be an object`);
+        const role = cleanString(message.role, `messages[${index}].role`, { required: true, max: 20 });
+        if (!['user', 'assistant', 'model', 'ai', 'system'].includes(role)) {
+            throw badRequest(`messages[${index}].role is invalid`);
+        }
+        let contentValue = message.content;
+        if (contentValue === undefined && Array.isArray(message.parts)) {
+            if (message.parts.length > 20) throw badRequest(`messages[${index}].parts has too many entries`);
+            contentValue = message.parts.map((part, partIndex) => {
+                if (!isPlainObject(part)) throw badRequest(`messages[${index}].parts[${partIndex}] must be an object`);
+                return cleanString(part.text, `messages[${index}].parts[${partIndex}].text`, { max: maxContent, trim: false });
+            }).filter(Boolean).join('\n');
+        }
+        const content = cleanString(contentValue, `messages[${index}].content`, { max: maxContent, trim: false });
+        return { role, content };
+    });
+}
+
+function cleanAttachment(value) {
+    if (value === undefined || value === null) return null;
+    if (!isPlainObject(value)) throw badRequest('attachment must be an object');
+    const name = cleanString(value.name || 'attachment', 'attachment.name', { max: 240 });
+    const mimeType = cleanString(value.mimeType || 'application/octet-stream', 'attachment.mimeType', { max: 160 });
+    const data = cleanString(value.data, 'attachment.data', { required: true, max: 18_000_000, trim: false });
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(data)) throw badRequest('attachment.data must be base64');
+    return { name, mimeType, data };
+}
+
+function cleanStageDataOverride(value) {
+    if (value === undefined || value === null || value === '') return value;
+    assertPayloadSize(value, 'stageDataOverride', 2_000_000);
+    return value;
+}
+
+function cleanLoosePayload(value, label, maxChars = 2_000_000) {
+    if (value === undefined || value === null || value === '') return value;
+    assertPayloadSize(value, label, maxChars);
+    return value;
+}
+
+function cleanAuditPayload(value, { required = false } = {}) {
+    if (value === undefined || value === null || value === '') {
+        if (required) throw badRequest('audit is required');
+        return null;
+    }
+    if (!isPlainObject(value)) throw badRequest('audit must be an object');
+    assertPayloadSize(value, 'audit', 250_000);
+    const cleanList = (key) => {
+        if (value[key] === undefined) return [];
+        if (!Array.isArray(value[key])) throw badRequest(`audit.${key} must be an array`);
+        if (value[key].length > 40) throw badRequest(`audit.${key} has too many entries`);
+        return value[key].map((item, index) => cleanString(item, `audit.${key}[${index}]`, { max: 2_000 }));
+    };
+    return {
+        ...value,
+        aligned_items: cleanList('aligned_items'),
+        possible_source_mismatches: cleanList('possible_source_mismatches'),
+        missing_source_elements: cleanList('missing_source_elements'),
+        recommended_fixes: cleanList('recommended_fixes')
+    };
+}
+
+function cleanSourceTags(value) {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) throw badRequest('tags must be an array');
+    if (value.length > 20) throw badRequest('tags has too many entries');
+    return value.map((tag, index) => {
+        const clean = cleanString(tag, `tags[${index}]`, { required: true, max: 40 });
+        if (!/^[a-z0-9_-]+$/i.test(clean)) throw badRequest(`tags[${index}] contains unsupported characters`);
+        return clean;
+    });
+}
+
+function validateChatPayload(body, { requireStageId = false } = {}) {
+    if (!isPlainObject(body)) throw badRequest('Chat payload must be an object');
+    const result = {
+        projectId: cleanProjectId(body.projectId),
+        messages: cleanMessages(body.messages),
+        sceneNumber: cleanSceneNumber(body.sceneNumber),
+        attachment: cleanAttachment(body.attachment),
+        isInit: cleanBoolean(body.isInit, 'isInit', false)
+    };
+    if (requireStageId) result.stageId = cleanStageId(body.stageId);
+    return result;
+}
+
+function validatePitchExecutionPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Pitch payload must be an object');
+    return {
+        prompt: cleanString(body.prompt, 'prompt', { max: 80_000, trim: false }),
+        projectId: cleanOptionalProjectId(body.projectId)
+    };
+}
+
+function validateStageAiPayload(body, { fields = [], projectRequired = true } = {}) {
+    if (!isPlainObject(body)) throw badRequest('Stage payload must be an object');
+    const payload = {
+        projectId: projectRequired ? cleanProjectId(body.projectId) : cleanOptionalProjectId(body.projectId),
+        notes: cleanString(body.notes, 'notes', { max: 80_000, trim: false }),
+        feedback: cleanString(body.feedback, 'feedback', { max: 80_000, trim: false }),
+        userNote: cleanString(body.userNote, 'userNote', { max: 80_000, trim: false }),
+        stream: cleanBoolean(body.stream, 'stream', false)
+    };
+    for (const field of fields) payload[field] = cleanLoosePayload(body[field], field, 3_000_000);
+    return payload;
+}
+
+function validateSceneGenerationPayload(body, { requireFeedback = false } = {}) {
+    if (!isPlainObject(body)) throw badRequest('Scene generation payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        sceneNumber: cleanSceneNumber(body.sceneNumber, { required: true }),
+        feedback: cleanString(body.feedback, 'feedback', { required: requireFeedback, max: 80_000, trim: false })
+    };
+}
+
+function validateContinuityResolvePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Continuity resolve payload must be an object');
+    const resolution = cleanString(body.resolution, 'resolution', { required: true, max: 80 });
+    if (!['intentional_change', 'dismiss', 'fix_prompt'].includes(resolution)) throw badRequest('resolution is invalid');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        factId: cleanString(body.factId, 'factId', { required: true, max: 200 }),
+        resolution,
+        newValue: cleanString(body.newValue, 'newValue', { max: 4_000 })
+    };
+}
+
+function validateCoveragePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Coverage payload must be an object');
+    const source = cleanString(body.source, 'source', { max: 40 });
+    if (source && source !== 'stage10') throw badRequest('source is invalid');
+    return { projectId: cleanProjectId(body.projectId), source };
+}
+
+function validateSourceStagePayload(body, { allowedStages = null } = {}) {
+    if (!isPlainObject(body)) throw badRequest('Source stage payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        stageId: cleanStageId(body.stageId, { allowedStages }),
+        stageDataOverride: cleanStageDataOverride(body.stageDataOverride),
+        sceneNumber: cleanSceneNumber(body.sceneNumber)
+    };
+}
+
+function validateSourceRevisePayload(body) {
+    const allowedStages = new Set([2, 3, 4, 5, 6, 8]);
+    const payload = validateSourceStagePayload(body, { allowedStages });
+    return {
+        ...payload,
+        audit: cleanAuditPayload(body.audit, { required: true }),
+        userInstruction: cleanString(body.userInstruction, 'userInstruction', { max: 6_000 })
+    };
+}
+
+function validateKnowledgeSourceMetadataPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Source metadata payload must be an object');
+    const type = body.type === undefined ? undefined : cleanString(body.type, 'type', { max: 40 });
+    if (type !== undefined && !SOURCE_TYPE_OPTIONS.has(type)) throw badRequest('Invalid source type');
+    return { type, tags: cleanSourceTags(body.tags) };
+}
+
+function validateKnowledgeDecisionPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Knowledge decision payload must be an object');
+    const stageId = cleanStageId(body.stageId, { required: false });
+    const audit = cleanAuditPayload(body.audit);
+    const type = body.type === undefined
+        ? 'project_knowledge_decision'
+        : cleanString(body.type, 'type', { max: 60 });
+    if (!/^[a-z0-9_-]{1,60}$/i.test(type)) throw badRequest('type is invalid');
+    const summary = cleanString(body.summary, 'summary', { max: 1_000 });
+    const details = cleanString(body.details, 'details', { max: 2_000 });
+    if (!summary && !details && !audit) throw badRequest('Decision summary is required');
+    return { type, stageId, summary, details, audit };
+}
+
+function validateAcceptedDivergencePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Accepted divergence payload must be an object');
+    const stageId = cleanStageId(body.stageId);
+    const audit = cleanAuditPayload(body.audit);
+    const summary = cleanString(body.summary, 'summary', { max: 1_000 });
+    if (!summary && !audit) throw badRequest('Divergence summary or audit is required');
+    return { stageId, summary, audit };
+}
+
+function validateStageCurationPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Stage curation payload must be an object');
+    return {
+        stageId: cleanStageId(body.stageId),
+        stageDataOverride: cleanStageDataOverride(body.stageDataOverride),
+        proposal: cleanLoosePayload(body.proposal, 'proposal', 500_000)
+    };
+}
+
+function validateRewritePlanPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Rewrite plan payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        priorityTask: cleanString(body.priorityTask, 'priorityTask', { required: true, max: 8_000 }),
+        userFeedback: cleanString(body.userFeedback, 'userFeedback', { max: 10_000 }),
+        conversationContext: cleanString(body.conversationContext, 'conversationContext', { max: 30_000 })
+    };
+}
+
+function cleanSceneNumberList(value, { required = false } = {}) {
+    if (value === undefined || value === null) {
+        if (required) throw badRequest('affectedSceneNumbers is required');
+        return [];
+    }
+    if (!Array.isArray(value)) throw badRequest('affectedSceneNumbers must be an array');
+    if (value.length > 250) throw badRequest('affectedSceneNumbers has too many entries');
+    return Array.from(new Set(value.map((item, index) => cleanSceneNumber(item, { required: true, label: `affectedSceneNumbers[${index}]` }))));
+}
+
+function validateRewriteForPriorityPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Rewrite payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        priorityTask: cleanString(body.priorityTask, 'priorityTask', { required: true, max: 8_000 }),
+        affectedSceneNumbers: cleanSceneNumberList(body.affectedSceneNumbers)
+    };
+}
+
+function validateRewriteSingleScenePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Rewrite scene payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        sceneNumber: cleanSceneNumber(body.sceneNumber, { required: true }),
+        priorityTask: cleanString(body.priorityTask, 'priorityTask', { required: true, max: 8_000 }),
+        plannedChange: cleanString(body.plannedChange, 'plannedChange', { max: 8_000 }),
+        userFeedback: cleanString(body.userFeedback, 'userFeedback', { max: 8_000 }),
+        currentText: cleanString(body.currentText, 'currentText', { max: 120_000, trim: false }),
+        attachment: cleanAttachment(body.attachment)
+    };
+}
+
+function validateApproveRewritePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Approve rewrite payload must be an object');
+    const pendingScenes = {};
+    if (body.pendingScenes !== undefined) {
+        if (!isPlainObject(body.pendingScenes)) throw badRequest('pendingScenes must be an object');
+        const entries = Object.entries(body.pendingScenes);
+        if (entries.length > 250) throw badRequest('pendingScenes has too many entries');
+        for (const [sceneNumber, text] of entries) {
+            const cleanNumber = cleanSceneNumber(sceneNumber, { required: true, label: 'pendingScenes scene number' });
+            pendingScenes[cleanNumber] = cleanString(text, `pendingScenes[${sceneNumber}]`, { max: 150_000, trim: false });
+        }
+    }
+    const newPriorityIdx = body.newPriorityIdx === undefined ? 0 : Number(body.newPriorityIdx);
+    if (!Number.isInteger(newPriorityIdx) || newPriorityIdx < 0 || newPriorityIdx > 1_000) {
+        throw badRequest('newPriorityIdx is invalid');
+    }
+    return {
+        projectId: cleanProjectId(body.projectId),
+        pendingScenes,
+        newPriorityIdx
+    };
+}
+
+function validateProjectOnlyPayload(body, label = 'Project payload') {
+    if (!isPlainObject(body)) throw badRequest(`${label} must be an object`);
+    return { projectId: cleanProjectId(body.projectId) };
+}
+
+function validateStyleGenerationPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Style generation payload must be an object');
+    const conversationRaw = body.conversationHistory === undefined || Array.isArray(body.conversationHistory)
+        ? body.conversationHistory
+        : safeParse(body.conversationHistory, []);
+    return {
+        projectId: cleanOptionalProjectId(body.projectId),
+        description: cleanString(body.description, 'description', { max: 80_000, trim: false }),
+        styleName: cleanString(body.styleName, 'styleName', { max: 240 }),
+        conversationHistory: cleanMessages(conversationRaw, { maxMessages: 120, maxContent: 30_000 })
+    };
+}
+
+function cleanStyleSlug(value, label = 'styleSlug') {
+    const slug = cleanString(value, label, { required: true, max: 200 });
+    if (!isValidSlug(slug)) throw badRequest(`Invalid ${label}`);
+    return slug;
+}
+
+function cleanSceneIndex(value) {
+    if (value === undefined || value === null || value === '') return 0;
+    const numeric = Number(value);
+    if (!Number.isInteger(numeric) || numeric < 0 || numeric > 10_000) throw badRequest('sceneIndex is invalid');
+    return numeric;
+}
+
+function validateStyleSelectionPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Style selection payload must be an object');
+    return {
+        projectId: cleanProjectId(body.projectId),
+        styleSlug: cleanStyleSlug(body.styleSlug)
+    };
+}
+
+function validateStylePreviewPayload(body) {
+    return {
+        ...validateStyleSelectionPayload(body),
+        sceneIndex: cleanSceneIndex(body.sceneIndex)
+    };
+}
+
+function validateStyleUpdatePayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Style update payload must be an object');
+    return { content: cleanString(body.content, 'content', { required: true, max: 500_000, trim: false }) };
+}
+
+function validateStyleChatPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Style chat payload must be an object');
+    return {
+        messages: cleanMessages(body.messages, { maxMessages: 120, maxContent: 30_000 }),
+        isInit: cleanBoolean(body.isInit, 'isInit', false)
+    };
+}
+
+function validateImportScriptPayload(body) {
+    if (!isPlainObject(body || {})) throw badRequest('Import payload must be an object');
+    return { title: cleanString(body?.title, 'title', { max: 240 }) };
+}
+
+function validateKnowledgeReviewPayload(body) {
+    if (!isPlainObject(body)) throw badRequest('Knowledge review payload must be an object');
+    assertPayloadSize(body, 'Knowledge review payload', 500_000);
+    const cleanList = (key, maxItems = 120, maxItemChars = 600) => {
+        if (body[key] === undefined) return undefined;
+        if (!Array.isArray(body[key])) throw badRequest(`${key} must be an array`);
+        if (body[key].length > maxItems) throw badRequest(`${key} has too many entries`);
+        return body[key].map((item, index) => cleanString(item, `${key}[${index}]`, { max: maxItemChars })).filter(Boolean);
+    };
+    let stageHandoffs;
+    if (body.stage_handoffs !== undefined) {
+        if (!isPlainObject(body.stage_handoffs)) throw badRequest('stage_handoffs must be an object');
+        stageHandoffs = {};
+        for (const [key, value] of Object.entries(body.stage_handoffs)) {
+            if (!/^stage(?:[1-9]|10)$/.test(key)) throw badRequest(`Invalid stage_handoffs key: ${key}`);
+            stageHandoffs[key] = cleanString(value, `stage_handoffs.${key}`, { max: 1_200 });
+        }
+    }
+    return {
+        continuity_watchlist: cleanList('continuity_watchlist', 100, 600),
+        curated_notes: cleanList('curated_notes', 140, 600),
+        stage_handoffs: stageHandoffs
+    };
+}
 
 const multer = require('multer');
 const ALLOWED_UPLOAD_MIMES = new Set([
@@ -2583,36 +3548,175 @@ async function initDb() {
     }
 }
 
+async function assertWritableDirectory(dir) {
+    await fs.mkdir(dir, { recursive: true });
+    const probe = path.join(dir, `.write-check-${crypto.randomBytes(6).toString('hex')}`);
+    await fs.writeFile(probe, 'ok');
+    await fs.unlink(probe);
+}
+
+async function validateEnv() {
+    const errors = [];
+    const warnings = [];
+    const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;
+    const hasAnthropic = appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+
+    try {
+        await assertWritableDirectory(DATA_ROOT);
+    } catch (error) {
+        errors.push(`DATA_ROOT is not writable: ${DATA_ROOT} (${error.message})`);
+    }
+
+    if (!hasGemini && !hasAnthropic) {
+        const message = 'Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set; AI features will fail on first use.';
+        if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+        else warnings.push(message);
+    }
+
+    let accessKeyRecords = [];
+    try {
+        accessKeyRecords = configuredAccessKeys();
+    } catch (error) {
+        const message = `ACCESS_KEYS configuration is invalid: ${error.message}`;
+        if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+        else warnings.push(message);
+    }
+
+    if (!accessKeyRecords.length) {
+        const message = 'No APP_SECRET or ACCESS_KEYS are set; /api routes will run without private-session authentication.';
+        if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+        else warnings.push(message);
+    }
+
+    if (!APP_SECRET && AUTH_CREDENTIALS_CONFIGURED && !process.env.AUTH_SESSION_SECRET) {
+        const message = 'AUTH_SESSION_SECRET should be set when using ACCESS_KEYS without APP_SECRET so sessions survive restarts.';
+        if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+        else warnings.push(message);
+    }
+
+    if (APP_SECRET) {
+        if (APP_SECRET.length < 32) {
+            const message = 'APP_SECRET should be at least 32 characters.';
+            if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+            else warnings.push(message);
+        }
+        if (/^(changeme|change-me|password|secret|test|dev|local)$/i.test(APP_SECRET) || APP_SECRET.includes('<')) {
+            const message = 'APP_SECRET looks like a placeholder.';
+            if (REQUIRE_PRODUCTION_ENV) errors.push(message);
+            else warnings.push(message);
+        }
+    }
+
+    if (REQUIRE_PRODUCTION_ENV && accessKeyRecords.length === 1 && accessKeyRecords[0]?.label === 'root') {
+        warnings.push('Only APP_SECRET is configured. Add ACCESS_KEYS or ACCESS_KEYS_FILE for per-tester attribution and single-tester revocation.');
+    }
+
+    if (REQUIRE_PRODUCTION_ENV && !process.env.DATA_ROOT) {
+        errors.push('DATA_ROOT must be set in production so tester data is stored on a persistent volume.');
+    }
+
+    if (REQUIRE_PRODUCTION_ENV && !process.env.GEMINI_MODEL && !Object.keys(appSettings.stageModels || {}).length) {
+        errors.push('GEMINI_MODEL or per-stage model settings must be configured in production.');
+    }
+
+    if (REQUIRE_PRODUCTION_ENV && RUNTIME_API_KEYS_ENABLED && !ALLOW_RUNTIME_KEYS_IN_PRODUCTION) {
+        errors.push('Runtime API key entry is enabled in production. Set ALLOW_RUNTIME_API_KEYS=false or ALLOW_RUNTIME_API_KEYS_IN_PRODUCTION=true explicitly.');
+    }
+
+    for (const warning of warnings) logEvent('startup.warning', { message: warning }, 'warn');
+    if (errors.length) {
+        for (const message of errors) logEvent('startup.invalid_env', { message }, 'error');
+        throw new Error(`Invalid environment: ${errors.join(' | ')}`);
+    }
+}
+
+function buildContentSecurityPolicy() {
+    return [
+        "default-src 'self'",
+        "script-src 'self'",
+        "script-src-attr 'none'",
+        "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'"
+    ].join('; ');
+}
+
 // ─── Security headers ─────────────────────────────────────────────────────────
+app.use(requestLogger);
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'same-origin');
-    // CSP: allow scripts from CDNs used by index.html, fonts from Google
-    res.setHeader('Content-Security-Policy',
-        "default-src 'self'; " +
-        "script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline'; " +
-        "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; " +
-        "font-src https://fonts.gstatic.com data:; " +
-        "img-src 'self' data:; " +
-        "connect-src 'self'; " +
-        "frame-ancestors 'none'; " +
-        "base-uri 'self'; " +
-        "form-action 'self'"
-    );
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    res.setHeader('X-Download-Options', 'noopen');
+    res.setHeader('Content-Security-Policy', buildContentSecurityPolicy());
     next();
 });
 
-// ─── Authentication (shared secret) ──────────────────────────────────────────
+// ─── Authentication (shared unlock key → short-lived session) ────────────────
 // Dormant by default. Activate by setting APP_SECRET in .env.
-// When set, every /api/* request must include:  X-Api-Key: <APP_SECRET>
+// Clients exchange APP_SECRET once at /api/auth/session, then send the returned
+// short-lived bearer token on subsequent /api/* requests.
 function requireAuth(req, res, next) {
-    if (!APP_SECRET) return next(); // dormant — no secret configured
-    const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
-    if (!header || header !== APP_SECRET) {
+    if (!authConfigured()) return next(); // dormant — no access credentials configured
+    if (authFailureLimited(req)) {
+        logEvent('security.auth_limited', {
+            requestId: req.id,
+            path: req.originalUrl.split('?')[0],
+            ipHash: hashForLog(authFailureKey(req))
+        }, 'warn');
+        return res.status(429).json({ error: 'Too many failed access attempts. Try again later.' });
+    }
+    const header = bearerOrApiKey(req);
+    const session = verifyAuthSessionToken(header);
+    if (session) {
+        req.auth = session;
+        clearAuthFailures(req);
+        return next();
+    }
+    if (ALLOW_DIRECT_APP_SECRET_AUTH && header && constantTimeEquals(header, APP_SECRET)) {
+        req.auth = { type: 'direct-secret', sessionId: 'direct', label: 'root', role: 'admin', roles: ['admin'] };
+        clearAuthFailures(req);
+        return next();
+    }
+    if (!header || !findAccessCredential(header)) {
+        recordAuthFailure(req);
+        logEvent('security.auth_failed', {
+            requestId: req.id,
+            path: req.originalUrl.split('?')[0],
+            ipHash: hashForLog(authFailureKey(req))
+        }, 'warn');
         return res.status(401).json({ error: 'Unauthorized' });
     }
-    next();
+    logEvent('security.direct_secret_rejected', {
+        requestId: req.id,
+        path: req.originalUrl.split('?')[0],
+        ipHash: hashForLog(authFailureKey(req))
+    }, 'warn');
+    return res.status(401).json({ error: 'Unlock session required' });
+}
+
+function hasAdminRole(auth) {
+    return auth?.role === 'admin' || (Array.isArray(auth?.roles) && auth.roles.includes('admin'));
+}
+
+function requireAdmin(req, res, next) {
+    if (hasAdminRole(req.auth) || !authConfigured()) return next();
+    logEvent('security.admin_denied', {
+        requestId: req.id,
+        path: req.originalUrl.split('?')[0],
+        authSessionId: req.auth?.sessionId,
+        authLabel: req.auth?.label,
+        authRole: req.auth?.role
+    }, 'warn');
+    return res.status(403).json({ error: 'Admin access required' });
 }
 
 app.get('/health', (_req, res) => {
@@ -2620,36 +3724,318 @@ app.get('/health', (_req, res) => {
 });
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
-const aiLimiter = rateLimit({
-    windowMs: 60 * 1000,      // 1 minute window
-    max: 30,                   // max 30 AI calls per IP per minute
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: envInt('API_RATE_LIMIT_PER_MINUTE', 240),
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many requests — slow down and try again.' },
+    message: { error: 'Too many API requests. Slow down and try again.' },
+});
+const writeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: envInt('API_WRITE_RATE_LIMIT_PER_MINUTE', 120),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many write requests. Slow down and try again.' },
+});
+const uploadLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: envInt('API_UPLOAD_RATE_LIMIT_PER_10_MINUTES', 30),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many uploads. Try again later.' },
+});
+const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,      // 1 minute window
+    max: envInt('AI_RATE_LIMIT_PER_MINUTE', 30),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many AI requests. Slow down and try again.' },
 });
 const strictLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 10,
+    max: envInt('STRICT_AI_RATE_LIMIT_PER_MINUTE', 10),
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many requests — slow down and try again.' },
+    message: { error: 'Too many AI requests. Slow down and try again.' },
 });
+const AI_DAILY_TOKEN_LIMIT = envInt('AI_DAILY_TOKEN_LIMIT', 1_500_000);
+const AI_DAILY_COST_LIMIT_USD = envFloat('AI_DAILY_COST_LIMIT_USD', 20);
+const AI_DAILY_REQUEST_LIMIT_PER_SESSION = envInt('AI_DAILY_REQUEST_LIMIT_PER_SESSION', 150);
+const AI_MODEL_PRICING = {
+    'gemini-3.1-pro-preview':       { input: 1.25 / 1e6, output: 10.0 / 1e6 },
+    'gemini-2.5-pro-preview-05-06': { input: 1.25 / 1e6, output: 10.0 / 1e6 },
+    'gemini-3-flash-preview':       { input: 0.10 / 1e6, output: 0.40 / 1e6 },
+    'gemini-2.0-flash':             { input: 0.10 / 1e6, output: 0.40 / 1e6 },
+    'gemini-2.0-flash-001':         { input: 0.10 / 1e6, output: 0.40 / 1e6 },
+    'claude-opus-4-7':              { input: 15.0 / 1e6, output: 75.0 / 1e6 },
+    'claude-opus-4-6':              { input: 15.0 / 1e6, output: 75.0 / 1e6 },
+    'claude-sonnet-4-6':            { input: 3.0 / 1e6, output: 15.0 / 1e6 },
+    'claude-haiku-4-5-20251001':    { input: 0.80 / 1e6, output: 4.0 / 1e6 },
+};
+const AI_BUDGET_ROUTE_SKIP = new Set(['/style-chat']);
+const aiSessionRequestBuckets = new Map();
+
+function aiUsageWindowStartMs(now = new Date()) {
+    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
+function aiUsageRetryAfterSeconds(now = Date.now()) {
+    const current = new Date(now);
+    const nextUtcMidnight = Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 1);
+    return Math.max(60, Math.ceil((nextUtcMidnight - now) / 1000));
+}
+
+function aiUsageDayKey(now = Date.now()) {
+    return new Date(aiUsageWindowStartMs(new Date(now))).toISOString().slice(0, 10);
+}
+
+function estimateAiUsageCost(usage = {}) {
+    const pricing = AI_MODEL_PRICING[usage.model] || { input: 0, output: 0 };
+    return ((usage.inputTokens || 0) * pricing.input) + ((usage.outputTokens || 0) * pricing.output);
+}
+
+function summarizeDailyAiUsage(projectData, { sinceMs = aiUsageWindowStartMs() } = {}) {
+    const usage = Array.isArray(projectData?.data?.apiUsage) ? projectData.data.apiUsage : [];
+    const summary = {
+        since: new Date(sinceMs).toISOString(),
+        calls: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0
+    };
+    for (const entry of usage) {
+        if (!entry || Number(entry.timestamp || 0) < sinceMs) continue;
+        const inputTokens = Number(entry.inputTokens || 0);
+        const outputTokens = Number(entry.outputTokens || 0);
+        summary.calls += 1;
+        summary.inputTokens += inputTokens;
+        summary.outputTokens += outputTokens;
+        summary.estimatedCostUsd += estimateAiUsageCost(entry);
+    }
+    summary.totalTokens = summary.inputTokens + summary.outputTokens;
+    summary.estimatedCostUsd = Number(summary.estimatedCostUsd.toFixed(4));
+    return summary;
+}
+
+function aiDailyLimitReasons(summary) {
+    const reasons = [];
+    if (AI_DAILY_TOKEN_LIMIT > 0 && summary.totalTokens >= AI_DAILY_TOKEN_LIMIT) {
+        reasons.push(`token limit ${AI_DAILY_TOKEN_LIMIT}`);
+    }
+    if (AI_DAILY_COST_LIMIT_USD > 0 && summary.estimatedCostUsd >= AI_DAILY_COST_LIMIT_USD) {
+        reasons.push(`estimated cost limit $${AI_DAILY_COST_LIMIT_USD}`);
+    }
+    return reasons;
+}
+
+function projectIdForAiBudget(req) {
+    return req.body?.projectId || req.params?.projectId || req.params?.id || '';
+}
+
+function enforceSessionAiRequestLimit(req, res) {
+    if (AI_DAILY_REQUEST_LIMIT_PER_SESSION <= 0) return false;
+    const today = aiUsageDayKey();
+    const identity = req.auth?.sessionId || `ip:${hashForLog(req.ip || req.socket?.remoteAddress || '')}`;
+    const key = `${today}:${identity}`;
+    const bucket = aiSessionRequestBuckets.get(key) || { count: 0, day: today };
+    if (bucket.count >= AI_DAILY_REQUEST_LIMIT_PER_SESSION) {
+        const retryAfter = aiUsageRetryAfterSeconds();
+        res.setHeader('Retry-After', String(retryAfter));
+        logEvent('security.ai_session_daily_limited', {
+            requestId: req.id,
+            authSessionId: req.auth?.sessionId,
+            authLabel: req.auth?.label,
+            count: bucket.count,
+            limit: AI_DAILY_REQUEST_LIMIT_PER_SESSION
+        }, 'warn');
+        res.status(429).json({
+            error: 'Daily AI request limit reached for this session. Try again after the UTC daily reset.',
+            limits: {
+                dailyRequestLimitPerSession: AI_DAILY_REQUEST_LIMIT_PER_SESSION,
+                resetAt: new Date(Date.now() + retryAfter * 1000).toISOString()
+            }
+        });
+        return true;
+    }
+    bucket.count += 1;
+    aiSessionRequestBuckets.set(key, bucket);
+    if (aiSessionRequestBuckets.size > 2_000) {
+        for (const [bucketKey, value] of aiSessionRequestBuckets) {
+            if (value.day !== today) aiSessionRequestBuckets.delete(bucketKey);
+        }
+    }
+    return false;
+}
+
+async function aiDailyBudgetLimiter(req, res, next) {
+    if (enforceSessionAiRequestLimit(req, res)) return;
+    if (AI_BUDGET_ROUTE_SKIP.has(req.path)) return next();
+    const projectId = projectIdForAiBudget(req);
+    if (!isValidProjectId(projectId)) return next();
+
+    let projectData;
+    try {
+        const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
+        projectData = JSON.parse(content);
+    } catch {
+        return next();
+    }
+
+    const summary = summarizeDailyAiUsage(projectData);
+    const reasons = aiDailyLimitReasons(summary);
+    if (!reasons.length) {
+        req.aiBudget = { projectId, summary };
+        return next();
+    }
+
+    const retryAfter = aiUsageRetryAfterSeconds();
+    res.setHeader('Retry-After', String(retryAfter));
+    logEvent('security.ai_daily_limited', {
+        requestId: req.id,
+        projectId,
+        reasons,
+        calls: summary.calls,
+        totalTokens: summary.totalTokens,
+        estimatedCostUsd: summary.estimatedCostUsd
+    }, 'warn');
+    return res.status(429).json({
+        error: 'Daily AI limit reached for this project. Try again after the UTC daily reset or raise the configured limit.',
+        usage: summary,
+        limits: {
+            dailyTokenLimit: AI_DAILY_TOKEN_LIMIT,
+            dailyEstimatedCostLimitUsd: AI_DAILY_COST_LIMIT_USD,
+            resetAt: new Date(Date.now() + retryAfter * 1000).toISOString()
+        }
+    });
+}
+
+const MAX_CONCURRENT_AI_REQUESTS = envInt('MAX_CONCURRENT_AI_REQUESTS', 3);
+let activeAiRequests = 0;
+
+function aiConcurrencyLimiter(req, res, next) {
+    if (activeAiRequests >= MAX_CONCURRENT_AI_REQUESTS) {
+        logEvent('security.ai_concurrency_limited', {
+            requestId: req.id,
+            path: req.originalUrl.split('?')[0],
+            activeAiRequests
+        }, 'warn');
+        return res.status(429).json({ error: 'Too many AI jobs are running. Try again shortly.' });
+    }
+    activeAiRequests += 1;
+    let released = false;
+    const release = () => {
+        if (released) return;
+        released = true;
+        activeAiRequests = Math.max(0, activeAiRequests - 1);
+    };
+    res.once('finish', release);
+    res.once('close', release);
+    next();
+}
+
+function writeRateLimit(req, res, next) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return writeLimiter(req, res, next);
+    next();
+}
+
+function uploadRateLimit(req, res, next) {
+    const pathOnly = req.path;
+    const isDirectUpload = new Set([
+        '/execute',
+        '/refine-pitch',
+        '/generate-outline',
+        '/generate-characters',
+        '/generate-stage4-beats',
+        '/generate-stage5-treatment',
+        '/generate-stage7-style',
+        '/generate-trained-style',
+        '/import-script'
+    ]).has(pathOnly);
+    const isKnowledgeUpload = /^\/projects\/\d{13,14}\/knowledge\/sources$/.test(pathOnly);
+    if (req.method === 'POST' && (isDirectUpload || isKnowledgeUpload)) return uploadLimiter(req, res, next);
+    next();
+}
 
 // Middleware
 app.use(express.static('public'));
+app.use('/api', enforceAllowedOrigin);
+app.use('/api', apiLimiter);
+app.use('/api', writeRateLimit);
+app.use('/api', uploadRateLimit);
 app.use(express.json({ limit: '20mb' }));
 
+app.post('/api/auth/session', (req, res) => {
+    if (!authConfigured()) {
+        return res.json({
+            ok: true,
+            authRequired: false,
+            token: '',
+            expiresAt: Date.now() + AUTH_SESSION_TTL_MS,
+            label: 'local',
+            role: 'admin'
+        });
+    }
+    if (authFailureLimited(req)) {
+        logEvent('security.auth_limited', {
+            requestId: req.id,
+            path: req.originalUrl.split('?')[0],
+            ipHash: hashForLog(authFailureKey(req))
+        }, 'warn');
+        return res.status(429).json({ error: 'Too many failed access attempts. Try again later.' });
+    }
+
+    const bodyKey = isPlainObject(req.body) ? cleanString(req.body.accessKey, 'accessKey', { max: 2_000, trim: false }) : '';
+    const headerKey = bearerOrApiKey(req);
+    const presentedKey = bodyKey || headerKey || '';
+    const credential = findAccessCredential(presentedKey);
+
+    if (!credential) {
+        recordAuthFailure(req);
+        logEvent('security.unlock_failed', {
+            requestId: req.id,
+            ipHash: hashForLog(authFailureKey(req))
+        }, 'warn');
+        return res.status(401).json({ error: 'Invalid access key' });
+    }
+
+    clearAuthFailures(req);
+    const session = issueAuthSession(credential);
+    logEvent('security.session_issued', {
+        requestId: req.id,
+        authSessionId: session.sessionId,
+        authLabel: session.label,
+        authRole: session.role,
+        expiresAt: new Date(session.expiresAt).toISOString(),
+        ipHash: hashForLog(authFailureKey(req))
+    });
+    res.json({
+        ok: true,
+        authRequired: true,
+        token: session.token,
+        expiresAt: session.expiresAt,
+        label: session.label,
+        role: session.role,
+        ttlMs: AUTH_SESSION_TTL_MS
+    });
+});
+
+app.delete('/api/auth/session', requireAuth, (req, res) => {
+    auditLog(req, 'session.logout');
+    res.json({ ok: true });
+});
+
 // API route
-app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
+app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { prompt, projectId } = req.body;
+        const { prompt, projectId } = validatePitchExecutionPayload(req.body);
         const uploadedFile = req.file;
         let projectData = null;
         let sourcePacket = null;
         let uploadContext = null;
 
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
             projectData = JSON.parse(content);
             uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: prompt || 'Generate pitch options.' });
@@ -2677,13 +4063,13 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
         res.json({ result, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing agent:", error);
-        res.status(500).json({ error: "Failed to generate pitch" });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : "Failed to generate pitch" });
     }
 });
 
-app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
+app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { currentPitch, userNote, projectId } = req.body || {};
+        const { currentPitch, userNote, projectId } = validateStageAiPayload(req.body || {}, { fields: ['currentPitch'], projectRequired: false });
         const uploadedFile = req.file;
 
         if (!currentPitch || !userNote) {
@@ -2697,7 +4083,6 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         let sourcePacket = null;
         let uploadContext = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
             projectData = JSON.parse(content);
             uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: userNote, forceTextBlock: true });
@@ -2724,18 +4109,14 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         res.json({ result, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing refine agent:", error);
-        res.status(500).json({ error: "Failed to refine pitch" });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : "Failed to refine pitch" });
     }
 });
 
-app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, currentBeats, notes } = req.body;
+        const { projectId, currentBeats, notes } = validateStageAiPayload(req.body, { fields: ['currentBeats'] });
         const uploadedFile = req.file;
-
-        if (!isValidProjectId(projectId)) {
-            return res.status(400).json({ error: "Missing or invalid projectId" });
-        }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -2772,18 +4153,14 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         res.json({ result: outlineData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Outline Gen Error:', error);
-        res.status(500).json({ error: "Failed to generate outline" });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : "Failed to generate outline" });
     }
 });
 
-app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
+app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, currentCharacters, notes } = req.body;
+        const { projectId, currentCharacters, notes } = validateStageAiPayload(req.body, { fields: ['currentCharacters'] });
         const uploadedFile = req.file;
-
-        if (!isValidProjectId(projectId)) {
-            return res.status(400).json({ error: "Missing or invalid projectId" });
-        }
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -2823,18 +4200,21 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         res.json({ result: characterData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         const detail = publicErrorDetail(error);
         res.status(500).json({ error: detail ? `Failed to generate characters: ${detail}` : "Failed to generate characters" });
     }
 });
 
-app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
-    const { projectId, currentBeats, notes } = req.body || {};
-    const uploadedFile = req.file;
-
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
+app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
+    let payload;
+    try {
+        payload = validateStageAiPayload(req.body || {}, { fields: ['currentBeats'] });
+    } catch (error) {
+        return res.status(error.statusCode || 400).json({ error: error.message });
     }
+    const { projectId, currentBeats, notes } = payload;
+    const uploadedFile = req.file;
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
     let projectData;
@@ -2894,12 +4274,15 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     }
 });
 
-app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
-    const { projectId } = req.body || {};
-    const uploadedFile = req.file;
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
+app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
+    let payload;
+    try {
+        payload = validateStageAiPayload(req.body || {}, { fields: ['currentTreatment'] });
+    } catch (error) {
+        return res.status(error.statusCode || 400).json({ error: error.message });
     }
+    const { projectId, notes, currentTreatment } = payload;
+    const uploadedFile = req.file;
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
     let projectData;
@@ -2914,7 +4297,6 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     const charactersData = projectData.data?.stage3_characters?.characters;
     const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
 
-    const { notes, currentTreatment } = req.body;
     const parsedTreatment = currentTreatment ? safeParse(currentTreatment, null) : null;
 
     if (!pitchData || !charactersData || !beatsData) {
@@ -2966,12 +4348,15 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     }
 });
 
-app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res) => {
-    const { projectId, notes } = req.body;
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
+app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
+    let payload;
+    try {
+        payload = validateStageAiPayload(req.body || {});
+    } catch (error) {
+        return res.status(error.statusCode || 400).json({ error: error.message });
     }
-    const generationNotes = typeof notes === 'string' ? notes.trim() : '';
+    const { projectId, notes } = payload;
+    const generationNotes = notes.trim();
 
     const filePath = path.join(DATA_DIR, `${projectId}.json`);
     let projectData;
@@ -3041,7 +4426,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
     }
 });
 
-app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/revise-stage6', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     let heartbeat = null;
     let streaming = false;
     const send = (data) => {
@@ -3050,11 +4435,9 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
     };
     try {
-        const { projectId, feedback, stream } = req.body;
-        if (!isValidProjectId(projectId) || !feedback) {
-            return res.status(400).json({ error: "Missing or invalid projectId, or missing feedback" });
-        }
-        streaming = stream === true || /\btext\/event-stream\b/i.test(req.headers.accept || '');
+        const { projectId, feedback, stream } = validateStageAiPayload(req.body || {});
+        if (!feedback.trim()) return res.status(400).json({ error: "Missing feedback" });
+        streaming = stream || /\btext\/event-stream\b/i.test(req.headers.accept || '');
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -3113,6 +4496,8 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         console.error('Stage 6 Revision Error:', error.message);
         if (streaming) {
             send({ type: 'error', message: "Failed to revise scene blueprint" });
+        } else if (error.statusCode === 400) {
+            res.status(400).json({ error: error.message });
         } else {
             res.status(500).json({ error: "Failed to revise scene blueprint" });
         }
@@ -3122,13 +4507,9 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
     }
 });
 
-app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/generate-draft', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, sceneNumber } = req.body;
-        const sceneNum = parseInt(sceneNumber, 10);
-        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000) {
-            return res.status(400).json({ error: "Missing or invalid projectId or sceneNumber" });
-        }
+        const { projectId, sceneNumber: sceneNum } = validateSceneGenerationPayload(req.body || {});
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -3200,17 +4581,14 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Generation Error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: "Failed to generate scene draft" });
     }
 });
 
-app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/revise-draft', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, sceneNumber, feedback } = req.body;
-        const sceneNum = parseInt(sceneNumber, 10);
-        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000 || !feedback) {
-            return res.status(400).json({ error: "Missing or invalid projectId, sceneNumber, or feedback" });
-        }
+        const { projectId, sceneNumber: sceneNum, feedback } = validateSceneGenerationPayload(req.body || {}, { requireFeedback: true });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -3279,6 +4657,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Revision Error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: "Failed to revise scene draft" });
     }
 });
@@ -3287,13 +4666,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
 
 app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
     try {
-        const { projectId, factId, resolution, newValue } = req.body;
-        if (!isValidProjectId(projectId) || !factId || !resolution) {
-            return res.status(400).json({ error: 'Missing projectId, factId, or resolution' });
-        }
-        if (!['intentional_change', 'dismiss', 'fix_prompt'].includes(resolution)) {
-            return res.status(400).json({ error: 'Invalid resolution type' });
-        }
+        const { projectId, factId, resolution, newValue } = validateContinuityResolvePayload(req.body || {});
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const projectData = JSON.parse(await fs.readFile(filePath, 'utf-8'));
         resolveError(projectData, factId, resolution, newValue);
@@ -3301,16 +4674,16 @@ app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Continuity resolve error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to resolve continuity issue' });
     }
 });
 
 // --- Stage 9: Coverage --- //
 
-app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/generate-coverage', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, source } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: "Missing or invalid projectId" });
+        const { projectId, source } = validateCoveragePayload(req.body || {});
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         let projectData;
@@ -3384,6 +4757,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         res.json({ result: coverageResult, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: "Failed to generate coverage" });
     }
 });
@@ -3393,8 +4767,9 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
 // Initialize stage9_rewrites from Stage 8 humanized text
 app.post('/api/init-stage9', requireAuth, async (req, res) => {
     try {
-        const { projectId, reset } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        if (!isPlainObject(req.body)) throw badRequest('Rewrite init payload must be an object');
+        const projectId = cleanProjectId(req.body.projectId);
+        const reset = cleanBoolean(req.body.reset, 'reset', false);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -3446,15 +4821,14 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('init-stage9 error:', error.message);
-        res.status(500).json({ error: 'Failed to initialize rewrite stage' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to initialize rewrite stage' });
     }
 });
 
 // General-purpose brainstorm: stages 1–7 chat assistant
-app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/brainstorm', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false } = req.body;
-        if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
+        const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false } = validateChatPayload(req.body, { requireStageId: true });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -3640,15 +5014,14 @@ ${brainstormSop}`
         res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
         console.error('brainstorm error:', error.message);
-        res.status(500).json({ error: 'Brainstorm request failed' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Brainstorm request failed' });
     }
 });
 
 // Conversational brainstorm: editorial assistant helps writer clarify rewrite direction
-app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, messages = [], isInit = false, attachment } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        const { projectId, messages = [], isInit = false, attachment } = validateChatPayload(req.body);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -3802,18 +5175,14 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
         console.error('brainstorm-rewrite error:', error.message);
-        res.status(500).json({ error: 'Brainstorm rewrite request failed' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Brainstorm rewrite request failed' });
     }
 });
 
 // Lightweight source alignment check for the current stage output.
-app.post('/api/source-audit-stage', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/source-audit-stage', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body;
-        const numericStageId = Number(stageId);
-        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
-        }
+        const { projectId, stageId: numericStageId, stageDataOverride, sceneNumber } = validateSourceStagePayload(req.body);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -3924,17 +5293,13 @@ Return concise, actionable findings.`;
         });
     } catch (error) {
         console.error('source-audit-stage error:', error.message);
-        res.status(500).json({ error: 'Failed to check stage against source material' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to check stage against source material' });
     }
 });
 
 app.post('/api/source-readiness-stage', requireAuth, async (req, res) => {
     try {
-        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
-        }
+        const { projectId, stageId: numericStageId, stageDataOverride, sceneNumber } = validateSourceStagePayload(req.body);
 
         const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
         const projectData = JSON.parse(content);
@@ -3956,17 +5321,13 @@ app.post('/api/source-readiness-stage', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('source-readiness-stage error:', error.message);
-        res.status(500).json({ error: 'Failed to inspect source readiness' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to inspect source readiness' });
     }
 });
 
 app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
     try {
-        const { projectId, stageId, stageDataOverride, sceneNumber } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!isValidProjectId(projectId) || !numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
-        }
+        const { projectId, stageId: numericStageId, stageDataOverride, sceneNumber } = validateSourceStagePayload(req.body);
 
         const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
         const projectData = JSON.parse(content);
@@ -3980,18 +5341,13 @@ app.post('/api/source-plan-stage', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('source-plan-stage error:', error.message);
-        res.status(500).json({ error: 'Failed to build source use plan' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to build source use plan' });
     }
 });
 
-app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/source-revise-stage', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, stageId, audit, stageDataOverride, sceneNumber, userInstruction } = req.body || {};
-        const numericStageId = Number(stageId);
-        const supportedStages = new Set([2, 3, 4, 5, 6, 8]);
-        if (!isValidProjectId(projectId) || !supportedStages.has(numericStageId)) {
-            return res.status(400).json({ error: 'Missing or unsupported projectId or stageId' });
-        }
+        const { projectId, stageId: numericStageId, audit, stageDataOverride, sceneNumber, userInstruction } = validateSourceRevisePayload(req.body);
         if (!sourceAuditHasActionableItems(audit)) {
             return res.status(400).json({ error: 'Source audit has no actionable mismatch, missing element, or recommended fix' });
         }
@@ -4164,7 +5520,7 @@ app.post('/api/source-revise-stage', requireAuth, aiLimiter, async (req, res) =>
         });
     } catch (error) {
         console.error('source-revise-stage error:', error.message);
-        res.status(500).json({ error: 'Failed to apply source audit fixes' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to apply source audit fixes' });
     }
 });
 
@@ -4187,10 +5543,9 @@ function buildStage10RewritePlannerSystemInstruction(plannerSop) {
 }
 
 // Audit scope: which scenes does this task affect?
-app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/plan-rewrite', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, priorityTask, userFeedback, conversationContext } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
+        const { projectId, priorityTask, userFeedback, conversationContext } = validateRewritePlanPayload(req.body);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4286,15 +5641,14 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         res.json({ ...plan, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
-        res.status(500).json({ error: 'Failed to generate rewrite plan' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to generate rewrite plan' });
     }
 });
 
 // Run the rewrite agent only on planned (affected) scenes
-app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, priorityTask, affectedSceneNumbers } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
+        const { projectId, priorityTask, affectedSceneNumbers } = validateRewriteForPriorityPayload(req.body);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4357,18 +5711,15 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         res.json({ scenes, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-for-priority error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scenes for priority' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to rewrite scenes for priority' });
     }
 });
 
 // Rewrite a single scene for a planned priority task
-app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, sceneNumber, priorityTask, plannedChange } = req.body;
-        const sceneNum = parseInt(sceneNumber, 10);
-        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || !priorityTask) {
-            return res.status(400).json({ error: 'Missing or invalid projectId, sceneNumber, or priorityTask' });
-        }
+        const { projectId, sceneNumber, priorityTask, plannedChange } = validateRewriteSingleScenePayload(req.body);
+        const sceneNum = sceneNumber;
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4448,15 +5799,14 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scene' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to rewrite scene' });
     }
 });
 
 // Save approved pending changes and advance priority index
 app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
     try {
-        const { projectId, pendingScenes, newPriorityIdx } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        const { projectId, pendingScenes, newPriorityIdx } = validateApproveRewritePayload(req.body);
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4476,15 +5826,15 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
         res.json({ stage9_rewrites: stage9 });
     } catch (error) {
         console.error('approve-rewrite-priority error:', error.message);
-        res.status(500).json({ error: 'Failed to approve rewrite priority' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to approve rewrite priority' });
     }
 });
 
 // Rewrite a single scene using the priority task + user feedback
-app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, sceneNumber, priorityTask, userFeedback, currentText, attachment } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
+        const { projectId, sceneNumber, priorityTask, userFeedback, currentText, attachment } = validateRewriteSingleScenePayload(req.body);
+        if (!currentText) return res.status(400).json({ error: 'currentText is required' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4524,15 +5874,14 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         res.json({ proposed_text, ...(savedSource && { savedSource }), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to rewrite scene with feedback' });
     }
 });
 
 // Mark Stage 10 as approved/finalized
 app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
     try {
-        const { projectId } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        const { projectId } = validateProjectOnlyPayload(req.body, 'Finalize rewrite payload');
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4545,22 +5894,20 @@ app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
-        res.status(500).json({ error: 'Failed to finalize stage 10' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to finalize stage 10' });
     }
 });
 
 // --- Stage 7: Style Routes --- //
 
 // Generate a style skill file from chat/form input
-app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sampleFiles', 5), async (req, res) => {
+app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sampleFiles', 5), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, description, conversationHistory: convRaw } = req.body;
-        const conversationHistory = convRaw ? (safeParse(convRaw, []) || []) : [];
+        const { projectId, description, conversationHistory } = validateStyleGenerationPayload(req.body || {});
 
         // Load project context if projectId provided (optional for Landing Page creation)
         let projectData = null, filePath = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             filePath = path.join(DATA_DIR, `${projectId}.json`);
             const content = await fs.readFile(filePath, 'utf-8');
             projectData = JSON.parse(content);
@@ -4615,15 +5962,15 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         res.json({ slug, content: styleContent, meta, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to generate style' });
     }
 });
 
 // Preview a scene drafted in a specific style
-app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/preview-style-scene', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, styleSlug, sceneIndex = 0 } = req.body;
-        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
+        const { projectId, styleSlug, sceneIndex } = validateStylePreviewPayload(req.body || {});
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
@@ -4695,6 +6042,7 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         res.json({ sceneNumber: scene.scene_number, previewText: response.text, ...sourceResponseExtras(previewPacket) });
     } catch (error) {
         console.error('preview-style-scene error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to preview style scene' });
     }
 });
@@ -4753,8 +6101,7 @@ app.get('/api/styles', requireAuth, async (req, res) => {
 // Select an existing style for a project
 app.post('/api/select-style', requireAuth, async (req, res) => {
     try {
-        const { projectId, styleSlug } = req.body;
-        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
+        const { projectId, styleSlug } = validateStyleSelectionPayload(req.body || {});
 
         // Verify style exists — try new naming first, fall back to legacy
         let styleContent = null;
@@ -4781,15 +6128,15 @@ app.post('/api/select-style', requireAuth, async (req, res) => {
         res.json({ slug: styleSlug, content: styleContent, meta });
     } catch (error) {
         console.error('select-style error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to select style' });
     }
 });
 
 // Generate a Tier 3 trained style from uploaded screenplay(s)
-app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array('screenplayFiles', 5), async (req, res) => {
+app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array('screenplayFiles', 5), aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { projectId, styleName, conversationHistory: convRaw } = req.body;
-        const conversationHistory = convRaw ? (safeParse(convRaw, []) || []) : [];
+        const { projectId, styleName, conversationHistory } = validateStyleGenerationPayload(req.body || {});
 
         // Extract text from uploaded screenplay files
         const screenplayTexts = [];
@@ -4812,7 +6159,6 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         let filePath = null;
         let sourcePacket = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
             filePath = path.join(DATA_DIR, `${projectId}.json`);
             const content = await fs.readFile(filePath, 'utf-8');
             projectData = JSON.parse(content);
@@ -4850,6 +6196,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         res.json({ slug, content: directive, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to generate trained style' });
     }
 });
@@ -4888,12 +6235,11 @@ app.get('/api/styles/:slug', requireAuth, async (req, res) => {
 });
 
 // Update a style's directive content
-app.put('/api/styles/:slug', requireAuth, async (req, res) => {
+app.put('/api/styles/:slug', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { slug } = req.params;
-        const { content } = req.body;
+        const { content } = validateStyleUpdatePayload(req.body || {});
         if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
-        if (!content) return res.status(400).json({ error: 'Missing content' });
 
         // Verify the file exists first
         let filePath;
@@ -4914,12 +6260,13 @@ app.put('/api/styles/:slug', requireAuth, async (req, res) => {
         res.json({ slug, meta });
     } catch (error) {
         console.error('update-style error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to update style' });
     }
 });
 
 // Delete a style (removes both directive and reference files)
-app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
+app.delete('/api/styles/:slug', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { slug } = req.params;
         if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
@@ -4942,9 +6289,9 @@ app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
 });
 
 // Lightweight brainstorm chat for style creation outside project context
-app.post('/api/style-chat', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/style-chat', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
-        const { messages, isInit } = req.body;
+        const { messages, isInit } = validateStyleChatPayload(req.body || {});
         const styleSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage7_style.md'), 'utf8');
         const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
 
@@ -5006,7 +6353,10 @@ When you have enough info to generate, ask: "Ready to generate this style?" (or 
         // For init, send a starter message so Gemini has content to respond to
         const contents = (isInit || !messages || messages.length === 0)
             ? 'Start the conversation. Introduce yourself and ask about their style needs.'
-            : messages;
+            : messages.map(message => ({
+                role: message.role === 'assistant' || message.role === 'ai' ? 'model' : message.role,
+                parts: [{ text: message.content }]
+            }));
 
         const mc = getModelConfig(7);
         const { generateContent } = require('./agents/ai-client');
@@ -5034,13 +6384,14 @@ When you have enough info to generate, ask: "Ready to generate this style?" (or 
         res.json({ reply: result.message, execute_immediately: result.execute_immediately, usage: response.usage });
     } catch (error) {
         console.error('style-chat error:', error.message);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Style chat request failed' });
     }
 });
 
 // --- Settings Routes --- //
 
-app.get('/api/settings', requireAuth, (req, res) => {
+app.get('/api/settings', requireAuth, requireAdmin, (req, res) => {
     res.json({
         geminiApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey ? '***' : '',
         anthropicApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey ? '***' : '',
@@ -5050,9 +6401,9 @@ app.get('/api/settings', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/settings', requireAuth, async (req, res) => {
+app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { geminiApiKey, anthropicApiKey, stageModels } = req.body;
+        const { geminiApiKey, anthropicApiKey, stageModels } = validateSettingsPayload(req.body);
         // Only update keys that were actually changed (don't overwrite with masked placeholder)
         if (RUNTIME_API_KEYS_ENABLED && geminiApiKey && geminiApiKey !== '***') appSettings.geminiApiKey = geminiApiKey;
         if (RUNTIME_API_KEYS_ENABLED && anthropicApiKey && anthropicApiKey !== '***') appSettings.anthropicApiKey = anthropicApiKey;
@@ -5060,33 +6411,45 @@ app.post('/api/settings', requireAuth, async (req, res) => {
 
         await fs.mkdir(DATA_ROOT, { recursive: true });
         await atomicWriteJSON(SETTINGS_PATH, appSettings);
+        auditLog(req, 'settings.updated', {
+            stageModelCount: stageModels ? Object.keys(stageModels).length : 0,
+            runtimeApiKeysEnabled: RUNTIME_API_KEYS_ENABLED
+        });
         res.json({ ok: true });
     } catch (err) {
         console.error('Failed to save settings:', err);
-        res.status(500).json({ error: 'Failed to save settings' });
+        res.status(err.statusCode || 500).json({ error: err.statusCode === 400 ? err.message : 'Failed to save settings' });
     }
 });
 
 // --- Project Management Routes --- //
 
-// GET all projects
+function parsePaginationQuery(query = {}) {
+    const limitRaw = Number.parseInt(query.limit || '50', 10);
+    const offsetRaw = Number.parseInt(query.offset || '0', 10);
+    const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 50, 1), 200);
+    const offset = Math.max(Number.isFinite(offsetRaw) ? offsetRaw : 0, 0);
+    return { limit, offset };
+}
+
+// GET projects, paginated from the lightweight manifest
 app.get('/api/projects', requireAuth, async (req, res) => {
     try {
-        const files = await fs.readdir(DATA_DIR);
-        const projects = [];
-
-        for (const file of files) {
-            if (file.endsWith('.json')) {
-                const filePath = path.join(DATA_DIR, file);
-                const content = await fs.readFile(filePath, 'utf-8');
-                const projectData = JSON.parse(content);
-                projects.push({ id: projectData.id, title: projectData.title });
-            }
-        }
-
-        // Sort newest first based on ID (which is a timestamp)
-        projects.sort((a, b) => b.id - a.id);
-        res.json({ projects });
+        const { limit, offset } = parsePaginationQuery(req.query);
+        const manifest = await ensureProjectsManifest({ validateFiles: true });
+        const total = manifest.projects.length;
+        const projects = manifest.projects.slice(offset, offset + limit);
+        res.json({
+            projects,
+            pagination: {
+                total,
+                limit,
+                offset,
+                nextOffset: offset + limit < total ? offset + limit : null,
+                hasMore: offset + limit < total
+            },
+            manifestUpdatedAt: manifest.updatedAt || manifest.rebuiltAt || null
+        });
     } catch (error) {
         console.error("Error reading projects:", error);
         res.status(500).json({ error: "Failed to load projects" });
@@ -5127,6 +6490,7 @@ app.post('/api/projects', requireAuth, async (req, res) => {
         const filePath = path.join(DATA_DIR, `${id}.json`);
         await writeJSONQueued(filePath, newProject);
 
+        auditLog(req, 'project.created', { projectId: id });
         res.status(201).json(newProject);
     } catch (error) {
         console.error("Error creating project:", error);
@@ -5135,14 +6499,14 @@ app.post('/api/projects', requireAuth, async (req, res) => {
 });
 
 // POST import script → create project with Stage 6/7 pre-populated
-app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (req, res) => {
+app.post('/api/import-script', requireAuth, requireAdmin, upload.single('scriptFile'), async (req, res) => {
     try {
         const { parseFountain, parseFdx, parsePdfScript, buildStage6FromScenes } = require('./utils/script-import');
         const file = req.file;
         if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
         const ext = (file.originalname || '').split('.').pop().toLowerCase();
-        const userTitle = req.body.title?.trim() || '';
+        const { title: userTitle } = validateImportScriptPayload(req.body || {});
 
         let parsed;
         if (ext === 'fountain') {
@@ -5181,9 +6545,15 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
         await writeJSONQueued(filePath, newProject);
 
         console.log(`Imported script "${title}": ${parsed.scenes.length} scenes, ${stage6Scenes.length} sequences`);
+        auditLog(req, 'project.imported', {
+            projectId: id,
+            sceneCount: parsed.scenes.length,
+            sequenceCount: stage6Scenes.length
+        });
         res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
     } catch (error) {
         console.error('Import script error:', error);
+        if (error.statusCode === 400) return res.status(400).json({ error: error.message });
         res.status(500).json({ error: 'Failed to import script' });
     }
 });
@@ -5193,7 +6563,7 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
-        const updates = req.body;
+        const updates = sanitizeProjectUpdates(req.body);
 
         try {
             await fs.access(getProjectFilePath(id));
@@ -5219,10 +6589,15 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
             return nextProject;
         });
 
+        auditLog(req, 'project.updated', {
+            projectId: id,
+            fields: Object.keys(updates).filter(key => key !== 'data'),
+            dataFields: updates.data ? Object.keys(updates.data).slice(0, 20) : []
+        });
         res.json(updatedProject);
     } catch (error) {
         console.error("Error updating project:", error);
-        res.status(500).json({ error: "Failed to update project" });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : "Failed to update project" });
     }
 });
 
@@ -5252,7 +6627,7 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
             mimeType: req.file.mimetype || 'application/octet-stream',
             data: req.file.buffer.toString('base64')
         };
-        const sourceNote = compactText(req.body?.sourceNote || '', 800);
+        const sourceNote = cleanString(req.body?.sourceNote, 'sourceNote', { max: 800 });
         let uploadResult = null;
 
         const updatedProject = await updateProjectJSON(id, async (projectData) => {
@@ -5282,6 +6657,11 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
 
         const knowledge = ensureProjectKnowledge(updatedProject);
         const savedSource = knowledge.source_registry.find(source => source.id === uploadResult?.id);
+        auditLog(req, 'source.uploaded', {
+            projectId: id,
+            sourceId: uploadResult?.id,
+            duplicate: !!uploadResult?.duplicate
+        });
         res.json({
             ok: true,
             savedSource: savedSource ? { ...summarizeSourceForClient(savedSource), duplicate: !!uploadResult?.duplicate } : null,
@@ -5305,6 +6685,7 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
             return projectData;
         });
         const knowledge = ensureProjectKnowledge(updatedProject);
+        auditLog(req, 'source.deleted', { projectId: id, sourceId });
         res.json({
             ok: true,
             knowledge: knowledgePayloadForClient(knowledge, updatedProject)
@@ -5322,10 +6703,7 @@ app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (r
             return res.status(400).json({ error: 'Invalid project ID or source ID' });
         }
 
-        const { type, tags } = req.body || {};
-        if (type !== undefined && !SOURCE_TYPE_OPTIONS.has(type)) {
-            return res.status(400).json({ error: 'Invalid source type' });
-        }
+        const { type, tags } = validateKnowledgeSourceMetadataPayload(req.body || {});
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags });
@@ -5341,7 +6719,7 @@ app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (r
         });
     } catch (error) {
         console.error('knowledge source update error:', error.message);
-        res.status(error.statusCode || 500).json({ error: error.statusCode === 404 ? 'Source not found' : 'Failed to update source' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : error.statusCode === 404 ? 'Source not found' : 'Failed to update source' });
     }
 });
 
@@ -5350,15 +6728,8 @@ app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) =
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { type, stageId, summary, details, audit } = req.body || {};
-        const numericStageId = stageId === undefined || stageId === null || stageId === '' ? null : Number(stageId);
-        if (numericStageId && !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
-        }
-
-        const cleanType = /^[a-z0-9_-]{1,60}$/i.test(type || '') ? type : 'project_knowledge_decision';
+        const { type: cleanType, stageId: numericStageId, summary, details, audit } = validateKnowledgeDecisionPayload(req.body || {});
         const cleanSummary = compactText(summary || details || summarizeAuditForDecision(audit), 1_000);
-        if (!cleanSummary) return res.status(400).json({ error: 'Decision summary is required' });
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             const knowledge = ensureProjectKnowledge(projectData);
@@ -5388,7 +6759,7 @@ app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) =
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('knowledge decision log error:', error.message);
-        res.status(500).json({ error: 'Failed to log project knowledge decision' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to log project knowledge decision' });
     }
 });
 
@@ -5397,11 +6768,7 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { stageId, summary, audit } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
-        }
+        const { stageId: numericStageId, summary, audit } = validateAcceptedDivergencePayload(req.body || {});
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             recordAcceptedSourceDivergence(projectData, { stageId: numericStageId, summary, audit });
@@ -5412,20 +6779,16 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('accepted divergence log error:', error.message);
-        res.status(500).json({ error: 'Failed to save accepted source divergence' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to save accepted source divergence' });
     }
 });
 
-app.post('/api/projects/:id/knowledge/propose-stage-curation', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/projects/:id/knowledge/propose-stage-curation', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { stageId, stageDataOverride } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
-        }
+        const { stageId: numericStageId, stageDataOverride } = validateStageCurationPayload(req.body || {});
 
         const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
         const projectData = JSON.parse(content);
@@ -5502,7 +6865,7 @@ Rules:
         }
     } catch (error) {
         console.error('stage curation proposal error:', error.message);
-        res.status(500).json({ error: 'Failed to propose project memory updates' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to propose project memory updates' });
     }
 });
 
@@ -5511,11 +6874,7 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { stageId, proposal } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
-        }
+        const { stageId: numericStageId, proposal } = validateStageCurationPayload(req.body || {});
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             applyStageCurationToKnowledge(projectData, { stageId: numericStageId, proposal });
@@ -5526,7 +6885,7 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('stage curation apply error:', error.message);
-        res.status(500).json({ error: 'Failed to apply project memory updates' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to apply project memory updates' });
     }
 });
 
@@ -5535,11 +6894,7 @@ app.post('/api/projects/:id/knowledge/refresh-stage-handoff', requireAuth, async
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const { stageId, stageDataOverride } = req.body || {};
-        const numericStageId = Number(stageId);
-        if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
-        }
+        const { stageId: numericStageId, stageDataOverride } = validateStageCurationPayload(req.body || {});
 
         const updatedProject = await updateProjectJSON(id, async (projectData) => {
             const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
@@ -5557,7 +6912,7 @@ app.post('/api/projects/:id/knowledge/refresh-stage-handoff', requireAuth, async
         });
     } catch (error) {
         console.error('stage handoff refresh error:', error.message);
-        res.status(500).json({ error: 'Failed to refresh stage handoff' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to refresh stage handoff' });
     }
 });
 
@@ -5603,9 +6958,10 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        const reviewPayload = validateKnowledgeReviewPayload(req.body || {});
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
-            updateKnowledgeReview(projectData, req.body || {});
+            updateKnowledgeReview(projectData, reviewPayload);
             return projectData;
         });
 
@@ -5617,11 +6973,11 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('knowledge review update error:', error.message);
-        res.status(500).json({ error: 'Failed to update project memory review' });
+        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to update project memory review' });
     }
 });
 
-app.post('/api/projects/:id/knowledge/rebuild-source-bible', requireAuth, aiLimiter, async (req, res) => {
+app.post('/api/projects/:id/knowledge/rebuild-source-bible', requireAuth, aiLimiter, aiDailyBudgetLimiter, aiConcurrencyLimiter, async (req, res) => {
     try {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
@@ -5719,7 +7075,7 @@ ${sourceMaterial}`,
 });
 
 // DELETE project
-app.delete('/api/projects/:id', requireAuth, async (req, res) => {
+app.delete('/api/projects/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
@@ -5732,6 +7088,8 @@ app.delete('/api/projects/:id', requireAuth, async (req, res) => {
         }
 
         await fs.unlink(filePath);
+        await removeProjectManifestEntry(id);
+        auditLog(req, 'project.deleted', { projectId: id });
         res.json({ success: true });
     } catch (error) {
         console.error("Error deleting project:", error);
@@ -5749,7 +7107,7 @@ async function loadProjectData(projectId) {
 }
 
 // GET /api/export/docx/:projectId?stage=outline|characters|treatment|draft|coverage
-app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
+app.get('/api/export/docx/:projectId', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { projectId } = req.params;
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
@@ -5823,6 +7181,7 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        auditLog(req, 'export.docx', { projectId, stage });
         res.send(buf);
     } catch (err) {
         console.error('DOCX export error:', err);
@@ -5831,7 +7190,7 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
 });
 
 // GET /api/export/pdf/:projectId?stage=draft|rewrite
-app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
+app.get('/api/export/pdf/:projectId', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { projectId } = req.params;
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
@@ -5861,6 +7220,7 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        auditLog(req, 'export.pdf', { projectId, stage });
         res.send(buf);
     } catch (err) {
         console.error('PDF export error:', err);
@@ -5870,18 +7230,39 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+app.use((err, req, res, next) => {
+    if (!err) return next();
+    const isMulterError = err instanceof multer.MulterError;
+    const isBadUpload = isMulterError || /^Unsupported file type:/.test(err.message || '');
+    const status = err.statusCode || err.status || (isBadUpload ? (err.code === 'LIMIT_FILE_SIZE' ? 413 : 400) : 500);
+    const message = status === 413
+        ? 'Uploaded file is too large'
+        : err.type === 'entity.parse.failed'
+            ? 'Invalid JSON request body'
+            : status === 400
+                ? err.message
+                : 'Internal server error';
+
+    logEvent('server.error', {
+        requestId: req.id,
+        method: req.method,
+        path: req.originalUrl?.split('?')[0],
+        status,
+        error: err.message
+    }, status >= 500 ? 'error' : 'warn');
+
+    if (res.headersSent) return next(err);
+    return res.status(status).json({ error: message, requestId: req.id });
+});
+
 // ─── Startup checks ───────────────────────────────────────────────────────────
 async function startServer() {
     await initDb();
     await loadSettings();
+    await validateEnv();
 
-    const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;
-    const hasAnthropic = appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-    if (!hasGemini && !hasAnthropic) {
-        console.warn('[warn] Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set — AI features will fail on first use.');
-    }
-    if (APP_SECRET) {
-        console.log('[auth] APP_SECRET set — API authentication active.');
+    if (authConfigured()) {
+        console.log('[auth] private-session authentication active.');
     }
 
     app.listen(PORT, () => {
@@ -5932,5 +7313,13 @@ module.exports = {
     stageDataOverrideToText,
     updateKnowledgeSourceMetadata,
     updateKnowledgeReview,
+    issueAuthSession,
+    verifyAuthSessionToken,
+    parseAccessKeys,
+    hasAdminRole,
+    summarizeDailyAiUsage,
+    aiDailyLimitReasons,
+    buildContentSecurityPolicy,
+    validateEnv,
     startServer
 };
