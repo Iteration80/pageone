@@ -20,6 +20,7 @@ const {
     formatSourceUsePlan,
     prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
+    readKnowledgeSourceAssetForClient,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,
@@ -413,7 +414,12 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     assert.match(indexHtml, /id="btnSourceLibrary" class="sidebar-home-btn" title="Project Knowledge" aria-label="Project Knowledge"/);
     assert.doesNotMatch(indexHtml, /id="btnSourceLibrary"[^>]*hidden/);
+    assert.match(indexHtml, /id="sourceReaderPanel"/);
+    assert.match(indexHtml, /Memory &amp; Diagnostics|Memory & Diagnostics/);
     assert.match(appJs, /data-action="run-source-check"/);
+    assert.match(appJs, /source-library-read/);
+    assert.match(appJs, /source-library-open-original/);
+    assert.match(appJs, /\/knowledge\/sources\/\$\{encodeURIComponent\(sourceId\)\}\/assets\/\$\{encodeURIComponent\(assetKind\)\}/);
     assert.match(appJs, /Audit needs refresh because source material changed/);
     assert.match(appJs, /knowledge-handoff-status/);
     assert.match(appJs, /Missing handoff/);
@@ -730,6 +736,15 @@ test('persistChatAttachmentToKnowledge stores original uploads and extracted mar
         const markdownPath = path.join(dataRoot, source.extractedMarkdown.path);
         assert.equal(fs.readFileSync(originalPath).length, docxBuffer.length);
         assert.match(fs.readFileSync(markdownPath, 'utf8'), /Docx source says Mara keeps the blue key/);
+
+        const extracted = await readKnowledgeSourceAssetForClient(project, project.id, source.id, 'extracted');
+        assert.equal(extracted.filename, 'Canon Draft.md');
+        assert.match(extracted.content, /# Canon Draft\.docx/);
+        assert.match(extracted.content, /Docx source says Mara keeps the blue key/);
+
+        const original = await readKnowledgeSourceAssetForClient(project, project.id, source.id, 'original');
+        assert.equal(original.filename, 'Canon Draft.docx');
+        assert.equal(original.buffer.length, docxBuffer.length);
     } finally {
         fs.rmSync(assetDir, { recursive: true, force: true });
     }

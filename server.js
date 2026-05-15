@@ -1584,6 +1584,110 @@ function summarizeSourceForClient(source) {
     };
 }
 
+function resolveStoredSourceAssetPath(projectId, sourceId, storedAsset) {
+    if (!isValidProjectId(String(projectId)) || !/^src_[a-zA-Z0-9_]+$/.test(String(sourceId))) return null;
+    const storedPath = String(storedAsset?.path || '');
+    if (!storedPath || storedPath.includes('\0')) return null;
+
+    const resolved = path.resolve(DATA_ROOT, storedPath);
+    const expectedDir = path.resolve(SOURCE_FILES_DIR, String(projectId), String(sourceId));
+    if (resolved !== expectedDir && !resolved.startsWith(expectedDir + path.sep)) return null;
+    return resolved;
+}
+
+function sourceTextFromRegistry(source) {
+    if (!source) return '';
+    if (source.text) return normalizeSourceText(source.text);
+    if (Array.isArray(source.chunks) && source.chunks.length) {
+        const chunks = source.chunks
+            .filter(chunk => chunk && typeof chunk.text === 'string')
+            .sort((a, b) => (a.start || 0) - (b.start || 0));
+        let output = '';
+        let previousEnd = 0;
+        for (const chunk of chunks) {
+            const start = Number.isFinite(chunk.start) ? chunk.start : previousEnd;
+            const text = chunk.text || '';
+            const overlap = output ? Math.max(0, previousEnd - start) : 0;
+            output += text.slice(overlap);
+            previousEnd = Math.max(previousEnd, start + text.length);
+        }
+        return normalizeSourceText(output);
+    }
+    return normalizeSourceText(source.summary || '');
+}
+
+async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceId, assetKind = 'extracted') {
+    const knowledge = ensureProjectKnowledge(projectData);
+    const source = knowledge.source_registry.find(item => item.id === sourceId);
+    if (!source) {
+        const err = new Error('Source not found');
+        err.statusCode = 404;
+        throw err;
+    }
+
+    if (assetKind === 'original') {
+        const filePath = resolveStoredSourceAssetPath(projectId, sourceId, source.originalFile);
+        if (!filePath) {
+            const err = new Error('Original source file is not available.');
+            err.statusCode = 404;
+            throw err;
+        }
+        const buffer = await fs.readFile(filePath);
+        return {
+            source: summarizeSourceForClient(source),
+            assetKind,
+            filename: source.originalFile?.filename || source.name || 'source',
+            mimeType: source.originalFile?.mimeType || source.mimeType || 'application/octet-stream',
+            byteCount: buffer.length,
+            buffer
+        };
+    }
+
+    if (assetKind === 'extracted') {
+        const filePath = resolveStoredSourceAssetPath(projectId, sourceId, source.extractedMarkdown);
+        if (filePath) {
+            try {
+                const content = await fs.readFile(filePath, 'utf8');
+                return {
+                    source: summarizeSourceForClient(source),
+                    assetKind,
+                    filename: source.extractedMarkdown?.filename || markdownNameForSource(source.name, sourceId),
+                    mimeType: 'text/markdown; charset=utf-8',
+                    charCount: content.length,
+                    content
+                };
+            } catch (error) {
+                if (error.code !== 'ENOENT') throw error;
+            }
+        }
+    }
+
+    if (assetKind === 'text' || assetKind === 'extracted') {
+        const text = sourceTextFromRegistry(source);
+        if (!text) {
+            const err = new Error('No readable text is available for this source.');
+            err.statusCode = 404;
+            throw err;
+        }
+        return {
+            source: summarizeSourceForClient(source),
+            assetKind: 'text',
+            filename: `${path.parse(source.name || sourceId).name || sourceId}.txt`,
+            mimeType: 'text/plain; charset=utf-8',
+            charCount: text.length,
+            content: text
+        };
+    }
+
+    const err = new Error('Unknown source asset type.');
+    err.statusCode = 400;
+    throw err;
+}
+
+function contentDispositionFilename(name, fallback = 'source') {
+    return sanitizeSourceAssetName(name, fallback).replace(/"/g, '');
+}
+
 function sanitizeSourceTags(tags) {
     const rawTags = Array.isArray(tags)
         ? tags
@@ -5448,6 +5552,53 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
     }
 });
 
+app.get('/api/projects/:id/knowledge/sources/:sourceId/assets/:assetKind', requireAuth, async (req, res) => {
+    try {
+        const { id, sourceId, assetKind } = req.params;
+        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
+            return res.status(400).json({ error: 'Invalid project ID or source ID' });
+        }
+        if (!['extracted', 'original', 'text'].includes(assetKind)) {
+            return res.status(400).json({ error: 'Invalid source asset type' });
+        }
+
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        const projectData = JSON.parse(content);
+        const asset = await readKnowledgeSourceAssetForClient(projectData, id, sourceId, assetKind);
+
+        if (asset.buffer) {
+            const disposition = req.query?.download === '1' ? 'attachment' : 'inline';
+            res.setHeader('Content-Type', asset.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `${disposition}; filename="${contentDispositionFilename(asset.filename, 'source')}"`);
+            res.send(asset.buffer);
+            return;
+        }
+
+        if (req.query?.format === 'json') {
+            res.json({
+                source: asset.source,
+                assetKind: asset.assetKind,
+                filename: asset.filename,
+                mimeType: asset.mimeType,
+                charCount: asset.charCount,
+                content: asset.content
+            });
+            return;
+        }
+
+        res.setHeader('Content-Type', asset.mimeType || 'text/plain; charset=utf-8');
+        res.send(asset.content || '');
+    } catch (error) {
+        console.error('knowledge source asset error:', error.message);
+        const statusCode = error.statusCode || (error.code === 'ENOENT' ? 404 : 500);
+        res.status(statusCode).json({
+            error: statusCode === 404
+                ? error.message
+                : (statusCode === 400 ? error.message : 'Failed to load source asset')
+        });
+    }
+});
+
 app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
     try {
         const { id, sourceId } = req.params;
@@ -6081,6 +6232,7 @@ module.exports = {
     removeKnowledgeSource,
     prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
+    readKnowledgeSourceAssetForClient,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,

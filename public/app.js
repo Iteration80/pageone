@@ -208,6 +208,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const knowledgeDiagnosticsPanel = document.getElementById('knowledgeDiagnosticsPanel');
     const knowledgeReviewPanel = document.getElementById('knowledgeReviewPanel');
     const sourceLibraryList = document.getElementById('sourceLibraryList');
+    const sourceReaderPanel = document.getElementById('sourceReaderPanel');
+    const sourceReaderTitle = document.getElementById('sourceReaderTitle');
+    const sourceReaderMeta = document.getElementById('sourceReaderMeta');
+    const sourceReaderContent = document.getElementById('sourceReaderContent');
     const sourceUploadForm = document.getElementById('sourceUploadForm');
     const sourceKnowledgeUpload = document.getElementById('sourceKnowledgeUpload');
     const sourceUploadNote = document.getElementById('sourceUploadNote');
@@ -216,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnKnowledgeDiagnostics = document.getElementById('btnKnowledgeDiagnostics');
     const btnCompactMemory = document.getElementById('btnCompactMemory');
     const btnSourceLibraryClose = document.getElementById('btnSourceLibraryClose');
+    const btnSourceReaderClose = document.getElementById('btnSourceReaderClose');
 
     // Legacy / Convenience references for existing stages
     const navStage1 = navItems[1];
@@ -1832,8 +1837,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRebuildSourceBible?.addEventListener('click', () => rebuildSourceBible());
     btnKnowledgeDiagnostics?.addEventListener('click', () => loadKnowledgeDiagnostics());
     btnCompactMemory?.addEventListener('click', () => compactProjectMemory());
+    btnSourceReaderClose?.addEventListener('click', () => sourceReaderPanel?.classList.add('hidden'));
     sourceUploadForm?.addEventListener('submit', uploadSourceToKnowledge);
     sourceLibraryList?.addEventListener('click', (event) => {
+        const readBtn = event.target.closest('.source-library-read');
+        if (readBtn) {
+            readSourceAsset(readBtn.dataset.sourceId, readBtn.dataset.assetKind || 'extracted');
+            return;
+        }
+
+        const originalBtn = event.target.closest('.source-library-open-original');
+        if (originalBtn) {
+            openOriginalSourceAsset(originalBtn.dataset.sourceId);
+            return;
+        }
+
         const deleteBtn = event.target.closest('.source-library-delete');
         if (deleteBtn) {
             if (!confirm('Delete this source from project knowledge?')) return;
@@ -3271,6 +3289,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sourceLibraryStatus.classList.toggle('source-library-status-error', !!isError);
     }
 
+    async function responseErrorMessage(res, fallback = 'Request failed') {
+        const payload = await res.json().catch(() => null);
+        return payload?.error || `${fallback} (${res.status})`;
+    }
+
     function renderSourceBiblePanel(bible = {}) {
         if (!sourceBiblePanel) return;
         const facts = Array.isArray(bible.canon_facts) ? bible.canon_facts.slice(0, 8) : [];
@@ -3711,6 +3734,70 @@ document.addEventListener('DOMContentLoaded', () => {
         return knowledge.stage_source_audits?.[`stage${stageId}`] || null;
     }
 
+    function sourceAssetUrl(sourceId, assetKind, query = '') {
+        const base = `/api/projects/${encodeURIComponent(activeProjectId)}/knowledge/sources/${encodeURIComponent(sourceId)}/assets/${encodeURIComponent(assetKind)}`;
+        return query ? `${base}?${query}` : base;
+    }
+
+    async function readSourceAsset(sourceId, assetKind = 'extracted') {
+        if (!activeProjectId || !sourceId || !sourceReaderPanel || !sourceReaderContent) return;
+        sourceReaderPanel.classList.remove('hidden');
+        if (sourceReaderTitle) sourceReaderTitle.textContent = 'Loading source...';
+        if (sourceReaderMeta) sourceReaderMeta.textContent = '';
+        sourceReaderContent.textContent = '';
+        setSourceLibraryStatus('Loading source text...');
+
+        try {
+            const res = await fetch(sourceAssetUrl(sourceId, assetKind, 'format=json'));
+            if (!res.ok) throw new Error(await responseErrorMessage(res, 'Source read failed'));
+            const data = await res.json();
+            const content = data.content || '';
+            if (sourceReaderTitle) sourceReaderTitle.textContent = data.filename || 'Source text';
+            if (sourceReaderMeta) {
+                const label = data.assetKind === 'text' ? 'stored text' : 'extracted markdown';
+                sourceReaderMeta.textContent = `${formatCountLabel(data.charCount || content.length, 'char', 'chars')} - ${label}`;
+            }
+            sourceReaderContent.textContent = content || 'No readable text was found for this source.';
+            setSourceLibraryStatus('');
+            sourceReaderPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (err) {
+            if (sourceReaderTitle) sourceReaderTitle.textContent = 'Source unavailable';
+            sourceReaderContent.textContent = err.message;
+            setSourceLibraryStatus('Source read failed: ' + err.message, true);
+        }
+    }
+
+    async function openOriginalSourceAsset(sourceId) {
+        if (!activeProjectId || !sourceId) return;
+        const openedWindow = window.open('about:blank', '_blank');
+        if (openedWindow) {
+            openedWindow.opener = null;
+            openedWindow.document.title = 'Opening source...';
+            openedWindow.document.body.textContent = 'Opening original source...';
+        }
+        setSourceLibraryStatus('Opening original source...');
+        try {
+            const res = await fetch(sourceAssetUrl(sourceId, 'original'));
+            if (!res.ok) throw new Error(await responseErrorMessage(res, 'Original source unavailable'));
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            if (openedWindow) {
+                openedWindow.location.href = objectUrl;
+            } else {
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                link.click();
+            }
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+            setSourceLibraryStatus('');
+        } catch (err) {
+            if (openedWindow) openedWindow.close();
+            setSourceLibraryStatus('Original source open failed: ' + err.message, true);
+        }
+    }
+
     function renderMiniList(items = [], emptyText = 'None recorded.') {
         const list = items.map(formatKnowledgeItemForUi).filter(Boolean).slice(0, 5);
         return list.length
@@ -3730,6 +3817,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderKnowledgeReview(knowledge);
         if (!sourceLibraryList) return;
         if (!sources.length) {
+            sourceReaderPanel?.classList.add('hidden');
             sourceLibraryList.innerHTML = '<div class="source-library-empty">No saved source documents yet.</div>';
             return;
         }
@@ -3746,12 +3834,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const referenced = source.stagesReferenced?.length
                 ? ` - used in stages ${source.stagesReferenced.join(', ')}`
                 : '';
+            const readKind = source.extractedMarkdown?.path ? 'extracted' : 'text';
+            const readLabel = source.extractedMarkdown?.path ? 'Read Extracted Markdown' : 'Read Stored Text';
+            const originalButton = source.originalFile?.path
+                ? `<button class="secondary-btn source-library-open-original" data-source-id="${escapeHtml(source.id)}" type="button">Open Original</button>`
+                : '';
             return `
                 <article class="source-library-item">
+                    <div class="source-library-item-header">
+                        <div class="source-library-item-main">
+                            <div class="source-library-item-title">${escapeHtml(source.name || 'Untitled source')}</div>
+                            <div class="source-library-item-meta">${escapeHtml(formatSourceTypeLabel(source.type || 'source_material'))} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))} - ${escapeHtml(storage)}${escapeHtml(assetSummary)}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}${updated}${escapeHtml(referenced)}</div>
+                        </div>
+                        <button class="source-library-delete" data-source-id="${escapeHtml(source.id)}" type="button">Delete</button>
+                    </div>
+                    ${source.summary ? `<p class="source-library-preview"><strong>Preview</strong>${escapeHtml(source.summary)}</p>` : ''}
+                    <div class="source-library-file-actions">
+                        <button class="primary-btn source-library-read" data-source-id="${escapeHtml(source.id)}" data-asset-kind="${escapeHtml(readKind)}" type="button">${escapeHtml(readLabel)}</button>
+                        ${originalButton}
+                    </div>
                     <div class="source-library-item-main">
-                        <div class="source-library-item-title">${escapeHtml(source.name || 'Untitled source')}</div>
-                        <div class="source-library-item-meta">${escapeHtml(formatSourceTypeLabel(source.type || 'source_material'))} - ${escapeHtml(formatCountLabel(source.charCount || 0, 'char', 'chars'))} - ${escapeHtml(storage)}${escapeHtml(assetSummary)}${uploaded ? ` - ${escapeHtml(uploaded)}` : ''}${updated}${escapeHtml(referenced)}</div>
-                        ${source.summary ? `<p>${escapeHtml(source.summary)}</p>` : ''}
                         ${source.sourceNote ? `<p class="source-library-note">${escapeHtml(source.sourceNote)}</p>` : ''}
                         ${tags ? `<div class="source-library-tags">${tags}</div>` : ''}
                         <div class="source-library-controls">
@@ -3762,7 +3864,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <button class="secondary-btn source-library-update" data-source-id="${escapeHtml(source.id)}" type="button">Update</button>
                         </div>
                     </div>
-                    <button class="source-library-delete" data-source-id="${escapeHtml(source.id)}">Delete</button>
                 </article>
             `;
         }).join('');

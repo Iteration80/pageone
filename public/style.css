@@ -1682,8 +1682,8 @@ textarea.synopsis-input {
 }
 
 .source-library-modal {
-    max-width: 980px;
-    max-height: 84vh;
+    max-width: min(1120px, calc(100vw - 48px));
+    max-height: 88vh;
     overflow-y: auto;
 }
 .source-library-header {
@@ -1759,7 +1759,7 @@ textarea.synopsis-input {
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 10px;
 }
 .source-library-status {
@@ -1775,6 +1775,70 @@ textarea.synopsis-input {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+.source-files-panel {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+.source-reader-panel {
+    background: #08111f;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.source-reader-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+.source-reader-header strong {
+    display: block;
+    color: #e5e7eb;
+    font-size: 0.9rem;
+}
+.source-reader-header span {
+    display: block;
+    color: #64748b;
+    font-size: 0.72rem;
+    margin-top: 3px;
+}
+.source-reader-panel pre {
+    margin: 0;
+    max-height: 48vh;
+    overflow: auto;
+    padding: 16px;
+    color: #dbeafe;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+.knowledge-advanced-panel {
+    background: #0b1120;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 0;
+}
+.knowledge-advanced-panel > summary {
+    cursor: pointer;
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 700;
+    list-style-position: inside;
+    padding: 12px;
+}
+.knowledge-advanced-panel[open] > summary {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+.knowledge-advanced-panel > div {
+    margin: 12px;
 }
 .source-library-empty {
     border: 1px dashed #334155;
@@ -2124,13 +2188,16 @@ textarea.synopsis-input {
     }
 }
 .source-library-item {
-    display: flex;
-    justify-content: space-between;
-    gap: 14px;
     background: #111827;
     border: 1px solid #1f2937;
     border-radius: 8px;
     padding: 12px;
+}
+.source-library-item-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
 }
 .source-library-item-main {
     min-width: 0;
@@ -2153,6 +2220,29 @@ textarea.synopsis-input {
     font-size: 0.78rem;
     line-height: 1.45;
     margin: 8px 0 0;
+}
+.source-library-preview {
+    max-width: 920px;
+}
+.source-library-preview strong {
+    display: block;
+    color: #cbd5e1;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+}
+.source-library-file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+.source-library-file-actions .primary-btn,
+.source-library-file-actions .secondary-btn {
+    min-height: 34px;
+    padding: 7px 11px;
+    font-size: 0.74rem;
 }
 .source-library-note {
     color: #c4b5fd !important;
@@ -2209,7 +2299,10 @@ textarea.synopsis-input {
 }
 
 @media (max-width: 640px) {
-    .source-library-item {
+    .source-library-item-header {
+        flex-direction: column;
+    }
+    .source-reader-header {
         flex-direction: column;
     }
     .source-library-controls {
