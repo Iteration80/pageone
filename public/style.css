@@ -98,10 +98,15 @@ body {
 
 .sidebar-footer {
     margin-top: auto;
-    display: flex;
-    justify-content: flex-start;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.sidebar-footer .sidebar-home-btn {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
 }
 
 .sidebar-home-btn {

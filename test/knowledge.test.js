@@ -423,6 +423,12 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
     assert.doesNotMatch(appJs, /Source Readiness Note/);
 });
 
+test('frontend keeps sidebar project controls in one footer row', () => {
+    const styleCss = fs.readFileSync(require.resolve('../public/style.css'), 'utf8');
+    assert.match(styleCss, /\.sidebar-footer\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);
+    assert.match(styleCss, /\.sidebar-footer \.sidebar-home-btn\s*\{[^}]*aspect-ratio:\s*1/s);
+});
+
 test('frontend chat attachment inputs advertise all supported source formats', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const attachmentInputs = [...indexHtml.matchAll(/id="stage(?:[1-8]|10)-chat-attach" accept="([^"]+)"/g)];
