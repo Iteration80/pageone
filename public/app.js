@@ -49,6 +49,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return response;
     };
 
+    async function apiErrorMessage(response, fallback = 'Request failed') {
+        let detail = '';
+        try {
+            const data = await response.clone().json();
+            detail = data?.error || data?.message || '';
+        } catch {
+            try {
+                detail = (await response.clone().text())
+                    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+                    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            } catch {}
+        }
+
+        if (detail) return detail.slice(0, 500);
+
+        let pathname = '';
+        try {
+            pathname = new URL(response.url, window.location.origin).pathname;
+        } catch {}
+
+        if (response.status === 404 && pathname.startsWith('/api/')) {
+            return `API route not found: ${pathname}. Refresh the app so the browser and server are on the same version.`;
+        }
+
+        return `${fallback}: server returned ${response.status}`;
+    }
+
     function setupAuthGate() {
         const form = document.getElementById('authForm');
         const input = document.getElementById('authSecretInput');
@@ -7642,9 +7672,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify({ projectId: activeProjectId, stageId, messages: history, ...(attachment && { attachment }) })
                     });
                     if (!res.ok) {
-                        const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                        const errorMessage = await apiErrorMessage(res, 'Assistant request failed');
                         chat.setThinking(false);
-                        chat.append('ai', 'Error: ' + (err.error || `Server error ${res.status}`));
+                        chat.append('ai', 'Error: ' + errorMessage);
                         return;
                     }
                     data = await res.json();
@@ -7745,7 +7775,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('userNote', notes);
             if (activeProjectId) formData.append('projectId', activeProjectId);
             const res = await fetch('/api/refine-pitch', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Pitch revision failed'));
             const data = await res.json();
             await handleSourceGenerationResult(1, data, { chat: stageChatWindows[1] });
             if (data.result) {
@@ -7785,10 +7815,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
             const res = await fetch('/api/generate-outline', { method: 'POST', body: formData });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
-                throw new Error(err.error || `Server error ${res.status}`);
-            }
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Outline revision failed'));
             const data = await res.json();
             await handleSourceGenerationResult(2, data, { chat: stageChatWindows[2] });
             renderOutline(data.result.outline);

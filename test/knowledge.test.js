@@ -99,6 +99,20 @@ test('knowledge context includes accepted divergences and relevant source proven
     assert.match(sourceBibleSummary(project.data.knowledge), /Project Adaptation Notes/);
 });
 
+test('brainstorm route returns JSON 404 when the active project file is missing', () => {
+    const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const brainstormRoute = serverSource.match(/app\.post\('\/api\/brainstorm'[\s\S]*?app\.post\('\/api\/brainstorm-rewrite'/)?.[0] || '';
+
+    assert.match(brainstormRoute, /catch\s*\{\s*return res\.status\(404\)\.json\(\{ error: 'Project not found' \}\);/);
+});
+
+test('unknown API routes return JSON 404 diagnostics', () => {
+    const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+
+    assert.match(serverSource, /app\.use\('\/api', \(req, res\) => \{/);
+    assert.match(serverSource, /res\.status\(404\)\.json\(\{ error: `API route not found: \$\{req\.method\} \$\{req\.originalUrl\}` \}\);/);
+});
+
 test('compactAuditForKnowledge bounds noisy audit payloads', () => {
     const audit = {
         stageId: 4,

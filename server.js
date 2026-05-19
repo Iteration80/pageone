@@ -3667,7 +3667,12 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
+        let content;
+        try {
+            content = await fs.readFile(filePath, 'utf-8');
+        } catch {
+            return res.status(404).json({ error: 'Project not found' });
+        }
         const projectData = JSON.parse(content);
 
         // Return existing state if already initialized (unless reset requested)
@@ -3727,7 +3732,12 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
+        let content;
+        try {
+            content = await fs.readFile(filePath, 'utf-8');
+        } catch {
+            return res.status(404).json({ error: 'Project not found' });
+        }
         const projectData = JSON.parse(content);
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
@@ -3926,7 +3936,12 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
+        let content;
+        try {
+            content = await fs.readFile(filePath, 'utf-8');
+        } catch {
+            return res.status(404).json({ error: 'Project not found' });
+        }
         const projectData = JSON.parse(content);
 
         const pitch = projectData.data?.stage1_pitch?.pitch;
@@ -6191,6 +6206,10 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
         console.error('PDF export error:', err);
         res.status(500).json({ error: 'Export failed' });
     }
+});
+
+app.use('/api', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
