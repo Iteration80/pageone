@@ -189,6 +189,17 @@ function getModelConfig(stageNum) {
         anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY
     };
 }
+
+function getBrainstormModelConfig(stageNum = 1) {
+    const config = getModelConfig(stageNum);
+    const explicitModel = appSettings.brainstormModel || process.env.BRAINSTORM_MODEL;
+    if (explicitModel) return { ...config, model: explicitModel };
+    if (config.geminiApiKey) return { ...config, model: 'gemini-3-flash-preview' };
+    if (config.anthropicApiKey && (!config.model || String(config.model).startsWith('gemini-'))) {
+        return { ...config, model: 'claude-sonnet-4-6' };
+    }
+    return config;
+}
 /** Append API usage record to the project's apiUsage array. */
 async function trackUsage(projectId, usageOrList) {
     if (!projectId || !usageOrList) return;
@@ -3030,7 +3041,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         res.json({ result: outlineData, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Outline Gen Error:', error);
-        res.status(500).json({ error: "Failed to generate outline" });
+        const detail = publicErrorDetail(error);
+        res.status(500).json({ error: detail ? `Failed to generate outline: ${detail}` : "Failed to generate outline" });
     }
 });
 
@@ -3864,26 +3876,30 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
 ${brainstormSop}`
             : brainstormSop;
 
-        const { GoogleGenAI } = require('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        const brainstormSchema = {
+            type: 'object',
+            properties: {
+                message: { type: 'string' },
+                suggest_plan: { type: 'boolean' },
+                execute_immediately: { type: 'boolean' }
+            },
+            required: ['message', 'suggest_plan', 'execute_immediately']
+        };
+        const brainstormConfig = getBrainstormModelConfig(stageId);
+        const response = await generateContent({
+            model: brainstormConfig.model,
+            geminiApiKey: brainstormConfig.geminiApiKey,
+            anthropicApiKey: brainstormConfig.anthropicApiKey,
             contents: conversationPrompt,
             config: {
                 systemInstruction,
-                temperature: 0.7,
-                responseMimeType: 'application/json',
-                responseSchema: { type: 'object', properties: { message: { type: 'string' }, suggest_plan: { type: 'boolean' }, execute_immediately: { type: 'boolean' } }, required: ['message', 'suggest_plan', 'execute_immediately'] },
+                temperature: 0.7
             },
+            schema: brainstormSchema
         });
         const result = JSON.parse(response.text);
         console.log(`Brainstorm stage${stageId}: suggest_plan=${result.suggest_plan} execute_immediately=${result.execute_immediately}`);
-        const brainstormUsage = {
-            model: 'gemini-3-flash-preview',
-            inputTokens: response.usageMetadata?.promptTokenCount || 0,
-            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
-        };
-        trackUsage(projectId, brainstormUsage);
+        trackUsage(projectId, response.usage);
 
         // Persist the full conversation (current session + new exchange) to project file
         // Skip persistence for init messages — they are ephemeral and regenerated on each visit
@@ -3897,8 +3913,9 @@ ${brainstormSop}`
 
         res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
-        console.error('brainstorm error:', error.message);
-        res.status(500).json({ error: 'Brainstorm request failed' });
+        console.error('brainstorm error:', error);
+        const detail = publicErrorDetail(error);
+        res.status(500).json({ error: detail ? `Brainstorm request failed: ${detail}` : 'Brainstorm request failed' });
     }
 });
 
@@ -4026,27 +4043,22 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
             required: ['message', 'suggest_plan']
         };
 
-        const { GoogleGenAI } = require('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+        const brainstormConfig = getBrainstormModelConfig(10);
+        const response = await generateContent({
+            model: brainstormConfig.model,
+            geminiApiKey: brainstormConfig.geminiApiKey,
+            anthropicApiKey: brainstormConfig.anthropicApiKey,
             contents: conversationPrompt,
             config: {
                 systemInstruction: brainstormSop,
-                temperature: 0.7,
-                responseMimeType: 'application/json',
-                responseSchema: brainstormSchema,
+                temperature: 0.7
             },
+            schema: brainstormSchema
         });
 
         const result = JSON.parse(response.text);
         console.log(`Brainstorm: suggest_plan=${result.suggest_plan}`);
-        const brainstormUsage = {
-            model: 'gemini-3-flash-preview',
-            inputTokens: response.usageMetadata?.promptTokenCount || 0,
-            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
-        };
-        trackUsage(projectId, brainstormUsage);
+        trackUsage(projectId, response.usage);
 
         // Persist stage 10 conversation (data key stays stage9 — don't rename data keys)
         if (!isInit) {
@@ -4059,8 +4071,9 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
 
         res.json({ ...result, ...(savedSource && { savedSource }), ...(sourceMemory && { sourceMemory }) });
     } catch (error) {
-        console.error('brainstorm-rewrite error:', error.message);
-        res.status(500).json({ error: 'Brainstorm rewrite request failed' });
+        console.error('brainstorm-rewrite error:', error);
+        const detail = publicErrorDetail(error);
+        res.status(500).json({ error: detail ? `Brainstorm rewrite request failed: ${detail}` : 'Brainstorm rewrite request failed' });
     }
 });
 

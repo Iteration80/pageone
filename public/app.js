@@ -2345,7 +2345,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error(err);
-            alert("Error revising beats.");
+            alert("Error revising outline: " + err.message);
         } finally {
             loadingStateOutline.classList.add('hidden');
             btnStage2Revise.disabled = false;
@@ -7785,7 +7785,10 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
             const res = await fetch('/api/generate-outline', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                throw new Error(err.error || `Server error ${res.status}`);
+            }
             const data = await res.json();
             await handleSourceGenerationResult(2, data, { chat: stageChatWindows[2] });
             renderOutline(data.result.outline);

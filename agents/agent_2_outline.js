@@ -2,13 +2,40 @@ const { generateContent } = require('./ai-client');
 const fs = require('fs');
 const path = require('path');
 
+function normalizeOutlineInput(outline) {
+    if (!outline || typeof outline !== 'object') return null;
+    if (outline.outline && typeof outline.outline === 'object' && !Array.isArray(outline.outline)) {
+        return outline.outline;
+    }
+    return outline;
+}
+
+function outlineHasContent(outline) {
+    const normalized = normalizeOutlineInput(outline);
+    if (!normalized) return false;
+
+    const acts = [normalized.act_1, normalized.act_2, normalized.act_3];
+    return acts.some(act => Array.isArray(act) && act.some(sequence => {
+        if (!sequence || typeof sequence !== 'object') return false;
+        if (String(sequence.sequence_number_and_title || '').trim()) return true;
+        const beats = Array.isArray(sequence.beats) ? sequence.beats : [];
+        return beats.some(beat => (
+            String(beat?.beat_label || '').trim() ||
+            String(beat?.beat || '').trim() ||
+            String(beat?.description || '').trim()
+        ));
+    }));
+}
+
 const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
+    const hasCurrentOutline = outlineHasContent(currentOutline);
 
     const skillPath = path.join(__dirname, '../skills/skill_stage2_outline.md');
     const outlineSOP = fs.readFileSync(skillPath, 'utf8');
@@ -54,7 +81,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
     };
 
     // Revision Bypass Logic
-    if (notes && currentOutline) {
+    if (notes && hasCurrentOutline) {
         console.log("  Surgical Revision Mode: Updating outline...");
         const revisionSystemInstruction = `${outlineSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user's note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story's cause-and-effect makes logical sense. Maintain the exact same JSON schema.`;
 
@@ -66,7 +93,7 @@ ${JSON.stringify(currentOutline, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated outline in JSON format.`;
 
-        const response = await generateContent({
+        const response = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
@@ -97,14 +124,14 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
 
     const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
     let contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. You MUST generate the full JSON structure including title, genre, logline, and the 8-sequence outline containing act_1, act_2, and act_3.`;
-    if (notes && currentOutline) {
+    if (notes && hasCurrentOutline) {
         contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working outline: ${JSON.stringify(currentOutline)}. Please revise the outline specifically based on these User Notes: ${notes}. You MUST generate the full JSON structure including title, genre, logline, and the entirely revised 8-sequence outline containing act_1, act_2, and act_3.`;
     } else if (notes) {
         contentsText += ` User Notes: ${notes}`;
     }
     contents.push(contentsText);
 
-    const response = await generateContent({
+    const response = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents,
         config: {
@@ -122,4 +149,4 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
     return { result: JSON.parse(cleanedText), usage };
 };
 
-module.exports = { agent2Outline };
+module.exports = { agent2Outline, outlineHasContent };

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { agent2Outline, outlineHasContent } = require('../agents/agent_2_outline');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
 const { generateStage6Scenes } = require('../agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('../agents/agent_6_revise');
@@ -81,6 +82,69 @@ function makeRecorder(responder) {
     };
     return { calls, generateContentFn };
 }
+
+test('Stage 2 outline notes with an empty scraped outline generate a fresh outline', async () => {
+    const emptyScrapedOutline = { act_1: [], act_2: [], act_3: [] };
+    const outlineResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+            act_2: [],
+            act_3: []
+        }
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(outlineResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    assert.equal(outlineHasContent(emptyScrapedOutline), false);
+
+    await agent2Outline(pitch, emptyScrapedOutline, 'Make the midpoint more dramatic.', null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /User Notes: Make the midpoint more dramatic/);
+    assert.doesNotMatch(promptText, /EXISTING OUTLINE/);
+    assert.doesNotMatch(calls[0].config.systemInstruction, /Apply the user's note to the existing 8-sequence outline/);
+});
+
+test('Stage 2 outline notes with real outline content use surgical revision mode', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: []
+    };
+    const outlineResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: currentOutline
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(outlineResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    assert.equal(outlineHasContent(currentOutline), true);
+
+    await agent2Outline(pitch, currentOutline, 'Make the midpoint more dramatic.', null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /EXISTING OUTLINE/);
+    assert.match(calls[0].config.systemInstruction, /Apply the user's note to the existing 8-sequence outline/);
+});
 
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {
     const { calls, generateContentFn } = makeRecorder(() => ({
