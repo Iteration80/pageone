@@ -1627,6 +1627,13 @@ function sourceTextFromRegistry(source) {
     return normalizeSourceText(source.summary || '');
 }
 
+function hasRecoverableSourceText(source) {
+    if (!source) return false;
+    if (typeof source.text === 'string' && normalizeSourceText(source.text)) return true;
+    return Array.isArray(source.chunks)
+        && source.chunks.some(chunk => chunk && typeof chunk.text === 'string' && normalizeSourceText(chunk.text));
+}
+
 async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceId, assetKind = 'extracted') {
     const knowledge = ensureProjectKnowledge(projectData);
     const source = knowledge.source_registry.find(item => item.id === sourceId);
@@ -1697,6 +1704,205 @@ async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceI
 
 function contentDispositionFilename(name, fallback = 'source') {
     return sanitizeSourceAssetName(name, fallback).replace(/"/g, '');
+}
+
+function stableLegacySourceId(projectId, source = {}, index = 0, usedIds = new Set()) {
+    const seed = [
+        projectId || '',
+        source.id || '',
+        source.name || '',
+        source.contentHash || '',
+        source.summary || '',
+        source.text || '',
+        index
+    ].join('|');
+    const base = `src_legacy_${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 16)}`;
+    let candidate = base;
+    let suffix = 1;
+    while (usedIds.has(candidate)) {
+        candidate = `${base}_${suffix}`;
+        suffix += 1;
+    }
+    usedIds.add(candidate);
+    return candidate;
+}
+
+async function storedAssetExists(projectId, sourceId, storedAsset) {
+    const assetPath = resolveStoredSourceAssetPath(projectId, sourceId, storedAsset);
+    if (!assetPath) return false;
+    try {
+        await fs.access(assetPath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function writeRecoveredMarkdownAsset(projectId, source, text, now) {
+    if (!isValidProjectId(String(projectId)) || !/^src_[a-zA-Z0-9_]+$/.test(String(source?.id || ''))) return null;
+    const sourceDir = path.join(SOURCE_FILES_DIR, String(projectId), String(source.id));
+    await fs.mkdir(sourceDir, { recursive: true });
+    const markdownName = markdownNameForSource(source.name, source.id);
+    const markdownPath = path.join(sourceDir, markdownName);
+    const markdownContent = buildExtractedMarkdownContent({
+        sourceId: source.id,
+        name: source.name || 'Legacy source',
+        mimeType: source.mimeType || 'text/plain',
+        uploadedAt: source.uploadedAt || now,
+        contentHash: source.contentHash || '',
+        text
+    });
+    await fs.writeFile(markdownPath, markdownContent, 'utf8');
+    return {
+        filename: markdownName,
+        path: normalizeStoredRelativePath(markdownPath),
+        mimeType: 'text/markdown',
+        charCount: markdownContent.length,
+        sha256: crypto.createHash('sha256').update(markdownContent).digest('hex'),
+        generatedAt: now
+    };
+}
+
+async function upgradeLegacyProjectKnowledge(projectData, projectId, { writeAssets = false, now = new Date().toISOString() } = {}) {
+    const before = JSON.stringify(projectData.data?.knowledge ?? null);
+    const knowledge = ensureProjectKnowledge(projectData);
+    const report = {
+        projectId,
+        title: projectData.title || projectData.data?.stage1_pitch?.pitch?.title || 'Untitled Project',
+        changed: false,
+        normalizedKnowledge: before !== JSON.stringify(knowledge),
+        sourceCount: knowledge.source_registry.length,
+        recoveredMarkdown: 0,
+        missingOriginal: 0,
+        missingExtractedMarkdown: 0,
+        missingReadableText: 0,
+        truncatedSources: 0,
+        warnings: []
+    };
+
+    const usedIds = new Set();
+    for (let index = 0; index < knowledge.source_registry.length; index += 1) {
+        const source = knowledge.source_registry[index] || {};
+        if (!/^src_[a-zA-Z0-9_]+$/.test(String(source.id || '')) || usedIds.has(source.id)) {
+            const previousId = source.id || '';
+            source.id = stableLegacySourceId(projectId, source, index, usedIds);
+            report.changed = true;
+            report.warnings.push({
+                sourceId: source.id,
+                kind: 'source_id_recovered',
+                message: previousId ? `Replaced invalid or duplicate source id "${previousId}".` : 'Created a source id for legacy source material.'
+            });
+        } else {
+            usedIds.add(source.id);
+        }
+
+        source.name = source.name || 'Legacy source';
+        source.mimeType = source.mimeType || 'text/plain';
+        source.type = SOURCE_TYPE_OPTIONS.has(source.type) ? source.type : 'source_material';
+        source.tags = sanitizeSourceTags(source.tags || []);
+
+        const readableText = hasRecoverableSourceText(source) ? sourceTextFromRegistry(source) : '';
+        if (readableText) {
+            if (!source.charCount) source.charCount = readableText.length;
+            if (!source.contentHash) source.contentHash = crypto.createHash('sha256').update(readableText).digest('hex').slice(0, 20);
+            if (!source.summary) source.summary = summarizeSourceText(readableText);
+            if (!source.storage) source.storage = source.text ? 'text' : (Array.isArray(source.chunks) ? 'chunks' : 'summary');
+        } else {
+            report.missingReadableText += 1;
+            report.warnings.push({
+                sourceId: source.id,
+                kind: 'source_text_unavailable',
+                message: `${source.name || source.id} has no recoverable full text in the legacy registry.`
+            });
+        }
+
+        if (source.truncated) {
+            report.truncatedSources += 1;
+            report.warnings.push({
+                sourceId: source.id,
+                kind: 'source_text_truncated',
+                message: `${source.name || source.id} was stored as truncated chunks before source-file assets existed.`
+            });
+        }
+
+        const hasOriginal = await storedAssetExists(projectId, source.id, source.originalFile);
+        if (!hasOriginal) {
+            report.missingOriginal += 1;
+            report.warnings.push({
+                sourceId: source.id,
+                kind: 'original_file_unavailable',
+                message: `${source.name || source.id} does not have a recoverable original uploaded file.`
+            });
+        }
+
+        const hasExtractedMarkdown = await storedAssetExists(projectId, source.id, source.extractedMarkdown);
+        if (!hasExtractedMarkdown && readableText && writeAssets) {
+            const recovered = await writeRecoveredMarkdownAsset(projectId, source, readableText, now);
+            if (recovered) {
+                source.extractedMarkdown = recovered;
+                report.recoveredMarkdown += 1;
+                report.changed = true;
+            }
+        } else if (!hasExtractedMarkdown) {
+            report.missingExtractedMarkdown += 1;
+        }
+    }
+
+    if (before !== JSON.stringify(projectData.data?.knowledge ?? null)) {
+        report.changed = true;
+    }
+
+    const shouldCompact = report.normalizedKnowledge
+        || report.changed
+        || !knowledge.memory_snapshot
+        || !knowledge.source_bible?.compactedAt;
+    if (shouldCompact) {
+        refreshSourceBibleSummary(knowledge);
+        compactProjectKnowledge(projectData, { now });
+        report.changed = true;
+    }
+
+    const after = JSON.stringify(projectData.data?.knowledge ?? null);
+    report.changed = report.changed || before !== after;
+    return report;
+}
+
+async function auditOrUpgradeAllProjectKnowledge({ write = false, now = new Date().toISOString() } = {}) {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const files = (await fs.readdir(DATA_DIR)).filter(file => file.endsWith('.json'));
+    const reports = [];
+    for (const file of files) {
+        const projectId = path.basename(file, '.json');
+        if (!isValidProjectId(projectId)) continue;
+        const filePath = path.join(DATA_DIR, file);
+        const projectData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+        const report = await upgradeLegacyProjectKnowledge(projectData, projectId, { writeAssets: write, now });
+        if (write && report.changed) {
+            await writeJSONQueued(filePath, projectData);
+        }
+        reports.push(report);
+    }
+    const totals = reports.reduce((acc, report) => {
+        acc.projects += 1;
+        if (report.changed) acc.changed += 1;
+        acc.sources += report.sourceCount;
+        acc.recoveredMarkdown += report.recoveredMarkdown;
+        acc.missingOriginal += report.missingOriginal;
+        acc.missingExtractedMarkdown += report.missingExtractedMarkdown;
+        acc.missingReadableText += report.missingReadableText;
+        acc.truncatedSources += report.truncatedSources;
+        return acc;
+    }, {
+        projects: 0,
+        changed: 0,
+        sources: 0,
+        recoveredMarkdown: 0,
+        missingOriginal: 0,
+        missingExtractedMarkdown: 0,
+        missingReadableText: 0,
+        truncatedSources: 0
+    });
+    return { ok: true, write, totals, projects: reports };
 }
 
 function sanitizeSourceTags(tags) {
@@ -5355,6 +5561,24 @@ app.post('/api/settings', requireAuth, async (req, res) => {
 
 // --- Project Management Routes --- //
 
+app.get('/api/maintenance/legacy-projects/audit', requireAuth, async (_req, res) => {
+    try {
+        res.json(await auditOrUpgradeAllProjectKnowledge({ write: false }));
+    } catch (error) {
+        console.error('legacy project audit error:', error.message);
+        res.status(500).json({ error: 'Failed to audit legacy projects' });
+    }
+});
+
+app.post('/api/maintenance/legacy-projects/upgrade', requireAuth, async (_req, res) => {
+    try {
+        res.json(await auditOrUpgradeAllProjectKnowledge({ write: true }));
+    } catch (error) {
+        console.error('legacy project upgrade error:', error.message);
+        res.status(500).json({ error: 'Failed to upgrade legacy projects' });
+    }
+});
+
 // GET all projects
 app.get('/api/projects', requireAuth, async (req, res) => {
     try {
@@ -6218,6 +6442,13 @@ app.use('/api', (req, res) => {
 async function startServer() {
     await initDb();
     await loadSettings();
+    auditOrUpgradeAllProjectKnowledge({ write: true })
+        .then(({ totals }) => {
+            if (totals.changed || totals.recoveredMarkdown) {
+                console.log(`[knowledge] legacy upgrade checked ${totals.projects} project(s), updated ${totals.changed}, recovered ${totals.recoveredMarkdown} markdown asset(s).`);
+            }
+        })
+        .catch(error => console.error('[knowledge] legacy upgrade skipped:', error.message));
 
     const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;
     const hasAnthropic = appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -6265,6 +6496,8 @@ module.exports = {
     prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
     readKnowledgeSourceAssetForClient,
+    upgradeLegacyProjectKnowledge,
+    auditOrUpgradeAllProjectKnowledge,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,

@@ -21,6 +21,7 @@ const {
     prepareGenerationUpload,
     persistChatAttachmentToKnowledge,
     readKnowledgeSourceAssetForClient,
+    upgradeLegacyProjectKnowledge,
     recordAcceptedSourceDivergence,
     recordStageSourceAudit,
     recordSourcePlanUsage,
@@ -529,10 +530,16 @@ test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    for (const id of ['btnStage2Regenerate', 'btnStage3Regenerate', 'btnStage4Regenerate', 'btnStage5Regenerate', 'btnStage6Regenerate', 'btnStage7RegenerateHeader', 'btnStage9Regenerate']) {
+        assert.match(indexHtml, new RegExp(`id="${id}"`));
+    }
     assert.match(indexHtml, /Fresh Blueprint/);
     assert.match(indexHtml, /Use Chat Notes/);
     assert.match(indexHtml, /Previous Version/);
     assert.doesNotMatch(indexHtml, /upstream/i);
+    assert.match(appJs, /function updateStageRegenerateButtons/);
+    assert.match(appJs, /function regenerateGeneratedStage/);
+    assert.match(appJs, /function regenerateCoverage/);
     assert.match(appJs, /Regenerate the blueprint with these notes:/);
     assert.match(appJs, /shouldRegenerateStage6FromChat/);
     assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
@@ -759,6 +766,80 @@ test('persistChatAttachmentToKnowledge stores original uploads and extracted mar
         const original = await readKnowledgeSourceAssetForClient(project, project.id, source.id, 'original');
         assert.equal(original.filename, 'Canon Draft.docx');
         assert.equal(original.buffer.length, docxBuffer.length);
+    } finally {
+        fs.rmSync(assetDir, { recursive: true, force: true });
+    }
+});
+
+test('upgradeLegacyProjectKnowledge normalizes memory and recovers extracted markdown from stored text', async () => {
+    const project = {
+        id: '9999999999998',
+        title: 'Legacy Source Project',
+        data: {
+            knowledge: {
+                source_registry: [{
+                    name: 'Legacy Notes.txt',
+                    text: 'Mara keeps the blue key in the flooded arcade.'
+                }]
+            }
+        }
+    };
+    const dataRoot = path.resolve(process.env.DATA_ROOT || path.join(__dirname, '..', 'data'));
+    const assetDir = path.join(dataRoot, 'source-files', project.id);
+    fs.rmSync(assetDir, { recursive: true, force: true });
+
+    try {
+        const report = await upgradeLegacyProjectKnowledge(project, project.id, {
+            writeAssets: true,
+            now: '2026-05-20T12:00:00.000Z'
+        });
+        const source = project.data.knowledge.source_registry[0];
+
+        assert.equal(report.changed, true);
+        assert.equal(report.recoveredMarkdown, 1);
+        assert.equal(report.missingOriginal, 1);
+        assert.match(source.id, /^src_legacy_/);
+        assert.equal(source.charCount, 'Mara keeps the blue key in the flooded arcade.'.length);
+        assert.ok(source.extractedMarkdown.path.endsWith('.md'));
+        assert.ok(project.data.knowledge.memory_snapshot);
+
+        const markdownPath = path.join(dataRoot, source.extractedMarkdown.path);
+        assert.match(fs.readFileSync(markdownPath, 'utf8'), /Mara keeps the blue key/);
+    } finally {
+        fs.rmSync(assetDir, { recursive: true, force: true });
+    }
+});
+
+test('upgradeLegacyProjectKnowledge does not promote summaries into recovered source files', async () => {
+    const project = {
+        id: '9999999999997',
+        title: 'Summary Only Project',
+        data: {
+            knowledge: {
+                source_registry: [{
+                    id: 'src_summary_only',
+                    name: 'Legacy Bible',
+                    summary: 'Only a compact summary survived.'
+                }]
+            }
+        }
+    };
+    const dataRoot = path.resolve(process.env.DATA_ROOT || path.join(__dirname, '..', 'data'));
+    const assetDir = path.join(dataRoot, 'source-files', project.id);
+    fs.rmSync(assetDir, { recursive: true, force: true });
+
+    try {
+        const report = await upgradeLegacyProjectKnowledge(project, project.id, {
+            writeAssets: true,
+            now: '2026-05-20T12:00:00.000Z'
+        });
+        const source = project.data.knowledge.source_registry[0];
+
+        assert.equal(report.recoveredMarkdown, 0);
+        assert.equal(report.missingReadableText, 1);
+        assert.equal(report.missingExtractedMarkdown, 1);
+        assert.equal(source.extractedMarkdown, undefined);
+        assert.equal(fs.existsSync(assetDir), false);
     } finally {
         fs.rmSync(assetDir, { recursive: true, force: true });
     }

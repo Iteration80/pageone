@@ -289,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage5PdfUpload = document.getElementById('stage5PdfUpload');
     const stage5FileNameDisplay = document.getElementById('stage5FileNameDisplay');
     const btnGenerateStage5 = document.getElementById('btnGenerateStage5');
+    const btnStage5Regenerate = document.getElementById('btnStage5Regenerate');
     const loadingStateStage5 = document.getElementById('loadingStateStage5');
     const loadingTextStage5 = document.getElementById('loadingTextStage5');
     const stage5Actions = document.getElementById('stage5Actions');
@@ -317,6 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage6RegenerateMenu = document.getElementById('stage6RegenerateMenu');
     const stage6PdfUpload = document.getElementById('stage6PdfUpload');
     const stage6FileNameDisplay = document.getElementById('stage6FileNameDisplay');
+    const btnStage7RegenerateHeader = document.getElementById('btnStage7RegenerateHeader');
+    const btnStage9Regenerate = document.getElementById('btnStage9Regenerate');
 
 
     // Stage 8 Elements
@@ -402,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage2Revise = document.getElementById('btnStage2Revise') || document.getElementById('btn-stage2-revise');
     const btnStage2Approve = document.getElementById('btnStage2Approve') || document.getElementById('btn-stage2-approve');
     const btnStage2Edit = document.getElementById('btn-stage2-edit');
+    const btnStage2Regenerate = document.getElementById('btnStage2Regenerate');
 
     const renameModal = document.getElementById('renameModal');
     const renameInput = document.getElementById('renameInput');
@@ -415,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage3Revise = document.getElementById('btn-stage3-revise');
     const btnStage3Approve = document.getElementById('btn-stage3-approve');
     const btnStage3Edit = document.getElementById('btn-stage3-edit');
+    const btnStage3Regenerate = document.getElementById('btnStage3Regenerate');
 
     // Stage 4 Workshop Elements
     const stage4Workshop = document.getElementById('stage4Workshop');
@@ -424,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage4Revise = document.getElementById('btn-stage4-revise');
     const btnStage4Approve = document.getElementById('btn-stage4-approve');
     const btnStage4Edit = document.getElementById('btn-stage4-edit');
+    const btnStage4Regenerate = document.getElementById('btnStage4Regenerate');
     const generateTreatmentBtn = document.getElementById('generateTreatmentBtn');
     const treatmentActions = document.getElementById('treatmentActions');
 
@@ -1673,6 +1679,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    function updateStageRegenerateButtons(data = window.currentProjectData || {}) {
+        const hasStage6 = !!(data.stage6_scenes && (
+            data.stage6_scenes.sequences?.length > 0
+            || data.stage6_scenes.scenes?.length > 0
+            || data.stage6_scenes.length > 0
+        ));
+        const controls = [
+            [btnStage2Regenerate, !!data.stage2_outline],
+            [btnStage3Regenerate, !!data.stage3_characters],
+            [btnStage4Regenerate, !!(data.stage4_beats || data.stage4_treatment)],
+            [btnStage5Regenerate, !!data.stage5_treatment],
+            [btnStage6Regenerate, hasStage6],
+            [btnStage7RegenerateHeader, !!(data.stage7_style || data.stage7_style_skipped)],
+            [btnStage9Regenerate, !!data.stage8_coverage]
+        ];
+        controls.forEach(([button, visible]) => {
+            button?.classList.toggle('hidden', !visible);
+        });
+    }
+
     function updateStageNav(data) {
         window.currentProjectData = data;
         function toggle(navEl, isDone, num) {
@@ -1722,6 +1748,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         renderStageSourceReadinessBadges(data);
+        updateStageRegenerateButtons(data);
     }
 
     function sourceReadinessListFromData(data = window.currentProjectData) {
@@ -1905,6 +1932,146 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         saveKnowledgeReview(btn);
     });
+
+    function stageSnapshotForRegenerate(stageNum) {
+        const data = window.currentProjectData || {};
+        if (stageNum === 2) {
+            const outline = scrapeOutline();
+            const hasOutline = ['act_1', 'act_2', 'act_3'].some(key => outline?.[key]?.length);
+            return {
+                stageKey: 'stage2_outline',
+                stageName: 'Outline',
+                snapshot: hasOutline ? { outline } : data.stage2_outline
+            };
+        }
+        if (stageNum === 3) {
+            const characters = scrapeCharacters();
+            return {
+                stageKey: 'stage3_characters',
+                stageName: 'Characters',
+                snapshot: characters?.length ? { characters } : data.stage3_characters
+            };
+        }
+        if (stageNum === 4) {
+            const beats = scrapeTreatment();
+            return {
+                stageKey: 'stage4_beats',
+                stageName: 'Beats',
+                snapshot: beats?.hybrid_beat_sheet?.length ? beats : (data.stage4_beats || data.stage4_treatment)
+            };
+        }
+        if (stageNum === 5) {
+            const treatment = scrapeTreatmentStage5();
+            const hasTreatment = treatment && Object.entries(treatment).some(([key, value]) => key !== 'notes' && String(value || '').trim());
+            return {
+                stageKey: 'stage5_treatment',
+                stageName: 'Treatment',
+                snapshot: hasTreatment ? treatment : data.stage5_treatment
+            };
+        }
+        if (stageNum === 9) {
+            return {
+                stageKey: 'stage8_coverage',
+                stageName: 'Coverage',
+                snapshot: data.stage8_coverage
+            };
+        }
+        return null;
+    }
+
+    async function saveStageSnapshotBeforeGenericRegenerate(stageNum) {
+        const info = stageSnapshotForRegenerate(stageNum);
+        if (!info?.snapshot || !activeProjectId) return;
+        const versionHistory = captureVersionSnapshot(stageNum, info.stageKey, info.stageName, info.snapshot);
+        const response = await fetch(`/api/projects/${activeProjectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: {
+                    [info.stageKey]: info.snapshot,
+                    versionHistory
+                },
+                stampRevisedStage: info.stageKey
+            })
+        });
+        if (!response.ok) throw new Error(`Could not save current ${info.stageName} before regenerating.`);
+        const updatedProject = await response.json();
+        if (updatedProject?.data) {
+            window.currentProjectData = updatedProject.data;
+            updateStageNav(updatedProject.data);
+        }
+    }
+
+    async function regenerateGeneratedStage(stageNum, button, runner) {
+        if (!activeProjectId || !runner) return;
+        const label = STAGE_LABELS[stageNum] || `Stage ${stageNum}`;
+        if (!confirm(`Regenerate ${label}? The current version will be saved to Version History first.`)) return;
+
+        const originalText = button?.textContent || 'Regenerate';
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Regenerating...';
+            }
+            await saveStageSnapshotBeforeGenericRegenerate(stageNum);
+            switchStage(stageNum);
+            await runner();
+        } catch (error) {
+            console.error(`${label} regenerate failed:`, error);
+            alert(error.message || `Could not regenerate ${label}.`);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+            updateStageRegenerateButtons(window.currentProjectData || {});
+        }
+    }
+
+    async function regenerateCoverage(button) {
+        if (!activeProjectId) return;
+        if (!confirm('Regenerate Coverage? The current report will be saved to Version History first.')) return;
+        const originalText = button?.textContent || 'Regenerate';
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Regenerating...';
+            }
+            await saveStageSnapshotBeforeGenericRegenerate(9);
+            const response = await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: {
+                        stage8_coverage: null,
+                        stage8_approved: false,
+                        versionHistory: window.currentProjectData?.versionHistory || []
+                    },
+                    stampRevisedStage: 'stage8_coverage'
+                })
+            });
+            if (!response.ok) throw new Error('Could not clear current coverage report.');
+            const updatedProject = await response.json();
+            window.currentProjectData = updatedProject.data;
+            updateStageNav(updatedProject.data);
+            switchStage(9);
+        } catch (error) {
+            console.error('Coverage regenerate failed:', error);
+            alert(error.message || 'Could not regenerate Coverage.');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+            updateStageRegenerateButtons(window.currentProjectData || {});
+        }
+    }
+
+    btnStage2Regenerate?.addEventListener('click', () => regenerateGeneratedStage(2, btnStage2Regenerate, autoGenerateBeats));
+    btnStage3Regenerate?.addEventListener('click', () => regenerateGeneratedStage(3, btnStage3Regenerate, autoGenerateCharacters));
+    btnStage4Regenerate?.addEventListener('click', () => regenerateGeneratedStage(4, btnStage4Regenerate, autoGenerateTreatment));
+    btnStage5Regenerate?.addEventListener('click', () => regenerateGeneratedStage(5, btnStage5Regenerate, autoGenerateTreatmentStage5));
+    btnStage9Regenerate?.addEventListener('click', () => regenerateCoverage(btnStage9Regenerate));
 
     // --- Version History Logic ---
 
@@ -8430,6 +8597,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function resetStage7StyleForRegenerate() {
+        stage7SetChoicePanelVisible(true);
+        stage7ShowTrainedPanel(false);
+        document.getElementById('stage7-style-card')?.classList.add('hidden');
+        document.getElementById('stage7-no-style')?.classList.remove('hidden');
+        const btnApprove = document.getElementById('btnStage7Approve');
+        if (btnApprove) {
+            btnApprove.disabled = true;
+            btnApprove.textContent = 'Approve →';
+            btnApprove.classList.remove('approve-btn-green');
+        }
+        stage7CurrentStyle = null;
+        if (window.currentProjectData) {
+            window.currentProjectData.stage7_style = null;
+            window.currentProjectData.stage7_style_skipped = false;
+            updateStageNav(window.currentProjectData);
+        }
+        if (activeProjectId) {
+            await fetch(`/api/projects/${activeProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { stage7_style: null, stage7_style_skipped: false } })
+            }).catch(err => console.warn('Stage 7 style reset skipped:', err.message));
+        }
+    }
+
     // Stage 7 event listeners
     document.getElementById('btnStage7Approve')?.addEventListener('click', () => stage7ApproveStyle());
     document.getElementById('btnStage7Preview')?.addEventListener('click', () => stage7PreviewScene());
@@ -8447,28 +8640,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnStage7NoStyleChoice')?.addEventListener('click', () => {
         document.getElementById('btnStage7Skip')?.click();
     });
-    document.getElementById('btnStage7Regenerate')?.addEventListener('click', async () => {
-        stage7SetChoicePanelVisible(true);
-        stage7ShowTrainedPanel(false);
-        document.getElementById('stage7-style-card')?.classList.add('hidden');
-        document.getElementById('stage7-no-style')?.classList.remove('hidden');
-        document.getElementById('btnStage7Approve').disabled = true;
-        document.getElementById('btnStage7Approve').textContent = 'Approve →';
-        document.getElementById('btnStage7Approve').classList.remove('approve-btn-green');
-        stage7CurrentStyle = null;
-        if (window.currentProjectData) {
-            window.currentProjectData.stage7_style = null;
-            window.currentProjectData.stage7_style_skipped = false;
-            updateStageNav(window.currentProjectData);
-        }
-        if (activeProjectId) {
-            await fetch(`/api/projects/${activeProjectId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: { stage7_style: null, stage7_style_skipped: false } })
-            }).catch(err => console.warn('Stage 7 style reset skipped:', err.message));
-        }
-    });
+    document.getElementById('btnStage7Regenerate')?.addEventListener('click', resetStage7StyleForRegenerate);
+    btnStage7RegenerateHeader?.addEventListener('click', resetStage7StyleForRegenerate);
     document.getElementById('btnStage7ClosePreview')?.addEventListener('click', () => {
         document.getElementById('stage7-preview-panel')?.classList.add('hidden');
     });
