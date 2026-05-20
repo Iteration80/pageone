@@ -146,6 +146,38 @@ test('Stage 2 outline notes with real outline content use surgical revision mode
     assert.match(calls[0].config.systemInstruction, /Apply the user's note to the existing 8-sequence outline/);
 });
 
+test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
+    const malformedOutlineJson = `{
+        "title": "Arcade Night",
+        "genre": "Thriller",
+        "logline": "Mara searches a flooded arcade for the blue key.",
+        "outline": {
+            "act_1": [{
+                "sequence_number_and_title": "Sequence A",
+                "beats": [
+                    { "beat_label": "Opening", "description": "Mara enters." }
+                    { "beat_label": "Turn", "description": "The blue key appears." }
+                ]
+            }],
+            "act_2": [],
+            "act_3": []
+        }
+    }`;
+    const { generateContentFn } = makeRecorder(() => ({
+        text: malformedOutlineJson,
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, null, '', null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(result.outline.act_1[0].beats.length, 2);
+    assert.equal(result.outline.act_1[0].beats[1].beat_label, 'Turn');
+});
+
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {
     const { calls, generateContentFn } = makeRecorder(() => ({
         text: JSON.stringify({

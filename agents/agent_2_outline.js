@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 const fs = require('fs');
 const path = require('path');
 
@@ -103,10 +104,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             schema: outlineSchema
         });
 
-        const rawText = response.text;
         const { usage } = response;
-        const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return { result: JSON.parse(cleanedText), usage };
+        return { result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }), usage };
     }
 
     const systemInstruction = outlineSOP;
@@ -142,11 +141,9 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         schema: outlineSchema
     });
 
-    const rawText = response.text;
     const { usage } = response;
-    const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    return { result: JSON.parse(cleanedText), usage };
+    return { result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }), usage };
 };
 
 module.exports = { agent2Outline, outlineHasContent };
