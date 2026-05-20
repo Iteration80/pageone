@@ -28,6 +28,61 @@ function outlineHasContent(outline) {
     }));
 }
 
+function combineUsage(...usages) {
+    const valid = usages.filter(Boolean);
+    if (!valid.length) return undefined;
+    return valid.reduce((acc, usage) => ({
+        model: usage.model || acc.model,
+        inputTokens: (acc.inputTokens || 0) + (usage.inputTokens || 0),
+        outputTokens: (acc.outputTokens || 0) + (usage.outputTokens || 0)
+    }), { model: valid[0].model, inputTokens: 0, outputTokens: 0 });
+}
+
+async function parseOutlineResponse(response, {
+    outlineSchema,
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey
+}) {
+    try {
+        return {
+            result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }),
+            usage: response.usage
+        };
+    } catch (parseError) {
+        console.warn(`Stage 2 outline JSON repair failed locally; retrying with model repair: ${parseError.message}`);
+        const repairResponse = await generateContentFn({
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            contents: [`The text below was intended to be a complete Stage 2 outline JSON object, but it contains JSON syntax errors such as an unterminated string, missing comma, or unescaped quote.
+
+Repair ONLY the JSON syntax. Preserve every available story detail, field name, act, sequence, beat label, and beat description. If a string is cut off, close it cleanly without inventing new plot. Return valid JSON only.
+
+MALFORMED JSON:
+${response.text}`],
+            config: {
+                systemInstruction: 'You are a strict JSON repair tool. Return only valid JSON conforming to the provided schema. Do not add commentary, markdown, or new story content.',
+                temperature: 0,
+                maxOutputTokens: 32000
+            },
+            schema: outlineSchema
+        });
+
+        try {
+            return {
+                result: parseJsonWithRepair(repairResponse.text, { schema: outlineSchema, label: 'Stage 2 repaired outline response' }),
+                usage: combineUsage(response.usage, repairResponse.usage)
+            };
+        } catch (repairError) {
+            const error = new Error(`Stage 2 outline response could not be repaired after retry: ${repairError.message}`);
+            error.cause = parseError;
+            throw error;
+        }
+    }
+}
+
 const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
@@ -104,8 +159,13 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             schema: outlineSchema
         });
 
-        const { usage } = response;
-        return { result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }), usage };
+        return parseOutlineResponse(response, {
+            outlineSchema,
+            generateContentFn,
+            model,
+            geminiApiKey,
+            anthropicApiKey
+        });
     }
 
     const systemInstruction = outlineSOP;
@@ -141,9 +201,13 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         schema: outlineSchema
     });
 
-    const { usage } = response;
-
-    return { result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }), usage };
+    return parseOutlineResponse(response, {
+        outlineSchema,
+        generateContentFn,
+        model,
+        geminiApiKey,
+        anthropicApiKey
+    });
 };
 
 module.exports = { agent2Outline, outlineHasContent };
