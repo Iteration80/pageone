@@ -38,12 +38,45 @@ function combineUsage(...usages) {
     }), { model: valid[0].model, inputTokens: 0, outputTokens: 0 });
 }
 
+function isTransientAiError(error) {
+    const code = String(error?.code || error?.cause?.code || '');
+    if (/ECONNRESET|ETIMEDOUT|UND_ERR|EPIPE|ECONNREFUSED/i.test(code)) return true;
+    const message = String(error?.message || error || '');
+    return /terminated|socket|network|fetch failed|aborted|timeout|temporarily unavailable/i.test(message);
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function callOutlineModel(generateContentFn, request, { label = 'Stage 2 outline call', retries = 2, delayMs = 750 } = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+            return await generateContentFn(request);
+        } catch (error) {
+            lastError = error;
+            const message = error.message || String(error);
+            if (!isTransientAiError(error)) throw error;
+            if (attempt >= retries) {
+                const finalError = new Error(`${label} failed after ${attempt + 1} attempts: ${message}`);
+                finalError.cause = error;
+                throw finalError;
+            }
+            console.warn(`${label} failed with transient error "${message}". Retrying (${attempt + 1}/${retries})...`);
+            if (delayMs > 0) await wait(delayMs * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
 async function parseOutlineResponse(response, {
     outlineSchema,
     generateContentFn,
     model,
     geminiApiKey,
-    anthropicApiKey
+    anthropicApiKey,
+    retryDelayMs
 }) {
     try {
         return {
@@ -52,7 +85,7 @@ async function parseOutlineResponse(response, {
         };
     } catch (parseError) {
         console.warn(`Stage 2 outline JSON repair failed locally; retrying with model repair: ${parseError.message}`);
-        const repairResponse = await generateContentFn({
+        const repairResponse = await callOutlineModel(generateContentFn, {
             model,
             geminiApiKey,
             anthropicApiKey,
@@ -68,6 +101,10 @@ ${response.text}`],
                 maxOutputTokens: 32000
             },
             schema: outlineSchema
+        }, {
+            label: 'Stage 2 outline JSON repair',
+            retries: 2,
+            delayMs: retryDelayMs
         });
 
         try {
@@ -89,7 +126,8 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
         knowledgeContext = '',
-        generateContentFn = generateContent
+        generateContentFn = generateContent,
+        retryDelayMs = 750
     } = modelConfig;
     const hasCurrentOutline = outlineHasContent(currentOutline);
 
@@ -149,7 +187,7 @@ ${JSON.stringify(currentOutline, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated outline in JSON format.`;
 
-        const response = await generateContentFn({
+        const response = await callOutlineModel(generateContentFn, {
             model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
@@ -157,6 +195,10 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
                 temperature: 0.5,
             },
             schema: outlineSchema
+        }, {
+            label: 'Stage 2 outline revision',
+            retries: 2,
+            delayMs: retryDelayMs
         });
 
         return parseOutlineResponse(response, {
@@ -164,7 +206,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             generateContentFn,
             model,
             geminiApiKey,
-            anthropicApiKey
+            anthropicApiKey,
+            retryDelayMs
         });
     }
 
@@ -190,7 +233,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
     }
     contents.push(contentsText);
 
-    const response = await generateContentFn({
+    const response = await callOutlineModel(generateContentFn, {
         model, geminiApiKey, anthropicApiKey,
         contents,
         config: {
@@ -199,6 +242,10 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             systemInstruction,
         },
         schema: outlineSchema
+    }, {
+        label: 'Stage 2 outline generation',
+        retries: 2,
+        delayMs: retryDelayMs
     });
 
     return parseOutlineResponse(response, {
@@ -206,7 +253,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         generateContentFn,
         model,
         geminiApiKey,
-        anthropicApiKey
+        anthropicApiKey,
+        retryDelayMs
     });
 };
 

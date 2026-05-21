@@ -210,6 +210,75 @@ test('Stage 2 outline retries with model repair when JSON has an unterminated st
     assert.equal(usage.outputTokens, 2);
 });
 
+test('Stage 2 outline retries transient terminated generation errors', async () => {
+    const outlineResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+            act_2: [],
+            act_3: []
+        }
+    };
+    const { calls, generateContentFn } = makeRecorder((_request, callNumber) => {
+        if (callNumber === 1) throw new Error('terminated');
+        return {
+            text: JSON.stringify(outlineResponse),
+            usage: { model: 'gemini-test', inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    const { result } = await agent2Outline(pitch, null, '', null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn,
+        retryDelayMs: 0
+    });
+
+    assert.equal(calls.length, 2);
+    assert.equal(result.outline.act_1[0].beats[0].beat_label, 'Opening');
+});
+
+test('Stage 2 outline retries transient terminated JSON repair errors', async () => {
+    const repairedOutline = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+            act_2: [],
+            act_3: []
+        }
+    };
+    const { calls, generateContentFn } = makeRecorder((_request, callNumber) => {
+        if (callNumber === 1) {
+            return {
+                text: `{"title":"Arcade Night","genre":"Thriller","logline":"Mara searches.","outline":{"act_1":[{"sequence_number_and_title":"Sequence A","beats":[{"beat_label":"Opening","description":"Mara enters.`,
+                usage: { model: 'gemini-test', inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        if (callNumber === 2) throw new Error('terminated');
+        return {
+            text: JSON.stringify(repairedOutline),
+            usage: { model: 'gemini-test', inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    const { result, usage } = await agent2Outline(pitch, null, '', null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn,
+        retryDelayMs: 0
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(collectText(calls[1].contents), /Repair ONLY the JSON syntax/);
+    assert.match(collectText(calls[2].contents), /Repair ONLY the JSON syntax/);
+    assert.equal(result.outline.act_1[0].beats[0].description, 'Mara enters.');
+    assert.equal(usage.inputTokens, 2);
+});
+
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {
     const { calls, generateContentFn } = makeRecorder(() => ({
         text: JSON.stringify({
