@@ -527,6 +527,19 @@ test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
     assert.match(serverJs, /Stage 3 execution means updating character profiles only/);
 });
 
+test('Stage 2 outline generation supports streamed assistant revisions', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    assert.match(serverJs, /app\.post\('\/api\/generate-outline'/);
+    assert.match(serverJs, /text\/event-stream/);
+    assert.match(serverJs, /: keep-alive\\n\\n/);
+    assert.match(serverJs, /type: 'complete'/);
+    assert.match(appJs, /function consumeOutlineGenerationResponse/);
+    assert.match(appJs, /readSSEStream\(response/);
+    assert.match(appJs, /'Accept': 'text\/event-stream'/);
+    assert.match(appJs, /formData\.append\('stream', 'true'\)/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

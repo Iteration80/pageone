@@ -2224,6 +2224,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Stage 2 Logic ---
+    async function consumeOutlineGenerationResponse(response, { chat = null, fallback = 'Outline request failed' } = {}) {
+        if (!response.ok) throw new Error(await apiErrorMessage(response, fallback));
+
+        const contentType = response.headers.get('content-type') || '';
+        if (/\btext\/event-stream\b/i.test(contentType)) {
+            let completeEvent = null;
+            await readSSEStream(response, async (event) => {
+                if (event.type === 'complete') {
+                    completeEvent = event;
+                } else if (event.type === 'error') {
+                    throw new Error(event.message || fallback);
+                }
+            });
+            if (!completeEvent) throw new Error('Outline request finished without a completion event.');
+            await handleSourceGenerationResult(2, completeEvent, { chat });
+            renderOutline(completeEvent.result.outline);
+            if (window.currentProjectData) window.currentProjectData.stage2_outline = completeEvent.result;
+            return completeEvent;
+        }
+
+        const data = await response.json();
+        await handleSourceGenerationResult(2, data, { chat });
+        renderOutline(data.result.outline);
+        if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
+        return data;
+    }
+
     async function autoGenerateBeats() {
         if (!activeProjectId) return;
 
@@ -2245,19 +2272,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/generate-outline', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId })
+                headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                body: JSON.stringify({ projectId: activeProjectId, stream: true })
             });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || "Failed to generate outline");
-            }
-
-            const data = await res.json();
-            await handleSourceGenerationResult(2, data);
-            renderOutline(data.result.outline);
-            if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
+            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to generate outline' });
         } catch (err) {
             console.error(err);
             alert(err.message);
@@ -2508,24 +2526,17 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('projectId', activeProjectId);
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
+            formData.append('stream', 'true');
             if (stage2PdfUpload && stage2PdfUpload.files[0]) {
                 formData.append('pdfFile', stage2PdfUpload.files[0]);
             }
 
             const res = await fetch('/api/generate-outline', {
                 method: 'POST',
+                headers: { 'Accept': 'text/event-stream' },
                 body: formData
             });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || "Failed to revise outline");
-            }
-
-            const data = await res.json();
-            await handleSourceGenerationResult(2, data);
-            renderOutline(data.result.outline);
-            if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
+            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to revise outline' });
 
             // Clear notes and PDF
             stage2Notes.value = '';
@@ -7981,11 +7992,13 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('projectId', activeProjectId);
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
-            const res = await fetch('/api/generate-outline', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Outline revision failed'));
-            const data = await res.json();
-            await handleSourceGenerationResult(2, data, { chat: stageChatWindows[2] });
-            renderOutline(data.result.outline);
+            formData.append('stream', 'true');
+            const res = await fetch('/api/generate-outline', {
+                method: 'POST',
+                headers: { 'Accept': 'text/event-stream' },
+                body: formData
+            });
+            await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed' });
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
         }
     });

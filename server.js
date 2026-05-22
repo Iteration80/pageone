@@ -3204,6 +3204,33 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
 });
 
 app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
+    const wantsStream = req.body?.stream === true ||
+        req.body?.stream === 'true' ||
+        /\btext\/event-stream\b/i.test(req.headers.accept || '');
+    let streaming = false;
+    let heartbeat = null;
+
+    const send = (data) => {
+        if (streaming && !res.destroyed && !res.writableEnded) {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        }
+    };
+
+    const startStream = () => {
+        if (!wantsStream || streaming) return;
+        streaming = true;
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders?.();
+        heartbeat = setInterval(() => {
+            if (!res.destroyed && !res.writableEnded) {
+                res.write(': keep-alive\n\n');
+            }
+        }, 15000);
+        heartbeat.unref?.();
+    };
+
     try {
         const { projectId, currentBeats, notes } = req.body;
         const uploadedFile = req.file;
@@ -3227,6 +3254,9 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         }
 
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
+        startStream();
+        send({ type: 'progress', label: notes ? 'Revising outline...' : 'Generating outline...' });
+
         const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 2, userMessage: notes || '', forceTextBlock: true });
         const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 
@@ -3244,11 +3274,24 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: outlineData, ...sourceResponseExtras(sourcePacket) });
+        const payload = { result: outlineData, ...sourceResponseExtras(sourcePacket) };
+        if (streaming) {
+            send({ type: 'complete', ...payload });
+        } else {
+            res.json(payload);
+        }
     } catch (error) {
         console.error('Outline Gen Error:', error);
         const detail = publicErrorDetail(error);
-        res.status(500).json({ error: detail ? `Failed to generate outline: ${detail}` : "Failed to generate outline" });
+        const message = detail ? `Failed to generate outline: ${detail}` : "Failed to generate outline";
+        if (streaming) {
+            send({ type: 'error', message });
+        } else {
+            res.status(500).json({ error: message });
+        }
+    } finally {
+        if (heartbeat) clearInterval(heartbeat);
+        if (streaming && !res.writableEnded) res.end();
     }
 });
 
