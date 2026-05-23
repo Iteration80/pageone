@@ -3570,7 +3570,8 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         send({ type: 'complete', result: beatsResult, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
-        send({ type: 'error', message: 'Failed to generate beats' });
+        const detail = publicErrorDetail(error);
+        send({ type: 'error', message: detail ? `Failed to generate beats: ${detail}` : 'Failed to generate beats' });
     } finally {
         clearInterval(heartbeat);
         res.end();

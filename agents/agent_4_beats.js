@@ -3,6 +3,7 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
+const { parseJsonWithRepair } = require('./json_parse');
 const fs = require('fs');
 const path = require('path');
 
@@ -21,6 +22,114 @@ function normalizeOutlineSequences(outline) {
             .flatMap(key => Array.isArray(outline[key]) ? outline[key] : []);
     }
     return [];
+}
+
+function combineUsage(...usages) {
+    const valid = usages.filter(Boolean);
+    if (!valid.length) return undefined;
+    return valid.reduce((acc, usage) => ({
+        model: usage.model || acc.model,
+        inputTokens: (acc.inputTokens || 0) + (usage.inputTokens || 0),
+        outputTokens: (acc.outputTokens || 0) + (usage.outputTokens || 0)
+    }), { model: valid[0].model, inputTokens: 0, outputTokens: 0 });
+}
+
+function isTransientAiError(error) {
+    const code = String(error?.code || error?.cause?.code || '');
+    if (/ECONNRESET|ETIMEDOUT|UND_ERR|EPIPE|ECONNREFUSED/i.test(code)) return true;
+    const message = String(error?.message || error || '');
+    return /terminated|socket|network|fetch failed|aborted|timeout|temporarily unavailable|overloaded|rate limit/i.test(message);
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function callStage4Model(generateContentFn, request, { label = 'Stage 4 beat call', retries = 2, delayMs = 750 } = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+            return await generateContentFn(request);
+        } catch (error) {
+            lastError = error;
+            const message = error.message || String(error);
+            if (!isTransientAiError(error)) throw error;
+            if (attempt >= retries) {
+                const finalError = new Error(`${label} failed after ${attempt + 1} attempts: ${message}`);
+                finalError.cause = error;
+                throw finalError;
+            }
+            console.warn(`${label} failed with transient error "${message}". Retrying (${attempt + 1}/${retries})...`);
+            if (delayMs > 0) await wait(delayMs * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
+async function parseStage4Response(response, {
+    treatmentSchema,
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey,
+    retryDelayMs
+}) {
+    try {
+        const parsed = parseJsonWithRepair(response.text, { schema: treatmentSchema, label: 'Stage 4 beat response' });
+        return {
+            result: validateStage4BeatSheet(parsed),
+            usage: response.usage
+        };
+    } catch (parseError) {
+        console.warn(`Stage 4 beat JSON repair failed locally; retrying with model repair: ${parseError.message}`);
+        const repairResponse = await callStage4Model(generateContentFn, {
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            contents: [`The text below was intended to be a complete Stage 4 beat sheet JSON object, but it contains JSON syntax errors such as an unterminated string, missing comma, unescaped quote, or prose around the object.
+
+Repair ONLY the JSON syntax. Preserve every available story detail, field name, sequence, beat name, and detailed action. If a string is cut off, close it cleanly without inventing new plot. Return valid JSON only.
+
+MALFORMED JSON:
+${response.text}`],
+            config: {
+                systemInstruction: 'You are a strict JSON repair tool. Return only valid JSON conforming to the provided schema. Do not add commentary, markdown, or new story content.',
+                temperature: 0,
+                maxOutputTokens: 32000
+            },
+            schema: treatmentSchema
+        }, {
+            label: 'Stage 4 beat JSON repair',
+            retries: 2,
+            delayMs: retryDelayMs
+        });
+
+        try {
+            const repaired = parseJsonWithRepair(repairResponse.text, { schema: treatmentSchema, label: 'Stage 4 repaired beat response' });
+            return {
+                result: validateStage4BeatSheet(repaired, 'Stage 4 repaired beat response'),
+                usage: combineUsage(response.usage, repairResponse.usage)
+            };
+        } catch (repairError) {
+            const error = new Error(`Stage 4 beat response could not be repaired after retry: ${repairError.message}`);
+            error.cause = parseError;
+            throw error;
+        }
+    }
+}
+
+function validateStage4BeatSheet(parsed, label = 'Stage 4 beat response') {
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error(`${label} was not a JSON object.`);
+    }
+    if (!Array.isArray(parsed.hybrid_beat_sheet) || parsed.hybrid_beat_sheet.length === 0) {
+        throw new Error(`${label} returned an incomplete response. Missing hybrid_beat_sheet.`);
+    }
+    const totalBeats = parsed.hybrid_beat_sheet.reduce((sum, seq) => sum + (Array.isArray(seq.beats) ? seq.beats.length : 0), 0);
+    if (totalBeats === 0) {
+        throw new Error(`${label} returned sequences with no beats. Please retry.`);
+    }
+    return parsed;
 }
 
 function formatOutlineBeat(beat = {}, index = 0) {
@@ -91,7 +200,8 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
         knowledgeContext = '',
-        generateContentFn = generateContent
+        generateContentFn = generateContent,
+        retryDelayMs = 750
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
@@ -152,17 +262,29 @@ ${JSON.stringify(currentBeats, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated beat sheet in JSON format.`;
 
-        const response = await generateContentFn({
+        const response = await callStage4Model(generateContentFn, {
             model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
                 systemInstruction: revisionSystemInstruction,
                 temperature: 0.5,
+                maxOutputTokens: 32000
             },
             schema: treatmentSchema
+        }, {
+            label: 'Stage 4 beat revision',
+            retries: 2,
+            delayMs: retryDelayMs
         });
 
-        return { result: JSON.parse(response.text), usage: response.usage };
+        return parseStage4Response(response, {
+            treatmentSchema,
+            generateContentFn,
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            retryDelayMs
+        });
     }
 
     if (onProgress) onProgress('Generating 15-Beat Sheet...');
@@ -202,31 +324,29 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
     }
     contents.push(contentsText);
 
-    const response = await generateContentFn({
+    const response = await callStage4Model(generateContentFn, {
         model, geminiApiKey, anthropicApiKey,
         contents,
         config: {
             systemInstruction,
             temperature: 0.6,
+            maxOutputTokens: 32000
         },
         schema: treatmentSchema
+    }, {
+        label: 'Stage 4 beat generation',
+        retries: 2,
+        delayMs: retryDelayMs
     });
 
-    const parsed = JSON.parse(response.text);
-    const { usage } = response;
-
-    // Validate the response has the expected structure
-    if (!parsed.hybrid_beat_sheet || !Array.isArray(parsed.hybrid_beat_sheet) || parsed.hybrid_beat_sheet.length === 0) {
-        throw new Error('Treatment generation returned an incomplete response. Missing hybrid_beat_sheet.');
-    }
-
-    // Check that at least some sequences have beats
-    const totalBeats = parsed.hybrid_beat_sheet.reduce((sum, seq) => sum + (seq.beats ? seq.beats.length : 0), 0);
-    if (totalBeats === 0) {
-        throw new Error('Treatment generation returned sequences with no beats. Please retry.');
-    }
-
-    return { result: parsed, usage };
+    return parseStage4Response(response, {
+        treatmentSchema,
+        generateContentFn,
+        model,
+        geminiApiKey,
+        anthropicApiKey,
+        retryDelayMs
+    });
 };
 
 module.exports = { agent4Beats };

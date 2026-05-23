@@ -378,6 +378,69 @@ test('Stage 4 beat revisions include the approved outline lock beside current be
     assert.match(promptText, /Fairview dinner table/);
     assert.match(promptText, /Code Wendy triggers the Kaiju transformation/);
     assert.match(calls[0].config.systemInstruction, /approved Stage 2 sequence boundaries/);
+    assert.equal(calls[0].config.maxOutputTokens, 32000);
+});
+
+test('Stage 4 beat revisions repair malformed JSON responses', async () => {
+    const currentBeats = stage4ResponseFixture();
+    const repairedBeats = stage4ResponseFixture();
+    const { calls, generateContentFn } = makeRecorder((request, callNumber) => ({
+        text: callNumber === 1
+            ? '{"stc_genre_category":"Whydunit","hybrid_beat_sheet":[{"sequence_number":1,"sequence_title":"Sequence 1","beats":[{"beat_name":"Opening","genre_variation_notes":"Genre notes.","emotional_arc":"Arc.","pacing_notes":"Pacing.","detailed_action":"Mara enters."}]}'
+            : JSON.stringify(repairedBeats),
+        usage: { inputTokens: callNumber, outputTokens: 1 }
+    }));
+
+    const { result, usage } = await agent4Beats(
+        pitch,
+        outlineWithSeparatedMidpointAndSpectacle,
+        characters,
+        currentBeats,
+        'Make the Sequence 7 inside-monster visuals clearer.',
+        null,
+        null,
+        {
+            knowledgeContext: BASE_KNOWLEDGE_PACKET,
+            generateContentFn,
+            retryDelayMs: 0
+        }
+    );
+
+    assert.equal(calls.length, 2);
+    assert.match(collectText(calls[1].contents), /Repair ONLY the JSON syntax/);
+    assert.equal(calls[0].config.maxOutputTokens, 32000);
+    assert.equal(calls[1].config.maxOutputTokens, 32000);
+    assert.equal(result.hybrid_beat_sheet.length, 8);
+    assert.equal(usage.inputTokens, 3);
+});
+
+test('Stage 4 beat generation retries transient model failures', async () => {
+    const { calls, generateContentFn } = makeRecorder((request, callNumber) => {
+        if (callNumber === 1) throw new Error('terminated');
+        return {
+            text: JSON.stringify(stage4ResponseFixture()),
+            usage: { inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    const { result } = await agent4Beats(
+        pitch,
+        outlineWithSeparatedMidpointAndSpectacle,
+        characters,
+        null,
+        null,
+        null,
+        null,
+        {
+            knowledgeContext: BASE_KNOWLEDGE_PACKET,
+            generateContentFn,
+            retryDelayMs: 0
+        }
+    );
+
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].config.maxOutputTokens, 32000);
+    assert.equal(result.hybrid_beat_sheet.length, 8);
 });
 
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {

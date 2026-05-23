@@ -671,6 +671,7 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(serverJs, /X-Accel-Buffering', 'no'/);
     assert.match(serverJs, /type: 'heartbeat'/);
     assert.match(serverJs, /res\.flush\?\.\(\)/);
+    assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
