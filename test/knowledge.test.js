@@ -555,6 +555,20 @@ test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
     assert.doesNotMatch(stage4App, /revising the treatment/);
 });
 
+test('Stage 4 chat treats current beat evidence as newer than stale analysis history', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+
+    assert.match(serverJs, /function buildStage4CurrentBeatEvidenceBlock/);
+    assert.match(serverJs, /CURRENT STAGE 4 BEAT EVIDENCE/);
+    assert.match(serverJs, /overrides earlier Stage 4 chat messages/);
+    assert.match(serverJs, /Do not repeat an earlier assistant claim unless the current evidence supports it/);
+    assert.match(serverJs, /delete projectData\.data\.conversations\.stage4/);
+
+    assert.match(appJs, /function resetStageChatForNewArtifact/);
+    assert.match(appJs, /Beat sheet regenerated\. Previous Stage 4 chat was cleared/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

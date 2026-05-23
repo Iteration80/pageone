@@ -2913,6 +2913,37 @@ APPROVED STAGE 2 OUTLINE:
 ${compactText(JSON.stringify(outline, null, 2), 12_000)}`;
 }
 
+function buildStage4CurrentBeatEvidenceBlock(projectData) {
+    const sheet = projectData.data?.stage4_beats?.hybrid_beat_sheet
+        || projectData.data?.stage4_treatment?.hybrid_beat_sheet;
+    if (!Array.isArray(sheet) || !sheet.length) return '';
+
+    const sequences = sheet.map(sequence => {
+        const beats = Array.isArray(sequence.beats)
+            ? sequence.beats.map(beat => {
+                const text = [
+                    beat.genre_variation_notes,
+                    beat.emotional_arc,
+                    beat.pacing_notes,
+                    beat.detailed_action
+                ].filter(Boolean).join(' ');
+                return `- ${beat.beat_name || 'Unnamed beat'}: ${compactText(text, 700)}`;
+            }).join('\n')
+            : compactText(JSON.stringify(sequence.beats || [], null, 2), 700);
+        return `Sequence ${sequence.sequence_number || '?'}: ${sequence.sequence_title || 'Untitled'}\n${beats}`;
+    }).join('\n\n');
+
+    return `## CURRENT STAGE 4 BEAT EVIDENCE
+This is a compact map of the CURRENT saved beat sheet. It overrides earlier Stage 4 chat messages, which may refer to an older regenerated version.
+
+Rules for analysis:
+- Verify event placement against this current evidence before naming a contradiction.
+- Do not repeat an earlier assistant claim unless the current evidence supports it.
+- If prior chat says an event is in one sequence but the current evidence places it elsewhere, call the prior chat stale and analyze the current placement.
+
+${compactText(sequences, 14_000)}`;
+}
+
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     const numericStageId = Number(stageId);
     const stageName = STAGE_NAMES[numericStageId];
@@ -3385,6 +3416,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     }
 
     const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
+    const isFullStage4Generation = !parsedCurrentBeats;
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -3410,6 +3442,9 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
+        if (isFullStage4Generation && projectData.data.conversations?.stage4) {
+            delete projectData.data.conversations.stage4;
+        }
         notesWithUpload ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notesWithUpload ? 'revision' : 'generation');
 
@@ -4127,6 +4162,10 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
                 conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now pause and check in. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming.\n\n1. Summarize the direction so far ONLY if you haven't already done so in this same response. Don't repeat yourself.\n2. Choose the appropriate next step based on what ACTUALLY happened:\n   - If YOU surfaced a specific improvement or issue in THIS response: ask the writer whether they want to address it before moving on. Follow through on your own observations — do NOT pivot to a generic "anything else?" when you just identified something concrete.\n   - If concrete changes were proposed or agreed on: offer to apply them ("Want me to go ahead and update the [stage output], or keep refining?"). Set suggest_plan: true.\n   - If the conversation was purely exploratory and no improvements were surfaced: ask if the writer wants to dig into another aspect or is happy with where things stand. Do NOT offer to regenerate — there is nothing to regenerate. Set suggest_plan: false.\n\n`;
             } else if (userExchangeCount >= 4) {
                 conversationPrompt += `\n\n## CADENCE REMINDER\nThis is exchange ${userExchangeCount}. On your next response you will need to check in per the Clarification Cadence rule. Be aware: only offer to regenerate/update content if concrete changes were actually discussed. If the conversation has been exploratory, offer to discuss another aspect or let the writer approve as-is.\n\n`;
+            }
+            if (Number(stageId) === 4) {
+                const currentBeatEvidence = buildStage4CurrentBeatEvidenceBlock(projectData);
+                if (currentBeatEvidence) conversationPrompt += `\n\n${currentBeatEvidence}\n\n`;
             }
             conversationPrompt += 'Continue the conversation as the editorial assistant.';
         }

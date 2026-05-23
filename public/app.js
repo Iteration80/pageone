@@ -4504,9 +4504,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
                     } else if (event.type === 'complete') {
                         renderTreatment(event.result);
+                        if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
+                        if (window.currentProjectData) window.currentProjectData.conversations = projData.data?.conversations || {};
                         updateStageNav(projData.data);
+                        resetStageChatForNewArtifact(4, 'Beat sheet regenerated. Previous Stage 4 chat was cleared because it may refer to an older beat sheet.');
                         await handleSourceGenerationResult(4, event);
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
@@ -7707,6 +7710,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (buffer.trim()) await processEventBlock(buffer.trim());
+    }
+
+    function resetStageChatForNewArtifact(stageId, message) {
+        const chat = stageChatWindows[stageId];
+        if (!chat) return;
+        chat.clear();
+        if (message) chat.append('system', message);
     }
 
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
