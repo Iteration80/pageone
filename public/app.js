@@ -7719,7 +7719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (buffer.trim()) await processEventBlock(buffer.trim());
     }
 
-    function withChatTimeout(promise, ms = 75000) {
+    function withChatTimeout(promise, ms = 10 * 60 * 1000) {
         let timeoutId;
         const timeout = new Promise((_, reject) => {
             timeoutId = setTimeout(() => {

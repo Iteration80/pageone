@@ -615,6 +615,7 @@ test('frontend stage chat re-enables controls after stuck assistant requests', (
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
 
     assert.match(appJs, /function withChatTimeout/);
+    assert.match(appJs, /ms = 10 \* 60 \* 1000/);
     assert.match(appJs, /Assistant request timed out\. Try again in a moment\./);
     assert.match(appJs, /await withChatTimeout\(onSend\(text, this\.history, attachment\)\)/);
     assert.match(appJs, /this\.setDisabled\(false\);\s*this\.input\.focus\(\);/);
