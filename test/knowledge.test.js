@@ -611,6 +611,16 @@ test('Stage 4 current event list questions are answered without model analysis',
     assert.doesNotMatch(response.message, /Sequence 4/);
 });
 
+test('frontend stage chat re-enables controls after stuck assistant requests', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+
+    assert.match(appJs, /function withChatTimeout/);
+    assert.match(appJs, /Assistant request timed out\. Try again in a moment\./);
+    assert.match(appJs, /await withChatTimeout\(onSend\(text, this\.history, attachment\)\)/);
+    assert.match(appJs, /this\.setDisabled\(false\);\s*this\.input\.focus\(\);/);
+    assert.match(appJs, /chat\.clear\(\);\s*chat\.setDisabled\(false\);/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

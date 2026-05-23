@@ -6577,8 +6577,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.input.style.height = 'auto';
                 this.append('user', text);
                 this.setDisabled(true);
-                try { await onSend(text, this.history, attachment); }
-                finally { this.setDisabled(false); this.input.focus(); }
+                try {
+                    await withChatTimeout(onSend(text, this.history, attachment));
+                } catch (err) {
+                    console.error('Chat send failed:', err);
+                    this.append('ai', err.message || 'Assistant request failed. Try again in a moment.');
+                } finally {
+                    this.setDisabled(false);
+                    this.input.focus();
+                }
             };
             this.sendBtn.addEventListener('click', send);
             this.input.addEventListener('keydown', e => {
@@ -7712,10 +7719,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (buffer.trim()) await processEventBlock(buffer.trim());
     }
 
+    function withChatTimeout(promise, ms = 75000) {
+        let timeoutId;
+        const timeout = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error('Assistant request timed out. Try again in a moment.'));
+            }, ms);
+        });
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+    }
+
     function resetStageChatForNewArtifact(stageId, message) {
         const chat = stageChatWindows[stageId];
         if (!chat) return;
         chat.clear();
+        chat.setDisabled(false);
         if (message) chat.append('system', message);
     }
 
