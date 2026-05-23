@@ -540,6 +540,21 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
 });
 
+test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const stage4Html = indexHtml.match(/<main id="stage-4-view"[\s\S]*?<main id="stage-5-view"/)?.[0] || '';
+    const stage4App = appJs.match(/=== Stage 4: Beats Logic ===[\s\S]*?--- Stage 5: Treatment Functions ---/)?.[0] || '';
+
+    assert.match(stage4Html, /Stage 4: Beats/);
+    assert.match(stage4Html, />Generate Beats</);
+    assert.doesNotMatch(stage4Html, />Generate Treatment</);
+    assert.match(stage4App, /generating the beat sheet/);
+    assert.match(stage4App, /Generate Beats button/);
+    assert.doesNotMatch(stage4App, /generating the treatment/);
+    assert.doesNotMatch(stage4App, /revising the treatment/);
+});
+
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

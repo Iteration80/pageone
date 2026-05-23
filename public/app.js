@@ -4282,7 +4282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =============================================
-    // === Stage 4: Treatment Logic ===
+    // === Stage 4: Beats Logic ===
     // =============================================
 
     // PDF Upload listener for Stage 4
@@ -4296,7 +4296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Renders the treatment data into the UI
+    // Renders the beat sheet data into the UI
     function renderTreatment(treatmentData) {
         if (!treatmentContainer) return;
         treatmentContainer.innerHTML = '';
@@ -4399,14 +4399,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
 
-        // Auto-resize all treatment textareas AFTER container is visible
+        // Auto-resize all beat sheet textareas AFTER container is visible
         // Use setTimeout to ensure the browser has painted and computed layout
         setTimeout(() => {
             treatmentContainer.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
         }, 50);
     }
 
-    // Scrape treatment from the DOM
+    // Scrape beat sheet data from the DOM
     function scrapeTreatment() {
         if (!treatmentContainer) return null;
 
@@ -4447,7 +4447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // Auto-generate treatment from Stages 1-3
+    // Auto-generate beat sheet from Stages 1-3
     async function autoGenerateTreatment() {
         if (!activeProjectId) return;
 
@@ -4514,15 +4514,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (err) {
-            console.error('Error generating treatment:', err);
-            alert('An error occurred while generating the treatment. You can retry with the Generate Treatment button.');
+            console.error('Error generating beats:', err);
+            alert('An error occurred while generating the beat sheet. You can retry with the Generate Beats button.');
             if (treatmentActions) treatmentActions.classList.remove('hidden');
         } finally {
             if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
         }
     }
 
-    // Generate Treatment button click handler
+    // Generate Beats button click handler
     if (generateTreatmentBtn) {
         generateTreatmentBtn.addEventListener('click', () => {
             autoGenerateTreatment();
@@ -4594,7 +4594,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         btnStage4Approve.classList.remove('approve-btn-green');
                     }
                 } catch (err) {
-                    console.error('Failed to manual save treatment:', err);
+                    console.error('Failed to manual save beats:', err);
                     alert('An error occurred while saving.');
                     btnStage4Revise.textContent = originalText;
                     btnStage4Revise.disabled = false;
@@ -4662,8 +4662,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch (err) {
-                console.error('Error revising treatment:', err);
-                alert('An error occurred while revising the treatment.');
+                console.error('Error revising beats:', err);
+                alert('An error occurred while revising the beat sheet.');
             } finally {
                 btnStage4Revise.textContent = originalText;
                 btnStage4Revise.disabled = false;
