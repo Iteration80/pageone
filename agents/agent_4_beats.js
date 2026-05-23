@@ -1,17 +1,104 @@
 const { generateContent } = require('./ai-client');
+const {
+    buildMemorySourcePromptBlock,
+    buildMemorySourceSystemInstruction
+} = require('./memory_contract');
 const fs = require('fs');
 const path = require('path');
+
+function compactText(value, maxChars = 4000) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
+function normalizeOutlineSequences(outline) {
+    if (!outline) return [];
+    if (Array.isArray(outline)) return outline;
+    if (outline.outline) return normalizeOutlineSequences(outline.outline);
+    if (typeof outline === 'object') {
+        return ['act_1', 'act_2', 'act_3']
+            .flatMap(key => Array.isArray(outline[key]) ? outline[key] : []);
+    }
+    return [];
+}
+
+function formatOutlineBeat(beat = {}, index = 0) {
+    const label = beat.beat_label || beat.beat_name || beat.beat || `Beat ${index + 1}`;
+    const description = beat.description || beat.detailed_action || beat.summary || '';
+    return `- ${label}: ${compactText(description, 900)}`;
+}
+
+function formatCharacterLock(character = {}) {
+    const core = character.psychological_core || {};
+    const arc = character.arc || {};
+    return [
+        `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}): ${character.brief_summary || ''}`,
+        core.desire ? `Want: ${core.desire}` : '',
+        core.psychological_need || core.moral_need ? `Need: ${[core.psychological_need, core.moral_need].filter(Boolean).join(' / ')}` : '',
+        core.ghost_and_wound ? `Wound: ${core.ghost_and_wound}` : '',
+        arc.direction || arc.core_drive ? `Arc: ${[arc.direction, arc.core_drive].filter(Boolean).join(', ')}` : ''
+    ].filter(Boolean).join(' | ');
+}
+
+function buildStage4BeatContract({ pitchData, beatsData, charactersData }) {
+    const pitch = compactText(JSON.stringify(pitchData || {}, null, 2), 2400);
+    const outlineSequences = normalizeOutlineSequences(beatsData);
+    const outlineMap = outlineSequences.length
+        ? outlineSequences.map((sequence, index) => {
+            const sequenceNumber = sequence.sequence_number || sequence.sequence || index + 1;
+            const title = sequence.sequence_number_and_title || sequence.sequence_title || `Sequence ${sequenceNumber}`;
+            const beats = Array.isArray(sequence.beats) && sequence.beats.length
+                ? sequence.beats.map(formatOutlineBeat).join('\n')
+                : compactText(JSON.stringify(sequence, null, 2), 1200);
+            return `Sequence ${sequenceNumber}: ${title}\n${beats}`;
+        }).join('\n\n')
+        : 'No Stage 2 outline provided.';
+
+    const characters = Array.isArray(charactersData) && charactersData.length
+        ? charactersData.map(formatCharacterLock).join('\n')
+        : 'No character profiles provided.';
+
+    return compactText(`## APPROVED STAGE 2 OUTLINE LOCK
+Stage 4 is an expansion pass from the approved 8-sequence outline into a richer Save-the-Cat beat sheet. It is not a rewrite of the outline.
+
+### Binding Rules
+- Preserve the Stage 2 sequence order, act placement, reveal placement, escalation order, cause-and-effect chain, deaths/survival states, rules, transformations, and endpoints.
+- Do not move a major event, reveal, transformation, set piece, or climax into a different sequence merely to satisfy a Save-the-Cat label.
+- If the Stage 2 Midpoint is a reveal, reversal, false victory, or false defeat rather than a giant action set piece, make that existing outline moment function as the Midpoint.
+- If a later Stage 2 event would make a louder cinematic Midpoint, leave it in its approved later sequence unless the writer explicitly asks to revise the outline.
+- Use cinematic invention only as connective tissue, staging, pressure, humor, texture, and emotional escalation inside the approved sequence boundaries.
+- When source canon, accepted divergences, and the Stage 2 outline appear to conflict, preserve source canon unless the packet or writer notes explicitly approve the divergence.
+
+### Approved Pitch
+${pitch}
+
+### Approved 8-Sequence Outline
+${outlineMap}
+
+### Character Continuity Locks
+${characters}
+
+### Fidelity Check Before Final JSON
+- Every sequence in the beat sheet must correspond to the same-numbered Stage 2 sequence.
+- Every Stage 2 beat/reveal/set piece must still be present in the same sequence unless the writer's current notes explicitly change it.
+- The STC beat names should describe the function of the approved outline events, not relocate the events to match the STC template.`, 14_000);
+}
 
 const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = null, notes = null, pdfFile = null, onProgress = null, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
     const beatsSOP = fs.readFileSync(skillPath, 'utf8');
+    const systemInstruction = buildMemorySourceSystemInstruction(beatsSOP, 'Stage 4 Beat Sheet');
+    const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 4 Beat Sheet');
+    const beatContract = buildStage4BeatContract({ pitchData, beatsData, charactersData });
 
     const treatmentSchema = {
         type: 'object',
@@ -52,17 +139,20 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
     if (notes && currentBeats) {
         console.log("  Surgical Revision Mode: Updating beats...");
         if (onProgress) onProgress('Applying surgical revision...');
-        const revisionSystemInstruction = `${beatsSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the 15-point beat sheet. You MUST keep unaffected beats 100% identical. HOWEVER, if the user's note creates a structural ripple effect, you must update subsequent beats to maintain narrative logic. Do not alter the overarching 8-sequence structure. Maintain the exact same JSON schema.`;
+        const revisionSystemInstruction = `${systemInstruction}\n\nROLE: Structural Story Analyst. Apply the user's note to the 15-point beat sheet. You MUST keep unaffected beats 100% identical. HOWEVER, if the user's note creates a structural ripple effect, you must update subsequent beats to maintain narrative logic inside the approved Stage 2 sequence boundaries. Do not alter the overarching 8-sequence structure, sequence order, or approved outline event placement unless the user's note explicitly asks for that. Maintain the exact same JSON schema.`;
 
-        const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-        const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
+        const revisionPrompt = `${sourceBlock}
+
+${beatContract}
+
+USER NOTE: ${notes}
 
 EXISTING BEATS:
 ${JSON.stringify(currentBeats, null, 2)}
 
 Please apply the note surgically (allowing for ripple effects) and return the full updated beat sheet in JSON format.`;
 
-        const response = await generateContent({
+        const response = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
@@ -77,8 +167,6 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
 
     if (onProgress) onProgress('Generating 15-Beat Sheet...');
 
-    const systemInstruction = beatsSOP;
-
     const contents = [];
 
     if (pdfFile) {
@@ -90,8 +178,11 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         });
     }
 
-    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-    let contentsText = `${sourceBlock}Analyze the following story material and produce a COMPLETE 15-Beat Sheet mapped onto 8 sequences.
+    let contentsText = `${sourceBlock}
+
+${beatContract}
+
+Analyze the following approved story material and produce a COMPLETE 15-Beat Sheet mapped onto 8 sequences. The Stage 2 outline lock above is binding.
 
 APPROVED PITCH:
 ${JSON.stringify(pitchData, null, 2)}
@@ -111,7 +202,7 @@ IMPORTANT: You must return ALL 8 sequences with ALL 15 beats distributed across 
     }
     contents.push(contentsText);
 
-    const response = await generateContent({
+    const response = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents,
         config: {

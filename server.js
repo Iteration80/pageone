@@ -2901,6 +2901,18 @@ ${body}`;
     }).join('\n\n---\n\n');
 }
 
+function buildStage4OutlineDiscussionBoundary(projectData) {
+    const outline = projectData.data?.stage2_outline?.outline;
+    if (!outline) return '';
+    return `## STAGE 4 OUTLINE ALIGNMENT BOUNDARY
+You are discussing the Stage 4 beat sheet, but the approved Stage 2 outline below is binding for sequence order, act placement, reveal placement, set-piece placement, cause/effect, transformations, and endpoints.
+
+When the writer asks whether a Stage 4 beat originated in the outline, verify against this block before answering. If the beat sheet moved or invented a major event that is not in the same Stage 2 sequence, identify it as Stage 4 drift or an adaptation addition, not as outline intent.
+
+APPROVED STAGE 2 OUTLINE:
+${compactText(JSON.stringify(outline, null, 2), 12_000)}`;
+}
+
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     const numericStageId = Number(stageId);
     const stageName = STAGE_NAMES[numericStageId];
@@ -4051,6 +4063,10 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
 
         let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}\n\n---\n\n`;
         if (knowledgeContext) conversationPrompt += `${knowledgeContext}\n\n---\n\n`;
+        if (Number(stageId) === 4) {
+            const outlineBoundary = buildStage4OutlineDiscussionBoundary(projectData);
+            if (outlineBoundary) conversationPrompt += `${outlineBoundary}\n\n---\n\n`;
+        }
         if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
         if (attachmentText) {
             conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}\n\n---\n\n`;

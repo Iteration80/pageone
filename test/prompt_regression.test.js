@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { agent2Outline, outlineHasContent } = require('../agents/agent_2_outline');
+const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
 const { generateStage6Scenes } = require('../agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('../agents/agent_6_revise');
@@ -38,6 +39,53 @@ const beats = Array.from({ length: 8 }, (_, index) => ({
     sequence_title: `Sequence ${index + 1}`,
     beats: [{ beat: 'source beat', description: 'Mara keeps the blue key in the flooded arcade.' }]
 }));
+
+const outlineWithSeparatedMidpointAndSpectacle = {
+    act_1: [{
+        sequence_number_and_title: 'Sequence A: The Mystery Begins',
+        beats: [{ beat_label: 'Opening', description: 'Slatern begins investigating the strange resonance around Fairview.' }]
+    }, {
+        sequence_number_and_title: 'Sequence B: The Predicament',
+        beats: [{ beat_label: 'Catalyst', description: 'Snowgoose warns that Code Wendy is dangerous but not yet active.' }]
+    }],
+    act_2: [{
+        sequence_number_and_title: 'Sequence C: Into Fairview',
+        beats: [{ beat_label: 'First Attempt', description: 'Slatern and Rebecca follow the Dapple trail into the suburbs.' }]
+    }, {
+        sequence_number_and_title: 'Sequence D: First Culmination / Midpoint',
+        beats: [{ beat_label: 'Midpoint Reveal', description: 'At the Fairview dinner table, Slatern realizes Scott is Dapple.' }]
+    }, {
+        sequence_number_and_title: 'Sequence E: Warehouse Congress',
+        beats: [{ beat_label: 'Bad Guys Close In', description: 'The heroes race toward the warehouse congress before the merger scales up.' }]
+    }, {
+        sequence_number_and_title: 'Sequence F: Code Wendy',
+        beats: [{ beat_label: 'All Is Lost', description: 'Code Wendy triggers the Kaiju transformation as the explosive bridge into Act 3.' }]
+    }],
+    act_3: [{
+        sequence_number_and_title: 'Sequence G: Inside the Kaiju',
+        beats: [{ beat_label: 'Dark Night', description: 'Slatern enters the Kaiju belly and finds Robotobob.' }]
+    }, {
+        sequence_number_and_title: 'Sequence H: Resolution',
+        beats: [{ beat_label: 'Finale', description: 'Rebecca and Snowgoose help the city break adult blindness.' }]
+    }]
+};
+
+function stage4ResponseFixture() {
+    return {
+        stc_genre_category: 'Whydunit',
+        hybrid_beat_sheet: Array.from({ length: 8 }, (_, index) => ({
+            sequence_number: index + 1,
+            sequence_title: `Sequence ${index + 1}`,
+            beats: [{
+                beat_name: index === 3 ? 'Midpoint' : `Beat ${index + 1}`,
+                genre_variation_notes: 'Genre notes.',
+                emotional_arc: 'Emotional arc.',
+                pacing_notes: 'Pacing notes.',
+                detailed_action: 'Mara protects the blue key in the approved sequence.'
+            }]
+        }))
+    };
+}
 
 function treatmentFixture() {
     const blocks = beats.map(({ sequence_number }) => (
@@ -277,6 +325,59 @@ test('Stage 2 outline retries transient terminated JSON repair errors', async ()
     assert.match(collectText(calls[2].contents), /Repair ONLY the JSON syntax/);
     assert.equal(result.outline.act_1[0].beats[0].description, 'Mara enters.');
     assert.equal(usage.inputTokens, 2);
+});
+
+test('Stage 4 beat generation treats Stage 2 outline sequence placement as binding', async () => {
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(stage4ResponseFixture()),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await agent4Beats(pitch, outlineWithSeparatedMidpointAndSpectacle, characters, null, null, null, null, {
+        knowledgeContext: BASE_KNOWLEDGE_PACKET,
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    assertSourceAwareCall(calls[0], 'Stage 4 Beat Sheet');
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /APPROVED STAGE 2 OUTLINE LOCK/);
+    assert.match(promptText, /Stage 4 is an expansion pass/);
+    assert.match(promptText, /Do not move a major event/);
+    assert.match(promptText, /Scott is Dapple/);
+    assert.match(promptText, /Code Wendy triggers the Kaiju transformation/);
+    assert.match(promptText, /same-numbered Stage 2 sequence/);
+});
+
+test('Stage 4 beat revisions include the approved outline lock beside current beats', async () => {
+    const currentBeats = stage4ResponseFixture();
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(currentBeats),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await agent4Beats(
+        pitch,
+        outlineWithSeparatedMidpointAndSpectacle,
+        characters,
+        currentBeats,
+        'Restore the Fairview dinner reveal as the Midpoint and keep Code Wendy in Sequence F.',
+        null,
+        null,
+        {
+            knowledgeContext: BASE_KNOWLEDGE_PACKET,
+            generateContentFn
+        }
+    );
+
+    assert.equal(calls.length, 1);
+    assertSourceAwareCall(calls[0], 'Stage 4 Beat Sheet');
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /APPROVED STAGE 2 OUTLINE LOCK/);
+    assert.match(promptText, /EXISTING BEATS/);
+    assert.match(promptText, /Fairview dinner table/);
+    assert.match(promptText, /Code Wendy triggers the Kaiju transformation/);
+    assert.match(calls[0].config.systemInstruction, /approved Stage 2 sequence boundaries/);
 });
 
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {
