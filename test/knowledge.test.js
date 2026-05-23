@@ -35,6 +35,8 @@ const {
     sourceBibleSummary,
     sourceAuditHasActionableItems,
     stageSourceProfile,
+    buildStage4CurrentEventListResponse,
+    stage4CurrentEventListTerm,
     updateKnowledgeSourceMetadata
 } = require('../server');
 
@@ -571,6 +573,42 @@ test('Stage 4 chat treats current beat evidence as newer than stale analysis his
 
     assert.match(appJs, /function resetStageChatForNewArtifact/);
     assert.match(appJs, /Beat sheet regenerated\. Previous Stage 4 chat was cleared/);
+});
+
+test('Stage 4 current event list questions are answered without model analysis', () => {
+    const project = {
+        data: {
+            stage4_beats: {
+                hybrid_beat_sheet: [{
+                    sequence_number: 4,
+                    sequence_title: 'Fairview Dinner',
+                    beats: [{
+                        beat_name: 'Midpoint',
+                        detailed_action: 'Slatern realizes Scott is Dapple at the dinner table.'
+                    }]
+                }, {
+                    sequence_number: 6,
+                    sequence_title: 'Code Wendy',
+                    beats: [{
+                        beat_name: 'All Is Lost',
+                        detailed_action: 'The Kaiju swallows Slatern after Code Wendy escalates beyond control.'
+                    }]
+                }]
+            }
+        }
+    };
+
+    assert.equal(
+        stage4CurrentEventListTerm('List every Kaiju-related event by sequence and beat name from the current beat sheet only.'),
+        'Kaiju'
+    );
+
+    const response = buildStage4CurrentEventListResponse(project, 'List every Kaiju-related event by sequence and beat name from the current beat sheet only.');
+    assert.equal(response.suggest_plan, false);
+    assert.match(response.message, /current Stage 4 beat sheet only/);
+    assert.match(response.message, /Sequence 6: Code Wendy — All Is Lost/);
+    assert.match(response.message, /Kaiju swallows Slatern/);
+    assert.doesNotMatch(response.message, /Sequence 4/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {

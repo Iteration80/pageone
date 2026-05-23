@@ -2949,6 +2949,66 @@ function isStage4CurrentArtifactAnalysisRequest(message = '') {
     return /\b(analy[sz]e|analysis|review|assess|source[- ]?faith|source material|contradict|contradiction|fundamental|outline|midpoint|beat sheet|current|regenerated|new version)\b/.test(text);
 }
 
+function stage4CurrentEventListTerm(message = '') {
+    const text = String(message || '').trim();
+    const match = text.match(/\blist\s+(?:all|every)\s+(.+?)(?:[-\s]?related)?\s+events?\b/i);
+    if (!match) return '';
+    return match[1]
+        .replace(/\b(current|new|regenerated|stage\s*4|beat\s*sheet|only)\b/gi, ' ')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function buildStage4CurrentEventListResponse(projectData, message = '') {
+    const term = stage4CurrentEventListTerm(message);
+    if (!term) return null;
+
+    const sheet = projectData.data?.stage4_beats?.hybrid_beat_sheet
+        || projectData.data?.stage4_treatment?.hybrid_beat_sheet;
+    if (!Array.isArray(sheet) || !sheet.length) {
+        return {
+            message: 'I do not see a current Stage 4 beat sheet saved for this project yet.',
+            suggest_plan: false,
+            execute_immediately: false
+        };
+    }
+
+    const needles = term.toLowerCase().split(/\s+/).filter(Boolean);
+    const matches = [];
+    for (const sequence of sheet) {
+        for (const beat of Array.isArray(sequence.beats) ? sequence.beats : []) {
+            const searchable = [
+                sequence.sequence_title,
+                beat.beat_name,
+                beat.detailed_action,
+                beat.emotional_arc,
+                beat.genre_variation_notes,
+                beat.pacing_notes
+            ].filter(Boolean).join(' ');
+            const lower = searchable.toLowerCase();
+            if (!needles.every(needle => lower.includes(needle))) continue;
+            matches.push({
+                sequenceNumber: sequence.sequence_number || '?',
+                sequenceTitle: sequence.sequence_title || 'Untitled',
+                beatName: beat.beat_name || 'Unnamed beat',
+                excerpt: compactText(beat.detailed_action || searchable, 420)
+            });
+        }
+    }
+
+    const heading = `From the current Stage 4 beat sheet only, I found ${matches.length} ${term}-related event${matches.length === 1 ? '' : 's'}:`;
+    const body = matches.length
+        ? matches.map(item => `- Sequence ${item.sequenceNumber}: ${item.sequenceTitle} — ${item.beatName}: ${item.excerpt}`).join('\n')
+        : `- No current Stage 4 beats mention ${term}.`;
+
+    return {
+        message: `${heading}\n\n${body}`,
+        suggest_plan: false,
+        execute_immediately: false
+    };
+}
+
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     const numericStageId = Number(stageId);
     const stageName = STAGE_NAMES[numericStageId];
@@ -4087,6 +4147,16 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             userMessage: lastUserMessage,
             stageData
         }) : null;
+        const deterministicStage4EventList = !isInit && Number(stageId) === 4
+            ? buildStage4CurrentEventListResponse(projectData, lastUserMessage)
+            : null;
+        if (deterministicStage4EventList) {
+            await persistStageConversation(filePath, projectData, `stage${stageId}`, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
+            return res.json({
+                ...deterministicStage4EventList,
+                ...(sourceMemory && { sourceMemory })
+            });
+        }
         if (memoryRecall) {
             const result = {
                 message: memoryRecall.message,
@@ -6623,6 +6693,8 @@ module.exports = {
     sourceAuditHasActionableItems,
     stageSourceProfile,
     stageDataOverrideToText,
+    buildStage4CurrentEventListResponse,
+    stage4CurrentEventListTerm,
     updateKnowledgeSourceMetadata,
     updateKnowledgeReview,
     startServer
