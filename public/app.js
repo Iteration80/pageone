@@ -7737,18 +7737,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (message) chat.append('system', message);
     }
 
+    const revisionProposalPattern = /\b(want me to|should we|do you want|revise|revising|revision|update|align|work that|apply|applying|change|improve|sequence\s*5|kaiju march|source spiritually|faithful|flow)\b/i;
+    const assistantErrorPattern = /^(error:|something went wrong|assistant request timed out|application failed|failed to respond)/i;
+
+    function isAssistantErrorMessage(content = '') {
+        return assistantErrorPattern.test(String(content || '').trim());
+    }
+
+    function findRecentRevisionProposal(history = []) {
+        return history
+            .slice(0, -1)
+            .reverse()
+            .find(m => m.role === 'assistant'
+                && typeof m.content === 'string'
+                && m.content.trim()
+                && !isAssistantErrorMessage(m.content)
+                && revisionProposalPattern.test(m.content));
+    }
+
     function isRevisionConfirmation(text = '', history = []) {
         const clean = String(text || '').trim();
         if (!clean || clean.length > 240) return false;
         const lower = clean.toLowerCase();
         const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
         if (!affirmative) return false;
-        const priorAssistant = history
-            .slice(0, -1)
-            .reverse()
-            .find(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim());
-        if (!priorAssistant) return false;
-        return /\b(want me to|should we|do you want|revise|update|align|work that|apply|change|improve)\b/i.test(priorAssistant.content);
+        return Boolean(findRecentRevisionProposal(history));
     }
 
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
@@ -7781,7 +7794,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         .map(m => m.content)
                         .join('\n');
                     const recentAssistantMessages = conversationHistory
-                        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim())
+                        .filter(m => m.role === 'assistant'
+                            && typeof m.content === 'string'
+                            && m.content.trim()
+                            && !isAssistantErrorMessage(m.content))
                         .slice(-4)
                         .map(m => m.content.trim())
                         .join('\n\n---\n\n');

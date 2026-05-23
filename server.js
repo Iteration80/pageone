@@ -3009,21 +3009,33 @@ function buildStage4CurrentEventListResponse(projectData, message = '') {
     };
 }
 
+const STAGE4_CONFIRMATION_PATTERN = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i(?:'|\u2019)?m ok|i am ok|fine)\b/i;
+const STAGE4_REVISION_PROPOSAL_PATTERN = /\b(want me to|should we|do you want|revise|revising|revision|update|align|work that|apply|applying|change|improve|sequence\s*5|kaiju march|source spiritually|faithful|flow)\b/i;
+const STAGE4_ASSISTANT_ERROR_PATTERN = /^(error:|something went wrong|assistant request timed out|application failed|failed to respond)/i;
+
+function isStage4AssistantErrorMessage(content = '') {
+    return STAGE4_ASSISTANT_ERROR_PATTERN.test(String(content || '').trim());
+}
+
+function findRecentStage4RevisionProposal(messages = []) {
+    return messages
+        .slice(0, -1)
+        .reverse()
+        .find(m => m.role === 'assistant'
+            && typeof m.content === 'string'
+            && m.content.trim()
+            && !isStage4AssistantErrorMessage(m.content)
+            && STAGE4_REVISION_PROPOSAL_PATTERN.test(m.content));
+}
+
 function buildStage4ConfirmationBypassResponse(messages = []) {
     const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
     const clean = String(latestUserMessage || '').trim();
     if (!clean || clean.length > 240) return null;
-    const lower = clean.toLowerCase();
-    const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
-    if (!affirmative) return null;
+    if (!STAGE4_CONFIRMATION_PATTERN.test(clean)) return null;
 
-    const priorAssistant = messages
-        .slice(0, -1)
-        .reverse()
-        .find(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim());
-    if (!priorAssistant || !/\b(want me to|should we|do you want|revise|update|align|work that|apply|change|improve)\b/i.test(priorAssistant.content)) {
-        return null;
-    }
+    const priorAssistant = findRecentStage4RevisionProposal(messages);
+    if (!priorAssistant) return null;
 
     return {
         message: 'On it — applying that Stage 4 revision now.',
@@ -3242,6 +3254,12 @@ const strictLimiter = rateLimit({
 });
 
 // Middleware
+app.use((req, res, next) => {
+    if (req.path === '/app.js') {
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+    }
+    next();
+});
 app.use(express.static('public'));
 app.use(express.json({ limit: '20mb' }));
 
@@ -3510,12 +3528,19 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const send = (data) => {
+        if (!res.destroyed && !res.writableEnded) {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+            res.flush?.();
+        }
+    };
     const heartbeat = setInterval(() => {
-        if (!res.writableEnded) res.write(': keepalive\n\n');
-    }, 15000);
+        send({ type: 'heartbeat', label: parsedCurrentBeats ? 'Still revising beats...' : 'Still generating beats...' });
+    }, 10000);
+    heartbeat.unref?.();
 
     try {
         console.log("Generating Stage 4 Beats...");

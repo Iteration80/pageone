@@ -636,15 +636,41 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
             content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
         }
     ]);
+    const retryResponse = buildStage4ConfirmationBypassResponse([
+        {
+            role: 'assistant',
+            content: "Want me to work that Sequence 5 change into the beat sheet?"
+        },
+        {
+            role: 'user',
+            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
+        },
+        {
+            role: 'assistant',
+            content: 'Error: Application failed to respond'
+        },
+        {
+            role: 'user',
+            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
+        }
+    ]);
 
     assert.equal(response.execute_immediately, true);
+    assert.equal(retryResponse.execute_immediately, true);
     assert.equal(response.suggest_plan, true);
     assert.match(response.message, /Stage 4 revision/);
     assert.match(appJs, /function isRevisionConfirmation/);
+    assert.match(appJs, /function findRecentRevisionProposal/);
+    assert.match(appJs, /function isAssistantErrorMessage/);
     assert.match(appJs, /executeRevision && isRevisionConfirmation\(_text, history\)/);
     assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
+    assert.match(serverJs, /function findRecentStage4RevisionProposal/);
     assert.match(serverJs, /buildStage4ConfirmationBypassResponse\(messages\)/);
-    assert.match(serverJs, /: keepalive\\n\\n/);
+    assert.match(serverJs, /req\.path === '\/app\.js'/);
+    assert.match(serverJs, /Cache-Control', 'no-store, max-age=0'/);
+    assert.match(serverJs, /X-Accel-Buffering', 'no'/);
+    assert.match(serverJs, /type: 'heartbeat'/);
+    assert.match(serverJs, /res\.flush\?\.\(\)/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
