@@ -7737,6 +7737,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (message) chat.append('system', message);
     }
 
+    function isRevisionConfirmation(text = '', history = []) {
+        const clean = String(text || '').trim();
+        if (!clean || clean.length > 240) return false;
+        const lower = clean.toLowerCase();
+        const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
+        if (!affirmative) return false;
+        const priorAssistant = history
+            .slice(0, -1)
+            .reverse()
+            .find(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim());
+        if (!priorAssistant) return false;
+        return /\b(want me to|should we|do you want|revise|update|align|work that|apply|change|improve)\b/i.test(priorAssistant.content);
+    }
+
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
         // Guard: skip silently if any required element is missing
         if (!document.getElementById(sendBtnId) || !document.getElementById(inputId) || !document.getElementById(threadId)) {
@@ -7820,6 +7834,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         const revisionResult = await executeRevision(buildRevisionNotes(pendingNotes, history));
                         if (revisionResult && revisionResult.changed === false) {
                             throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
+                        }
+                        indicator.remove();
+                        await postRevisionFollowUp();
+                    } catch (err) {
+                        indicator.remove();
+                        chat.append('ai', 'Something went wrong: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                    return;
+                }
+
+                if (executeRevision && isRevisionConfirmation(_text, history)) {
+                    chat.append('ai', 'On it — applying that revision now.');
+                    chat.setDisabled(true);
+                    const indicator = showWorking();
+                    try {
+                        const revisionResult = await executeRevision(buildRevisionNotes('Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.', history));
+                        if (revisionResult && revisionResult.changed === false) {
+                            throw new Error('The revision engine returned no saved changes, so I did not mark this as applied.');
                         }
                         indicator.remove();
                         await postRevisionFollowUp();

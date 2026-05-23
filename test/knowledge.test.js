@@ -37,6 +37,7 @@ const {
     stageSourceProfile,
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
+    buildStage4ConfirmationBypassResponse,
     updateKnowledgeSourceMetadata
 } = require('../server');
 
@@ -620,6 +621,30 @@ test('frontend stage chat re-enables controls after stuck assistant requests', (
     assert.match(appJs, /await withChatTimeout\(onSend\(text, this\.history, attachment\)\)/);
     assert.match(appJs, /this\.setDisabled\(false\);\s*this\.input\.focus\(\);/);
     assert.match(appJs, /chat\.clear\(\);\s*chat\.setDisabled\(false\);/);
+});
+
+test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const response = buildStage4ConfirmationBypassResponse([
+        {
+            role: 'assistant',
+            content: "Want me to work that Sequence 5 change into the beat sheet?"
+        },
+        {
+            role: 'user',
+            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
+        }
+    ]);
+
+    assert.equal(response.execute_immediately, true);
+    assert.equal(response.suggest_plan, true);
+    assert.match(response.message, /Stage 4 revision/);
+    assert.match(appJs, /function isRevisionConfirmation/);
+    assert.match(appJs, /executeRevision && isRevisionConfirmation\(_text, history\)/);
+    assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
+    assert.match(serverJs, /buildStage4ConfirmationBypassResponse\(messages\)/);
+    assert.match(serverJs, /: keepalive\\n\\n/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {

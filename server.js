@@ -3009,6 +3009,29 @@ function buildStage4CurrentEventListResponse(projectData, message = '') {
     };
 }
 
+function buildStage4ConfirmationBypassResponse(messages = []) {
+    const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+    const clean = String(latestUserMessage || '').trim();
+    if (!clean || clean.length > 240) return null;
+    const lower = clean.toLowerCase();
+    const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
+    if (!affirmative) return null;
+
+    const priorAssistant = messages
+        .slice(0, -1)
+        .reverse()
+        .find(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.trim());
+    if (!priorAssistant || !/\b(want me to|should we|do you want|revise|update|align|work that|apply|change|improve)\b/i.test(priorAssistant.content)) {
+        return null;
+    }
+
+    return {
+        message: 'On it — applying that Stage 4 revision now.',
+        suggest_plan: true,
+        execute_immediately: true
+    };
+}
+
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     const numericStageId = Number(stageId);
     const stageName = STAGE_NAMES[numericStageId];
@@ -3490,6 +3513,9 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     res.flushHeaders();
 
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const heartbeat = setInterval(() => {
+        if (!res.writableEnded) res.write(': keepalive\n\n');
+    }, 15000);
 
     try {
         console.log("Generating Stage 4 Beats...");
@@ -3521,6 +3547,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         console.error('Stage 4 Beats Gen Error:', error.message);
         send({ type: 'error', message: 'Failed to generate beats' });
     } finally {
+        clearInterval(heartbeat);
         res.end();
     }
 });
@@ -4154,6 +4181,16 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             await persistStageConversation(filePath, projectData, `stage${stageId}`, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
             return res.json({
                 ...deterministicStage4EventList,
+                ...(sourceMemory && { sourceMemory })
+            });
+        }
+        const stage4ConfirmationBypass = !isInit && Number(stageId) === 4
+            ? buildStage4ConfirmationBypassResponse(messages)
+            : null;
+        if (stage4ConfirmationBypass) {
+            await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, stage4ConfirmationBypass.message);
+            return res.json({
+                ...stage4ConfirmationBypass,
                 ...(sourceMemory && { sourceMemory })
             });
         }
@@ -6695,6 +6732,7 @@ module.exports = {
     stageDataOverrideToText,
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
+    buildStage4ConfirmationBypassResponse,
     updateKnowledgeSourceMetadata,
     updateKnowledgeReview,
     startServer
