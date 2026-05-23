@@ -2922,12 +2922,12 @@ function buildStage4CurrentBeatEvidenceBlock(projectData) {
         const beats = Array.isArray(sequence.beats)
             ? sequence.beats.map(beat => {
                 const text = [
-                    beat.genre_variation_notes,
+                    beat.detailed_action,
                     beat.emotional_arc,
-                    beat.pacing_notes,
-                    beat.detailed_action
+                    beat.genre_variation_notes,
+                    beat.pacing_notes
                 ].filter(Boolean).join(' ');
-                return `- ${beat.beat_name || 'Unnamed beat'}: ${compactText(text, 700)}`;
+                return `- ${beat.beat_name || 'Unnamed beat'}: ${compactText(text, 1_200)}`;
             }).join('\n')
             : compactText(JSON.stringify(sequence.beats || [], null, 2), 700);
         return `Sequence ${sequence.sequence_number || '?'}: ${sequence.sequence_title || 'Untitled'}\n${beats}`;
@@ -2942,6 +2942,11 @@ Rules for analysis:
 - If prior chat says an event is in one sequence but the current evidence places it elsewhere, call the prior chat stale and analyze the current placement.
 
 ${compactText(sequences, 14_000)}`;
+}
+
+function isStage4CurrentArtifactAnalysisRequest(message = '') {
+    const text = String(message || '').toLowerCase();
+    return /\b(analy[sz]e|analysis|review|assess|source[- ]?faith|source material|contradict|contradiction|fundamental|outline|midpoint|beat sheet|current|regenerated|new version)\b/.test(text);
 }
 
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
@@ -4096,6 +4101,11 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             });
         }
 
+        const stage4CurrentArtifactAnalysis = Number(stageId) === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
+        const messagesForPrompt = stage4CurrentArtifactAnalysis
+            ? messages.filter(m => m.role === 'user').slice(-1)
+            : messages;
+
         let conversationPrompt = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}\n\n---\n\n`;
         if (knowledgeContext) conversationPrompt += `${knowledgeContext}\n\n---\n\n`;
         if (Number(stageId) === 4) {
@@ -4142,7 +4152,14 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             conversationPrompt += `- Also mention: "Or choose 'No Style' above to draft in a clean, neutral voice."\n`;
             conversationPrompt += `\nSet suggest_plan: false and execute_immediately: false.\n\n`;
         } else {
-            for (const msg of messages) {
+            if (stage4CurrentArtifactAnalysis) {
+                conversationPrompt += `## CURRENT ARTIFACT ANALYSIS MODE
+The writer is asking you to analyze the current Stage 4 beat sheet. Ignore earlier Stage 4 assistant analysis or claims because they may describe a previous regenerated version. Use only the CURRENT Stage 4 artifact, the approved Stage 2 outline, source/project memory, and the latest writer question.
+
+When flagging a contradiction or structural drift, cite the current sequence number and beat name that supports the claim. If the current beat sheet does not support a prior claim, do not repeat it.\n\n`;
+            }
+
+            for (const msg of messagesForPrompt) {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
             }
 
@@ -4157,7 +4174,7 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
             }
 
             // Cadence enforcement: nudge model to stop asking questions after enough exchanges
-            const userExchangeCount = messages.filter(m => m.role === 'user').length;
+            const userExchangeCount = messagesForPrompt.filter(m => m.role === 'user').length;
             if (userExchangeCount >= 5) {
                 conversationPrompt += `\n\n## CADENCE CHECK (MANDATORY)\nThis is exchange ${userExchangeCount}. You MUST now pause and check in. Do not ask another clarifying question unless the writer explicitly asked to keep brainstorming.\n\n1. Summarize the direction so far ONLY if you haven't already done so in this same response. Don't repeat yourself.\n2. Choose the appropriate next step based on what ACTUALLY happened:\n   - If YOU surfaced a specific improvement or issue in THIS response: ask the writer whether they want to address it before moving on. Follow through on your own observations — do NOT pivot to a generic "anything else?" when you just identified something concrete.\n   - If concrete changes were proposed or agreed on: offer to apply them ("Want me to go ahead and update the [stage output], or keep refining?"). Set suggest_plan: true.\n   - If the conversation was purely exploratory and no improvements were surfaced: ask if the writer wants to dig into another aspect or is happy with where things stand. Do NOT offer to regenerate — there is nothing to regenerate. Set suggest_plan: false.\n\n`;
             } else if (userExchangeCount >= 4) {
@@ -4219,7 +4236,7 @@ ${brainstormSop}`
         // Skip persistence for init messages — they are ephemeral and regenerated on each visit
         if (!isInit) {
             try {
-                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, result.message);
+                await persistStageConversation(filePath, projectData, `stage${stageId}`, messagesForPrompt, result.message);
             } catch (saveErr) {
                 console.error('Failed to persist conversation:', saveErr.message);
             }

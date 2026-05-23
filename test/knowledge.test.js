@@ -563,6 +563,10 @@ test('Stage 4 chat treats current beat evidence as newer than stale analysis his
     assert.match(serverJs, /CURRENT STAGE 4 BEAT EVIDENCE/);
     assert.match(serverJs, /overrides earlier Stage 4 chat messages/);
     assert.match(serverJs, /Do not repeat an earlier assistant claim unless the current evidence supports it/);
+    assert.match(serverJs, /function isStage4CurrentArtifactAnalysisRequest/);
+    assert.match(serverJs, /CURRENT ARTIFACT ANALYSIS MODE/);
+    assert.match(serverJs, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
+    assert.match(serverJs, /persistStageConversation\(filePath, projectData, `stage\$\{stageId\}`, messagesForPrompt, result\.message\)/);
     assert.match(serverJs, /delete projectData\.data\.conversations\.stage4/);
 
     assert.match(appJs, /function resetStageChatForNewArtifact/);
