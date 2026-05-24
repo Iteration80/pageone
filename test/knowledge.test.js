@@ -677,6 +677,7 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     for (const id of ['btnStage2Regenerate', 'btnStage3Regenerate', 'btnStage4Regenerate', 'btnStage5Regenerate', 'btnStage6Regenerate', 'btnStage7RegenerateHeader', 'btnStage9Regenerate']) {
         assert.match(indexHtml, new RegExp(`id="${id}"`));
     }
@@ -690,6 +691,11 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(appJs, /Regenerate the blueprint with these notes:/);
     assert.match(appJs, /shouldRegenerateStage6FromChat/);
     assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
+    assert.match(appJs, /alert\(error\.message \|\| 'An error occurred during scene generation\.'\)/);
+    assert.match(serverJs, /Failed to generate scene blueprint: \$\{detail\}/);
+    assert.match(serverJs, /type: 'heartbeat', label: 'Still generating scene blueprint\.\.\.'/);
+    assert.match(serverJs, /X-Accel-Buffering', 'no'/);
+    assert.match(serverJs, /res\.flush\?\.\(\)/);
 });
 
 test('frontend Stage 6 chat directly executes structured revision memos and guards no-op revisions', () => {

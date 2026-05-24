@@ -3,6 +3,7 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
+const { parseJsonWithRepair } = require('./json_parse');
 const fs = require('fs');
 const path = require('path');
 
@@ -28,6 +29,109 @@ function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
     if (!text || text.length <= maxChars) return text;
     return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
+}
+
+function combineUsage(...usages) {
+    const valid = usages.filter(Boolean);
+    if (!valid.length) return undefined;
+    return valid.reduce((acc, usage) => ({
+        model: usage.model || acc.model,
+        inputTokens: (acc.inputTokens || 0) + (usage.inputTokens || 0),
+        outputTokens: (acc.outputTokens || 0) + (usage.outputTokens || 0)
+    }), { model: valid[0].model, inputTokens: 0, outputTokens: 0 });
+}
+
+function isTransientAiError(error) {
+    const code = String(error?.code || error?.cause?.code || '');
+    if (/ECONNRESET|ETIMEDOUT|UND_ERR|EPIPE|ECONNREFUSED/i.test(code)) return true;
+    const message = String(error?.message || error || '');
+    return /terminated|socket|network|fetch failed|aborted|timeout|temporarily unavailable|overloaded|rate limit/i.test(message);
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function callStage6Model(generateContentFn, request, { label = 'Stage 6 scene call', retries = 2, delayMs = 750 } = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+            return await generateContentFn(request);
+        } catch (error) {
+            lastError = error;
+            const message = error.message || String(error);
+            if (!isTransientAiError(error)) throw error;
+            if (attempt >= retries) {
+                const finalError = new Error(`${label} failed after ${attempt + 1} attempts: ${message}`);
+                finalError.cause = error;
+                throw finalError;
+            }
+            console.warn(`${label} failed with transient error "${message}". Retrying (${attempt + 1}/${retries})...`);
+            if (delayMs > 0) await wait(delayMs * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
+async function parseStage6JsonResponse(response, {
+    schema,
+    label = 'Stage 6 response',
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey,
+    retryDelayMs = 750
+}) {
+    try {
+        return {
+            parsed: parseJsonWithRepair(response.text, { schema, label }),
+            usage: response.usage
+        };
+    } catch (parseError) {
+        console.warn(`${label} JSON repair failed locally; retrying with model repair: ${parseError.message}`);
+        const repairResponse = await callStage6Model(generateContentFn, {
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            contents: [`The text below was intended to be valid JSON for ${label}, but it contains JSON syntax errors such as an unterminated string, missing comma, unescaped quote, truncation, or prose around the object.
+
+Repair ONLY the JSON syntax. Preserve every available story detail, field name, scene heading, scene number, narrative action, and continuity detail. If a string is cut off, close it cleanly without inventing new plot. Return valid JSON only.
+
+MALFORMED JSON:
+${response.text}`],
+            config: {
+                systemInstruction: 'You are a strict JSON repair tool. Return only valid JSON conforming to the provided schema. Do not add commentary, markdown, or new story content.',
+                temperature: 0,
+                maxOutputTokens: 32000
+            },
+            schema
+        }, {
+            label: `${label} JSON repair`,
+            retries: 2,
+            delayMs: retryDelayMs
+        });
+
+        try {
+            return {
+                parsed: parseJsonWithRepair(repairResponse.text, { schema, label: `${label} repaired response` }),
+                usage: combineUsage(response.usage, repairResponse.usage)
+            };
+        } catch (repairError) {
+            const error = new Error(`${label} could not be repaired after retry: ${repairError.message}`);
+            error.cause = parseError;
+            throw error;
+        }
+    }
+}
+
+function validateSequenceBlueprint(sequence, sequenceNumber) {
+    if (!sequence || typeof sequence !== 'object') {
+        throw new Error(`Stage 6 Sequence ${sequenceNumber} response was not a JSON object.`);
+    }
+    if (!Array.isArray(sequence.scenes) || sequence.scenes.length === 0) {
+        throw new Error(`Stage 6 Sequence ${sequenceNumber} response did not include scenes.`);
+    }
+    return sequence;
 }
 
 function treatmentActTextForSequence(treatment = {}, sequenceNumber) {
@@ -68,7 +172,8 @@ async function buildContinuityLedger({
     characters,
     beats,
     fullTreatmentText,
-    sourceAuthorityBlock = ''
+    sourceAuthorityBlock = '',
+    retryDelayMs = 750
 }) {
     const continuityLedgerSchema = {
         type: 'object',
@@ -126,7 +231,7 @@ ${JSON.stringify(beats, null, 2)}
 APPROVED TREATMENT:
 ${fullTreatmentText}`;
 
-    const result = await generateContentFn({
+    const result = await callStage6Model(generateContentFn, {
         model,
         geminiApiKey,
         anthropicApiKey,
@@ -134,14 +239,28 @@ ${fullTreatmentText}`;
         config: {
             temperature: 0.2,
             responseMimeType: 'application/json',
-            responseSchema: continuityLedgerSchema
+            responseSchema: continuityLedgerSchema,
+            maxOutputTokens: 16000
         },
         schema: continuityLedgerSchema
+    }, {
+        label: 'Stage 6 continuity ledger',
+        retries: 2,
+        delayMs: retryDelayMs
+    });
+    const { parsed, usage } = await parseStage6JsonResponse(result, {
+        schema: continuityLedgerSchema,
+        label: 'Stage 6 continuity ledger response',
+        generateContentFn,
+        model,
+        geminiApiKey,
+        anthropicApiKey,
+        retryDelayMs
     });
 
     return {
-        ledger: JSON.parse(result.text),
-        usage: result.usage
+        ledger: parsed,
+        usage
     };
 }
 
@@ -159,7 +278,8 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        generateContentFn = generateContent
+        generateContentFn = generateContent,
+        retryDelayMs = 750
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
@@ -192,6 +312,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     const config = {
         systemInstruction: buildMemorySourceSystemInstruction(scenesSOP, 'Stage 6 Scene Blueprint'),
         temperature: 0.55,
+        maxOutputTokens: 32000,
         thinkingConfig: { thinkingLevel: 'HIGH' },
         tools: [{ googleSearch: {} }],  // Gemini-only; silently dropped for Claude by ai-client
     };
@@ -221,22 +342,36 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
     let canonicalLocations = '';
     try {
         console.log('  Stage 6: Extracting canonical locations from treatment...');
-        const locResult = await generateContentFn({
+        const locationSchema = { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] };
+        const locResult = await callStage6Model(generateContentFn, {
             model, geminiApiKey, anthropicApiKey,
             contents: [`Extract every distinct physical location mentioned in this screenplay treatment. Return the location name as it should appear in a scene heading (e.g., "MEDICAL BAY", "COMMAND DECK", "MAIN CORRIDOR"). Include interior/exterior qualifiers only when a location has both (e.g., list both if scenes happen inside and outside). Be exhaustive — scan the entire text.\n\nTREATMENT:\n${fullTreatmentText}`],
             config: {
                 temperature: 0.3,
                 responseMimeType: 'application/json',
-                responseSchema: { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] },
+                responseSchema: locationSchema,
+                maxOutputTokens: 12000
             },
-            schema: { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] },
+            schema: locationSchema,
+        }, {
+            label: 'Stage 6 location extraction',
+            retries: 2,
+            delayMs: retryDelayMs
         });
-        const locData = JSON.parse(locResult.text);
+        const { parsed: locData, usage: locUsage } = await parseStage6JsonResponse(locResult, {
+            schema: locationSchema,
+            label: 'Stage 6 location extraction response',
+            generateContentFn,
+            model,
+            geminiApiKey,
+            anthropicApiKey,
+            retryDelayMs
+        });
         if (locData.locations?.length) {
             canonicalLocations = locData.locations.join(', ');
             console.log(`  Stage 6: Extracted ${locData.locations.length} locations: ${canonicalLocations}`);
         }
-        usageList.push(locResult.usage);
+        usageList.push(locUsage);
     } catch (err) {
         console.warn('  Stage 6: Location extraction failed (non-fatal):', err.message);
     }
@@ -254,7 +389,8 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
             characters,
             beats,
             fullTreatmentText,
-            sourceAuthorityBlock
+            sourceAuthorityBlock,
+            retryDelayMs
         });
         continuityLedger = ledgerResult.ledger;
         continuityLedgerText = formatContinuityLedgerForPrompt(continuityLedger);
@@ -317,15 +453,44 @@ FIDELITY CHECK BEFORE YOU RESPOND:
 Return a JSON object for this sequence only.`;
 
         try {
-            const result = await generateContentFn({
-                model, geminiApiKey, anthropicApiKey,
-                contents: [prompt],
-                config,
-                schema: sequenceSchema
-            });
-
-            const parsedSeq = JSON.parse(result.text);
-            usageList.push(result.usage);
+            let parsedSeq = null;
+            let sequenceUsage = null;
+            let lastSequenceError = null;
+            for (let structuralAttempt = 0; structuralAttempt < 2; structuralAttempt += 1) {
+                try {
+                    const result = await callStage6Model(generateContentFn, {
+                        model, geminiApiKey, anthropicApiKey,
+                        contents: [prompt],
+                        config,
+                        schema: sequenceSchema
+                    }, {
+                        label: `Stage 6 Sequence ${i}`,
+                        retries: 2,
+                        delayMs: retryDelayMs
+                    });
+                    const { parsed, usage } = await parseStage6JsonResponse(result, {
+                        schema: sequenceSchema,
+                        label: `Stage 6 Sequence ${i} response`,
+                        generateContentFn,
+                        model,
+                        geminiApiKey,
+                        anthropicApiKey,
+                        retryDelayMs
+                    });
+                    parsedSeq = validateSequenceBlueprint(parsed, i);
+                    sequenceUsage = usage;
+                    break;
+                } catch (error) {
+                    lastSequenceError = error;
+                    if (structuralAttempt === 0) {
+                        console.warn(`Stage 6 Sequence ${i} returned unusable JSON after repair: ${error.message}. Retrying full sequence generation...`);
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+            if (!parsedSeq) throw lastSequenceError || new Error(`Stage 6 Sequence ${i} did not return a usable blueprint.`);
+            usageList.push(sequenceUsage);
             parsedSeq.sequence_number = i;
 
             // Enforce globally unique scene numbers across all sequences

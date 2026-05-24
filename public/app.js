@@ -5455,7 +5455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Stage 6 generation failed:', error);
             if (throwOnError) throw error;
-            alert('An error occurred during scene generation.');
+            alert(error.message || 'An error occurred during scene generation.');
         } finally {
             if (loadingStateStage6) loadingStateStage6.classList.add('hidden');
             if (btnStage6Regenerate) btnStage6Regenerate.disabled = false;

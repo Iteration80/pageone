@@ -3609,14 +3609,18 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-    const heartbeat = setInterval(() => {
+    const send = (data) => {
         if (!res.destroyed && !res.writableEnded) {
-            res.write(': keep-alive\n\n');
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+            res.flush?.();
         }
-    }, 15000);
+    };
+    const heartbeat = setInterval(() => {
+        send({ type: 'heartbeat', label: 'Still generating scene blueprint...' });
+    }, 10000);
     heartbeat.unref?.();
 
     try {
@@ -3718,7 +3722,8 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         send({ type: 'complete', result: allSequences, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
-        send({ type: 'error', message: 'Failed to generate scene blueprint' });
+        const detail = publicErrorDetail(error);
+        send({ type: 'error', message: detail ? `Failed to generate scene blueprint: ${detail}` : 'Failed to generate scene blueprint' });
     } finally {
         clearInterval(heartbeat);
         res.end();

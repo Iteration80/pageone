@@ -536,6 +536,111 @@ test('Stage 6 scene generation carries project memory into every sequence prompt
     });
 });
 
+test('Stage 6 scene generation repairs malformed late sequence JSON', async () => {
+    const sceneResponse = {
+        sequence_title: 'Arcade Sequence',
+        total_estimated_pages: 1,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'INT. FLOODED ARCADE - NIGHT',
+            narrative_action: 'Mara keeps the blue key visible.',
+            dramaturgical_function: 'Preserves source continuity.',
+            estimated_page_count: 1
+        }]
+    };
+    let malformedSequence8Returned = false;
+    const { calls, generateContentFn } = makeRecorder(request => {
+        const text = collectText(request.contents);
+        if (/Extract every distinct physical location/.test(text)) {
+            return {
+                text: JSON.stringify({ locations: ['FLOODED ARCADE'] }),
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        if (/Build a Stage 6 continuity ledger/.test(text)) {
+            return {
+                text: JSON.stringify({ global_locks: [], sequence_contracts: [] }),
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        if (/Repair ONLY the JSON syntax/.test(text)) {
+            return {
+                text: JSON.stringify(sceneResponse),
+                usage: { inputTokens: 2, outputTokens: 1 }
+            };
+        }
+        if (/OBJECTIVE: Break down Sequence 8/.test(text) && !malformedSequence8Returned) {
+            malformedSequence8Returned = true;
+            return {
+                text: '{"sequence_title":"Arcade Sequence","total_estimated_pages":1,"scenes":[{"scene_number":1,"scene_heading":"INT. FLOODED ARCADE - NIGHT","narrative_action":"Mara keeps the blue key visible."',
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        return {
+            text: JSON.stringify(sceneResponse),
+            usage: { inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    const { result } = await generateStage6Scenes(pitch, characters, beats, treatmentFixture(), null, BASE_KNOWLEDGE_PACKET, {
+        generateContentFn,
+        retryDelayMs: 0
+    });
+
+    assert.equal(result.length, 8);
+    assert.equal(result[7].scenes.length, 1);
+    assert.ok(calls.some(call => /Repair ONLY the JSON syntax/.test(collectText(call.contents))));
+    const sequenceCalls = calls.filter(call => /OBJECTIVE: Break down Sequence/.test(collectText(call.contents)));
+    assert.equal(sequenceCalls.length, 8);
+    assert.equal(sequenceCalls[0].config.maxOutputTokens, 32000);
+});
+
+test('Stage 6 scene generation retries transient late sequence failures', async () => {
+    const sceneResponse = {
+        sequence_title: 'Arcade Sequence',
+        total_estimated_pages: 1,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'INT. FLOODED ARCADE - NIGHT',
+            narrative_action: 'Mara keeps the blue key visible.',
+            dramaturgical_function: 'Preserves source continuity.',
+            estimated_page_count: 1
+        }]
+    };
+    let sequence7Failed = false;
+    const { calls, generateContentFn } = makeRecorder(request => {
+        const text = collectText(request.contents);
+        if (/Extract every distinct physical location/.test(text)) {
+            return {
+                text: JSON.stringify({ locations: ['FLOODED ARCADE'] }),
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        if (/Build a Stage 6 continuity ledger/.test(text)) {
+            return {
+                text: JSON.stringify({ global_locks: [], sequence_contracts: [] }),
+                usage: { inputTokens: 1, outputTokens: 1 }
+            };
+        }
+        if (/OBJECTIVE: Break down Sequence 7/.test(text) && !sequence7Failed) {
+            sequence7Failed = true;
+            throw new Error('terminated');
+        }
+        return {
+            text: JSON.stringify(sceneResponse),
+            usage: { inputTokens: 1, outputTokens: 1 }
+        };
+    });
+
+    const { result } = await generateStage6Scenes(pitch, characters, beats, treatmentFixture(), null, BASE_KNOWLEDGE_PACKET, {
+        generateContentFn,
+        retryDelayMs: 0
+    });
+
+    assert.equal(result.length, 8);
+    assert.equal(calls.filter(call => /OBJECTIVE: Break down Sequence 7/.test(collectText(call.contents))).length, 2);
+});
+
 test('Stage 6 revision carries project memory beside director feedback', async () => {
     const currentBlueprint = [{
         sequence_number: 1,
