@@ -1241,6 +1241,75 @@
         ],
         "sequence_number": 8
       }
-    ]
+    ],
+    "knowledge": {
+      "source_registry": [],
+      "source_bible": {
+        "summary": "",
+        "sources_summary": "",
+        "updatedAt": "2026-05-23T18:25:46.392Z",
+        "sourceIds": [],
+        "curated_notes": [],
+        "compactedAt": "2026-05-23T18:25:46.237Z"
+      },
+      "continuity_watchlist": [],
+      "decision_log": [],
+      "accepted_divergences": [],
+      "stage_handoffs": {},
+      "stage_source_plans": {},
+      "stage_source_audits": {},
+      "memory_snapshot": {
+        "generatedAt": "2026-05-23T18:25:46.237Z",
+        "sourceCount": 0,
+        "sourceBibleSummary": "",
+        "stageHandoffs": [],
+        "continuityWatchlist": [],
+        "acceptedDivergences": [],
+        "recentDecisions": [],
+        "sourceReadiness": [
+          {
+            "stageId": 1,
+            "stageName": "Pitch Generation",
+            "status": "no_sources",
+            "label": "No saved sources",
+            "checkedAt": null,
+            "issueCount": 0
+          },
+          {
+            "stageId": 3,
+            "stageName": "Characters",
+            "status": "no_sources",
+            "label": "No saved sources",
+            "checkedAt": null,
+            "issueCount": 0
+          },
+          {
+            "stageId": 4,
+            "stageName": "Beats",
+            "status": "no_sources",
+            "label": "No saved sources",
+            "checkedAt": null,
+            "issueCount": 0
+          },
+          {
+            "stageId": 5,
+            "stageName": "Treatment",
+            "status": "no_sources",
+            "label": "No saved sources",
+            "checkedAt": null,
+            "issueCount": 0
+          },
+          {
+            "stageId": 6,
+            "stageName": "Scene Blueprint",
+            "status": "no_sources",
+            "label": "No saved sources",
+            "checkedAt": null,
+            "issueCount": 0
+          }
+        ],
+        "summary": ""
+      }
+    }
   }
 }
