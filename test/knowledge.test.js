@@ -662,7 +662,7 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(appJs, /function isRevisionConfirmation/);
     assert.match(appJs, /function findRecentRevisionProposal/);
     assert.match(appJs, /function isAssistantErrorMessage/);
-    assert.match(appJs, /executeRevision && isRevisionConfirmation\(_text, history\)/);
+    assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
     assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
     assert.match(serverJs, /function findRecentStage4RevisionProposal/);
     assert.match(serverJs, /buildStage4ConfirmationBypassResponse\(messages\)/);
@@ -672,6 +672,22 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(serverJs, /type: 'heartbeat'/);
     assert.match(serverJs, /res\.flush\?\.\(\)/);
     assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
+});
+
+test('stage chat source-audit questions do not execute stale pending revisions', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+
+    assert.match(appJs, /const asksForAnalysis = \/\[\?\]\/\.test\(clean\)/);
+    assert.match(appJs, /if \(asksForAnalysis\) return false;/);
+    assert.match(appJs, /if \(pendingRevision && !attachment && isRevisionConfirmation\(_text, history\)\)/);
+    assert.match(appJs, /if \(pendingRevision\) \{\s*pendingRevision = false;\s*pendingNotes = '';/);
+    assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
+    assert.match(serverJs, /function isStage6SourceComparisonRequest/);
+    assert.match(serverJs, /STAGE 6 SOURCE COMPARISON MODE/);
+    assert.match(serverJs, /Do not treat this as revision confirmation/);
+    assert.match(serverJs, /Missing or underrepresented source scenes\/beats/);
+    assert.match(serverJs, /stage4CurrentArtifactAnalysis \|\| stage6SourceComparisonAnalysis/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {

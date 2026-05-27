@@ -7758,6 +7758,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function isRevisionConfirmation(text = '', history = []) {
         const clean = String(text || '').trim();
         if (!clean || clean.length > 240) return false;
+        const asksForAnalysis = /[?]/.test(clean) &&
+            /\b(how|what|why|which|are there|do we|does|compare|analysis|analy[sz]e|audit|missing|need|thoughts)\b/i.test(clean);
+        if (asksForAnalysis) return false;
         const lower = clean.toLowerCase();
         const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
         if (!affirmative) return false;
@@ -7842,12 +7845,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
 
-                if (pendingRevision) {
+                if (pendingRevision && !attachment && isRevisionConfirmation(_text, history)) {
+                    const notesForRevision = pendingNotes;
                     pendingRevision = false;
+                    pendingNotes = '';
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        const revisionResult = await executeRevision(buildRevisionNotes(pendingNotes, history));
+                        const revisionResult = await executeRevision(buildRevisionNotes(notesForRevision, history));
                         if (revisionResult && revisionResult.changed === false) {
                             throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
                         }
@@ -7861,8 +7866,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return;
                 }
+                if (pendingRevision) {
+                    pendingRevision = false;
+                    pendingNotes = '';
+                }
 
-                if (executeRevision && isRevisionConfirmation(_text, history)) {
+                if (executeRevision && !attachment && isRevisionConfirmation(_text, history)) {
                     chat.append('ai', 'On it — applying that revision now.');
                     chat.setDisabled(true);
                     const indicator = showWorking();

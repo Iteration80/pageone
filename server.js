@@ -2949,6 +2949,12 @@ function isStage4CurrentArtifactAnalysisRequest(message = '') {
     return /\b(analy[sz]e|analysis|review|assess|source[- ]?faith|source material|contradict|contradiction|fundamental|outline|midpoint|beat sheet|current|regenerated|new version)\b/.test(text);
 }
 
+function isStage6SourceComparisonRequest(message = '', hasAttachment = false) {
+    if (!hasAttachment) return false;
+    const text = String(message || '').toLowerCase();
+    return /\b(source|graphic novel|scene breakdown|compare|comparison|audit|missing|don't need|do not need|unnecessary|spiritually faithful|faithful)\b/.test(text);
+}
+
 function stage4CurrentEventListTerm(message = '') {
     const text = String(message || '').trim();
     const match = text.match(/\blist\s+(?:all|every)\s+(.+?)(?:[-\s]?related)?\s+events?\b/i);
@@ -4240,7 +4246,8 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         }
 
         const stage4CurrentArtifactAnalysis = Number(stageId) === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
-        const messagesForPrompt = stage4CurrentArtifactAnalysis
+        const stage6SourceComparisonAnalysis = Number(stageId) === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
+        const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis
             ? messages.filter(m => m.role === 'user').slice(-1)
             : messages;
 
@@ -4295,6 +4302,24 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
 The writer is asking you to analyze the current Stage 4 beat sheet. Ignore earlier Stage 4 assistant analysis or claims because they may describe a previous regenerated version. Use only the CURRENT Stage 4 artifact, the approved Stage 2 outline, source/project memory, and the latest writer question.
 
 When flagging a contradiction or structural drift, cite the current sequence number and beat name that supports the claim. If the current beat sheet does not support a prior claim, do not repeat it.\n\n`;
+            }
+            if (stage6SourceComparisonAnalysis) {
+                conversationPrompt += `## STAGE 6 SOURCE COMPARISON MODE
+The writer attached a source scene breakdown and is asking for an audit against the CURRENT Stage 6 scene blueprint.
+
+Hard rules:
+- Do not treat this as revision confirmation, even if the message says changes are acceptable.
+- Do not say any revision was applied. Nothing has been applied.
+- Ignore prior Stage 6 assistant claims or post-revision follow-up language unless the current blueprint and attached source support them.
+- Use the ATTACHED FILE as source-breakdown evidence and the STAGE 6 Scene Blueprint above as the current adaptation artifact.
+- Produce a detailed comparison, not a generic note.
+- Set suggest_plan: false and execute_immediately: false.
+
+Audit structure:
+1. Missing or underrepresented source scenes/beats: cite the source item and the closest current blueprint scene number/heading, or say no match.
+2. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings and explain whether they are useful cinematic adaptation or candidates to cut/compress.
+3. Adaptation changes that are acceptable because they improve film flow while staying spiritually faithful.
+4. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.\n\n`;
             }
 
             for (const msg of messagesForPrompt) {
