@@ -38,6 +38,8 @@ const {
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
     buildStage4ConfirmationBypassResponse,
+    extractNumberedSourceItems,
+    buildSourceItemInventoryBlock,
     updateKnowledgeSourceMetadata
 } = require('../server');
 
@@ -677,16 +679,28 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
 test('stage chat source-audit questions do not execute stale pending revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const sourceItems = extractNumberedSourceItems(`1.3 — Elliot at school playground. Elliot plays with Furdlegurr.
+1.4 — Pono recruits Furdlegurr. Pono leaves a threat.
+4.2 — Blounder shields Slatern.`);
+    const inventory = buildSourceItemInventoryBlock(`1.3 — Elliot at school playground. Elliot plays with Furdlegurr.
+1.4 — Pono recruits Furdlegurr. Pono leaves a threat.`);
 
+    assert.deepEqual(sourceItems.map(item => item.id), ['1.3', '1.4', '4.2']);
+    assert.match(inventory, /1\.3: Elliot at school playground/);
+    assert.match(inventory, /1\.4: Pono recruits Furdlegurr/);
     assert.match(appJs, /const asksForAnalysis = \/\[\?\]\/\.test\(clean\)/);
     assert.match(appJs, /if \(asksForAnalysis\) return false;/);
     assert.match(appJs, /if \(pendingRevision && !attachment && isRevisionConfirmation\(_text, history\)\)/);
     assert.match(appJs, /if \(pendingRevision\) \{\s*pendingRevision = false;\s*pendingNotes = '';/);
     assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
     assert.match(serverJs, /function isStage6SourceComparisonRequest/);
+    assert.match(serverJs, /function extractNumberedSourceItems/);
+    assert.match(serverJs, /buildSourceItemInventoryBlock\(attachmentText\)/);
     assert.match(serverJs, /STAGE 6 SOURCE COMPARISON MODE/);
     assert.match(serverJs, /Do not treat this as revision confirmation/);
-    assert.match(serverJs, /Missing or underrepresented source scenes\/beats/);
+    assert.match(serverJs, /Source Coverage Matrix/);
+    assert.match(serverJs, /EVERY numbered source item/);
+    assert.match(serverJs, /If the writer later calls out a source item ID you missed/);
     assert.match(serverJs, /stage4CurrentArtifactAnalysis \|\| stage6SourceComparisonAnalysis/);
 });
 

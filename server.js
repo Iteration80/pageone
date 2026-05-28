@@ -2955,6 +2955,41 @@ function isStage6SourceComparisonRequest(message = '', hasAttachment = false) {
     return /\b(source|graphic novel|scene breakdown|compare|comparison|audit|missing|don't need|do not need|unnecessary|spiritually faithful|faithful)\b/.test(text);
 }
 
+function extractNumberedSourceItems(text = '', maxItems = 120) {
+    const items = [];
+    const seen = new Set();
+    const lines = String(text || '').split(/\r?\n/);
+    const itemPattern = /^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(\d+(?:\.\d+)+)\s*(?:[—–-]|:|\.)\s*(.+?)\s*$/;
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const match = line.match(itemPattern);
+        if (!match) continue;
+        const id = match[1];
+        if (seen.has(id)) continue;
+        seen.add(id);
+        items.push({
+            id,
+            summary: compactText(match[2].replace(/\s+/g, ' '), 280)
+        });
+        if (items.length >= maxItems) break;
+    }
+    return items;
+}
+
+function buildSourceItemInventoryBlock(attachmentText = '') {
+    const items = extractNumberedSourceItems(attachmentText);
+    if (!items.length) {
+        return `## SOURCE ITEM INVENTORY
+No numbered source items were automatically detected in the attachment. If the attachment contains scene IDs in prose, manually identify them before auditing coverage.`;
+    }
+    return `## SOURCE ITEM INVENTORY
+The attachment contains these numbered source items. Your audit must account for EVERY item ID below, including items that seem minor, compressed, relocated, or optional.
+
+${items.map(item => `- ${item.id}: ${item.summary}`).join('\n')}`;
+}
+
 function stage4CurrentEventListTerm(message = '') {
     const text = String(message || '').trim();
     const match = text.match(/\blist\s+(?:all|every)\s+(.+?)(?:[-\s]?related)?\s+events?\b/i);
@@ -4260,6 +4295,9 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         if (priorContext) conversationPrompt += `## PREVIOUS STAGE CONVERSATIONS\n${priorContext}\n---\n\n`;
         if (attachmentText) {
             conversationPrompt += `## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}\n\n---\n\n`;
+            if (stage6SourceComparisonAnalysis) {
+                conversationPrompt += `${buildSourceItemInventoryBlock(attachmentText)}\n\n---\n\n`;
+            }
         }
         if (isInit && stageId === 5) {
             // Stage 5 Entry Analysis — proactive editorial opening message
@@ -4312,14 +4350,19 @@ Hard rules:
 - Do not say any revision was applied. Nothing has been applied.
 - Ignore prior Stage 6 assistant claims or post-revision follow-up language unless the current blueprint and attached source support them.
 - Use the ATTACHED FILE as source-breakdown evidence and the STAGE 6 Scene Blueprint above as the current adaptation artifact.
-- Produce a detailed comparison, not a generic note.
+- Produce an exhaustive coverage-matrix comparison, not a best-highlights note.
 - Set suggest_plan: false and execute_immediately: false.
 
 Audit structure:
-1. Missing or underrepresented source scenes/beats: cite the source item and the closest current blueprint scene number/heading, or say no match.
-2. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings and explain whether they are useful cinematic adaptation or candidates to cut/compress.
-3. Adaptation changes that are acceptable because they improve film flow while staying spiritually faithful.
-4. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.\n\n`;
+1. Source Coverage Matrix: include one row or bullet for EVERY numbered source item in SOURCE ITEM INVENTORY. For each, give status: "covered", "compressed/relocated", "underrepresented", "missing", or "intentionally omitted", and cite closest current blueprint scene number/heading or "no clear match".
+2. Missing or underrepresented source scenes/beats: prioritize from the matrix. Do not omit smaller early setup items such as playground, recruitment, office-hours, or threat beats just because bigger set pieces are more cinematic.
+3. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings and explain whether they are useful cinematic adaptation or candidates to cut/compress.
+4. Spiritually faithful adaptation changes: name source departures that improve film flow and should probably remain.
+5. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.
+
+Quality bar:
+- Before finalizing, scan the SOURCE ITEM INVENTORY again and verify every item ID appears in your response exactly once in the matrix.
+- If the writer later calls out a source item ID you missed, treat that as an audit failure and correct the coverage matrix, not as a brand-new idea.\n\n`;
             }
 
             for (const msg of messagesForPrompt) {
@@ -6789,6 +6832,8 @@ module.exports = {
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
     buildStage4ConfirmationBypassResponse,
+    extractNumberedSourceItems,
+    buildSourceItemInventoryBlock,
     updateKnowledgeSourceMetadata,
     updateKnowledgeReview,
     startServer
