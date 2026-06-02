@@ -5170,6 +5170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scenes.forEach((scene) => {
                 const card = document.createElement('div');
                 card.className = 'scene-card';
+                card.dataset.sceneNumber = String(Number(scene.scene_number) || globalSceneCounter);
                 card.innerHTML = `
                     <div class="scene-card-header">
                         <div class="flex items-center">
@@ -5290,6 +5291,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hasStage6Scenes(snapshot) {
         return Array.isArray(snapshot) && snapshot.some(seq => Array.isArray(seq.scenes) && seq.scenes.length > 0);
+    }
+
+    function stage6SceneMap(snapshot) {
+        const map = new Map();
+        if (!Array.isArray(snapshot)) return map;
+        snapshot.forEach(seq => {
+            (seq.scenes || []).forEach(scene => {
+                const key = Number(scene.scene_number) || map.size + 1;
+                map.set(key, JSON.stringify({
+                    scene_heading: scene.scene_heading || '',
+                    narrative_action: scene.narrative_action || '',
+                    dramaturgical_function: scene.dramaturgical_function || '',
+                    estimated_page_count: scene.estimated_page_count ?? ''
+                }));
+            });
+        });
+        return map;
+    }
+
+    function changedStage6SceneNumbers(beforeSnapshot, afterSnapshot) {
+        const before = stage6SceneMap(beforeSnapshot);
+        const after = stage6SceneMap(afterSnapshot);
+        const changed = [];
+        after.forEach((serialized, sceneNumber) => {
+            if (before.get(sceneNumber) !== serialized) changed.push(sceneNumber);
+        });
+        return changed;
+    }
+
+    function highlightStage6ChangedScenes(sceneNumbers = []) {
+        const numbers = sceneNumbers.map(Number).filter(Number.isFinite);
+        if (!numbers.length) return;
+        const cards = numbers
+            .map(num => document.querySelector(`.scene-card[data-scene-number="${num}"]`))
+            .filter(Boolean);
+        if (!cards.length) return;
+        cards.forEach(card => {
+            card.classList.add('scene-card-revision-highlight');
+            setTimeout(() => card.classList.remove('scene-card-revision-highlight'), 2600);
+        });
+        cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function getStage6SnapshotForHistory() {
@@ -7502,7 +7544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function refreshCurrentProjectData() {
         if (!activeProjectId) return null;
-        const res = await fetch(`/api/projects/${activeProjectId}`);
+        const res = await fetch(`/api/projects/${activeProjectId}?_=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`Project refresh failed (${res.status})`);
         const project = await res.json();
         window.currentProjectData = project.data;
@@ -8235,7 +8277,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function reviseStage6Blueprint(feedback, { onStatus } = {}) {
-        const beforeSerialized = JSON.stringify(window.currentProjectData?.stage6_scenes || null);
+        const beforeSnapshot = JSON.parse(JSON.stringify(window.currentProjectData?.stage6_scenes || []));
+        const beforeSerialized = JSON.stringify(beforeSnapshot || null);
         const response = await fetch('/api/revise-stage6', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
@@ -8267,27 +8310,46 @@ document.addEventListener('DOMContentLoaded', () => {
             streamError = err;
         }
 
-        if (!completeEvent || !completeEvent.result) {
-            const refreshed = await refreshCurrentProjectData().catch(() => null);
-            const fallbackScenes = refreshed?.stage6_scenes;
-            if (fallbackScenes) {
-                const changed = JSON.stringify(fallbackScenes) !== beforeSerialized;
-                renderStage6(fallbackScenes);
-                completeEvent = {
-                    ...(completeEvent || {}),
-                    type: 'complete',
-                    result: fallbackScenes,
-                    changed,
-                    recoveredFromMissingCompletion: !completeEvent
-                };
-            }
+        if (!completeEvent) {
+            throw new Error(streamError?.message || 'Revision finished without a completion event.');
         }
 
-        if (!completeEvent) throw new Error(streamError?.message || 'Revision finished without a completion event.');
-        if (streamError && !completeEvent.result) throw streamError;
+        if (streamError) throw streamError;
+        if (completeEvent.changed === false) {
+            throw new Error('The revision engine returned no blueprint changes.');
+        }
+
+        let refreshed;
+        try {
+            refreshed = await refreshCurrentProjectData();
+        } catch (err) {
+            throw new Error(`Revision completed, but the updated blueprint could not be refreshed: ${err.message}`);
+        }
+
+        const revisedScenes = refreshed?.stage6_scenes || completeEvent.result;
+        if (!hasStage6Scenes(revisedScenes)) {
+            throw new Error('Revision completed, but the refreshed project did not include a readable Stage 6 blueprint.');
+        }
+
+        const changed = JSON.stringify(revisedScenes) !== beforeSerialized;
+        if (!changed) {
+            throw new Error('Revision completed, but the refreshed blueprint matched the previous viewer state.');
+        }
+
+        const changedScenes = changedStage6SceneNumbers(beforeSnapshot, revisedScenes);
+        completeEvent = {
+            ...completeEvent,
+            type: 'complete',
+            result: revisedScenes,
+            changed: true,
+            changedSceneNumbers: changedScenes,
+            refreshedFromProject: true
+        };
+
         await handleSourceGenerationResult(6, completeEvent, { chat: stageChatWindows[6] });
-        renderStage6(completeEvent.result);
-        if (window.currentProjectData) window.currentProjectData.stage6_scenes = completeEvent.result;
+        renderStage6(revisedScenes);
+        if (window.currentProjectData) window.currentProjectData.stage6_scenes = revisedScenes;
+        highlightStage6ChangedScenes(changedScenes);
         return completeEvent;
     }
 

@@ -739,12 +739,17 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /stream:\s*true/);
     assert.match(appJs, /readSSEStream\(response/);
     assert.match(appJs, /refreshCurrentProjectData\(\)/);
-    assert.match(appJs, /recoveredFromMissingCompletion/);
+    assert.match(appJs, /cache:\s*'no-store'/);
+    assert.match(appJs, /refreshedFromProject/);
+    assert.match(appJs, /Revision completed, but the updated blueprint could not be refreshed/);
+    assert.match(appJs, /highlightStage6ChangedScenes/);
     assert.match(appJs, /returned no blueprint changes/);
     assert.match(appJs, /latestIsConfirmation/);
     assert.match(appJs, /CONFIRMATION HANDOFF/);
     assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
     assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
+    assert.match(appJs, /dataset\.sceneNumber/);
+    assert.match(fs.readFileSync(require.resolve('../public/style.css'), 'utf8'), /scene-card-revision-highlight/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
 });
 
