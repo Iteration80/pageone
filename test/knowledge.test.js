@@ -760,11 +760,16 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(fs.readFileSync(require.resolve('../public/style.css'), 'utf8'), /scene-card-revision-highlight/);
     assert.match(brainstormSkill, /Project-Agnostic Thinking Protocol/);
     assert.match(brainstormSkill, /constraint map/);
+    assert.match(brainstormSkill, /stay inside that active scope/);
+    assert.match(brainstormSkill, /dormant craft note/);
     assert.match(serverJs, /Project Constraint Map/);
     assert.match(serverJs, /Required passes/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
     assert.match(serverJs, /Do not set suggest_plan true or execute_immediately true/);
+    assert.match(serverJs, /same recommended batch/);
+    assert.match(serverJs, /same active batch or the next unresolved decision from that same triage/);
+    assert.match(serverJs, /dormant notes from earlier feedback as competing next steps/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
 });
 
