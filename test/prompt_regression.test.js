@@ -727,6 +727,108 @@ test('Stage 6 revision sends full text for explicitly targeted scenes', async ()
     assert.match(promptText, /full-target-context/);
 });
 
+test('Stage 6 revision parses list-style scene targets', async () => {
+    const currentBlueprint = [{
+        sequence_number: 1,
+        sequence_title: 'Opening Protocol',
+        total_estimated_pages: 4,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'EXT. BACKYARD - DAY',
+            narrative_action: 'The backyard is a mess.',
+            dramaturgical_function: 'Starts the case.',
+            estimated_page_count: 1
+        }, {
+            scene_number: 2,
+            scene_heading: 'INT. AGENCY SUV - DAY',
+            narrative_action: 'Slatern reads protocol.',
+            dramaturgical_function: 'Explains the response.',
+            estimated_page_count: 1
+        }]
+    }];
+    const revisedSequence = {
+        ...currentBlueprint[0],
+        scenes: currentBlueprint[0].scenes.map(scene => ({ ...scene }))
+    };
+    revisedSequence.scenes[1].narrative_action = 'Slatern reads protocol after the kid protests, "It wasn\'t me!"';
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([revisedSequence]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await reviseStage6Scenes(
+        currentBlueprint,
+        'Scene 1 and 2. Add the missing protest before the child-welfare protocol lands.',
+        { generateContentFn }
+    );
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /Scenes: 1, 2/);
+});
+
+test('Stage 6 untargeted revision uses surgical inference instead of full-blueprint rewrite context', async () => {
+    const longOpening = 'A long opening setup that should stay intact. '.repeat(30);
+    const currentBlueprint = [{
+        sequence_number: 1,
+        sequence_title: 'Opening Protocol',
+        total_estimated_pages: 6,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'EXT. BACKYARD - DAY',
+            narrative_action: longOpening,
+            dramaturgical_function: 'Establishes ordinary domestic chaos.',
+            estimated_page_count: 1
+        }, {
+            scene_number: 2,
+            scene_heading: 'INT. AGENCY SUV - DAY',
+            narrative_action: 'Slatern reads the child-welfare-call protocol.',
+            dramaturgical_function: 'Introduces the Agency response.',
+            estimated_page_count: 1
+        }]
+    }, {
+        sequence_number: 2,
+        sequence_title: 'Later Trouble',
+        total_estimated_pages: 6,
+        scenes: [{
+            scene_number: 3,
+            scene_heading: 'INT. OFFICE - DAY',
+            narrative_action: 'A later scene that should remain untouched.',
+            dramaturgical_function: 'Continues the investigation.',
+            estimated_page_count: 1
+        }]
+    }];
+    const revisedScene = {
+        sequence_number: 1,
+        sequence_title: 'Opening Protocol',
+        total_estimated_pages: 6,
+        scenes: [{
+            scene_number: 2,
+            scene_heading: 'INT. AGENCY SUV - DAY',
+            narrative_action: 'Slatern reads the child-welfare-call protocol after the kid in the backyard protests, "It wasn\'t me!" over the impossible mess.',
+            dramaturgical_function: 'Introduces the Agency response only after the child has clearly been blamed for a mess he did not make.',
+            estimated_page_count: 1
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([revisedScene]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await reviseStage6Scenes(
+        currentBlueprint,
+        'We are missing the child protesting that it was not him before the child-welfare protocol lands.',
+        { generateContentFn }
+    );
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /Surgical inference mode/);
+    assert.doesNotMatch(promptText, /full-target-context/);
+    assert.match(promptText, /compact-context/);
+    assert.equal(result[0].scenes[0].narrative_action, longOpening);
+    assert.match(result[0].scenes[1].narrative_action, /It wasn't me/);
+    assert.match(result[1].scenes[0].narrative_action, /remain untouched/);
+});
+
 test('Stage 6 revision retries when the first response produces no saved changes', async () => {
     const currentBlueprint = [{
         sequence_number: 1,

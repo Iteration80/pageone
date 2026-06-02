@@ -731,9 +731,12 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
 test('frontend Stage 6 chat directly executes structured revision memos and guards no-op revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const brainstormSkill = fs.readFileSync(require.resolve('../skills/skill_brainstorm.md'), 'utf8');
     assert.match(appJs, /function isStage6DirectRevisionRequest/);
     assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.match(appJs, /function shouldRegenerateStage6FromChat/);
+    assert.match(appJs, /do not\|don't\|dont\|not\|never/);
     assert.match(appJs, /function reviseStage6Blueprint/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /stream:\s*true/);
@@ -750,6 +753,10 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
     assert.match(appJs, /dataset\.sceneNumber/);
     assert.match(fs.readFileSync(require.resolve('../public/style.css'), 'utf8'), /scene-card-revision-highlight/);
+    assert.match(brainstormSkill, /Project-Agnostic Thinking Protocol/);
+    assert.match(brainstormSkill, /constraint map/);
+    assert.match(serverJs, /Project Constraint Map/);
+    assert.match(serverJs, /Required passes/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
 });
 

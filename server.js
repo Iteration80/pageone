@@ -4357,11 +4357,13 @@ Hard rules:
 - Set suggest_plan: false and execute_immediately: false.
 
 Audit structure:
-1. Source Coverage Matrix: include one row or bullet for EVERY numbered source item in SOURCE ITEM INVENTORY. For each, give status: "covered", "compressed/relocated", "underrepresented", "missing", or "intentionally omitted", and cite closest current blueprint scene number/heading or "no clear match".
-2. Missing or underrepresented source scenes/beats: prioritize from the matrix. Do not omit smaller early setup items such as playground, recruitment, office-hours, or threat beats just because bigger set pieces are more cinematic.
-3. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings and explain whether they are useful cinematic adaptation or candidates to cut/compress.
-4. Spiritually faithful adaptation changes: name source departures that improve film flow and should probably remain.
-5. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.
+1. Project Constraint Map: briefly list the recurring entities, visual/physical identities, roles/backstories, props, protected lines/motifs, world rules, setup/payoff promises, and known adaptation inventions you inferred from the attached source and project memory. Keep this compact.
+2. Source Coverage Matrix: include one row or bullet for EVERY numbered source item in SOURCE ITEM INVENTORY. For each, give status: "covered", "compressed/relocated", "underrepresented", "missing", or "intentionally omitted", and cite closest current blueprint scene number/heading or "no clear match".
+3. Constraint Drift / Canon Breaks: run explicit passes for entity identity, role/backstory, visual description, prop paths, preserved lines/motifs, setup/payoff plants, timeline/geography, and stale internal scene references. Prioritize hard contradictions over craft notes.
+4. Missing or underrepresented source scenes/beats: prioritize from the matrix. Do not omit smaller early setup items such as playground, recruitment, office-hours, or threat beats just because bigger set pieces are more cinematic.
+5. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings and explain whether they are useful cinematic adaptation or candidates to cut/compress.
+6. Spiritually faithful adaptation changes: name source departures that improve film flow and should probably remain, and say whether each needs an explicit accepted-divergence/adaptation-invention tag.
+7. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.
 
 Quality bar:
 - Before finalizing, scan the SOURCE ITEM INVENTORY again and verify every item ID appears in your response exactly once in the matrix.
@@ -4693,7 +4695,17 @@ ${compactText(stageData, 45_000)}
 ---
 
 Compare the current stage output against the persistent source material above.
-Be conservative: only flag a mismatch when the source context gives a concrete reason.
+First build an internal project constraint map from the source/project memory, then audit the current stage output against that map.
+
+Required passes:
+- Recurring people, creatures, organizations, and places: identity, role, visual/physical description, backstory, relationship, and status.
+- Recurring props/objects: location path, ownership, setup/payoff, and whether later references contradict earlier ones.
+- World rules, timeline, geography, causality, and setup/payoff promises.
+- Protected or repeated lines, motifs, title/coda promises, and source/project moments that the output appears to preserve but omits.
+- Deliberate inventions or divergences that need to be tagged/accepted rather than silently overwriting source/project facts.
+- Stale internal references such as wrong scene numbers or function notes pointing to moved material.
+
+Be conservative: only flag a mismatch when the source/project context gives a concrete reason.
 Do not flag a conflict that is already covered by an accepted source divergence in project memory.
 When possible, include the source document name or id in each mismatch, missing element, or recommended fix.
 Return concise, actionable findings.`;

@@ -23,6 +23,13 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
         for (let n = Math.min(start, end); n <= Math.max(start, end); n++) sceneNumbers.add(n);
     }
 
+    for (const match of text.matchAll(/\bscene[s]?\s+(\d+(?:\s*(?:,|and|&|\+)\s*\d+)+)/gi)) {
+        for (const item of match[1].match(/\d+/g) || []) {
+            const n = Number(item);
+            if (Number.isFinite(n)) sceneNumbers.add(n);
+        }
+    }
+
     for (const match of text.matchAll(/\b(\d+)\s*\+\s*(\d+)(?:\s*\+\s*(\d+))?/g)) {
         [match[1], match[2], match[3]].filter(Boolean).map(Number).forEach(n => {
             if (Number.isFinite(n)) sceneNumbers.add(n);
@@ -34,6 +41,13 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
         const end = Number(match[2] || match[1]);
         if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
         for (let n = Math.min(start, end); n <= Math.max(start, end); n++) sequenceNumbers.add(n);
+    }
+
+    for (const match of text.matchAll(/\bsequence[s]?\s+(\d+(?:\s*(?:,|and|&|\+)\s*\d+)+)/gi)) {
+        for (const item of match[1].match(/\d+/g) || []) {
+            const n = Number(item);
+            if (Number.isFinite(n)) sequenceNumbers.add(n);
+        }
     }
 
     const sequenceByScene = new Map();
@@ -57,15 +71,17 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
 
 function buildRevisionBlueprintContext(currentBlueprint = [], feedback = '') {
     const targets = parseRevisionTargets(currentBlueprint, feedback);
+    const surgicalInference = !targets.hasExplicitTargets && !targets.includeAllFull;
     const targetSummary = [
         targets.sceneNumbers.size ? `Scenes: ${Array.from(targets.sceneNumbers).sort((a, b) => a - b).join(', ')}` : '',
         targets.sequenceNumbers.size ? `Sequences: ${Array.from(targets.sequenceNumbers).sort((a, b) => a - b).join(', ')}` : '',
-        targets.includeAllFull ? 'Full-blueprint revision requested.' : ''
-    ].filter(Boolean).join('\n') || 'No explicit scene/sequence numbers detected; use full feedback to infer the minimum affected sequences.';
+        targets.includeAllFull ? 'Full-blueprint revision requested.' : '',
+        surgicalInference ? 'Surgical inference mode: no explicit scene/sequence numbers detected. Infer the minimum affected scene(s), and do not rewrite unrelated scenes.' : ''
+    ].filter(Boolean).join('\n');
 
     const context = currentBlueprint.map(seq => {
         const sequenceNumber = Number(seq.sequence_number);
-        const includeFullSequence = targets.includeAllFull || targets.sequenceNumbers.has(sequenceNumber) || !targets.hasExplicitTargets;
+        const includeFullSequence = targets.includeAllFull || targets.sequenceNumbers.has(sequenceNumber);
         return {
             sequence_number: seq.sequence_number,
             sequence_title: seq.sequence_title,
@@ -88,6 +104,7 @@ function buildRevisionBlueprintContext(currentBlueprint = [], feedback = '') {
 
     return {
         targetSummary,
+        surgicalInference,
         context
     };
 }
@@ -118,6 +135,46 @@ function mergeModifiedSequences(currentBlueprint = [], modifiedSequences = []) {
 
     let updatedData = originalBlueprint.map(seq => {
         const replacement = modifiedMap.get(normalizeSequenceKey(seq.sequence_number));
+        if (!replacement) return cloneValue(seq);
+
+        const originalScenes = Array.isArray(seq.scenes) ? seq.scenes : [];
+        const replacementScenes = Array.isArray(replacement.scenes) ? replacement.scenes : [];
+        const partialScenePatch = originalScenes.length > 0
+            && replacementScenes.length > 0
+            && replacementScenes.length < originalScenes.length;
+
+        if (partialScenePatch) {
+            const sceneByNumber = new Map(originalScenes.map(scene => [Number(scene.scene_number), scene]));
+            const sceneByHeading = new Map(originalScenes.map(scene => [String(scene.scene_heading || ''), scene]));
+            const appendedScenes = [];
+
+            const patchedScenesByNumber = new Map();
+            const patchedScenesByHeading = new Map();
+            replacementScenes.forEach(scene => {
+                const number = Number(scene.scene_number);
+                const heading = String(scene.scene_heading || '');
+                const existing = sceneByNumber.get(number) || sceneByHeading.get(heading);
+                if (existing) {
+                    patchedScenesByNumber.set(Number(existing.scene_number), cloneValue({ ...existing, ...scene }));
+                    patchedScenesByHeading.set(String(existing.scene_heading || ''), cloneValue({ ...existing, ...scene }));
+                } else {
+                    appendedScenes.push(cloneValue(scene));
+                }
+            });
+
+            const mergedScenes = originalScenes.map(scene => {
+                const byNumber = patchedScenesByNumber.get(Number(scene.scene_number));
+                const byHeading = patchedScenesByHeading.get(String(scene.scene_heading || ''));
+                return byNumber || byHeading || cloneValue(scene);
+            });
+
+            return {
+                ...cloneValue(seq),
+                ...cloneValue({ ...replacement, scenes: undefined }),
+                scenes: mergedScenes.concat(appendedScenes)
+            };
+        }
+
         return replacement || cloneValue(seq);
     });
 
@@ -219,7 +276,8 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
 
 CRITICAL RULES:
 - Return ONLY the sequences that contain changes. Do NOT return unmodified sequences.
-- Within a returned sequence, include ALL its scenes (both modified and unmodified within that sequence).
+- For explicitly targeted full-context sequences, include ALL scenes in the returned sequence.
+- For surgical inference mode or compact-context sequences, return only changed/new scene objects inside the affected sequence. The system will merge them into the existing sequence.
 - Generate full, detailed narrative_action (100-200 words) and dramaturgical_function for modified or new scenes.
 - For unmodified scenes within a modified sequence, copy them verbatim from the input.
 - If a scene is split into multiple scenes, generate complete data for each new scene.
@@ -240,7 +298,7 @@ ${JSON.stringify(revisionBlueprint.context)}
 DIRECTOR'S FEEDBACK:
 ${feedback}
 
-OBJECTIVE: Apply the feedback. Return ONLY the sequences containing changes (with ALL their scenes). Do NOT return unmodified sequences.
+OBJECTIVE: Apply the feedback surgically. Return ONLY the sequences containing changes. For explicit full-context targets, include all scenes in the affected sequence. For surgical inference or compact-context sequences, include only changed/new scene objects so unrelated scenes remain untouched.
 
 FIDELITY RULES:
 - If feedback names a specific scene, tag, phrase, prop, function line, or scene merge/relocation, make that concrete change in the returned sequence.
@@ -297,7 +355,7 @@ Apply the smallest concrete edits required by the director's feedback now.
 - Do not return [] unless the feedback explicitly asks for no change.
 - If the latest user message is a short confirmation, implement the most recent concrete proposal in RECENT ASSISTANT CONTEXT or RECENT CONVERSATION CONTEXT.
 - If scene numbers have shifted, use sequence titles, headings, quoted phrases, and narrative context to find the closest affected sequence.
-- Return at least one changed sequence with all of its scenes unless it is truly impossible.`;
+- Return at least one changed sequence. In surgical inference mode, return only the changed/new scene object(s) inside that sequence.`;
 
             result = await runRevisionPrompt(enforcementPrompt, 'Stage 6 Revision enforcement');
             ({ modifiedSequences, updatedData } = parseAndMerge(result));
@@ -317,7 +375,7 @@ Return exactly the smallest sequence set needed to satisfy the director's feedba
 - If the feedback asks to restore a missing source beat, add or revise the closest scene so the beat is visibly present.
 - If the feedback asks to tighten/clarify a scene, rewrite that scene's narrative_action or dramaturgical_function so the change is concrete and inspectable.
 - Do not return a sequence that is byte-for-byte identical to the input.
-- Return modified sequence objects only, with all scenes included inside each modified sequence.`;
+- Return modified sequence objects only. In surgical inference mode, include only the changed/new scene object(s); do not include unrelated scenes.`;
 
             result = await runRevisionPrompt(finalRepairPrompt, 'Stage 6 Revision final repair');
             ({ modifiedSequences, updatedData } = parseAndMerge(result));

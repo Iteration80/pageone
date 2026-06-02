@@ -8273,6 +8273,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function shouldRegenerateStage6FromChat(notes) {
         const latest = latestUserRequestFromRevisionNotes(notes);
+        if (/\b(do not|don't|dont|not|never)\s+(?:fully\s+)?regenerate\b/i.test(latest)) return false;
         return /\b(regenerate|fresh blueprint|start over|new blueprint|new scene blueprint)\b/i.test(latest);
     }
 
