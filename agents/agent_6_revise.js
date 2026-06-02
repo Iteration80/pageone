@@ -303,12 +303,40 @@ Apply the smallest concrete edits required by the director's feedback now.
             ({ modifiedSequences, updatedData } = parseAndMerge(result));
         }
 
+        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+            const finalRepairPrompt = `${prompt}
+
+FINAL REPAIR PASS:
+Two revision attempts produced no saved blueprint changes. You must now return a concrete diff, not an unchanged copy.
+
+SECOND ATTEMPT RETURNED:
+${compactText(result.text, 1600)}
+
+Return exactly the smallest sequence set needed to satisfy the director's feedback.
+- At least one returned scene must differ from the current blueprint in narrative_action, dramaturgical_function, scene_heading, estimated_page_count, or scene count.
+- If the feedback asks to restore a missing source beat, add or revise the closest scene so the beat is visibly present.
+- If the feedback asks to tighten/clarify a scene, rewrite that scene's narrative_action or dramaturgical_function so the change is concrete and inspectable.
+- Do not return a sequence that is byte-for-byte identical to the input.
+- Return modified sequence objects only, with all scenes included inside each modified sequence.`;
+
+            result = await runRevisionPrompt(finalRepairPrompt, 'Stage 6 Revision final repair');
+            ({ modifiedSequences, updatedData } = parseAndMerge(result));
+        }
+
+        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+            const noChangeError = new Error('Stage 6 revision produced no blueprint changes after three attempts. Try naming the specific scene/sequence or the exact source beat to restore.');
+            noChangeError.code = 'NO_BLUEPRINT_CHANGES';
+            throw noChangeError;
+        }
+
         return {
             result: updatedData,
             usage: usageList.length > 1 ? usageList : usageList[0]
         };
     } catch (error) {
-        console.error('Error in Stage 6 Revision Agent:', error);
+        if (error.code !== 'NO_BLUEPRINT_CHANGES') {
+            console.error('Error in Stage 6 Revision Agent:', error);
+        }
         throw error;
     }
 };

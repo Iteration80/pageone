@@ -729,11 +729,11 @@ test('Stage 6 revision sends full text for explicitly targeted scenes', async ()
 
 test('Stage 6 revision retries when the first response produces no saved changes', async () => {
     const currentBlueprint = [{
-        sequence_number: 7,
+        sequence_number: 1,
         sequence_title: 'Inside the Kaiju',
         total_estimated_pages: 8,
         scenes: [{
-            scene_number: 57,
+            scene_number: 1,
             scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
             narrative_action: 'Slatern crosses porcelain and capes.',
             dramaturgical_function: 'Connective tissue.',
@@ -754,7 +754,7 @@ test('Stage 6 revision retries when the first response produces no saved changes
 
     const { result, usage } = await reviseStage6Scenes(
         currentBlueprint,
-        'Yes, refine Scene 57 so the porcelain floor has a real value shift.',
+        'Yes, refine Scene 1 so the porcelain floor has a real value shift.',
         { generateContentFn }
     );
 
@@ -762,6 +762,82 @@ test('Stage 6 revision retries when the first response produces no saved changes
     assert.match(collectText(calls[1].contents), /MANDATORY SECOND PASS/);
     assert.match(result[0].scenes[0].dramaturgical_function, /mercy bargain/);
     assert.equal(usage.length, 2);
+});
+
+test('Stage 6 revision final repair handles unchanged non-empty responses', async () => {
+    const currentBlueprint = [{
+        sequence_number: 1,
+        sequence_title: 'Inside the Kaiju',
+        total_estimated_pages: 8,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
+            narrative_action: 'Slatern crosses porcelain and capes.',
+            dramaturgical_function: 'Connective tissue.',
+            estimated_page_count: 1
+        }]
+    }];
+    const unchangedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{ ...currentBlueprint[0].scenes[0] }]
+    };
+    const revisedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{
+            ...currentBlueprint[0].scenes[0],
+            narrative_action: 'Slatern crosses porcelain and capes, but each cape now shows a child he once failed to protect.'
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder((_request, callNumber) => ({
+        text: JSON.stringify(callNumber < 3 ? [unchangedSequence] : [revisedSequence]),
+        usage: { inputTokens: callNumber, outputTokens: callNumber }
+    }));
+
+    const { result, usage } = await reviseStage6Scenes(
+        currentBlueprint,
+        'Scene 1: make the cape chamber emotionally specific.',
+        { generateContentFn }
+    );
+
+    assert.equal(calls.length, 3);
+    assert.match(collectText(calls[1].contents), /MANDATORY SECOND PASS/);
+    assert.match(collectText(calls[2].contents), /FINAL REPAIR PASS/);
+    assert.match(result[0].scenes[0].narrative_action, /failed to protect/);
+    assert.equal(usage.length, 3);
+});
+
+test('Stage 6 revision throws a specific no-change error after failed repair passes', async () => {
+    const currentBlueprint = [{
+        sequence_number: 1,
+        sequence_title: 'Inside the Kaiju',
+        total_estimated_pages: 8,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'INT. KAIJU PORCELAIN FLOOR - NIGHT',
+            narrative_action: 'Slatern crosses porcelain and capes.',
+            dramaturgical_function: 'Connective tissue.',
+            estimated_page_count: 1
+        }]
+    }];
+    const unchangedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{ ...currentBlueprint[0].scenes[0] }]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([unchangedSequence]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await assert.rejects(
+        reviseStage6Scenes(
+            currentBlueprint,
+            'Scene 1: make the cape chamber emotionally specific.',
+            { generateContentFn }
+        ),
+        error => error.code === 'NO_BLUEPRINT_CHANGES'
+            && /after three attempts/.test(error.message)
+    );
+    assert.equal(calls.length, 3);
 });
 
 test('Stage 6 revision merges numeric sequence ids against string blueprint ids', async () => {

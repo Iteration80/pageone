@@ -3841,10 +3841,13 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
     } catch (error) {
         console.error('Stage 6 Revision Error:', error.message);
+        const errorMessage = error.code === 'NO_BLUEPRINT_CHANGES'
+            ? error.message
+            : "Failed to revise scene blueprint";
         if (streaming) {
-            send({ type: 'error', message: "Failed to revise scene blueprint" });
+            send({ type: 'error', message: errorMessage });
         } else {
-            res.status(500).json({ error: "Failed to revise scene blueprint" });
+            res.status(500).json({ error: errorMessage });
         }
     } finally {
         if (heartbeat) clearInterval(heartbeat);
