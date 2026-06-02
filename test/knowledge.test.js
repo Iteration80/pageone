@@ -735,9 +735,11 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /function isStage6DirectRevisionRequest/);
     assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
-    assert.match(appJs, /externalFeedbackDump/);
-    assert.match(appJs, /explicitApplyIntent/);
+    assert.match(appJs, /function isStage6AnalysisOnlyFeedback/);
+    assert.match(appJs, /function isStage6ExternalFeedbackDump/);
+    assert.match(appJs, /function hasStage6ExplicitApplyIntent/);
     assert.match(appJs, /hard canon breaks/);
+    assert.match(appJs, /stage6AnalysisOnlyFeedback && data\.suggest_plan/);
     assert.match(appJs, /function shouldRegenerateStage6FromChat/);
     assert.match(appJs, /do not\|don't\|dont\|not\|never/);
     assert.match(appJs, /function reviseStage6Blueprint/);
@@ -760,6 +762,9 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(brainstormSkill, /constraint map/);
     assert.match(serverJs, /Project Constraint Map/);
     assert.match(serverJs, /Required passes/);
+    assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
+    assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
+    assert.match(serverJs, /Do not set suggest_plan true or execute_immediately true/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
 });
 

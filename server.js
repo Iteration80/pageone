@@ -2955,6 +2955,21 @@ function isStage6SourceComparisonRequest(message = '', hasAttachment = false) {
     return /\b(source|graphic novel|scene breakdown|compare|comparison|audit|missing|don't need|do not need|unnecessary|spiritually faithful|faithful)\b/.test(text);
 }
 
+function hasStage6ExplicitApplyIntent(message = '') {
+    const text = String(message || '');
+    const opening = text.slice(0, 420);
+    return /\b(?:please|pls|go ahead|apply|revise|update|implement|integrate|work in|make)\b[\s\S]{0,100}\b(?:these|this|following|feedback|notes|changes|fixes|blueprint|scene|sequence)\b/i.test(opening)
+        || /\b(?:apply|revise|update|implement|integrate|fix)\s+(?:the\s+)?(?:scene\s+)?blueprint\b/i.test(text);
+}
+
+function isStage6ExternalFeedbackReviewRequest(message = '') {
+    const text = String(message || '');
+    const opening = text.slice(0, 420);
+    const looksExternal = /\b(?:claude|gemini|coverage|reader|editor|script notes|feedback)\b/i.test(opening)
+        || /\b(?:tier\s+\d|hard canon breaks|what'?s working|craft flags|internal continuity)\b/i.test(text);
+    return (looksExternal || text.length > 1400) && !hasStage6ExplicitApplyIntent(text);
+}
+
 function extractNumberedSourceItems(text = '', maxItems = 120) {
     const items = [];
     const seen = new Set();
@@ -4285,7 +4300,8 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
 
         const stage4CurrentArtifactAnalysis = Number(stageId) === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
         const stage6SourceComparisonAnalysis = Number(stageId) === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
-        const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis
+        const stage6ExternalFeedbackReview = Number(stageId) === 6 && isStage6ExternalFeedbackReviewRequest(lastUserMessage);
+        const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview
             ? messages.filter(m => m.role === 'user').slice(-1)
             : messages;
 
@@ -4368,6 +4384,23 @@ Audit structure:
 Quality bar:
 - Before finalizing, scan the SOURCE ITEM INVENTORY again and verify every item ID appears in your response exactly once in the matrix.
 - If the writer later calls out a source item ID you missed, treat that as an audit failure and correct the coverage matrix, not as a brand-new idea.\n\n`;
+            }
+            if (stage6ExternalFeedbackReview) {
+                conversationPrompt += `## STAGE 6 EXTERNAL FEEDBACK REVIEW MODE
+The writer pasted a long note set from an external reviewer, coverage source, or another AI. Treat it as material to analyze and triage against the CURRENT Stage 6 scene blueprint, not as permission to revise.
+
+Hard rules:
+- Do not say or imply that any change was applied.
+- Do not set suggest_plan true or execute_immediately true for this turn.
+- Do not ask the revision engine to apply the whole note dump.
+- Identify which notes are hard project-constraint/continuity issues, which are craft suggestions, and which require a writer decision.
+- If the notes contain many fixes, recommend a small first surgical batch rather than attempting all of them at once.
+
+Output shape:
+1. Highest-risk findings from the feedback that appear plausible against the current blueprint.
+2. Items that need writer decision before changing.
+3. Items that are safe candidates for a later surgical pass.
+4. One recommended first batch, with scene numbers if clear.\n\n`;
             }
 
             for (const msg of messagesForPrompt) {

@@ -7996,6 +7996,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (normalizeSourceWarnings(data.sourceWarnings).length) {
                     await handleSourceGenerationResult(stageId, data, { chat, postGenerationCheck: false });
                 }
+                const stage6AnalysisOnlyFeedback = Number(stageId) === 6 && isStage6AnalysisOnlyFeedback(_text);
+                if (stage6AnalysisOnlyFeedback && data.suggest_plan) {
+                    data = { ...data, suggest_plan: false, execute_immediately: false };
+                }
                 chat.append('ai', data.message);
                 if (data.suggest_plan && data.execute_immediately) {
                     // Clear directive — execute revision immediately, no confirmation needed
@@ -8251,6 +8255,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return referencesCharacters && containsDirective && (structuredMemo || value.length > 80 || /\b(regenerate|re-generate|redo|rebuild|recast|from scratch)\b/i.test(value));
     }
 
+    function hasStage6ExplicitApplyIntent(text) {
+        const value = String(text || '').trim();
+        const opening = value.slice(0, 420);
+        return /\b(?:please|pls|go ahead|apply|revise|update|implement|integrate|work in|make)\b[\s\S]{0,100}\b(?:these|this|following|feedback|notes|changes|fixes|blueprint|scene|sequence)\b/i.test(opening)
+            || /\b(?:apply|revise|update|implement|integrate|fix)\s+(?:the\s+)?(?:scene\s+)?blueprint\b/i.test(value);
+    }
+
+    function isStage6ExternalFeedbackDump(text) {
+        const value = String(text || '').trim();
+        const opening = value.slice(0, 420);
+        return /\b(?:claude|gemini|coverage|reader|editor|script notes|feedback)\b/i.test(opening)
+            || /\b(?:tier\s+\d|hard canon breaks|what'?s working|craft flags|internal continuity)\b/i.test(value);
+    }
+
+    function isStage6AnalysisOnlyFeedback(text) {
+        const value = String(text || '').trim();
+        return (isStage6ExternalFeedbackDump(value) || value.length > 1400) && !hasStage6ExplicitApplyIntent(value);
+    }
+
     function isStage6DirectRevisionRequest(text) {
         const value = String(text || '').trim();
         if (value.length < 24) return false;
@@ -8259,13 +8282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
         if (asksForDiscussion) return false;
 
-        const opening = value.slice(0, 420);
-        const explicitApplyIntent = /\b(?:please|pls|go ahead|apply|revise|update|implement|integrate|work in|make)\b[\s\S]{0,100}\b(?:these|this|following|feedback|notes|changes|fixes|blueprint|scene|sequence)\b/i.test(opening)
-            || /\b(?:apply|revise|update|implement|integrate|fix)\s+(?:the\s+)?(?:scene\s+)?blueprint\b/i.test(value);
-        const externalFeedbackDump = /\b(?:claude|gemini|coverage|reader|editor|script notes|feedback)\b/i.test(opening)
-            || /\b(?:tier\s+\d|hard canon breaks|what'?s working|craft flags|internal continuity)\b/i.test(value);
-        if (externalFeedbackDump && !explicitApplyIntent) return false;
-        if (value.length > 1400 && !explicitApplyIntent) return false;
+        if (isStage6AnalysisOnlyFeedback(value)) return false;
 
         const referencesBlueprintTarget = /\bscene[s]?\s+\d+\b|\bsequence[s]?\s+\d+\b|\b\d+\s*\+\s*\d+\b|\bblueprint\b/i.test(value);
         const containsDirective = /\b(final[- ]polish|revision pass|relocation pass|refine|revise|apply|fix|restore|add|tag|strip|replace|rephrase|merge|compress|relocate|move|remove|delete|lock|confirm|keep|do not touch)\b/i.test(value);
