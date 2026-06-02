@@ -724,6 +724,41 @@ test('Stage 6 revision sends full text for explicitly targeted scenes', async ()
     assert.match(promptText, /REVISION TARGETS/);
     assert.match(promptText, /Scenes: 33/);
     assert.match(promptText, /former childhood friends/);
+    assert.match(promptText, /compact-context/);
+    assert.doesNotMatch(promptText, /full-target-context/);
+});
+
+test('Stage 6 revision sends full context for explicitly targeted sequences', async () => {
+    const currentBlueprint = [{
+        sequence_number: 4,
+        sequence_title: 'Rebecca',
+        total_estimated_pages: 10,
+        scenes: [{
+            scene_number: 33,
+            scene_heading: 'INT. REBECCA HOUSE - NIGHT',
+            narrative_action: 'Rebecca catches the lie.',
+            dramaturgical_function: 'Turns suspicion into action.',
+            estimated_page_count: 2
+        }]
+    }];
+    const revisedSequence = {
+        ...currentBlueprint[0],
+        scenes: [{
+            ...currentBlueprint[0].scenes[0],
+            dramaturgical_function: 'Clarifies the sequence pressure.'
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([revisedSequence]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await reviseStage6Scenes(currentBlueprint, 'Sequence 4: clarify the pressure ladder.', {
+        generateContentFn
+    });
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /Sequences: 4/);
     assert.match(promptText, /full-target-context/);
 });
 

@@ -8259,6 +8259,14 @@ document.addEventListener('DOMContentLoaded', () => {
             /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
         if (asksForDiscussion) return false;
 
+        const opening = value.slice(0, 420);
+        const explicitApplyIntent = /\b(?:please|pls|go ahead|apply|revise|update|implement|integrate|work in|make)\b[\s\S]{0,100}\b(?:these|this|following|feedback|notes|changes|fixes|blueprint|scene|sequence)\b/i.test(opening)
+            || /\b(?:apply|revise|update|implement|integrate|fix)\s+(?:the\s+)?(?:scene\s+)?blueprint\b/i.test(value);
+        const externalFeedbackDump = /\b(?:claude|gemini|coverage|reader|editor|script notes|feedback)\b/i.test(opening)
+            || /\b(?:tier\s+\d|hard canon breaks|what'?s working|craft flags|internal continuity)\b/i.test(value);
+        if (externalFeedbackDump && !explicitApplyIntent) return false;
+        if (value.length > 1400 && !explicitApplyIntent) return false;
+
         const referencesBlueprintTarget = /\bscene[s]?\s+\d+\b|\bsequence[s]?\s+\d+\b|\b\d+\s*\+\s*\d+\b|\bblueprint\b/i.test(value);
         const containsDirective = /\b(final[- ]polish|revision pass|relocation pass|refine|revise|apply|fix|restore|add|tag|strip|replace|rephrase|merge|compress|relocate|move|remove|delete|lock|confirm|keep|do not touch)\b/i.test(value);
         const structuredMemo = /\n\s*(?:\d+\.|[-*]\s+|==)/.test(value);

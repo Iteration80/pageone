@@ -735,6 +735,9 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /function isStage6DirectRevisionRequest/);
     assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.match(appJs, /externalFeedbackDump/);
+    assert.match(appJs, /explicitApplyIntent/);
+    assert.match(appJs, /hard canon breaks/);
     assert.match(appJs, /function shouldRegenerateStage6FromChat/);
     assert.match(appJs, /do not\|don't\|dont\|not\|never/);
     assert.match(appJs, /function reviseStage6Blueprint/);

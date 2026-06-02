@@ -15,6 +15,7 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
     const lower = text.toLowerCase();
     const sceneNumbers = new Set();
     const sequenceNumbers = new Set();
+    const explicitSequenceNumbers = new Set();
 
     for (const match of text.matchAll(/\bscene[s]?\s+(\d+)(?:\s*(?:-|to|through|thru)\s*(\d+))?/gi)) {
         const start = Number(match[1]);
@@ -40,13 +41,19 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
         const start = Number(match[1]);
         const end = Number(match[2] || match[1]);
         if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
-        for (let n = Math.min(start, end); n <= Math.max(start, end); n++) sequenceNumbers.add(n);
+        for (let n = Math.min(start, end); n <= Math.max(start, end); n++) {
+            sequenceNumbers.add(n);
+            explicitSequenceNumbers.add(n);
+        }
     }
 
     for (const match of text.matchAll(/\bsequence[s]?\s+(\d+(?:\s*(?:,|and|&|\+)\s*\d+)+)/gi)) {
         for (const item of match[1].match(/\d+/g) || []) {
             const n = Number(item);
-            if (Number.isFinite(n)) sequenceNumbers.add(n);
+            if (Number.isFinite(n)) {
+                sequenceNumbers.add(n);
+                explicitSequenceNumbers.add(n);
+            }
         }
     }
 
@@ -64,6 +71,7 @@ function parseRevisionTargets(currentBlueprint = [], feedback = '') {
     return {
         sceneNumbers,
         sequenceNumbers,
+        explicitSequenceNumbers,
         hasExplicitTargets,
         includeAllFull: globalEdit && !hasExplicitTargets
     };
@@ -81,7 +89,7 @@ function buildRevisionBlueprintContext(currentBlueprint = [], feedback = '') {
 
     const context = currentBlueprint.map(seq => {
         const sequenceNumber = Number(seq.sequence_number);
-        const includeFullSequence = targets.includeAllFull || targets.sequenceNumbers.has(sequenceNumber);
+        const includeFullSequence = targets.includeAllFull || targets.explicitSequenceNumbers.has(sequenceNumber);
         return {
             sequence_number: seq.sequence_number,
             sequence_title: seq.sequence_title,
