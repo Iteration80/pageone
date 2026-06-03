@@ -10,6 +10,31 @@ function compactText(value, maxChars = 4000) {
     return `${text.slice(0, maxChars - 120).trim()}\n\n[...truncated ${text.length - maxChars + 120} chars...]`;
 }
 
+function buildRevisionChecklist(feedback = '', maxItems = 24) {
+    const lines = String(feedback || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+    const items = [];
+
+    for (const line of lines) {
+        const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.+)/);
+        if (!bullet) continue;
+        const text = bullet[1]
+            .replace(/\*\*/g, '')
+            .replace(/^#+\s*/, '')
+            .trim();
+        if (!text || text.length < 12) continue;
+        items.push(compactText(text, 420));
+        if (items.length >= maxItems) break;
+    }
+
+    if (!items.length) return '';
+    return `REVISION CHECKLIST:
+Treat these as explicit obligations from the feedback. For each item, either make the requested concrete change in the affected scene/sequence, or leave it unchanged only if the current blueprint is already compliant. Do not silently skip checklist items.
+${items.map((item, index) => `${index + 1}. ${item}`).join('\n')}`;
+}
+
 function parseRevisionTargets(currentBlueprint = [], feedback = '') {
     const text = String(feedback || '');
     const lower = text.toLowerCase();
@@ -295,11 +320,13 @@ CRITICAL RULES:
     };
 
     const revisionBlueprint = buildRevisionBlueprintContext(currentBlueprint, feedback);
+    const revisionChecklist = buildRevisionChecklist(feedback);
 
     const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 6 Scene Blueprint Revision');
     const prompt = `${sourceBlock}REVISION TARGETS:
 ${revisionBlueprint.targetSummary}
 
+${revisionChecklist ? `${revisionChecklist}\n\n` : ''}
 CURRENT SCENE BLUEPRINT (JSON — targeted sequences/scenes include full text; compact-context sequences are for orientation only):
 ${JSON.stringify(revisionBlueprint.context)}
 

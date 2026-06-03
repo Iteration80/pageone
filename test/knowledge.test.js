@@ -732,6 +732,7 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const brainstormSkill = fs.readFileSync(require.resolve('../skills/skill_brainstorm.md'), 'utf8');
+    const stage6RevisionAgent = fs.readFileSync(require.resolve('../agents/agent_6_revise.js'), 'utf8');
     assert.match(appJs, /function isStage6DirectRevisionRequest/);
     assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
@@ -756,14 +757,21 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /CONFIRMATION HANDOFF/);
     assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
     assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
+    assert.match(appJs, /Review the updated output before treating any broader feedback list as complete/);
+    assert.doesNotMatch(appJs, /chat\.history\.push\(\{ role: 'user', content: '\[Revision applied successfully/);
     assert.match(appJs, /dataset\.sceneNumber/);
     assert.match(fs.readFileSync(require.resolve('../public/style.css'), 'utf8'), /scene-card-revision-highlight/);
     assert.match(brainstormSkill, /Project-Agnostic Thinking Protocol/);
     assert.match(brainstormSkill, /constraint map/);
     assert.match(brainstormSkill, /stay inside that active scope/);
     assert.match(brainstormSkill, /dormant craft note/);
+    assert.match(brainstormSkill, /Do not infer page numbers from scene numbers or plot order/);
+    assert.match(brainstormSkill, /Do not surface the next unresolved item/);
     assert.match(serverJs, /Project Constraint Map/);
     assert.match(serverJs, /Required passes/);
+    assert.match(serverJs, /SOURCE LOCATION GROUNDING MODE/);
+    assert.match(serverJs, /Do not infer a page number from a scene number/);
+    assert.match(serverJs, /Review the updated artifact before treating any broader feedback list as complete/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
     assert.match(serverJs, /Do not set suggest_plan true or execute_immediately true/);
@@ -771,6 +779,9 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(serverJs, /same active batch or the next unresolved decision from that same triage/);
     assert.match(serverJs, /dormant notes from earlier feedback as competing next steps/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
+    assert.match(stage6RevisionAgent, /function buildRevisionChecklist/);
+    assert.match(stage6RevisionAgent, /Treat these as explicit obligations from the feedback/);
+    assert.match(stage6RevisionAgent, /Do not silently skip checklist items/);
 });
 
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {

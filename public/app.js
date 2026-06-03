@@ -7858,33 +7858,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `LATEST USER REQUEST:\n${latestUserMessage}\n\nUSER REQUESTS:\n${allUserMessages}${confirmationHandoff}\n\nRECENT ASSISTANT CONTEXT:\n${recentAssistantMessages || 'No prior assistant proposal captured.'}\n\nRECENT CONVERSATION CONTEXT:\n${recentConversation}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
                 };
 
-                // After a revision completes, call brainstorm to continue the conversation
-                // (e.g., circle back to remaining items from a multi-item analysis)
-                const postRevisionFollowUp = async () => {
-                    chat.history.push({ role: 'user', content: '[Revision applied successfully. Continue the conversation.]' });
-                    chat.setThinking(true);
-                    try {
-                        const res = await fetch('/api/brainstorm', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, stageId, messages: chat.history })
-                        });
-                        if (res.ok) {
-                            const followUp = await res.json();
-                            chat.setThinking(false);
-                            chat.append('ai', followUp.message);
-                            if (followUp.suggest_plan) {
-                                pendingRevision = true;
-                                pendingNotes = followUp.message;
-                            }
-                        } else {
-                            chat.setThinking(false);
-                            chat.append('ai', 'Done. Review the changes above, then approve when ready.');
-                        }
-                    } catch {
-                        chat.setThinking(false);
-                        chat.append('ai', 'Done. Review the changes above, then approve when ready.');
-                    }
+                const postRevisionFollowUp = async (revisionResult = {}) => {
+                    const changedScenes = Array.isArray(revisionResult.changedSceneNumbers)
+                        ? revisionResult.changedSceneNumbers
+                            .filter(n => Number.isFinite(Number(n)))
+                            .map(n => Number(n))
+                            .sort((a, b) => a - b)
+                        : [];
+                    const sceneNote = changedScenes.length
+                        ? ` Changed scenes: ${changedScenes.join(', ')}.`
+                        : '';
+                    const outputName = Number(stageId) === 6
+                        ? 'scene blueprint'
+                        : (STAGE_LABELS[stageId] || 'stage output').toLowerCase();
+                    chat.append('ai', `Applied to the saved ${outputName}.${sceneNote} Review the updated output before treating any broader feedback list as complete.`);
                 };
 
                 if (pendingRevision && !attachment && isRevisionConfirmation(_text, history)) {
@@ -7899,7 +7886,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
                         }
                         indicator.remove();
-                        await postRevisionFollowUp();
+                        await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
@@ -7923,7 +7910,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             throw new Error('The revision engine returned no saved changes, so I did not mark this as applied.');
                         }
                         indicator.remove();
-                        await postRevisionFollowUp();
+                        await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);
@@ -7960,7 +7947,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
                         }
                         indicator.remove();
-                        await postRevisionFollowUp();
+                        await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'I tried to apply that, but the saved blueprint came back unchanged: ' + err.message);
@@ -8011,7 +7998,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
                         }
                         indicator.remove();
-                        await postRevisionFollowUp();
+                        await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'Something went wrong: ' + err.message);

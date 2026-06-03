@@ -4301,6 +4301,9 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         const stage4CurrentArtifactAnalysis = Number(stageId) === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
         const stage6SourceComparisonAnalysis = Number(stageId) === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
         const stage6ExternalFeedbackReview = Number(stageId) === 6 && isStage6ExternalFeedbackReviewRequest(lastUserMessage);
+        const sourceLocationQuestion = !isInit
+            && /\b(page|pages|issue|source\s+(?:scene|beat|location)|where\s+in\s+the\s+source|where\s+does\b.*\bsource)\b/i.test(lastUserMessage)
+            && /\b(source|comic|graphic novel|book|document|page|issue)\b/i.test(lastUserMessage);
         const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview
             ? messages.filter(m => m.role === 'user').slice(-1)
             : messages;
@@ -4403,6 +4406,15 @@ Output shape:
 3. Items that are safe candidates for a later surgical pass.
 4. One recommended first batch, with scene numbers if clear.\n\n`;
             }
+            if (sourceLocationQuestion) {
+                conversationPrompt += `## SOURCE LOCATION GROUNDING MODE
+The writer is asking for a page, issue, or source-location citation. Treat this as a factual evidence request, not an editorial inference.
+
+Hard rules:
+- Only give a page number, issue number, source item ID, or "corresponds to" claim if that exact locator is visible in the current prompt, attached source text, or project memory.
+- Do not infer a page number from a scene number, plot order, or a plausible memory of the story.
+- If the exact locator is not available, say you cannot verify the source location from the available context. You may still cite the current project scene/beat that triggered the question, clearly labeled as the current artifact rather than the source.\n\n`;
+            }
 
             for (const msg of messagesForPrompt) {
                 conversationPrompt += `${msg.role === 'user' ? 'WRITER' : 'YOU'}: ${msg.content}\n\n`;
@@ -4441,12 +4453,30 @@ Output shape:
         const isPostRevision = !isInit && lastMsg?.role === 'user' &&
             typeof lastMsg?.content === 'string' &&
             lastMsg.content.includes('[Revision applied successfully');
+        if (isPostRevision) {
+            const result = {
+                message: 'Applied to the saved output. Review the updated artifact before treating any broader feedback list as complete.',
+                suggest_plan: false,
+                execute_immediately: false
+            };
+            const messagesWithoutTrigger = messages.filter(m => {
+                return !(m?.role === 'user'
+                    && typeof m?.content === 'string'
+                    && m.content.includes('[Revision applied successfully'));
+            });
+            await persistStageConversation(filePath, projectData, `stage${stageId}`, messagesWithoutTrigger, result.message);
+            return res.json({
+                ...result,
+                ...(savedSource && { savedSource }),
+                ...(sourceMemory && { sourceMemory })
+            });
+        }
         const systemInstruction = isPostRevision
             ? `POST-REVISION RESPONSE — OVERRIDE ALL OTHER INSTRUCTIONS FOR THIS TURN:
-1. Write ONE sentence acknowledging the specific change just applied. Name only that revision. Stop.
-2. On the next line, surface the next unresolved item from earlier in the conversation, by name. If none remain, ask if there is anything else.
+1. Write ONE sentence saying the saved output was updated and the writer should review it.
+2. Do NOT surface the next unresolved item.
 3. Do NOT list, recap, or reference any changes made in earlier turns. No "We've also..." or "We've now addressed X, Y, and Z."
-4. Do NOT ask "Want me to go ahead?" — the writer is in an active approval flow.
+4. Do NOT claim a broader checklist is complete.
 5. Set suggest_plan: false and execute_immediately: false.
 
 ${brainstormSop}`
