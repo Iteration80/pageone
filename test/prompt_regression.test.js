@@ -206,7 +206,15 @@ test('Stage 2 outline checklist repairs missing concrete restore beats', async (
         logline: pitch.logline,
         outline: {
             ...currentOutline,
-            act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' }] }]
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' },
+                    { beat_label: 'Morning After', description: 'Rebecca sets breakfast for three while Furdlegurr is visible to both survivors.' },
+                    { beat_label: 'Containment Visits', description: 'Visitor passes for Dapple and Scott are approved elsewhere in the aftermath.' },
+                    { beat_label: 'Old Photo', description: 'A photo of young Becky catches light in the hallway, away from the kitchen.' }
+                ]
+            }]
         }
     };
     const repairedResponse = {

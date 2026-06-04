@@ -119,15 +119,57 @@ function checklistTerms(item = '') {
         .filter(token => token.length >= 4 && !CHECKLIST_STOPWORDS.has(token))));
 }
 
+function outlineCoverageUnits(outlineResult = {}) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    const acts = [outline.act_1, outline.act_2, outline.act_3].filter(Array.isArray);
+    const beatUnits = [];
+    const sequenceUnits = [];
+
+    for (const act of acts) {
+        for (const sequence of act) {
+            if (!sequence || typeof sequence !== 'object') continue;
+            const sequenceTitle = sequence.sequence_number_and_title || '';
+            const beatTexts = [];
+            for (const beat of sequence.beats || []) {
+                const text = [
+                    sequenceTitle,
+                    beat?.beat_label || beat?.beat || '',
+                    beat?.description || ''
+                ].join(' ').toLowerCase();
+                if (text.trim()) {
+                    beatUnits.push(text);
+                    beatTexts.push(text);
+                }
+            }
+            const sequenceText = [sequenceTitle, ...beatTexts].join(' ').toLowerCase();
+            if (sequenceText.trim()) sequenceUnits.push(sequenceText);
+        }
+    }
+
+    return { beatUnits, sequenceUnits };
+}
+
+function requiresBeatLevelCoverage(item = '') {
+    return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|framed in the light)\b/i.test(item);
+}
+
+function unitCoversChecklistItem(unit = '', terms = [], item = '') {
+    if (!terms.length) return true;
+    const found = terms.filter(term => unit.includes(term)).length;
+    const required = requiresBeatLevelCoverage(item)
+        ? Math.min(8, Math.max(4, Math.ceil(terms.length * 0.55)))
+        : Math.min(7, Math.max(3, Math.ceil(terms.length * 0.45)));
+    return found >= required;
+}
+
 function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
     if (!checklist.length) return [];
-    const outlineText = JSON.stringify(outlineResult?.outline || outlineResult || {}).toLowerCase();
+    const { beatUnits, sequenceUnits } = outlineCoverageUnits(outlineResult);
     return checklist.filter(item => {
         const terms = checklistTerms(item);
         if (terms.length < 4) return false;
-        const found = terms.filter(term => outlineText.includes(term)).length;
-        const required = Math.min(6, Math.max(3, Math.ceil(terms.length * 0.35)));
-        return found < required;
+        const units = requiresBeatLevelCoverage(item) ? beatUnits : beatUnits.concat(sequenceUnits);
+        return !units.some(unit => unitCoversChecklistItem(unit, terms, item));
     });
 }
 
