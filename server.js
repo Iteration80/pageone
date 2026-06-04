@@ -54,7 +54,7 @@ function safeParse(str, fallback = null) {
     try { return JSON.parse(str); } catch { return fallback; }
 }
 
-function publicErrorDetail(error, maxChars = 240) {
+function publicErrorDetail(error, maxChars = 900) {
     const message = String(error?.message || '').trim();
     if (!message) return '';
     return message

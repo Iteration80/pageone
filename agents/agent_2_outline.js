@@ -57,8 +57,21 @@ function compactText(value, maxChars = 900) {
 
 function latestConcreteRevisionText(notes = '') {
     const text = String(notes || '').trim();
-    const latest = text.match(/LATEST USER REQUEST:\n([\s\S]*?)\n\nUSER REQUESTS:/);
-    const extracted = (latest ? latest[1] : text).trim();
+    const sectionPattern = /LATEST USER REQUEST:\r?\n([\s\S]*?)(?=\r?\n\r?\n(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):|$)/g;
+    const matches = Array.from(text.matchAll(sectionPattern));
+    const latest = matches.length ? matches[matches.length - 1][1] : '';
+    let extracted = (latest || '').trim();
+
+    if (!extracted && /RECENT CONVERSATION CONTEXT:/i.test(text)) {
+        const recent = text.split(/RECENT CONVERSATION CONTEXT:\r?\n/i).pop() || '';
+        const userMatches = Array.from(recent.matchAll(/(?:^|\n)USER:\r?\n([\s\S]*?)(?=\r?\n\r?\n---\r?\n\r?\n(?:USER|ASSISTANT):|$)/g));
+        extracted = (userMatches.length ? userMatches[userMatches.length - 1][1] : '').trim();
+    }
+
+    if (!extracted && !/(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):/i.test(text)) {
+        extracted = text;
+    }
+
     if (extracted && !/^(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|sounds good)[\s.!]*$/i.test(extracted)) {
         return extracted;
     }
@@ -77,7 +90,13 @@ function looksLikeChecklistHeader(line = '') {
 
 function buildRevisionChecklist(notes = '', maxItems = 12) {
     const text = latestConcreteRevisionText(notes);
-    if (!text || !/\n/.test(text)) return [];
+    if (!text) return [];
+    if (!/\n/.test(text)) {
+        return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore)\b/i.test(text)
+            && text.length > 40
+            ? [compactText(text, 800)]
+            : [];
+    }
 
     const blocks = text
         .split(/\n\s*\n/)
@@ -304,12 +323,18 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         const revisionSystemInstruction = `${outlineSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user's note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story's cause-and-effect makes logical sense. Maintain the exact same JSON schema.`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        const activeRevisionRequest = latestConcreteRevisionText(notes);
         const revisionChecklist = buildRevisionChecklist(notes);
         const checklistBlock = revisionChecklist.length
             ? `\nREVISION CHECKLIST:\nTreat each item below as a concrete obligation. It must be visibly present in the revised outline, unless the current outline already contains it.\n${revisionChecklist.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n`
             : '';
-        const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
+        const backgroundNotes = activeRevisionRequest && notes && activeRevisionRequest !== String(notes).trim()
+            ? `\nBACKGROUND CONVERSATION NOTES (context only; do not treat older requests here as required unless repeated in the active request):\n${compactText(notes, 5000)}\n`
+            : '';
+        const revisionPrompt = `${sourceBlock}ACTIVE REVISION REQUEST:
+${activeRevisionRequest || notes}
 ${checklistBlock}
+${backgroundNotes}
 
 EXISTING OUTLINE:
 ${JSON.stringify(currentOutline, null, 2)}
@@ -348,7 +373,7 @@ MISSING OR UNDERREPRESENTED CHECKLIST ITEMS:
 ${missingChecklistItems.map((item, index) => `${index + 1}. ${item}`).join('\n')}
 
 ORIGINAL USER NOTE:
-${notes}
+${activeRevisionRequest || notes}
 
 EXISTING OUTLINE BEFORE REVISION:
 ${JSON.stringify(currentOutline, null, 2)}

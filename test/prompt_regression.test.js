@@ -256,6 +256,81 @@ Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdle
     assert.match(JSON.stringify(result.outline), /visitor passes for Dapple and Scott/);
 });
 
+test('Stage 2 outline checklist scopes repair to latest concrete request', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Final Image', description: 'The house is quiet.' }] }]
+    };
+    const firstResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' },
+                    { beat_label: 'Morning After', description: 'Rebecca sets breakfast for three.' }
+                ]
+            }]
+        }
+    };
+    const repairedResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' },
+                    { beat_label: 'Kitchen Closing Image', description: 'A photo of young Becky and Dapple is framed in the kitchen light. Breakfast for three waits on the table, Furdlegurr is visible to both, and visitor passes for Dapple and Scott sit beside the plates.' }
+                ]
+            }]
+        }
+    };
+    const notesBundle = `LATEST USER REQUEST:
+Kitchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image should stay.
+
+USER REQUESTS:
+Stuff To Restore
+Dapple's voluntary surrender
+He shrinks, could run, sees Scott, chooses kindness, lets himself be cuffed.
+
+Kitchen closing image
+Photo of young Becky and Dapple framed in the light.
+
+RECENT ASSISTANT CONTEXT:
+On it — restoring the kitchen closing image to the end of Sequence H.
+
+ASSISTANT DIRECTION:
+On it — restoring the kitchen closing image to the end of Sequence H.`;
+    const { calls, generateContentFn } = makeRecorder((_request, callIndex) => ({
+        text: JSON.stringify(callIndex === 1 ? firstResponse : repairedResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 2);
+    const firstPrompt = collectText(calls[0].contents);
+    const repairPrompt = collectText(calls[1].contents);
+    assert.match(firstPrompt, /ACTIVE REVISION REQUEST/);
+    assert.match(firstPrompt, /BACKGROUND CONVERSATION NOTES \(context only/);
+    const missingSection = repairPrompt.match(/MISSING OR UNDERREPRESENTED CHECKLIST ITEMS:\n([\s\S]*?)\n\nORIGINAL USER NOTE:/)?.[1] || '';
+    assert.match(missingSection, /Kitchen closing image/);
+    assert.doesNotMatch(missingSection, /voluntary surrender/i);
+    assert.match(JSON.stringify(result.outline), /visitor passes for Dapple and Scott/);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",
