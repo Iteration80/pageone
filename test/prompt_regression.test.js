@@ -331,6 +331,50 @@ On it — restoring the kitchen closing image to the end of Sequence H.`;
     assert.match(JSON.stringify(result.outline), /visitor passes for Dapple and Scott/);
 });
 
+test('Stage 2 outline deterministically appends checklist beat after failed repair', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Final Image', description: 'The house is quiet.' }] }]
+    };
+    const missingKitchenResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Aftermath', description: 'Dapple and Scott receive visitor approvals, while Rebecca makes breakfast elsewhere.' }
+                ]
+            }]
+        }
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(missingKitchenResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, `LATEST USER REQUEST:
+itchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
+
+USER REQUESTS:
+Older request that should not become the active checklist.`, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 2);
+    const finalSequence = result.outline.act_3[0];
+    assert.equal(finalSequence.sequence_number_and_title, 'Sequence H');
+    assert.match(JSON.stringify(finalSequence.beats), /Kitchen Closing Image/);
+    assert.match(JSON.stringify(finalSequence.beats), /photo of young Becky and Dapple framed in the light/i);
+    assert.match(JSON.stringify(finalSequence.beats), /visitor passes for Dapple and Scott/i);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",

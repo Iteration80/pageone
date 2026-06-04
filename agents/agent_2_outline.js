@@ -127,7 +127,7 @@ const CHECKLIST_STOPWORDS = new Set([
     'about', 'above', 'absolutely', 'across', 'after', 'again', 'also', 'because', 'before', 'being',
     'both', 'chunk', 'chunks', 'doing', 'ensure', 'every', 'final', 'from', 'have', 'image', 'into',
     'keeps', 'last', 'lets', 'more', 'much', 'needs', 'note', 'old', 'only', 'outline', 'real',
-    'restore', 'restoring', 'should', 'specific', 'still', 'that', 'their', 'there', 'these', 'thing',
+    'missing', 'please', 'restore', 'restoring', 'should', 'specific', 'still', 'that', 'their', 'there', 'these', 'thing',
     'three', 'through', 'visible', 'with', 'work', 'would'
 ]);
 
@@ -190,6 +190,81 @@ function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
         const units = requiresBeatLevelCoverage(item) ? beatUnits : beatUnits.concat(sequenceUnits);
         return !units.some(unit => unitCoversChecklistItem(unit, terms, item));
     });
+}
+
+function titleCaseLabel(value = '') {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s'-]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 7)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ') || 'Restored Beat';
+}
+
+function beatLabelForChecklistItem(item = '') {
+    const text = String(item || '');
+    if (/\b(?:kitchen|itchen|closing image|final image|photo|breakfast|visitor passes?)\b/i.test(text)) {
+        return 'Kitchen Closing Image';
+    }
+    const colon = text.match(/^([^:]{4,80}):/);
+    if (colon) return titleCaseLabel(colon[1]);
+    return titleCaseLabel(text);
+}
+
+function beatDescriptionForChecklistItem(item = '') {
+    let text = String(item || '')
+        .replace(/\s*-->[\s\S]*$/g, '')
+        .replace(/\bthis is still missing\b[\s\S]*$/i, '')
+        .replace(/\bplease restore\.?$/i, '')
+        .trim();
+
+    const colon = text.match(/^[^:]{4,80}:\s*([\s\S]+)$/);
+    if (colon?.[1]) text = colon[1].trim();
+
+    const photoIndex = text.search(/\bphoto\b/i);
+    if (photoIndex > 0 && /\b(?:kitchen|itchen|closing image|final image)\b/i.test(item)) {
+        text = text.slice(photoIndex).trim();
+    }
+    if (/^photo of\b/i.test(text)) text = text.replace(/^photo of/i, 'a photo of');
+    if (/\b(?:kitchen|itchen|closing image)\b/i.test(item) && !/^in the kitchen\b/i.test(text)) {
+        text = `In the kitchen, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    }
+    if (text && !/[.!?]$/.test(text)) text += '.';
+    return text || compactText(item, 800);
+}
+
+function finalOutlineSequence(outline = {}, item = '') {
+    const acts = [outline.act_3, outline.act_2, outline.act_1].filter(Array.isArray);
+    for (const act of acts) {
+        if (!act.length) continue;
+        const explicitH = act.find(sequence => /sequence\s*h\b/i.test(sequence?.sequence_number_and_title || ''));
+        if (explicitH && /\b(?:sequence\s*h|closing|final|coda|ending|kitchen|photo|breakfast|visitor passes?)\b/i.test(item)) {
+            return explicitH;
+        }
+        return act[act.length - 1];
+    }
+    outline.act_3 = [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }];
+    return outline.act_3[0];
+}
+
+function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
+    if (!missingItems.length) return outlineResult;
+    const outline = outlineResult?.outline || outlineResult || {};
+    if (!outline.act_1) outline.act_1 = [];
+    if (!outline.act_2) outline.act_2 = [];
+    if (!outline.act_3) outline.act_3 = [];
+
+    for (const item of missingItems) {
+        const sequence = finalOutlineSequence(outline, item);
+        if (!Array.isArray(sequence.beats)) sequence.beats = [];
+        sequence.beats.push({
+            beat_label: beatLabelForChecklistItem(item),
+            description: beatDescriptionForChecklistItem(item)
+        });
+    }
+    return outlineResult;
 }
 
 async function callOutlineModel(generateContentFn, request, { label = 'Stage 2 outline call', retries = 2, delayMs = 750 } = {}) {
@@ -408,6 +483,10 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
             repaired.usage = combineUsage(parsed.usage, repaired.usage);
             parsed = repaired;
             missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+            if (missingChecklistItems.length) {
+                appendMissingChecklistBeats(parsed.result, missingChecklistItems);
+                missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+            }
         }
 
         if (missingChecklistItems.length) {
