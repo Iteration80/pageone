@@ -543,6 +543,8 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /readSSEStream\(response/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
+    assert.match(serverJs, /const changed = !notesWithUpload \|\| beforeOutlineHash !== sourcePlanDataHash/);
+    assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
 });
 
 test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
@@ -753,6 +755,14 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /Revision completed, but the updated blueprint could not be refreshed/);
     assert.match(appJs, /highlightStage6ChangedScenes/);
     assert.match(appJs, /returned no blueprint changes/);
+    assert.match(appJs, /const assertRevisionApplied =/);
+    assert.match(appJs, /The revision engine did not report saved changes/);
+    assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentPitch\) !== JSON\.stringify/);
+    assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
+    assert.match(appJs, /changed: completeEvent\.changed !== false && JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
+    assert.match(appJs, /changed: completeEvent\.changed !== false && JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
+    assert.match(appJs, /return \{ \.\.\.data, changed: true \}/);
+    assert.match(appJs, /stage8LoadEditor\(data\.result\)[\s\S]*return data;/);
     assert.match(appJs, /latestIsConfirmation/);
     assert.match(appJs, /CONFIRMATION HANDOFF/);
     assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
@@ -772,6 +782,11 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(serverJs, /SOURCE LOCATION GROUNDING MODE/);
     assert.match(serverJs, /Do not infer a page number from a scene number/);
     assert.match(serverJs, /Review the updated artifact before treating any broader feedback list as complete/);
+    assert.match(serverJs, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
+    assert.match(serverJs, /const beforeCharactersHash = sourcePlanDataHash/);
+    assert.match(serverJs, /const beforeStage4Hash = sourcePlanDataHash/);
+    assert.match(serverJs, /const beforeStage5Hash = sourcePlanDataHash/);
+    assert.match(serverJs, /const beforeDraftHash = sourcePlanDataHash/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
     assert.match(serverJs, /Do not set suggest_plan true or execute_immediately true/);

@@ -7874,6 +7874,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.append('ai', `Applied to the saved ${outputName}.${sceneNote} Review the updated output before treating any broader feedback list as complete.`);
                 };
 
+                const assertRevisionApplied = (revisionResult, message = 'The revision engine did not report saved changes, so I did not mark this as applied.') => {
+                    if (!revisionResult || revisionResult.changed === false) {
+                        throw new Error(message);
+                    }
+                };
+
                 if (pendingRevision && !attachment && isRevisionConfirmation(_text, history)) {
                     const notesForRevision = pendingNotes;
                     pendingRevision = false;
@@ -7882,9 +7888,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const indicator = showWorking();
                     try {
                         const revisionResult = await executeRevision(buildRevisionNotes(notesForRevision, history));
-                        if (revisionResult && revisionResult.changed === false) {
-                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
-                        }
+                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
                         indicator.remove();
                         await postRevisionFollowUp(revisionResult);
                     } catch (err) {
@@ -7906,9 +7910,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const indicator = showWorking();
                     try {
                         const revisionResult = await executeRevision(buildRevisionNotes('Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.', history));
-                        if (revisionResult && revisionResult.changed === false) {
-                            throw new Error('The revision engine returned no saved changes, so I did not mark this as applied.');
-                        }
+                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
                         indicator.remove();
                         await postRevisionFollowUp(revisionResult);
                     } catch (err) {
@@ -7925,9 +7927,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.setDisabled(true);
                     const indicator = showWorking();
                     try {
-                        await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
+                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
+                        assertRevisionApplied(revisionResult, 'The character revision returned no saved changes, so I did not mark this as applied.');
                         indicator.remove();
-                        await postRevisionFollowUp();
+                        await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
                         chat.append('ai', 'I tried to apply that, but the character revision failed: ' + err.message);
@@ -7943,9 +7946,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const indicator = showWorking();
                     try {
                         const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
-                        if (revisionResult && revisionResult.changed === false) {
-                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
-                        }
+                        assertRevisionApplied(revisionResult, 'The revision engine returned no blueprint changes, so I did not mark this as applied.');
                         indicator.remove();
                         await postRevisionFollowUp(revisionResult);
                     } catch (err) {
@@ -7994,9 +7995,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const indicator = showWorking();
                     try {
                         const revisionResult = await executeRevision(buildRevisionNotes(data.message, history));
-                        if (revisionResult && revisionResult.changed === false) {
-                            throw new Error('The revision engine returned no blueprint changes, so I did not mark this as applied.');
-                        }
+                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
                         indicator.remove();
                         await postRevisionFollowUp(revisionResult);
                     } catch (err) {
@@ -8076,6 +8075,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Pitch revision failed'));
             const data = await res.json();
             await handleSourceGenerationResult(1, data, { chat: stageChatWindows[1] });
+            let updatedPitch = null;
             if (data.result) {
                 currentFields.forEach(f => {
                     const key = f.getAttribute('data-field');
@@ -8087,7 +8087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 toggleStage1EditMode(false);
                 // Auto-save revised pitch so changes survive a refresh
-                const updatedPitch = {};
+                updatedPitch = {};
                 currentFields.forEach(f => { updatedPitch[f.getAttribute('data-field')] = f.value; });
                 if (window.currentProjectData) window.currentProjectData.stage1_pitch = { pitch: updatedPitch };
                 await fetch(`/api/projects/${activeProjectId}`, {
@@ -8096,6 +8096,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ data: { stage1_pitch: { pitch: updatedPitch, notes: stage1Notes?.value ?? '' } } })
                 });
             }
+            return {
+                ...data,
+                changed: data.changed !== false && JSON.stringify(currentPitch) !== JSON.stringify(updatedPitch || data.result || {})
+            };
         }
     });
 
@@ -8118,8 +8122,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Accept': 'text/event-stream' },
                 body: formData
             });
-            await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed' });
+            const data = await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed' });
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
+            return {
+                ...data,
+                changed: data.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(data.result?.outline || {})
+            };
         }
     });
 
@@ -8146,6 +8154,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCharacters(data.result.characters);
             if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
+            return {
+                ...data,
+                changed: data.changed !== false && JSON.stringify(currentCharacters) !== JSON.stringify(data.result?.characters || [])
+            };
         }
     });
 
@@ -8164,13 +8176,20 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('notes', notes);
             const response = await fetch('/api/generate-stage4-beats', { method: 'POST', body: formData });
             if (!response.ok) throw new Error(`Server error ${response.status}`);
+            let completeEvent = null;
             await readSSEStream(response, async (event) => {
                 if (event.type === 'complete') {
+                    completeEvent = event;
                     renderTreatment(event.result);
                     await handleSourceGenerationResult(4, event, { chat: stageChatWindows[4] });
                     if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); }
                 } else if (event.type === 'error') throw new Error(event.message);
             });
+            if (!completeEvent) throw new Error('Beat revision finished without a completion event.');
+            return {
+                ...completeEvent,
+                changed: completeEvent.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(completeEvent.result || {})
+            };
         }
     });
 
@@ -8183,19 +8202,28 @@ document.addEventListener('DOMContentLoaded', () => {
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
             const currentData = scrapeTreatmentStage5();
+            const comparableCurrentData = { ...currentData };
+            delete comparableCurrentData.notes;
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
             formData.append('currentTreatment', JSON.stringify(currentData));
             formData.append('notes', notes);
             const response = await fetch('/api/generate-stage5-treatment', { method: 'POST', body: formData });
             if (!response.ok) throw new Error(`Server error ${response.status}`);
+            let completeEvent = null;
             await readSSEStream(response, async (event) => {
                 if (event.type === 'complete') {
+                    completeEvent = event;
                     renderTreatmentStage5(event.result);
                     await handleSourceGenerationResult(5, event, { chat: stageChatWindows[5] });
                     if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); }
                 } else if (event.type === 'error') throw new Error(event.message);
             });
+            if (!completeEvent) throw new Error('Treatment revision finished without a completion event.');
+            return {
+                ...completeEvent,
+                changed: completeEvent.changed !== false && JSON.stringify(comparableCurrentData) !== JSON.stringify(completeEvent.result || {})
+            };
         }
     });
 
@@ -8376,7 +8404,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (shouldRegenerateStage6FromChat(notes)) {
                 await saveStage6SnapshotBeforeRegenerate();
                 await generateStage6({ notes, isRegenerate: true, throwOnError: true });
-                return;
+                return { changed: true };
             }
             return reviseStage6Blueprint(notes);
         }
@@ -8420,7 +8448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         attachInputId: false,
         executeRevision: async (notes) => {
             // "Execute" from chat means "generate style from this conversation"
-            await stage7GenerateFromChat(notes);
+            return stage7GenerateFromChat(notes);
         }
     });
 
@@ -8592,10 +8620,12 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
             if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
             updateStageNav(window.currentProjectData);
+            return { ...data, changed: true };
         } catch (err) {
             console.error('Style generation error:', err);
             if (loadingEl) loadingEl.classList.add('hidden');
             alert('Style generation failed: ' + err.message);
+            throw err;
         }
     }
 
@@ -8870,6 +8900,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const projData = await projRes.json();
             window.currentProjectData = projData.data;
             if (btnNextScene) btnNextScene.classList.remove('hidden');
+            return data;
         }
     });
 

@@ -3396,12 +3396,13 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
             uploadContext?.agentFile || null,
             sourcePacket ? getModelConfigWithSourcePacket(1, sourcePacket) : getModelConfig(1)
         );
+        const changed = sourcePlanDataHash(JSON.stringify(parsedPitch)) !== sourcePlanDataHash(JSON.stringify(result || {}));
         if (projectData && sourcePacket) {
             recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(result, null, 2), 'pitch_revision');
             await writeJSONQueued(getProjectFilePath(projectId), projectData);
             trackUsage(projectId, usage);
         }
-        res.json({ result, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing refine agent:", error);
         res.status(500).json({ error: "Failed to refine pitch" });
@@ -3459,6 +3460,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         }
 
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
+        const beforeOutlineForChangeCheck = parsedBeats || projectData.data?.stage2_outline?.outline || {};
+        const beforeOutlineHash = sourcePlanDataHash(JSON.stringify(beforeOutlineForChangeCheck));
         startStream();
         send({ type: 'progress', label: notes ? 'Revising outline...' : 'Generating outline...' });
 
@@ -3469,17 +3472,22 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
+        const changed = !notesWithUpload || beforeOutlineHash !== sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
         projectData.data.stage2_outline = outlineData;
-        notesWithUpload ? stampRevised(projectData, 'stage2_outline') : stampGenerated(projectData, 'stage2_outline');
+        if (notesWithUpload) {
+            if (changed) stampRevised(projectData, 'stage2_outline');
+        } else {
+            stampGenerated(projectData, 'stage2_outline');
+        }
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        const payload = { result: outlineData, ...sourceResponseExtras(sourcePacket) };
+        const payload = { result: outlineData, changed, ...sourceResponseExtras(sourcePacket) };
         if (streaming) {
             send({ type: 'complete', ...payload });
         } else {
@@ -3527,6 +3535,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         }
 
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
+        const beforeCharactersHash = sourcePlanDataHash(JSON.stringify(parsedChars || projectData.data?.stage3_characters?.characters || []));
         const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
         const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 
@@ -3534,17 +3543,22 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(3, sourcePacket));
+        const changed = !notesWithUpload || beforeCharactersHash !== sourcePlanDataHash(JSON.stringify(characterData?.characters || []));
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
         projectData.data.stage3_characters = characterData;
-        notesWithUpload ? stampRevised(projectData, 'stage3_characters') : stampGenerated(projectData, 'stage3_characters');
+        if (notesWithUpload) {
+            if (changed) stampRevised(projectData, 'stage3_characters');
+        } else {
+            stampGenerated(projectData, 'stage3_characters');
+        }
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(characterData, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: characterData, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: characterData, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         const detail = publicErrorDetail(error);
@@ -3579,6 +3593,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
     const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
     const isFullStage4Generation = !parsedCurrentBeats;
+    const beforeStage4Hash = sourcePlanDataHash(JSON.stringify(parsedCurrentBeats || projectData.data?.stage4_beats || {}));
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -3611,19 +3626,24 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
+        const changed = isFullStage4Generation || beforeStage4Hash !== sourcePlanDataHash(JSON.stringify(beatsResult || {}));
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
         if (isFullStage4Generation && projectData.data.conversations?.stage4) {
             delete projectData.data.conversations.stage4;
         }
-        notesWithUpload ? stampRevised(projectData, 'stage4_beats') : stampGenerated(projectData, 'stage4_beats');
+        if (notesWithUpload) {
+            if (changed) stampRevised(projectData, 'stage4_beats');
+        } else {
+            stampGenerated(projectData, 'stage4_beats');
+        }
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        send({ type: 'complete', result: beatsResult, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: beatsResult, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         const detail = publicErrorDetail(error);
@@ -3656,6 +3676,10 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 
     const { notes, currentTreatment } = req.body;
     const parsedTreatment = currentTreatment ? safeParse(currentTreatment, null) : null;
+    const comparableCurrentTreatment = parsedTreatment && typeof parsedTreatment === 'object'
+        ? Object.fromEntries(Object.entries(parsedTreatment).filter(([key]) => key !== 'notes'))
+        : parsedTreatment;
+    const beforeStage5Hash = sourcePlanDataHash(JSON.stringify(comparableCurrentTreatment || projectData.data?.stage5_treatment || {}));
 
     if (!pitchData || !charactersData || !beatsData) {
         return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
@@ -3690,16 +3714,21 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
             (step, total, label) => send({ type: 'progress', step, total, label }),
             getModelConfigWithSourcePacket(5, sourcePacket)
         );
+        const changed = !notesWithUpload || beforeStage5Hash !== sourcePlanDataHash(JSON.stringify(treatmentResult || {}));
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
-        notesWithUpload ? stampRevised(projectData, 'stage5_treatment') : stampGenerated(projectData, 'stage5_treatment');
+        if (notesWithUpload) {
+            if (changed) stampRevised(projectData, 'stage5_treatment');
+        } else {
+            stampGenerated(projectData, 'stage5_treatment');
+        }
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(treatmentResult, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: treatmentResult, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: treatmentResult, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -3904,6 +3933,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         if (!targetedScene) {
             return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
         }
+        const beforeDraftHash = sourcePlanDataHash(targetedScene.humanized_draft_text || targetedScene.draft_text || '');
 
         const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
         if (missingFields.length > 0) {
@@ -3942,7 +3972,8 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
+        const changed = beforeDraftHash !== sourcePlanDataHash(humanizedText || draftText || '');
+        const response = { result: humanizedText, changed, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
