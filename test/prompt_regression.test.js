@@ -194,6 +194,60 @@ test('Stage 2 outline notes with real outline content use surgical revision mode
     assert.match(calls[0].config.systemInstruction, /Apply the user's note to the existing 8-sequence outline/);
 });
 
+test('Stage 2 outline checklist repairs missing concrete restore beats', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Final Image', description: 'The house is quiet.' }] }]
+    };
+    const firstResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' }] }]
+        }
+    };
+    const repairedResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Dapple Surrenders', description: 'Dapple shrinks, sees Scott, chooses kindness, and lets himself be cuffed.' },
+                    { beat_label: 'Kitchen Closing Image', description: 'In the kitchen, a photo of young Becky and Dapple sits framed in the light. Breakfast is set for three, Furdlegurr is visible to both, and visitor passes for Dapple and Scott wait beside the plates.' }
+                ]
+            }]
+        }
+    };
+    const { calls, generateContentFn } = makeRecorder((_request, callIndex) => ({
+        text: JSON.stringify(callIndex === 1 ? firstResponse : repairedResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, `Stuff To Restore
+
+Dapple's voluntary surrender
+Dapple shrinks, could run, sees Scott, chooses kindness, lets himself be cuffed.
+
+Kitchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott.`, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 2);
+    assert.match(collectText(calls[0].contents), /REVISION CHECKLIST/);
+    assert.match(collectText(calls[1].contents), /MANDATORY CHECKLIST REPAIR/);
+    assert.match(collectText(calls[1].contents), /Kitchen closing image/);
+    assert.match(JSON.stringify(result.outline), /visitor passes for Dapple and Scott/);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",

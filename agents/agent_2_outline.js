@@ -49,6 +49,88 @@ function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function compactText(value, maxChars = 900) {
+    const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 80).trim()} [...truncated]`;
+}
+
+function latestConcreteRevisionText(notes = '') {
+    const text = String(notes || '').trim();
+    const latest = text.match(/LATEST USER REQUEST:\n([\s\S]*?)\n\nUSER REQUESTS:/);
+    const extracted = (latest ? latest[1] : text).trim();
+    if (extracted && !/^(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|sounds good)[\s.!]*$/i.test(extracted)) {
+        return extracted;
+    }
+    const direction = text.match(/ASSISTANT DIRECTION:\n([\s\S]*)$/);
+    return (direction ? direction[1] : extracted || text).trim();
+}
+
+function looksLikeChecklistHeader(line = '') {
+    const clean = String(line || '').trim();
+    if (!clean || clean.length > 90) return false;
+    if (/[.!?]$/.test(clean)) return false;
+    if (/^(stuff to restore|things to restore|recommended|next move|on it|understood|user requests|assistant direction)$/i.test(clean)) return false;
+    return /\b(restore|aftermath|closing|image|coda|finale|surrender|setup|payoff|beat|scene|ending|origin|canon)\b/i.test(clean)
+        || /^[A-Z][A-Za-z0-9' -]{2,}$/.test(clean);
+}
+
+function buildRevisionChecklist(notes = '', maxItems = 12) {
+    const text = latestConcreteRevisionText(notes);
+    if (!text || !/\n/.test(text)) return [];
+
+    const blocks = text
+        .split(/\n\s*\n/)
+        .map(block => block.trim())
+        .filter(Boolean);
+    const items = [];
+
+    for (const block of blocks) {
+        const lines = block.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        if (!lines.length) continue;
+
+        for (const line of lines) {
+            const bullet = line.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
+            if (bullet && bullet[1].length > 18) items.push(compactText(bullet[1], 700));
+        }
+
+        if (lines.length >= 2 && looksLikeChecklistHeader(lines[0])) {
+            const body = lines.slice(1).join(' ');
+            if (body.length > 20) items.push(compactText(`${lines[0]}: ${body}`, 800));
+        }
+        if (items.length >= maxItems) break;
+    }
+
+    return Array.from(new Set(items)).slice(0, maxItems);
+}
+
+const CHECKLIST_STOPWORDS = new Set([
+    'about', 'above', 'absolutely', 'across', 'after', 'again', 'also', 'because', 'before', 'being',
+    'both', 'chunk', 'chunks', 'doing', 'ensure', 'every', 'final', 'from', 'have', 'image', 'into',
+    'keeps', 'last', 'lets', 'more', 'much', 'needs', 'note', 'old', 'only', 'outline', 'real',
+    'restore', 'restoring', 'should', 'specific', 'still', 'that', 'their', 'there', 'these', 'thing',
+    'three', 'through', 'visible', 'with', 'work', 'would'
+]);
+
+function checklistTerms(item = '') {
+    const normalized = String(item || '').toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ');
+    return Array.from(new Set(normalized.split(/\s+/)
+        .map(token => token.replace(/^'+|'+$/g, ''))
+        .filter(token => token.length >= 4 && !CHECKLIST_STOPWORDS.has(token))));
+}
+
+function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
+    if (!checklist.length) return [];
+    const outlineText = JSON.stringify(outlineResult?.outline || outlineResult || {}).toLowerCase();
+    return checklist.filter(item => {
+        const terms = checklistTerms(item);
+        if (terms.length < 4) return false;
+        const found = terms.filter(term => outlineText.includes(term)).length;
+        const required = Math.min(6, Math.max(3, Math.ceil(terms.length * 0.35)));
+        return found < required;
+    });
+}
+
 async function callOutlineModel(generateContentFn, request, { label = 'Stage 2 outline call', retries = 2, delayMs = 750 } = {}) {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
@@ -180,7 +262,12 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         const revisionSystemInstruction = `${outlineSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user's note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story's cause-and-effect makes logical sense. Maintain the exact same JSON schema.`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        const revisionChecklist = buildRevisionChecklist(notes);
+        const checklistBlock = revisionChecklist.length
+            ? `\nREVISION CHECKLIST:\nTreat each item below as a concrete obligation. It must be visibly present in the revised outline, unless the current outline already contains it.\n${revisionChecklist.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n`
+            : '';
         const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
+${checklistBlock}
 
 EXISTING OUTLINE:
 ${JSON.stringify(currentOutline, null, 2)}
@@ -201,7 +288,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             delayMs: retryDelayMs
         });
 
-        return parseOutlineResponse(response, {
+        let parsed = await parseOutlineResponse(response, {
             outlineSchema,
             generateContentFn,
             model,
@@ -209,6 +296,60 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             anthropicApiKey,
             retryDelayMs
         });
+
+        let missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+        if (missingChecklistItems.length) {
+            const repairPrompt = `${sourceBlock}MANDATORY CHECKLIST REPAIR:
+The previous outline revision changed the file, but it still appears to omit or underrepresent concrete requested checklist items.
+
+MISSING OR UNDERREPRESENTED CHECKLIST ITEMS:
+${missingChecklistItems.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+
+ORIGINAL USER NOTE:
+${notes}
+
+EXISTING OUTLINE BEFORE REVISION:
+${JSON.stringify(currentOutline, null, 2)}
+
+PREVIOUS REVISED OUTLINE:
+${JSON.stringify(parsed.result?.outline || parsed.result || {}, null, 2)}
+
+Revise the outline again. Add or adjust the minimum necessary beats so every missing checklist item is visibly present in the outline. Keep unrelated sequences and beats unchanged. Return the full Stage 2 outline JSON.`;
+
+            const repairResponse = await callOutlineModel(generateContentFn, {
+                model, geminiApiKey, anthropicApiKey,
+                contents: [repairPrompt],
+                config: {
+                    systemInstruction: revisionSystemInstruction,
+                    temperature: 0.35,
+                },
+                schema: outlineSchema
+            }, {
+                label: 'Stage 2 outline checklist repair',
+                retries: 2,
+                delayMs: retryDelayMs
+            });
+
+            const repaired = await parseOutlineResponse(repairResponse, {
+                outlineSchema,
+                generateContentFn,
+                model,
+                geminiApiKey,
+                anthropicApiKey,
+                retryDelayMs
+            });
+            repaired.usage = combineUsage(parsed.usage, repaired.usage);
+            parsed = repaired;
+            missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+        }
+
+        if (missingChecklistItems.length) {
+            const error = new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
+            error.code = 'STAGE2_CHECKLIST_UNMET';
+            throw error;
+        }
+
+        return parsed;
     }
 
     const systemInstruction = outlineSOP;
