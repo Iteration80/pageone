@@ -108,6 +108,7 @@ function latestConcreteRevisionText(notes = '') {
 function looksLikeChecklistHeader(line = '') {
     const clean = String(line || '').trim();
     if (!clean || clean.length > 90) return false;
+    if (/^\[[^\]]{3,100}\]$/.test(clean)) return true;
     if (/[.!?]$/.test(clean)) return false;
     if (/^(stuff to restore|things to restore|recommended|next move|on it|understood|user requests|assistant direction)$/i.test(clean)) return false;
     return /\b(restore|aftermath|closing|image|coda|finale|surrender|setup|payoff|beat|scene|ending|origin|canon)\b/i.test(clean)
@@ -134,14 +135,24 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
         const lines = block.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
         if (!lines.length) continue;
 
+        const bracketedBlock = block.match(/^\[([^\]]{3,100})\]\s+([\s\S]{20,})$/);
+        if (bracketedBlock) {
+            items.push(compactText(`${bracketedBlock[1]}: ${bracketedBlock[2]}`, 900));
+            if (items.length >= maxItems) break;
+            continue;
+        }
+
         for (const line of lines) {
             const bullet = line.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
             if (bullet && bullet[1].length > 18) items.push(compactText(bullet[1], 700));
+            const bracketedLine = line.match(/^\[([^\]]{3,100})\]\s+(.{20,})$/);
+            if (bracketedLine) items.push(compactText(`${bracketedLine[1]}: ${bracketedLine[2]}`, 900));
         }
 
         if (lines.length >= 2 && looksLikeChecklistHeader(lines[0])) {
+            const header = lines[0].replace(/^\[|\]$/g, '');
             const body = lines.slice(1).join(' ');
-            if (body.length > 20) items.push(compactText(`${lines[0]}: ${body}`, 800));
+            if (body.length > 20) items.push(compactText(`${header}: ${body}`, 800));
         }
         if (items.length >= maxItems) break;
     }
@@ -571,4 +582,10 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
     });
 };
 
-module.exports = { agent2Outline, outlineHasContent };
+module.exports = {
+    agent2Outline,
+    outlineHasContent,
+    buildRevisionChecklist,
+    findUndercoveredChecklistItems,
+    appendMissingChecklistBeats
+};

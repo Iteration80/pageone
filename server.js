@@ -243,7 +243,12 @@ const {
 
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
-const { agent2Outline } = require('./agents/agent_2_outline');
+const {
+    agent2Outline,
+    buildRevisionChecklist: buildOutlineRevisionChecklist,
+    findUndercoveredChecklistItems: findUndercoveredOutlineChecklistItems,
+    appendMissingChecklistBeats: appendMissingOutlineChecklistBeats
+} = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent4Beats } = require('./agents/agent_4_beats');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
@@ -3478,7 +3483,19 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
-        const changed = !notesWithUpload || beforeOutlineHash !== sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
+        const revisionChecklist = notesWithUpload ? buildOutlineRevisionChecklist(notesWithUpload) : [];
+        let missingChecklistItems = revisionChecklist.length
+            ? findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData)
+            : [];
+        if (missingChecklistItems.length) {
+            appendMissingOutlineChecklistBeats(outlineData, missingChecklistItems);
+            missingChecklistItems = findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData);
+        }
+        if (missingChecklistItems.length) {
+            throw new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
+        }
+        const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
+        const changed = !notesWithUpload || beforeOutlineHash !== afterOutlineHash;
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -3491,9 +3508,21 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notesWithUpload ? 'revision' : 'generation');
 
         await writeJSONQueued(filePath, projectData);
+        const savedContent = await fs.readFile(filePath, 'utf-8');
+        const savedProjectData = JSON.parse(savedContent);
+        const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
+        if (savedOutlineHash !== afterOutlineHash) {
+            throw new Error('Stage 2 outline save verification failed: saved project JSON does not match generated outline.');
+        }
         trackUsage(projectId, usage);
 
-        const payload = { result: outlineData, changed, ...sourceResponseExtras(sourcePacket) };
+        const payload = {
+            result: outlineData,
+            changed,
+            saveVerified: true,
+            checklistVerified: revisionChecklist.length > 0,
+            ...sourceResponseExtras(sourcePacket)
+        };
         if (streaming) {
             send({ type: 'complete', ...payload });
         } else {

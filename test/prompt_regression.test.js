@@ -449,6 +449,47 @@ Apply the most recent concrete assistant revision proposal while preserving the 
     assert.match(JSON.stringify(finalSequence.beats), /visitor passes for Dapple and Scott/i);
 });
 
+test('Stage 2 outline extracts bracketed one-line restore beats as checklist items', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Final Image', description: 'The house is quiet.' }] }]
+    };
+    const missingRestoreResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: currentOutline
+    };
+    const notes = `DIRECT USER REVISION REQUEST:
+We've lost the following two beats in Seq H, please restore:
+
+[Aftermath - A New Order] Quist surveys the wreckage. The public optics have broken her old order. Rebecca declines the badge, but agrees to consult on Dapple's containment. Dave and Robotobob walk off with Blounder. Terry takes custody of Moog and Big Doll. Scott gets real help. Molly briefly sees pink and smiles.
+
+[Closing Image - The Photo on the Wall] Rebecca's kitchen. The photo of young Becky and Dapple is framed on the wall in the light. Elliot sets breakfast for three: him, Mom, and Furdlegurr, visible to both. On the fridge are visitor passes for Dapple and Scott.`;
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(missingRestoreResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 2);
+    const firstPrompt = collectText(calls[0].contents);
+    assert.match(firstPrompt, /REVISION CHECKLIST/);
+    assert.match(firstPrompt, /Aftermath - A New Order/);
+    assert.match(firstPrompt, /Closing Image - The Photo on the Wall/);
+    const finalText = JSON.stringify(result.outline.act_3[0].beats);
+    assert.match(finalText, /Aftermath - A New Order/);
+    assert.match(finalText, /Rebecca declines the badge/i);
+    assert.match(finalText, /Kitchen Closing Image/);
+    assert.match(finalText, /visitor passes for Dapple and Scott/i);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",
