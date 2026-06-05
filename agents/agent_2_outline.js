@@ -55,6 +55,29 @@ function compactText(value, maxChars = 900) {
     return `${text.slice(0, maxChars - 80).trim()} [...truncated]`;
 }
 
+function isShortConfirmationText(value = '') {
+    return /^(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|sounds good)[\s.!]*$/i.test(String(value || '').trim());
+}
+
+function concreteRevisionCandidate(value = '') {
+    const text = String(value || '').trim();
+    if (!text || isShortConfirmationText(text)) return false;
+    if (text.length < 18) return false;
+    return /\b(restore|add|include|keep|revise|revision|update|change|remove|replace|fix|missing|canon|source|origin|aftermath|closing|image|photo|breakfast|visitor|surrender|coda|finale|beat|scene|sequence)\b/i.test(text)
+        || text.length > 80;
+}
+
+function latestConcreteUserFromRecentContext(text = '') {
+    if (!/RECENT CONVERSATION CONTEXT:/i.test(text)) return '';
+    const recent = text.split(/RECENT CONVERSATION CONTEXT:\r?\n/i).pop() || '';
+    const userMatches = Array.from(recent.matchAll(/(?:^|\n)USER:\r?\n([\s\S]*?)(?=\r?\n\r?\n---\r?\n\r?\n(?:USER|ASSISTANT):|\r?\n\r?\nASSISTANT DIRECTION:|$)/g));
+    for (const match of userMatches.reverse()) {
+        const candidate = (match[1] || '').trim();
+        if (concreteRevisionCandidate(candidate)) return candidate;
+    }
+    return '';
+}
+
 function latestConcreteRevisionText(notes = '') {
     const text = String(notes || '').trim();
     const sectionPattern = /LATEST USER REQUEST:\r?\n([\s\S]*?)(?=\r?\n\r?\n(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):|$)/g;
@@ -62,17 +85,20 @@ function latestConcreteRevisionText(notes = '') {
     const latest = matches.length ? matches[matches.length - 1][1] : '';
     let extracted = (latest || '').trim();
 
+    if (isShortConfirmationText(extracted)) {
+        const concretePriorUserRequest = latestConcreteUserFromRecentContext(text);
+        if (concretePriorUserRequest) return concretePriorUserRequest;
+    }
+
     if (!extracted && /RECENT CONVERSATION CONTEXT:/i.test(text)) {
-        const recent = text.split(/RECENT CONVERSATION CONTEXT:\r?\n/i).pop() || '';
-        const userMatches = Array.from(recent.matchAll(/(?:^|\n)USER:\r?\n([\s\S]*?)(?=\r?\n\r?\n---\r?\n\r?\n(?:USER|ASSISTANT):|$)/g));
-        extracted = (userMatches.length ? userMatches[userMatches.length - 1][1] : '').trim();
+        extracted = latestConcreteUserFromRecentContext(text);
     }
 
     if (!extracted && !/(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):/i.test(text)) {
         extracted = text;
     }
 
-    if (extracted && !/^(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|sounds good)[\s.!]*$/i.test(extracted)) {
+    if (extracted && !isShortConfirmationText(extracted)) {
         return extracted;
     }
     const direction = text.match(/ASSISTANT DIRECTION:\n([\s\S]*)$/);

@@ -375,6 +375,80 @@ Older request that should not become the active checklist.`, null, {
     assert.match(JSON.stringify(finalSequence.beats), /visitor passes for Dapple and Scott/i);
 });
 
+test('Stage 2 outline confirmation handoff verifies the prior concrete restore request', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H', beats: [{ beat_label: 'Final Image', description: 'The house is quiet.' }] }]
+    };
+    const missingKitchenResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            ...currentOutline,
+            act_3: [{
+                sequence_number_and_title: 'Sequence H',
+                beats: [
+                    { beat_label: 'Aftermath', description: 'Rebecca sets the table after the crisis, but the protected kitchen photo and visitor passes are absent.' }
+                ]
+            }]
+        }
+    };
+    const notesBundle = `LATEST USER REQUEST:
+yes
+
+USER REQUESTS:
+Kitchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
+yes
+
+CONFIRMATION HANDOFF:
+The latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.
+
+RECENT ASSISTANT CONTEXT:
+The kitchen closing image has been consistently dropped from the saved outline. I am ready to restore that final emotional image.
+
+RECENT CONVERSATION CONTEXT:
+USER:
+Kitchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
+
+---
+
+ASSISTANT:
+Want me to go ahead and restore that final beat to the outline now?
+
+---
+
+USER:
+yes
+
+ASSISTANT DIRECTION:
+Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.`;
+
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(missingKitchenResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 2);
+    const firstPrompt = collectText(calls[0].contents);
+    assert.match(firstPrompt, /ACTIVE REVISION REQUEST:\nKitchen closing image/);
+    assert.match(firstPrompt, /REVISION CHECKLIST/);
+    assert.match(firstPrompt, /visitor passes for Dapple and Scott/i);
+    const finalSequence = result.outline.act_3[0];
+    assert.match(JSON.stringify(finalSequence.beats), /Kitchen Closing Image/);
+    assert.match(JSON.stringify(finalSequence.beats), /photo of young Becky and Dapple framed in the light/i);
+    assert.match(JSON.stringify(finalSequence.beats), /visitor passes for Dapple and Scott/i);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",
