@@ -180,6 +180,8 @@ async function loadSettings() {
 
 const APP_SECRET = process.env.APP_SECRET;
 const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!APP_SECRET && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
+const BUILD_COMMIT = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || null;
+const BUILD_DEPLOYMENT_ID = process.env.RAILWAY_DEPLOYMENT_ID || null;
 
 /** Returns the model + API keys to use for a given stage number (1–10). */
 function getModelConfig(stageNum) {
@@ -3290,7 +3292,11 @@ function requireAuth(req, res, next) {
 }
 
 app.get('/health', (_req, res) => {
-    res.json({ ok: true });
+    res.json({
+        ok: true,
+        commit: BUILD_COMMIT,
+        deploymentId: BUILD_DEPLOYMENT_ID
+    });
 });
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────

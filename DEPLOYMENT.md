@@ -28,7 +28,7 @@ NODE_VERSION=20
 
 ## Smoke Checks
 
-- `GET /health` returns `{ "ok": true }`.
+- `GET /health` returns `{ "ok": true }` plus the deployed commit/deployment id when Railway exposes them.
 - `GET /api/projects` without `APP_SECRET` returns `401`.
 - `GET /api/projects` with `Authorization: Bearer <APP_SECRET>` returns projects.
 - Create a project, restart/redeploy, and confirm the project still appears.

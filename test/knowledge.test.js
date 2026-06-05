@@ -117,6 +117,8 @@ test('unknown API routes return JSON 404 diagnostics', () => {
 
     assert.match(serverSource, /app\.use\('\/api', \(req, res\) => \{/);
     assert.match(serverSource, /res\.status\(404\)\.json\(\{ error: `API route not found: \$\{req\.method\} \$\{req\.originalUrl\}` \}\);/);
+    assert.match(serverSource, /const BUILD_COMMIT = process\.env\.RAILWAY_GIT_COMMIT_SHA/);
+    assert.match(serverSource, /commit: BUILD_COMMIT/);
 });
 
 test('compactAuditForKnowledge bounds noisy audit payloads', () => {
@@ -664,6 +666,8 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.equal(response.suggest_plan, true);
     assert.match(response.message, /Stage 4 revision/);
     assert.match(appJs, /function isRevisionConfirmation/);
+    assert.match(appJs, /function isRevisionStatusQuestion/);
+    assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);
     assert.match(appJs, /function findRecentRevisionProposal/);
     assert.match(appJs, /function isAssistantErrorMessage/);
     assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
@@ -676,6 +680,19 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(serverJs, /type: 'heartbeat'/);
     assert.match(serverJs, /res\.flush\?\.\(\)/);
     assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
+});
+
+test('frontend Stage 2 chat directly applies outline revision memos and rejects status questions', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+
+    assert.match(appJs, /function isStage2DirectRevisionRequest/);
+    assert.match(appJs, /Number\(stageId\) === 2 && isStage2DirectRevisionRequest\(_text\)/);
+    assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.match(appJs, /Applying those outline changes now/);
+    assert.match(appJs, /saved outline came back unchanged/);
+    assert.match(appJs, /function isRevisionStatusQuestion/);
+    assert.match(appJs, /did you\|did it\|really\|actually/);
+    assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);
 });
 
 test('stage chat source-audit questions do not execute stale pending revisions', () => {

@@ -7786,6 +7786,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return assistantErrorPattern.test(String(content || '').trim());
     }
 
+    function isRevisionStatusQuestion(content = '') {
+        const clean = String(content || '').trim();
+        if (!/[?]/.test(clean)) return false;
+        return /\b(did you|did it|really|actually|show up|showing|not show|isn't showing|is not showing|doesn't show|does not show|verify|check|confirm|was it applied|has it been applied|have you)\b/i.test(clean);
+    }
+
     function findRecentRevisionProposal(history = []) {
         return history
             .slice(0, -1)
@@ -7800,6 +7806,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function isRevisionConfirmation(text = '', history = []) {
         const clean = String(text || '').trim();
         if (!clean || clean.length > 240) return false;
+        if (isRevisionStatusQuestion(clean)) return false;
         const asksForAnalysis = /[?]/.test(clean) &&
             /\b(how|what|why|which|are there|do we|does|compare|analysis|analy[sz]e|audit|missing|need|thoughts)\b/i.test(clean);
         if (asksForAnalysis) return false;
@@ -7902,6 +7909,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pendingRevision) {
                     pendingRevision = false;
                     pendingNotes = '';
+                }
+
+                if (Number(stageId) === 2 && isStage2DirectRevisionRequest(_text)) {
+                    chat.append('ai', 'Applying those outline changes now.');
+                    chat.setDisabled(true);
+                    const indicator = showWorking();
+                    try {
+                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
+                        assertRevisionApplied(revisionResult, 'The outline revision returned no saved changes, so I did not mark this as applied.');
+                        indicator.remove();
+                        await postRevisionFollowUp(revisionResult);
+                    } catch (err) {
+                        indicator.remove();
+                        chat.append('ai', 'I tried to apply that, but the saved outline came back unchanged: ' + err.message);
+                    } finally {
+                        chat.setDisabled(false);
+                    }
+                    return;
                 }
 
                 if (executeRevision && !attachment && isRevisionConfirmation(_text, history)) {
@@ -8252,6 +8277,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             chat.setThinking(false);
         }
+    }
+
+    function isStage2DirectRevisionRequest(text) {
+        const value = String(text || '').trim();
+        if (value.length < 40) return false;
+
+        const asksForDiscussion = /[?]/.test(value) &&
+            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how|analysis|audit|compare)\b/i.test(value);
+        if (asksForDiscussion) return false;
+
+        const referencesOutlineTarget = /\b(seq(?:uence)?\s*[a-h1-8]\b|act\s+[123]|outline|beat|beats|coda|closing image|final image|aftermath|resolution|finale)\b/i.test(value);
+        const containsDirective = /\b(please\s+)?(restore|add|include|keep|revise|update|fix|replace|remove|delete|move|relocate|compress|expand|change|apply|work in)\b/i.test(value);
+        const structuredMemo = /\n\s*(?:\[[^\]]+\]|[-*]\s+|\d+[.)]\s+|[A-Z][^\n]{2,80}\n)/.test(value);
+
+        return referencesOutlineTarget && containsDirective && (structuredMemo || value.length > 120);
     }
 
     // Stage 6
