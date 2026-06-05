@@ -544,6 +544,215 @@ Sequence H: A World That Remembers
     assert.match(JSON.stringify(result.outline.act_3[0].beats), /visitor passes for Dapple and Scott/i);
 });
 
+test('Stage 2 outline recognition pass preserves existing ending beats after confirmation', async () => {
+    const recognitionNote = `The main thing I would still address:
+
+Rebecca Should Know At The Midpoint
+Right now [Midpoint - The Name Drop] still says Rebecca "doesn't consciously recognize him." I'd change that. When Dapple says "Hello, Becky," Rebecca should know.
+
+Not the whole memory. Not the bonded phrase. But she should understand: Dapple was mine.
+
+Then Act III becomes cleaner:
+
+Midpoint reveal: "Oh God. He was my imaginary friend."
+Diner: "How long have you known he was mine?"
+Act III [Rebecca's Realization - The Quiet Kingdom] becomes [Rebecca's Memory - The Quiet Kingdom] or [The Bonded Phrase].
+The climax is not "who is Dapple?" It is "can Rebecca own the bond and reach him?"
+
+One source-faithfulness note: the latest calls the Quiet Kingdom memory "source-true," but the source-derived breakdown we've been using points to the storm drain. If Quiet Kingdom is your preferred movie invention, great, but don't label it source-true. If you want maximum source fidelity, use the storm drain.
+
+Two small polish notes:
+
+Dapple's ending line "I'm not letting them warehouse you again" is emotionally right, but maybe add accountability: "But you answer for what you did."
+Act I is doing a lot now: Blounder, Moog, Rebecca/Elliot, Pono, Furdlegurr capture, Quist, Scott. It works as an outline, but in pages it will need ruthless pacing.`;
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: Setup', beats: [{ beat_label: 'Opening', description: 'Blounder ages out.' }] }],
+        act_2: [{
+            sequence_number_and_title: "Sequence D: The Manifesto and the Mother's Name",
+            beats: [{
+                beat_label: 'Midpoint - The Name Drop',
+                description: "Rebecca, hidden in the rafters, locks eyes with Dapple across the room. He stops mid-speech. Smiles, all teeth. 'Hello, Becky.' Rebecca freezes. She doesn't consciously recognize him -- but her hands shake. He recognizes her completely. REVELATION FOR THE AUDIENCE (Dramatic Irony): Dapple is her abandoned childhood figment, and she is Patient Zero of his revolution. Rebecca doesn't fully know yet -- but Dave does, and he's been hiding it."
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence E: The Wound Beneath the Suit',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: "In a diner at 3 AM, Rebecca holds Elliot. Rebecca confronts Dave: 'Why did Dapple know my name?' Dave deflects."
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence F: The Fox Beneath the Coat',
+            beats: [{
+                beat_label: 'False Rescue - The Body in Her Arms',
+                description: "Rebecca has rescued Elliot's friend. The real dramatic question -- can Rebecca remember what she abandoned -- remains untouched. She has rescued Elliot's friend. She has not yet faced her own."
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence G: The Forgotten Friend',
+            beats: [{
+                beat_label: "Rebecca's Realization - The Quiet Kingdom",
+                description: "Outside, Rebecca stares up at Dapple's giant fox face. She gasps. Dapple is hers. One specific memory surfaces, sharper than the others, source-true and private -- a private game only the two of them played in the crawlspace under her porch. They called it the QUIET KINGDOM. There was a battered tin can buried in the dirt beneath the steps where they hid their treasures and a single secret PASSWORD -- a nonsense word, PILLERMOSS -- that Becky promised, on her honor as Queen, she would never forget. The day she stopped seeing him she promised it to him last. Only the two of them ever knew."
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: 'Climax - The Apology and the Key',
+                description: "Rebecca steps into the street beneath the cracking fox-god. She doesn't fight Dapple. She SEES him. 'Dapple. Pillermoss. The Quiet Kingdom. I remember the can. I remember the password. I remember you.' She apologizes and aborts Protocol Erasure."
+            }, {
+                beat_label: "Dapple's Last Choice",
+                description: "Dapple shrinks back into the small fox figment. He looks at Rebecca and rasps, 'You came back.' She nods. 'And I'm not letting them warehouse you again.'"
+            }, {
+                beat_label: 'Aftermath - A New Order',
+                description: "Quist's old order breaks. Rebecca agrees to consult on Dapple's containment. Scott gets help. Molly briefly sees pink and smiles."
+            }, {
+                beat_label: 'Closing Image - The Photo on the Wall',
+                description: 'Rebecca frames the photo of young Becky and Dapple in the kitchen light. Elliot sets breakfast for three, Furdlegurr is visible to both, and visitor passes for Dapple and Scott sit on the fridge.'
+            }]
+        }]
+    };
+    const regressedOutline = {
+        ...currentOutline,
+        act_3: [
+            currentOutline.act_3[0],
+            {
+                sequence_number_and_title: 'Sequence H: A World That Remembers',
+                beats: [currentOutline.act_3[1].beats[0]]
+            }
+        ]
+    };
+    const notesBundle = `LATEST USER REQUEST:
+yes
+
+USER REQUESTS:
+${recognitionNote}
+yes
+
+CONFIRMATION HANDOFF:
+The latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.
+
+RECENT ASSISTANT CONTEXT:
+Regarding the memory, I recommend reverting to the Storm Drain memory from the source material. It grounds the climax in the original text's specific imagery while keeping your 'Pillermoss' password as the emotional trigger that proves she never truly erased him.
+
+I'll fold in the midpoint recognition, the source-accurate memory, and the accountability line in Dapple's surrender. Want me to go ahead and update the outline with this 'Recognition and Accountability' pass?
+
+RECENT CONVERSATION CONTEXT:
+USER:
+${recognitionNote}
+
+---
+
+ASSISTANT:
+Regarding the memory, I recommend reverting to the Storm Drain memory from the source material. It grounds the climax in the original text's specific imagery while keeping your 'Pillermoss' password as the emotional trigger that proves she never truly erased him.
+
+I'll fold in the midpoint recognition, the source-accurate memory, and the accountability line in Dapple's surrender. Want me to go ahead and update the outline with this 'Recognition and Accountability' pass?
+
+---
+
+USER:
+yes
+
+ASSISTANT DIRECTION:
+Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.`;
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            title: 'I.M.A.G.I.N.E.',
+            genre: 'Animated Family Adventure',
+            logline: 'A mother must remember her abandoned imaginary friend.',
+            outline: regressedOutline
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    assert.match(collectText(calls[0].contents), /REVISION CHECKLIST/);
+    assert.match(collectText(calls[0].contents), /Dapple's ending line/);
+    const resultText = JSON.stringify(result.outline);
+    assert.doesNotMatch(resultText, /doesn't consciously recognize him/i);
+    assert.match(resultText, /Dapple was mine/i);
+    assert.match(resultText, /How long have you known he was mine\?/i);
+    assert.match(resultText, /Rebecca's Memory - The Storm Drain/i);
+    assert.match(resultText, /storm drain/i);
+    assert.doesNotMatch(resultText, /source-true/i);
+    assert.doesNotMatch(resultText, /Quiet Kingdom/i);
+    assert.match(resultText, /own the bond she abandoned/i);
+    assert.match(resultText, /answer for what you did/i);
+    assert.match(resultText, /Dapple's Last Choice/);
+    assert.match(resultText, /Aftermath - A New Order/);
+    assert.match(resultText, /Closing Image - The Photo on the Wall/);
+    assert.match(resultText, /visitor passes for Dapple and Scott/i);
+});
+
+test('Stage 2 outline midpoint-only revisions cannot alter Sequence H ending beats', async () => {
+    const currentSequenceH = {
+        sequence_number_and_title: 'Sequence H: A World That Remembers',
+        beats: [{
+            beat_label: 'Climax - The Apology and the Key',
+            description: 'Rebecca uses the Bonded Authorization Key and aborts Protocol Erasure.'
+        }, {
+            beat_label: "Dapple's Last Choice",
+            description: "Dapple shrinks, chooses kindness toward Scott, and lets the containment team cuff him."
+        }, {
+            beat_label: 'Aftermath - A New Order',
+            description: "Rebecca consults on Dapple's containment while Scott, Dave, Robotobob, Blounder, Terry, Moog, Big Doll, and Molly each get humane aftermath beats."
+        }, {
+            beat_label: 'Closing Image - The Photo on the Wall',
+            description: 'The photo of young Becky and Dapple is framed in the kitchen light. Breakfast is set for three, Furdlegurr is visible to both, and visitor passes for Dapple and Scott sit on the fridge.'
+        }]
+    };
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: Setup', beats: [{ beat_label: 'Opening', description: 'Blounder ages out.' }] }],
+        act_2: [{
+            sequence_number_and_title: "Sequence D: The Manifesto and the Mother's Name",
+            beats: [{
+                beat_label: 'Midpoint - The Name Drop',
+                description: "Dapple says, 'Hello, Becky.' Rebecca freezes. She doesn't consciously recognize him -- but her hands shake."
+            }]
+        }],
+        act_3: [currentSequenceH]
+    };
+    const damagedModelOutline = {
+        ...currentOutline,
+        act_2: [{
+            sequence_number_and_title: "Sequence D: The Manifesto and the Mother's Name",
+            beats: [{
+                beat_label: 'Midpoint - The Name Drop',
+                description: "Dapple says, 'Hello, Becky.' Rebecca freezes. She knows enough: this was her friend. Dapple is hers. Dave sees it land and looks away."
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: 'Climax - The Apology and the Key',
+                description: 'Rebecca remembers Dapple and the story ends quickly.'
+            }]
+        }]
+    };
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            title: 'I.M.A.G.I.N.E.',
+            genre: 'Animated Family Adventure',
+            logline: 'A mother must remember her abandoned imaginary friend.',
+            outline: damagedModelOutline
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, `DIRECT USER REVISION REQUEST:
+Only revise [Midpoint - The Name Drop]. When Dapple says "Hello, Becky," Rebecca should know enough: this was her friend. Dapple is hers. Dave sees it land and looks away. Do not change any ending beats.`, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.match(JSON.stringify(result.outline.act_2), /Dapple is hers/i);
+    assert.deepEqual(result.outline.act_3[0], currentSequenceH);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",

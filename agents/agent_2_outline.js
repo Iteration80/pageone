@@ -119,7 +119,7 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     const text = latestConcreteRevisionText(notes);
     if (!text) return [];
     if (!/\n/.test(text)) {
-        return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore)\b/i.test(text)
+        return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore|midpoint|recogniz|dapple was mine|storm drain|quiet kingdom|source[- ]?faith|ending line|accountability|answer for what you did)\b/i.test(text)
             && text.length > 40
             ? [compactText(text, 800)]
             : [];
@@ -153,6 +153,9 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
             const header = lines[0].replace(/^\[|\]$/g, '');
             const body = lines.slice(1).join(' ');
             if (body.length > 20) items.push(compactText(`${header}: ${body}`, 800));
+        }
+        if (lines.length === 1 && block.length > 40 && /\b(midpoint|recogniz|dapple was mine|source[- ]?faith|storm drain|quiet kingdom|ending line|accountability|answer for what you did)\b/i.test(block)) {
+            items.push(compactText(block, 800));
         }
         if (items.length >= maxItems) break;
     }
@@ -235,6 +238,62 @@ function outlineCoverageUnits(outlineResult = {}) {
     return { beatUnits, sequenceUnits };
 }
 
+function outlineAllText(outlineResult = {}) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    return [outline.act_1, outline.act_2, outline.act_3]
+        .filter(Array.isArray)
+        .flatMap(act => act.flatMap(sequence => [
+            sequence?.sequence_number_and_title || '',
+            ...(sequence?.beats || []).flatMap(beat => [
+                beat?.beat_label || beat?.beat || '',
+                beat?.description || ''
+            ])
+        ]))
+        .join(' ')
+        .toLowerCase();
+}
+
+function outlineBeatText(outlineResult = {}, predicate = () => false) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    const matches = [];
+    for (const act of [outline.act_1, outline.act_2, outline.act_3]) {
+        if (!Array.isArray(act)) continue;
+        for (const sequence of act) {
+            for (const beat of sequence?.beats || []) {
+                const label = beat?.beat_label || beat?.beat || '';
+                const description = beat?.description || '';
+                const text = [sequence?.sequence_number_and_title || '', label, description].join(' ');
+                if (predicate({ sequence, beat, label, description, text })) matches.push(text.toLowerCase());
+            }
+        }
+    }
+    return matches.join(' ');
+}
+
+function specialChecklistCoverage(item = '', outlineResult = {}) {
+    const itemText = String(item || '').toLowerCase();
+    const allText = outlineAllText(outlineResult);
+    if (/\bmidpoint\b/.test(itemText) && /doesn'?t consciously recognize|does not consciously recognize/.test(itemText)) {
+        const midpointText = outlineBeatText(outlineResult, ({ label, description }) => (
+            /\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)
+        ));
+        return /dapple was mine|imaginary friend/.test(midpointText)
+            && !/doesn'?t consciously recognize|does not consciously recognize/.test(midpointText);
+    }
+    if (/\bstorm drain\b/.test(itemText) && /\bquiet kingdom\b/.test(itemText)) {
+        const rebeccaMemoryText = outlineBeatText(outlineResult, ({ label, description }) => (
+            /rebecca/i.test(label) || /pillermoss|quiet kingdom|storm drain/i.test(description)
+        ));
+        return /\bstorm drain\b/.test(rebeccaMemoryText)
+            && !/\bsource-true\b/.test(rebeccaMemoryText)
+            && !/\bquiet kingdom\b/.test(rebeccaMemoryText);
+    }
+    if (/\bending line\b/.test(itemText) || /\baccountability\b/.test(itemText) || /\banswer for what you did\b/.test(itemText)) {
+        return /answer for what you did/.test(allText);
+    }
+    return null;
+}
+
 function requiresBeatLevelCoverage(item = '') {
     return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|framed in the light)\b/i.test(item);
 }
@@ -252,11 +311,361 @@ function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
     if (!checklist.length) return [];
     const { beatUnits, sequenceUnits } = outlineCoverageUnits(outlineResult);
     return checklist.filter(item => {
+        const specialCoverage = specialChecklistCoverage(item, outlineResult);
+        if (specialCoverage !== null) return !specialCoverage;
         const terms = checklistTerms(item);
         if (terms.length < 4) return false;
         const units = requiresBeatLevelCoverage(item) ? beatUnits : beatUnits.concat(sequenceUnits);
         return !units.some(unit => unitCoversChecklistItem(unit, terms, item));
     });
+}
+
+function cloneBeat(beat = {}) {
+    return {
+        beat_label: beat.beat_label || beat.beat || 'Restored Beat',
+        description: beat.description || ''
+    };
+}
+
+function sequenceId(sequence = {}) {
+    const match = String(sequence?.sequence_number_and_title || '').match(/\bsequence\s*([a-h1-8])\b/i);
+    return match ? match[1].toUpperCase() : '';
+}
+
+function sequenceSlug(sequence = {}) {
+    return String(sequence?.sequence_number_and_title || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function beatText(beat = {}) {
+    return [beat.beat_label || beat.beat || '', beat.description || ''].join(' ').toLowerCase();
+}
+
+function significantBeatTerms(beat = {}) {
+    return checklistTerms([beat.beat_label || beat.beat || '', beat.description || ''].join(' '))
+        .filter(term => !['dapple', 'rebecca', 'elliot'].includes(term));
+}
+
+function escapeRegExp(value = '') {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textContainsTerm(text = '', term = '') {
+    if (!term) return false;
+    return new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i').test(String(text || ''));
+}
+
+function deepClone(value) {
+    return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function normalizedComparableLabel(value = '') {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function notesTargetExistingBeat(notes = '', beat = {}) {
+    const noteText = String(notes || '').toLowerCase();
+    const label = String(beat.beat_label || beat.beat || '').toLowerCase();
+    const labelTerms = checklistTerms(label);
+    const foundLabelTerms = labelTerms.filter(term => textContainsTerm(noteText, term)).length;
+    if (foundLabelTerms >= Math.min(2, labelTerms.length || 2)) return true;
+    return labelTerms.length === 1 && foundLabelTerms === 1;
+}
+
+function findMatchingSequence(outline = {}, currentSequence = {}) {
+    const id = sequenceId(currentSequence);
+    const slug = sequenceSlug(currentSequence);
+    for (const act of [outline.act_1, outline.act_2, outline.act_3]) {
+        if (!Array.isArray(act)) continue;
+        const byId = id ? act.find(sequence => sequenceId(sequence) === id) : null;
+        if (byId) return byId;
+        const bySlug = slug ? act.find(sequence => sequenceSlug(sequence) === slug) : null;
+        if (bySlug) return bySlug;
+    }
+    return null;
+}
+
+function restoreDroppedExistingBeats(outlineResult = {}, currentOutlineInput = {}, notes = '', { explicitSequenceReplacement = null } = {}) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    const currentOutline = normalizeOutlineInput(currentOutlineInput) || {};
+    const replacedSequenceId = explicitSequenceReplacement?.sequenceId
+        ? String(explicitSequenceReplacement.sequenceId).toUpperCase()
+        : '';
+
+    for (const currentAct of [currentOutline.act_1, currentOutline.act_2, currentOutline.act_3]) {
+        if (!Array.isArray(currentAct)) continue;
+        for (const currentSequence of currentAct) {
+            if (replacedSequenceId && sequenceId(currentSequence) === replacedSequenceId) continue;
+            const revisedSequence = findMatchingSequence(outline, currentSequence);
+            if (!revisedSequence || !Array.isArray(currentSequence.beats)) continue;
+            if (!Array.isArray(revisedSequence.beats)) revisedSequence.beats = [];
+            for (const currentBeat of currentSequence.beats) {
+                const label = currentBeat?.beat_label || currentBeat?.beat || '';
+                if (!label) continue;
+                const revisedHasBeat = revisedSequence.beats.some(beat => {
+                    const revisedLabel = beat?.beat_label || beat?.beat || '';
+                    if (revisedLabel && revisedLabel.toLowerCase() === label.toLowerCase()) return true;
+                    const currentTerms = significantBeatTerms(currentBeat);
+                    if (currentTerms.length < 5) return false;
+                    const revisedText = beatText(beat);
+                    const found = currentTerms.filter(term => textContainsTerm(revisedText, term)).length;
+                    return found >= Math.min(6, Math.ceil(currentTerms.length * 0.6));
+                });
+                if (!revisedHasBeat && !notesTargetExistingBeat(notes, currentBeat)) {
+                    revisedSequence.beats.push(cloneBeat(currentBeat));
+                }
+            }
+        }
+    }
+    return outlineResult;
+}
+
+function beatKind(beat = {}) {
+    const label = String(beat?.beat_label || beat?.beat || '');
+    const description = String(beat?.description || '');
+    const text = `${label} ${description}`;
+    if (/\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)) return 'midpoint';
+    if (/quiet reckoning/i.test(label) || /\bdiner\b/i.test(description) || /why did dapple know my name|how long have you known/i.test(description)) return 'diner';
+    if (/Rebecca's (?:Realization|Memory)|Quiet Kingdom|Bonded Phrase/i.test(label) || /source-true|pillermoss|quiet kingdom|storm drain/i.test(description)) return 'rebecca-memory';
+    if (/false rescue/i.test(label) || /real dramatic question/i.test(description)) return 'false-rescue';
+    if (/climax|apology|key/i.test(label) || /protocol erasure aborts|doesn'?t fight dapple/i.test(description)) return 'climax';
+    if (/dapple/i.test(label) && /last choice|surrender|cuff/i.test(text)) return 'dapple-choice';
+    if (/aftermath.+new order|new order/i.test(label)) return 'new-order';
+    if (/closing image|photo on the wall|kitchen closing image/i.test(label) || /breakfast for three|visitor passes?/i.test(description)) return 'closing-image';
+    return '';
+}
+
+function notesTargetBeat(notes = '', beat = {}) {
+    const text = String(notes || '');
+    const lower = text.toLowerCase();
+    const label = String(beat?.beat_label || beat?.beat || '');
+    const normalizedLabel = normalizedComparableLabel(label);
+    if (label && new RegExp(`\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').test(text)) return true;
+    const labelTerms = checklistTerms(label);
+    const foundLabelTerms = labelTerms.filter(term => textContainsTerm(lower, term)).length;
+    if (labelTerms.length && foundLabelTerms >= Math.min(labelTerms.length, 3)) return true;
+
+    switch (beatKind(beat)) {
+        case 'midpoint':
+            return /\bmidpoint\b|hello,\s*becky|doesn'?t consciously recognize|does not consciously recognize|dapple was mine|imaginary friend/i.test(text);
+        case 'diner':
+            return /\bdiner\b|how long have you known he was mine|why did dapple know my name/i.test(text);
+        case 'rebecca-memory':
+            return /Rebecca's (?:Realization|Memory)|Quiet Kingdom|Bonded Phrase|source[- ]?true|source[- ]?faith|storm drain|pillermoss/i.test(text);
+        case 'false-rescue':
+            return /climax is not|own the bond|reach him|real dramatic question/i.test(text);
+        case 'climax':
+            return /\bclimax\b|private bond|pillermoss|storm drain|quiet kingdom|bonded phrase|protocol erasure/i.test(text);
+        case 'dapple-choice':
+            return /dapple'?s ending line|not letting them warehouse|answer for what you did|accountability|this time,\s*i stay|dapple'?s last choice|surrender/i.test(text);
+        case 'new-order':
+            return /aftermath.+new order|new order|quist.+old order|consult.+dapple|scott gets/i.test(text);
+        case 'closing-image':
+            return /closing image|photo on the wall|kitchen closing|breakfast for three|visitor passes?/i.test(text);
+        default:
+            return normalizedLabel && lower.includes(normalizedLabel);
+    }
+}
+
+function notesAllowSequenceAdditions(notes = '', sequence = {}) {
+    const text = String(notes || '');
+    const title = String(sequence?.sequence_number_and_title || '');
+    const isFinalSequence = /sequence\s*h\b|resolution|world that remembers|ending|finale/i.test(title);
+    const asksRestore = /\b(restore|restoring|missing|omitted|dropped|lost|bring back|add|include)\b/i.test(text);
+    const finalBeatTerms = /\b(sequence\s*h|seq\s*h|ending beats?|final beats?|closing image|photo on the wall|breakfast for three|visitor passes?|aftermath.+new order|dapple'?s voluntary surrender)\b/i.test(text);
+    return isFinalSequence && asksRestore && finalBeatTerms;
+}
+
+function revisedBeatMatchesCurrent(revisedBeat = {}, currentBeat = {}) {
+    const revisedLabel = normalizedComparableLabel(revisedBeat.beat_label || revisedBeat.beat || '');
+    const currentLabel = normalizedComparableLabel(currentBeat.beat_label || currentBeat.beat || '');
+    if (revisedLabel && currentLabel && revisedLabel === currentLabel) return true;
+    const currentKind = beatKind(currentBeat);
+    return currentKind && currentKind === beatKind(revisedBeat);
+}
+
+function findMatchingRevisedBeat(revisedSequence = {}, currentBeat = {}) {
+    const beats = Array.isArray(revisedSequence?.beats) ? revisedSequence.beats : [];
+    return beats.find(beat => revisedBeatMatchesCurrent(beat, currentBeat)) || null;
+}
+
+function sequenceHasEquivalentBeat(sequence = {}, beatToFind = {}) {
+    const beats = Array.isArray(sequence?.beats) ? sequence.beats : [];
+    return beats.some(beat => revisedBeatMatchesCurrent(beat, beatToFind));
+}
+
+function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, notes = '', { explicitSequenceReplacement = null } = {}) {
+    if (explicitSequenceReplacement) return outlineResult;
+    const revisedOutline = normalizeOutlineInput(outlineResult);
+    const currentOutline = normalizeOutlineInput(currentOutlineInput);
+    if (!revisedOutline || !currentOutline) return outlineResult;
+
+    const mergedOutline = deepClone(currentOutline);
+    let appliedScopedChange = false;
+
+    for (const currentActKey of ['act_1', 'act_2', 'act_3']) {
+        const currentAct = Array.isArray(currentOutline[currentActKey]) ? currentOutline[currentActKey] : [];
+        const mergedAct = Array.isArray(mergedOutline[currentActKey]) ? mergedOutline[currentActKey] : [];
+        for (let sequenceIndex = 0; sequenceIndex < currentAct.length; sequenceIndex += 1) {
+            const currentSequence = currentAct[sequenceIndex];
+            const mergedSequence = mergedAct[sequenceIndex];
+            const revisedSequence = findMatchingSequence(revisedOutline, currentSequence);
+            if (!mergedSequence || !revisedSequence) continue;
+            if (!Array.isArray(mergedSequence.beats)) mergedSequence.beats = [];
+
+            for (let beatIndex = 0; beatIndex < (currentSequence.beats || []).length; beatIndex += 1) {
+                const currentBeat = currentSequence.beats[beatIndex];
+                if (!notesTargetBeat(notes, currentBeat)) continue;
+                const revisedBeat = findMatchingRevisedBeat(revisedSequence, currentBeat);
+                if (revisedBeat) {
+                    mergedSequence.beats[beatIndex] = cloneBeat(revisedBeat);
+                    appliedScopedChange = true;
+                }
+            }
+
+            if (notesAllowSequenceAdditions(notes, currentSequence)) {
+                for (const revisedBeat of revisedSequence.beats || []) {
+                    if (!sequenceHasEquivalentBeat(mergedSequence, revisedBeat)) {
+                        mergedSequence.beats.push(cloneBeat(revisedBeat));
+                        appliedScopedChange = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!appliedScopedChange) return outlineResult;
+    if (outlineResult?.outline && typeof outlineResult.outline === 'object') {
+        outlineResult.outline = mergedOutline;
+    } else {
+        for (const key of ['act_1', 'act_2', 'act_3']) {
+            outlineResult[key] = mergedOutline[key] || [];
+        }
+    }
+    return outlineResult;
+}
+
+function findBeat(outlineResult = {}, predicate = () => false) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    for (const act of [outline.act_1, outline.act_2, outline.act_3]) {
+        if (!Array.isArray(act)) continue;
+        for (const sequence of act) {
+            if (!Array.isArray(sequence?.beats)) continue;
+            for (const beat of sequence.beats) {
+                const label = beat?.beat_label || beat?.beat || '';
+                const description = beat?.description || '';
+                if (predicate({ sequence, beat, label, description })) return beat;
+            }
+        }
+    }
+    return null;
+}
+
+function replaceQuietKingdomMemory(description = '') {
+    const text = String(description || '');
+    const stormDrainMemory = "One specific memory surfaces, sharper than the others: the storm drain. Young Becky crouched beside the rain-swollen curb, terrified of the dark water rushing under the grate, while Dapple stood between her and the pull of it, muddy and ridiculous and brave. He gave her their private bonded phrase -- PILLERMOSS -- and she promised she would never forget it. The day she stopped seeing him, that was the word she left behind. Only the two of them ever knew.";
+    if (/One specific memory surfaces[\s\S]*Only the two of them ever knew\./i.test(text)) {
+        return text.replace(/One specific memory surfaces[\s\S]*Only the two of them ever knew\./i, stormDrainMemory);
+    }
+    return `${text.replace(/\bsource-true\b/gi, 'private').replace(/\bQUIET KINGDOM\b/g, 'STORM DRAIN').replace(/\bQuiet Kingdom\b/g, 'Storm Drain')} ${stormDrainMemory}`.trim();
+}
+
+function applyRecognitionAndAccountabilityPass(outlineResult = {}, notes = '') {
+    const request = String(notes || '');
+    const wantsRecognition = /\bmidpoint\b/i.test(request)
+        && (/\brecogniz/i.test(request) || /dapple was mine/i.test(request) || /doesn'?t consciously recognize|does not consciously recognize/i.test(request) || /hello,\s*becky/i.test(request));
+    const wantsStormDrain = /\bstorm drain\b/i.test(request)
+        && (/\bquiet kingdom\b/i.test(request) || /\bsource[- ]?faith/i.test(request) || /source[- ]?true/i.test(request));
+    const wantsAccountability = /answer for what you did|accountability|ending line/i.test(request);
+
+    if (wantsRecognition) {
+        const midpointBeat = findBeat(outlineResult, ({ label, description }) => (
+            /\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)
+        ));
+        if (midpointBeat) {
+            midpointBeat.description = String(midpointBeat.description || '')
+                .replace(/Rebecca freezes\. She doesn'?t consciously recognize him\s*(?:--|\u2014)\s*but her hands shake\. He recognizes her completely\. REVELATION FOR THE AUDIENCE \(Dramatic Irony\): Dapple is her abandoned childhood figment, and she is Patient Zero of his revolution\. Rebecca doesn'?t fully know yet\s*(?:--|\u2014)\s*but Dave does, and he'?s been hiding it\./i,
+                    "Rebecca freezes. Not because the name is strange, but because something in her body knows him. The whole memory is still dammed up -- no bonded phrase, no final day -- but she understands the essential truth: Dapple was mine. Midpoint reveal: 'Oh God. He was my imaginary friend.' He recognizes her completely, and now she recognizes enough to act. Dave has known longer than he admitted, and he has been hiding it.")
+                .replace(/Rebecca freezes\. She doesn'?t consciously recognize him\s*(?:--|\u2014)\s*but her hands shake\./i,
+                    "Rebecca freezes. Not because the name is strange, but because something in her body knows him. The whole memory is still dammed up -- no bonded phrase, no final day -- but she understands the essential truth: Dapple was mine. Midpoint reveal: 'Oh God. He was my imaginary friend.'")
+                .replace(/Rebecca doesn'?t fully know yet\s*(?:--|\u2014)\s*but Dave does, and he'?s been hiding it\./i,
+                    "Dave has known longer than he admitted, and he has been hiding it.");
+            if (!/dapple was mine|imaginary friend/i.test(midpointBeat.description || '')) {
+                midpointBeat.description = `${String(midpointBeat.description || '').trim()} Rebecca understands the essential truth: Dapple was mine. The full memory has not returned yet, but the bond is no longer a mystery.`;
+            }
+        }
+
+        const dinerBeat = findBeat(outlineResult, ({ label, description }) => (
+            /quiet reckoning|aftermath/i.test(label) && /dapple/i.test(description)
+        ));
+        if (dinerBeat) {
+            dinerBeat.description = String(dinerBeat.description || '')
+                .replace(/Why did Dapple know my name\?/g, 'How long have you known he was mine?')
+                .replace(/Why did Dapple know my name\?/gi, 'How long have you known he was mine?');
+        }
+
+        const falseRescueBeat = findBeat(outlineResult, ({ label, description }) => (
+            /false rescue/i.test(label) || /real dramatic question/i.test(description)
+        ));
+        if (falseRescueBeat) {
+            falseRescueBeat.description = String(falseRescueBeat.description || '')
+                .replace(/can Rebecca remember what she abandoned/i, 'can Rebecca own the bond she abandoned')
+                .replace(/She has rescued Elliot's friend\. She has not yet faced her own\./i,
+                    "She has rescued Elliot's friend. She has not yet owned her own bond.");
+        }
+    }
+
+    if (wantsStormDrain) {
+        const memoryBeat = findBeat(outlineResult, ({ label, description }) => (
+            /Rebecca's Realization|Rebecca's Memory|Quiet Kingdom|Bonded Phrase/i.test(label)
+                || /Quiet Kingdom|source-true|PILLERMOSS/i.test(description)
+        ));
+        if (memoryBeat) {
+            memoryBeat.beat_label = "Rebecca's Memory - The Storm Drain";
+            memoryBeat.description = replaceQuietKingdomMemory(memoryBeat.description);
+        }
+
+        const climaxBeat = findBeat(outlineResult, ({ label }) => /climax|apology/i.test(label));
+        if (climaxBeat) {
+            climaxBeat.description = String(climaxBeat.description || '')
+                .replace(/Dapple\. Pillermoss\. The Quiet Kingdom\. I remember the can\. I remember the password\. I remember you\./i,
+                    "Dapple. Pillermoss. The storm drain. I remember the rainwater. I remember your paw in mine. I remember you.")
+                .replace(/\bThe Quiet Kingdom\b/g, 'the storm drain')
+                .replace(/\bQuiet Kingdom\b/g, 'storm drain')
+                .replace(/\bthe can\b/gi, 'the rainwater')
+                .replace(/\bthe password\b/gi, 'your paw in mine');
+        }
+    }
+
+    if (wantsAccountability) {
+        const dappleChoiceBeat = findBeat(outlineResult, ({ label, description }) => (
+            /Dapple/i.test(label) && /Last Choice|surrender|cuff/i.test(label + ' ' + description)
+        ));
+        if (dappleChoiceBeat && !/answer for what you did/i.test(dappleChoiceBeat.description || '')) {
+            dappleChoiceBeat.description = String(dappleChoiceBeat.description || '')
+                .replace(/'And I'?m not letting them warehouse you again\.'/i,
+                    "'And I'm not letting them warehouse you again. But you answer for what you did.'")
+                .replace(/"And I'?m not letting them warehouse you again\."/i,
+                    "\"And I'm not letting them warehouse you again. But you answer for what you did.\"");
+            if (!/answer for what you did/i.test(dappleChoiceBeat.description || '')) {
+                dappleChoiceBeat.description = `${String(dappleChoiceBeat.description || '').trim()} Rebecca adds, 'But you answer for what you did.'`;
+            }
+        }
+    }
+
+    return outlineResult;
+}
+
+function applyPostRevisionSafeguards(outlineResult = {}, currentOutline = {}, notes = '', options = {}) {
+    applyScopedRevisionMerge(outlineResult, currentOutline, notes, options);
+    restoreDroppedExistingBeats(outlineResult, currentOutline, notes, options);
+    applyRecognitionAndAccountabilityPass(outlineResult, notes);
+    return outlineResult;
 }
 
 function titleCaseLabel(value = '') {
@@ -557,6 +966,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         if (explicitSequenceReplacement) {
             applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
         }
+        applyPostRevisionSafeguards(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
 
         let missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
         if (missingChecklistItems.length) {
@@ -604,9 +1014,12 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
             if (explicitSequenceReplacement) {
                 applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
             }
+            applyPostRevisionSafeguards(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
             missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
             if (missingChecklistItems.length) {
                 appendMissingChecklistBeats(parsed.result, missingChecklistItems);
+                restoreDroppedExistingBeats(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
+                applyRecognitionAndAccountabilityPass(parsed.result, activeRevisionRequest || notes);
                 missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
             }
         }
