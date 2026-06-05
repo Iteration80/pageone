@@ -247,7 +247,9 @@ const {
     agent2Outline,
     buildRevisionChecklist: buildOutlineRevisionChecklist,
     findUndercoveredChecklistItems: findUndercoveredOutlineChecklistItems,
-    appendMissingChecklistBeats: appendMissingOutlineChecklistBeats
+    appendMissingChecklistBeats: appendMissingOutlineChecklistBeats,
+    extractExplicitSequenceReplacement: extractExplicitOutlineSequenceReplacement,
+    applyExplicitSequenceReplacement: applyExplicitOutlineSequenceReplacement
 } = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent4Beats } = require('./agents/agent_4_beats');
@@ -3484,6 +3486,10 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
         const revisionChecklist = notesWithUpload ? buildOutlineRevisionChecklist(notesWithUpload) : [];
+        const explicitSequenceReplacement = notesWithUpload ? extractExplicitOutlineSequenceReplacement(notesWithUpload) : null;
+        if (explicitSequenceReplacement) {
+            applyExplicitOutlineSequenceReplacement(outlineData, explicitSequenceReplacement);
+        }
         let missingChecklistItems = revisionChecklist.length
             ? findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData)
             : [];

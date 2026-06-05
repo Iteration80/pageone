@@ -160,6 +160,36 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     return Array.from(new Set(items)).slice(0, maxItems);
 }
 
+function parseBracketedRevisionBeats(text = '') {
+    const beats = [];
+    const pattern = /^\s*\[([^\]]{3,120})\]\s+([\s\S]*?)(?=\n\s*\[[^\]]{3,120}\]\s+|$)/gm;
+    for (const match of String(text || '').matchAll(pattern)) {
+        const beat_label = (match[1] || '').trim();
+        const description = (match[2] || '').trim();
+        if (beat_label && description.length >= 20) {
+            beats.push({ beat_label, description });
+        }
+    }
+    return beats;
+}
+
+function extractExplicitSequenceReplacement(notes = '') {
+    const text = latestConcreteRevisionText(notes);
+    if (!text || !/\breplace\b/i.test(text) || !/\bwith\b/i.test(text) || !/\bbeats?\b/i.test(text)) return null;
+    const sequenceMatch = text.match(/\breplace\s+(?:the\s+)?(?:sequence\s*)?([a-h]|[1-8])\b/i);
+    if (!sequenceMatch) return null;
+    const sequenceId = sequenceMatch[1].toUpperCase();
+    const beats = parseBracketedRevisionBeats(text);
+    if (!beats.length) return null;
+
+    const titleMatch = text.match(new RegExp(`^\\s*Sequence\\s+${sequenceId}\\s*:\\s*(.+)$`, 'im'));
+    const sequence_number_and_title = titleMatch?.[1]
+        ? `Sequence ${sequenceId}: ${titleMatch[1].trim()}`
+        : `Sequence ${sequenceId}`;
+
+    return { sequenceId, sequence_number_and_title, beats };
+}
+
 const CHECKLIST_STOPWORDS = new Set([
     'about', 'above', 'absolutely', 'across', 'after', 'again', 'also', 'because', 'before', 'being',
     'both', 'chunk', 'chunks', 'doing', 'ensure', 'every', 'final', 'from', 'have', 'image', 'into',
@@ -284,6 +314,53 @@ function finalOutlineSequence(outline = {}, item = '') {
     }
     outline.act_3 = [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }];
     return outline.act_3[0];
+}
+
+function actKeyForSequenceId(sequenceId = '') {
+    const normalized = String(sequenceId || '').toUpperCase();
+    if (/^[AB12]$/.test(normalized)) return 'act_1';
+    if (/^[CDEF3456]$/.test(normalized)) return 'act_2';
+    if (/^[GH78]$/.test(normalized)) return 'act_3';
+    return 'act_3';
+}
+
+function applyExplicitSequenceReplacement(outlineResult = {}, replacement = null) {
+    if (!replacement?.sequenceId || !replacement?.beats?.length) return false;
+    const outline = outlineResult?.outline || outlineResult || {};
+    if (!outline.act_1) outline.act_1 = [];
+    if (!outline.act_2) outline.act_2 = [];
+    if (!outline.act_3) outline.act_3 = [];
+
+    const sequencePattern = new RegExp(`\\bsequence\\s*${replacement.sequenceId}\\b`, 'i');
+    let targetActKey = null;
+    let targetIndex = -1;
+    for (const key of ['act_1', 'act_2', 'act_3']) {
+        const index = (outline[key] || []).findIndex(sequence => sequencePattern.test(sequence?.sequence_number_and_title || ''));
+        if (index >= 0) {
+            targetActKey = key;
+            targetIndex = index;
+            break;
+        }
+    }
+
+    if (!targetActKey) {
+        targetActKey = actKeyForSequenceId(replacement.sequenceId);
+        targetIndex = outline[targetActKey].length;
+        outline[targetActKey].push({
+            sequence_number_and_title: replacement.sequence_number_and_title,
+            beats: []
+        });
+    }
+
+    outline[targetActKey][targetIndex] = {
+        ...(outline[targetActKey][targetIndex] || {}),
+        sequence_number_and_title: replacement.sequence_number_and_title,
+        beats: replacement.beats.map(beat => ({
+            beat_label: beat.beat_label,
+            description: beat.description
+        }))
+    };
+    return true;
 }
 
 function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
@@ -437,6 +514,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
         const activeRevisionRequest = latestConcreteRevisionText(notes);
         const revisionChecklist = buildRevisionChecklist(notes);
+        const explicitSequenceReplacement = extractExplicitSequenceReplacement(notes);
         const checklistBlock = revisionChecklist.length
             ? `\nREVISION CHECKLIST:\nTreat each item below as a concrete obligation. It must be visibly present in the revised outline, unless the current outline already contains it.\n${revisionChecklist.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n`
             : '';
@@ -475,6 +553,10 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             anthropicApiKey,
             retryDelayMs
         });
+
+        if (explicitSequenceReplacement) {
+            applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
+        }
 
         let missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
         if (missingChecklistItems.length) {
@@ -519,6 +601,9 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
             });
             repaired.usage = combineUsage(parsed.usage, repaired.usage);
             parsed = repaired;
+            if (explicitSequenceReplacement) {
+                applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
+            }
             missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
             if (missingChecklistItems.length) {
                 appendMissingChecklistBeats(parsed.result, missingChecklistItems);
@@ -587,5 +672,7 @@ module.exports = {
     outlineHasContent,
     buildRevisionChecklist,
     findUndercoveredChecklistItems,
-    appendMissingChecklistBeats
+    appendMissingChecklistBeats,
+    extractExplicitSequenceReplacement,
+    applyExplicitSequenceReplacement
 };

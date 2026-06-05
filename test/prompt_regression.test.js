@@ -490,6 +490,60 @@ We've lost the following two beats in Seq H, please restore:
     assert.match(finalText, /visitor passes for Dapple and Scott/i);
 });
 
+test('Stage 2 outline deterministically replaces Sequence H with explicit bracketed beats', async () => {
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: Old Ending',
+            beats: [
+                { beat_label: 'Old Climax', description: 'The old climax remains in place.' },
+                { beat_label: 'Old Coda', description: 'The old coda remains in place.' }
+            ]
+        }]
+    };
+    const unchangedResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: currentOutline
+    };
+    const notes = `DIRECT USER REVISION REQUEST:
+Replace sequence H with these beats:
+
+Sequence H: A World That Remembers
+
+[Climax - The Apology and the Key] Rebecca remembers Dapple, uses the Bonded Authorization Key, and aborts Protocol Erasure. Scott is freed nearby.
+
+[Dapple's Last Choice] Dapple shrinks back to a small fox figment, chooses kindness toward Scott, and lets the containment team cuff him.
+
+[Aftermath - A New Order] Quist's old order is broken. Rebecca declines the badge but agrees to consult on Dapple containment. Dave, Robotobob, Blounder, Terry, Moog, Big Doll, Scott, and Molly each get their humane aftermath.
+
+[Closing Image - The Photo on the Wall] Rebecca's kitchen holds the framed photo of young Becky and Dapple. Elliot sets breakfast for three with Furdlegurr visible to both, and visitor passes for Dapple and Scott sit on the fridge.`;
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(unchangedResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(result.outline.act_3[0].sequence_number_and_title, 'Sequence H: A World That Remembers');
+    assert.deepEqual(result.outline.act_3[0].beats.map(beat => beat.beat_label), [
+        'Climax - The Apology and the Key',
+        "Dapple's Last Choice",
+        'Aftermath - A New Order',
+        'Closing Image - The Photo on the Wall'
+    ]);
+    assert.doesNotMatch(JSON.stringify(result.outline.act_3[0].beats), /Old Climax/);
+    assert.match(JSON.stringify(result.outline.act_3[0].beats), /Bonded Authorization Key/);
+    assert.match(JSON.stringify(result.outline.act_3[0].beats), /visitor passes for Dapple and Scott/i);
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",

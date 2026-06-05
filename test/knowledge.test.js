@@ -546,6 +546,8 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
     assert.match(serverJs, /buildOutlineRevisionChecklist\(notesWithUpload\)/);
+    assert.match(serverJs, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
+    assert.match(serverJs, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
     assert.match(serverJs, /const changed = !notesWithUpload \|\| beforeOutlineHash !== afterOutlineHash/);
     assert.match(serverJs, /Stage 2 outline save verification failed/);
