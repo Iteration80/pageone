@@ -542,7 +542,11 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /: keep-alive\\n\\n/);
     assert.match(serverJs, /type: 'complete'/);
     assert.match(appJs, /function consumeOutlineGenerationResponse/);
+    assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
     assert.match(appJs, /readSSEStream\(response/);
+    assert.match(appJs, /recoveredFromInterruptedStream/);
+    assert.match(appJs, /previousOutline/);
+    assert.match(appJs, /Outline stream ended before the server sent a completion event/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
     assert.match(serverJs, /buildOutlineRevisionChecklist\(notesWithUpload\)/);
@@ -695,7 +699,8 @@ test('frontend Stage 2 chat directly applies outline revision memos and rejects 
     assert.match(appJs, /Number\(stageId\) === 2 && isStage2DirectRevisionRequest\(_text\)/);
     assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
     assert.match(appJs, /Applying those outline changes now/);
-    assert.match(appJs, /saved outline came back unchanged/);
+    assert.match(appJs, /outline revision failed/);
+    assert.doesNotMatch(appJs, /saved outline came back unchanged/);
     assert.match(appJs, /function isRevisionStatusQuestion/);
     assert.match(appJs, /did you\|did it\|really\|actually/);
     assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);

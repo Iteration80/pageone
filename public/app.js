@@ -2224,7 +2224,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Stage 2 Logic ---
-    async function consumeOutlineGenerationResponse(response, { chat = null, fallback = 'Outline request failed' } = {}) {
+    async function recoverOutlineFromInterruptedStream(previousOutline, { chat = null } = {}) {
+        if (!previousOutline) return null;
+        let refreshed;
+        try {
+            refreshed = await refreshCurrentProjectData();
+        } catch (err) {
+            console.warn('Outline stream recovery refresh failed:', err.message);
+            return null;
+        }
+        const recovered = refreshed?.stage2_outline;
+        if (!recovered?.outline) return null;
+        if (JSON.stringify(previousOutline || {}) === JSON.stringify(recovered.outline || {})) return null;
+        const recoveredEvent = {
+            type: 'complete',
+            result: recovered,
+            changed: true,
+            recoveredFromInterruptedStream: true
+        };
+        await handleSourceGenerationResult(2, recoveredEvent, { chat });
+        renderOutline(recovered.outline);
+        if (window.currentProjectData) window.currentProjectData.stage2_outline = recovered;
+        return recoveredEvent;
+    }
+
+    async function consumeOutlineGenerationResponse(response, { chat = null, fallback = 'Outline request failed', previousOutline = null } = {}) {
         if (!response.ok) throw new Error(await apiErrorMessage(response, fallback));
 
         const contentType = response.headers.get('content-type') || '';
@@ -2237,7 +2261,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(event.message || fallback);
                 }
             });
-            if (!completeEvent) throw new Error('Outline request finished without a completion event.');
+            if (!completeEvent) {
+                const recoveredEvent = await recoverOutlineFromInterruptedStream(previousOutline, { chat });
+                if (recoveredEvent) return recoveredEvent;
+                throw new Error('Outline stream ended before the server sent a completion event. If Railway was deploying or restarting, wait for the deploy to finish and try again.');
+            }
             await handleSourceGenerationResult(2, completeEvent, { chat });
             renderOutline(completeEvent.result.outline);
             if (window.currentProjectData) window.currentProjectData.stage2_outline = completeEvent.result;
@@ -2265,6 +2293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingStateOutline.classList.remove('hidden');
+        const previousOutline = window.currentProjectData?.stage2_outline?.outline || scrapeOutline();
         document.getElementById('act1Container').innerHTML = '';
         document.getElementById('act2Container').innerHTML = '';
         document.getElementById('act3Container').innerHTML = '';
@@ -2275,7 +2304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
                 body: JSON.stringify({ projectId: activeProjectId, stream: true })
             });
-            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to generate outline' });
+            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to generate outline', previousOutline });
         } catch (err) {
             console.error(err);
             alert(err.message);
@@ -2536,7 +2565,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Accept': 'text/event-stream' },
                 body: formData
             });
-            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to revise outline' });
+            await consumeOutlineGenerationResponse(res, { fallback: 'Failed to revise outline', previousOutline: currentBeats });
 
             // Clear notes and PDF
             stage2Notes.value = '';
@@ -7922,7 +7951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         await postRevisionFollowUp(revisionResult);
                     } catch (err) {
                         indicator.remove();
-                        chat.append('ai', 'I tried to apply that, but the saved outline came back unchanged: ' + err.message);
+                        chat.append('ai', 'I tried to apply that, but the outline revision failed: ' + err.message);
                     } finally {
                         chat.setDisabled(false);
                     }
@@ -8147,7 +8176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Accept': 'text/event-stream' },
                 body: formData
             });
-            const data = await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed' });
+            const data = await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed', previousOutline: currentBeats });
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
             return {
                 ...data,
