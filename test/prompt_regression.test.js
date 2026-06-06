@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { agent2Outline, outlineHasContent } = require('../agents/agent_2_outline');
+const { agent3Characters } = require('../agents/agent_3_characters');
 const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
 const { generateStage6Scenes } = require('../agents/agent_6_scenes');
@@ -753,6 +754,85 @@ Only revise [Midpoint - The Name Drop]. When Dapple says "Hello, Becky," Rebecca
     assert.deepEqual(result.outline.act_3[0], currentSequenceH);
 });
 
+test('Stage 2 outline structural replace and delete notes apply against the saved outline', async () => {
+    const currentSequenceH = {
+        sequence_number_and_title: 'Sequence H: A World That Remembers',
+        beats: [{
+            beat_label: 'Climax - The Bonded Phrase',
+            description: 'Rebecca uses the bonded phrase to reach Dapple.'
+        }, {
+            beat_label: "Dapple's Last Choice",
+            description: 'Dapple lets the containment team cuff him.'
+        }, {
+            beat_label: 'Aftermath - A New Order',
+            description: 'Rebecca consults on Dapple containment while the visible city rebuilds.'
+        }, {
+            beat_label: 'Closing Image - The Photo on the Wall',
+            description: 'The photo of young Becky and Dapple is framed in the kitchen light.'
+        }, {
+            beat_label: "The Rebecca's Memory - The Storm Drain",
+            description: 'This paragraph works but repeats itself.'
+        }]
+    };
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: Setup', beats: [{ beat_label: 'Opening', description: 'Blounder ages out.' }] }],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Rebecca and Dave face the diner fallout.'
+            }, {
+                beat_label: "Quist's Betrayal & The Bonded Key",
+                description: 'Quist betrays the old agency order and gives Rebecca the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate placeholder after the Quist betrayal.'
+            }]
+        }],
+        act_3: [currentSequenceH]
+    };
+    const damagedModelOutline = {
+        ...currentOutline,
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: currentSequenceH.beats.concat([{
+                beat_label: 'Resolution - A New Accord',
+                description: 'A contradictory second ending where Dapple is held, not cuffed.'
+            }])
+        }]
+    };
+    const notes = `1. Dapple Rising - The Anchor is still missing.
+You still have two copies of [Aftermath - A Quiet Reckoning]. Replace the second one, after [Quist's Betrayal & The Bonded Key], with the Dapple Rising beat.
+
+[Dapple Rising - The Anchor] Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle. Dapple has hijacked the Mobile Processing Core, chained Furdlegurr to it, and is using the bear's pure, recently-betrayed bond with Elliot as the perfect anchor to drag the Breach into reality. Every retired figment in Seattle is being pulled toward him. Protocol Erasure is counting down. Rebecca: 'We go now. No more agency.' Elliot, fierce: 'I'm coming. He came for me even after I told him not to.'
+
+2. There's an accidental note left as a final beat.
+The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the paragraph works but repeats itself. Delete that entirely.`;
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            title: 'I.M.A.G.I.N.E.',
+            genre: 'Animated Family Adventure',
+            logline: 'A mother must remember her abandoned imaginary friend.',
+            outline: damagedModelOutline
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    const sequenceEBeats = result.outline.act_2[0].beats;
+    const sequenceHBeats = result.outline.act_3[0].beats;
+    assert.equal(sequenceEBeats[2].beat_label, 'Dapple Rising - The Anchor');
+    assert.match(sequenceEBeats[2].description, /Mobile Processing Core/);
+    assert.doesNotMatch(JSON.stringify(sequenceHBeats), /The Rebecca's Memory - The Storm Drain/);
+    assert.doesNotMatch(JSON.stringify(sequenceHBeats), /Resolution - A New Accord/);
+    assert.equal(sequenceHBeats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+});
+
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
     const malformedOutlineJson = `{
         "title": "Arcade Night",
@@ -884,6 +964,99 @@ test('Stage 2 outline retries transient terminated JSON repair errors', async ()
     assert.match(collectText(calls[2].contents), /Repair ONLY the JSON syntax/);
     assert.equal(result.outline.act_1[0].beats[0].description, 'Mara enters.');
     assert.equal(usage.inputTokens, 2);
+});
+
+test('Stage 3 character revisions preserve unmentioned profiles from the saved cast', async () => {
+    const deepProfile = {
+        mbti_type: 'INTJ',
+        enneagram_type: 'Type 5',
+        enneagram_wing: '5w6',
+        stress_behavior: 'Withdraws under pressure.',
+        growth_behavior: 'Shares responsibility.',
+        dialogue_fingerprint: 'Short declarative sentences.',
+        relationship_dynamics: [],
+        scene_behavior_predictions: 'Quiet in low stakes, precise in high stakes.'
+    };
+    const makeCharacter = (name, brief) => ({
+        name,
+        role: name === 'Mara' ? 'Lead' : 'Ally',
+        brief_summary: brief,
+        psychological_core: {
+            ghost_and_wound: 'Old wound.',
+            the_lie: 'She must solve it alone.',
+            fear: 'Being trapped.',
+            desire: 'Find the blue key.',
+            psychological_need: 'Trust someone else.',
+            moral_need: 'Stop controlling allies.',
+            paradox: 'Guarded but tender.'
+        },
+        voice_and_behavior: {
+            voice_tag: 'Sparse & precise',
+            pressure_tag: 'Controls',
+            humor_tag: 'Dry wit',
+            speech_patterns: 'Keeps sentences clipped.',
+            deflection_tactic: 'Changes the subject.'
+        },
+        arc: { core_drive: 'To be safe', direction: 'Growth' },
+        ticks: { enabled: false, description: '', frequency_gate: '' },
+        _deep_profile: deepProfile
+    });
+    const currentCharacters = {
+        characters: [
+            makeCharacter('Mara', 'Mara carries the blue key.'),
+            makeCharacter('June', 'June keeps the flooded arcade source continuity.')
+        ]
+    };
+    const modelCharacters = {
+        characters: [
+            makeCharacter('Mara', 'Mara now admits she needs June before using the blue key.'),
+            makeCharacter('June', 'June has been accidentally rewritten by the model.')
+        ]
+    };
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(modelCharacters),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent3Characters(
+        pitch,
+        beats,
+        currentCharacters,
+        'Only update Mara so she admits she needs June before using the blue key.',
+        null,
+        { generateContentFn }
+    );
+
+    assert.match(result.characters[0].brief_summary, /admits she needs June/);
+    assert.equal(result.characters[1].brief_summary, currentCharacters.characters[1].brief_summary);
+});
+
+test('Stage 4 beat revisions preserve unmentioned beats from the saved sheet', async () => {
+    const currentBeats = stage4ResponseFixture();
+    const damagedModelBeats = stage4ResponseFixture();
+    damagedModelBeats.hybrid_beat_sheet[0].beats[0].detailed_action = 'The opening has been accidentally rewritten.';
+    damagedModelBeats.hybrid_beat_sheet[3].beats[0].detailed_action = 'Mara recognizes June at the flooded arcade midpoint.';
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(damagedModelBeats),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent4Beats(
+        pitch,
+        outlineWithSeparatedMidpointAndSpectacle,
+        characters,
+        currentBeats,
+        'Only revise [Midpoint] so Mara recognizes June at the flooded arcade.',
+        null,
+        null,
+        { generateContentFn }
+    );
+
+    assert.equal(
+        result.hybrid_beat_sheet[0].beats[0].detailed_action,
+        currentBeats.hybrid_beat_sheet[0].beats[0].detailed_action
+    );
+    assert.match(result.hybrid_beat_sheet[3].beats[0].detailed_action, /recognizes June/);
 });
 
 test('Stage 4 beat generation treats Stage 2 outline sequence placement as binding', async () => {
@@ -1421,6 +1594,42 @@ test('Stage 6 untargeted revision uses surgical inference instead of full-bluepr
     assert.equal(result[0].scenes[0].narrative_action, longOpening);
     assert.match(result[0].scenes[1].narrative_action, /It wasn't me/);
     assert.match(result[1].scenes[0].narrative_action, /remain untouched/);
+});
+
+test('Stage 6 revision applies structural scene deletes against the saved blueprint', async () => {
+    const currentBlueprint = [{
+        sequence_number: 1,
+        sequence_title: 'Opening Protocol',
+        total_estimated_pages: 6,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: 'INT. WRONG ROOM - DAY',
+            narrative_action: 'This scene should be removed.',
+            dramaturgical_function: 'A mistaken duplicate.',
+            estimated_page_count: 1
+        }, {
+            scene_number: 2,
+            scene_heading: 'INT. KEEP ROOM - DAY',
+            narrative_action: 'This scene should remain.',
+            dramaturgical_function: 'The actual opening handoff.',
+            estimated_page_count: 1
+        }]
+    }];
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify([]),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await reviseStage6Scenes(
+        currentBlueprint,
+        'Delete [INT. WRONG ROOM - DAY].',
+        { generateContentFn }
+    );
+
+    assert.equal(calls.length, 1);
+    assert.equal(result[0].scenes.length, 1);
+    assert.equal(result[0].scenes[0].scene_heading, 'INT. KEEP ROOM - DAY');
+    assert.equal(result[0].scenes[0].scene_number, 1);
 });
 
 test('Stage 6 revision retries when the first response produces no saved changes', async () => {

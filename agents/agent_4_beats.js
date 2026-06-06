@@ -4,6 +4,14 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
 const { parseJsonWithRepair } = require('./json_parse');
+const {
+    applyStructuralPatchToItems,
+    cloneValue,
+    isBroadRevisionIntent,
+    labelsEqual,
+    parseSequenceTargets,
+    textMentionsLabel
+} = require('../utils/revision_patch');
 const fs = require('fs');
 const path = require('path');
 
@@ -130,6 +138,89 @@ function validateStage4BeatSheet(parsed, label = 'Stage 4 beat response') {
         throw new Error(`${label} returned sequences with no beats. Please retry.`);
     }
     return parsed;
+}
+
+function stage4BeatPatchOptions() {
+    return {
+        getLabel: beat => beat.beat_name || '',
+        setLabel: (beat, label) => { beat.beat_name = label || beat.beat_name || 'Revised Beat'; },
+        setBody: (beat, body) => { beat.detailed_action = body || beat.detailed_action || ''; },
+        buildNewItem: op => ({
+            beat_name: op.newLabel || 'Inserted Beat',
+            genre_variation_notes: '',
+            emotional_arc: '',
+            pacing_notes: '',
+            detailed_action: op.newBody || ''
+        })
+    };
+}
+
+function sequenceNumber(sequence = {}) {
+    const numeric = Number(sequence.sequence_number);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
+function findRevisedBeatByName(revisedBeats = [], currentBeat = {}) {
+    return revisedBeats.find(beat => labelsEqual(beat?.beat_name || '', currentBeat?.beat_name || '')) || null;
+}
+
+function mergeStage4SequenceBeats(currentSequence = {}, revisedSequence = {}, notes = '', sequenceTargeted = false) {
+    const currentBeats = Array.isArray(currentSequence.beats) ? currentSequence.beats : [];
+    const revisedBeats = Array.isArray(revisedSequence.beats) ? revisedSequence.beats : [];
+    let changed = 0;
+    let beats = currentBeats.map(beat => {
+        const targeted = sequenceTargeted || textMentionsLabel(notes, beat.beat_name || '');
+        if (!targeted) return cloneValue(beat);
+        const replacement = findRevisedBeatByName(revisedBeats, beat);
+        if (!replacement) return cloneValue(beat);
+        changed += 1;
+        return cloneValue(replacement);
+    });
+
+    for (const revisedBeat of revisedBeats) {
+        const label = revisedBeat?.beat_name || '';
+        if (!label || beats.some(beat => labelsEqual(beat?.beat_name || '', label))) continue;
+        if (sequenceTargeted || textMentionsLabel(notes, label) || /\b(add|insert|new|restore|include|bring back)\b/i.test(notes)) {
+            beats.push(cloneValue(revisedBeat));
+            changed += 1;
+        }
+    }
+
+    const patched = applyStructuralPatchToItems(beats, notes, stage4BeatPatchOptions());
+    beats = patched.items;
+    changed += patched.appliedCount;
+    return { beats, changed };
+}
+
+function mergeSurgicalStage4Result(currentBeats = {}, parsedResult = {}, notes = '') {
+    if (isBroadRevisionIntent(notes)) return parsedResult;
+    const currentSheet = Array.isArray(currentBeats?.hybrid_beat_sheet) ? currentBeats.hybrid_beat_sheet : [];
+    const revisedSheet = Array.isArray(parsedResult?.hybrid_beat_sheet) ? parsedResult.hybrid_beat_sheet : [];
+    if (!currentSheet.length || !revisedSheet.length) return parsedResult;
+
+    const sequenceTargets = parseSequenceTargets(notes);
+    const revisedByNumber = new Map(revisedSheet.map(sequence => [sequenceNumber(sequence), sequence]));
+    let changed = 0;
+    const mergedSheet = currentSheet.map(currentSequence => {
+        const number = sequenceNumber(currentSequence);
+        const revisedSequence = revisedByNumber.get(number);
+        if (!revisedSequence) return cloneValue(currentSequence);
+        const sequenceTargeted = sequenceTargets.has(number) || textMentionsLabel(notes, currentSequence.sequence_title || '');
+        const mergedSequence = cloneValue(currentSequence);
+        if (sequenceTargeted && revisedSequence.sequence_title) mergedSequence.sequence_title = revisedSequence.sequence_title;
+        const mergedBeats = mergeStage4SequenceBeats(currentSequence, revisedSequence, notes, sequenceTargeted);
+        if (mergedBeats.changed > 0) {
+            mergedSequence.beats = mergedBeats.beats;
+            changed += mergedBeats.changed;
+        }
+        return mergedSequence;
+    });
+
+    if (!changed) return parsedResult;
+    return {
+        ...parsedResult,
+        hybrid_beat_sheet: mergedSheet
+    };
 }
 
 function formatOutlineBeat(beat = {}, index = 0) {
@@ -277,7 +368,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             delayMs: retryDelayMs
         });
 
-        return parseStage4Response(response, {
+        const parsed = await parseStage4Response(response, {
             treatmentSchema,
             generateContentFn,
             model,
@@ -285,6 +376,8 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
             anthropicApiKey,
             retryDelayMs
         });
+        parsed.result = mergeSurgicalStage4Result(currentBeats, parsed.result, notes);
+        return parsed;
     }
 
     if (onProgress) onProgress('Generating 15-Beat Sheet...');

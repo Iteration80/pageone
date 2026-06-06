@@ -1,4 +1,8 @@
 const { generateContent } = require('./ai-client');
+const {
+    isBroadRevisionIntent,
+    mergeSurgicalLabeledItems
+} = require('../utils/revision_patch');
 const fs = require('fs');
 const path = require('path');
 
@@ -65,12 +69,73 @@ function isFullCharacterRegenerationRequest(notes = '') {
     return asksForCharacters && asksForFreshPass && !surgicalQualifier;
 }
 
+function blankDeepProfile() {
+    return {
+        mbti_type: '',
+        enneagram_type: '',
+        enneagram_wing: '',
+        stress_behavior: '',
+        growth_behavior: '',
+        dialogue_fingerprint: '',
+        relationship_dynamics: [],
+        scene_behavior_predictions: ''
+    };
+}
+
+function characterFromPatchOperation(op = {}) {
+    return normalizeLegacyCharacter({
+        name: op.newLabel || 'New Character',
+        role: 'Supporting',
+        brief_summary: op.newBody || '',
+        psychological_core: {},
+        voice_and_behavior: {},
+        arc: {},
+        ticks: {},
+        _deep_profile: blankDeepProfile()
+    });
+}
+
+function escapeRegExp(value = '') {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function explicitOnlyCharacterTargets(notes = '', currentList = []) {
+    const text = String(notes || '');
+    if (!/\b(only|just)\s+(update|revise|change|adjust|rewrite|work on)\b/i.test(text)) return [];
+    return currentList
+        .map(character => character.name || '')
+        .filter(name => name && new RegExp(`\\b(?:only|just)\\s+(?:update|revise|change|adjust|rewrite|work on)\\s+(?:the\\s+)?${escapeRegExp(name)}\\b`, 'i').test(text));
+}
+
+function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false } = {}) {
+    if (legacyModernizationNeeded || isBroadRevisionIntent(notes)) return modelResult;
+    const currentList = normalizeCurrentCharacters(currentCharacters);
+    const revisedList = normalizeCurrentCharacters(modelResult);
+    if (!currentList.length || !revisedList.length) return modelResult;
+    const targetLabels = explicitOnlyCharacterTargets(notes, currentList);
+
+    const merged = mergeSurgicalLabeledItems(currentList, revisedList, notes, {
+        targetLabels,
+        getLabel: character => character.name || '',
+        setLabel: (character, label) => { character.name = label || character.name || 'New Character'; },
+        setBody: (character, body) => { character.brief_summary = body || character.brief_summary || ''; },
+        buildNewItem: characterFromPatchOperation
+    });
+
+    if (!merged.changed) return modelResult;
+    return {
+        ...modelResult,
+        characters: merged.items
+    };
+}
+
 const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = ''
+        knowledgeContext = '',
+        generateContentFn = generateContent
     } = modelConfig;
 
     const skillPath = path.join(__dirname, '../skills/skill_stage3_characters.md');
@@ -182,7 +247,7 @@ ${JSON.stringify(normalizedCurrentCharacters, null, 2)}
 
 Please apply the note surgically and return the full updated character list in JSON format.`;
 
-        const response = await generateContent({
+        const response = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
             contents: [revisionPrompt],
             config: {
@@ -193,7 +258,11 @@ Please apply the note surgically and return the full updated character list in J
             schema: characterSchema
         });
 
-        return { result: JSON.parse(response.text), usage: response.usage };
+        const parsed = JSON.parse(response.text);
+        return {
+            result: applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded }),
+            usage: response.usage
+        };
     }
 
     const systemInstruction = charactersSOP;
@@ -234,7 +303,7 @@ ${JSON.stringify(beatsData, null, 2)}`;
     }
     contents.push(contentsText);
 
-    const response = await generateContent({
+    const response = await generateContentFn({
         model, geminiApiKey, anthropicApiKey,
         contents,
         config: {

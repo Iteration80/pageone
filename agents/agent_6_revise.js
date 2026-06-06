@@ -3,6 +3,10 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
+const {
+    applyStructuralPatchToItems,
+    parseStructuralPatchOps
+} = require('../utils/revision_patch');
 
 function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
@@ -153,6 +157,55 @@ function normalizeSequenceKey(value) {
 
 function hasBlueprintChanged(previousBlueprint, nextBlueprint) {
     return JSON.stringify(nextBlueprint || []) !== JSON.stringify(previousBlueprint || []);
+}
+
+function scenePatchLabel(scene = {}) {
+    if (scene.scene_heading) return scene.scene_heading;
+    if (scene.scene_number) return `Scene ${scene.scene_number}`;
+    return '';
+}
+
+function scenePatchOptions() {
+    return {
+        getLabel: scenePatchLabel,
+        setLabel: (scene, label) => { scene.scene_heading = label || scene.scene_heading || 'UNTITLED SCENE'; },
+        setBody: (scene, body) => { scene.narrative_action = body || scene.narrative_action || ''; },
+        buildNewItem: op => ({
+            scene_number: 0,
+            scene_heading: op.newLabel || 'UNTITLED SCENE',
+            narrative_action: op.newBody || '',
+            dramaturgical_function: '',
+            estimated_page_count: 1
+        })
+    };
+}
+
+function renumberBlueprintScenes(blueprint = []) {
+    let count = 1;
+    blueprint.forEach((sequence, index) => {
+        sequence.sequence_number = index + 1;
+        if (!Array.isArray(sequence.scenes)) return;
+        sequence.scenes.forEach(scene => { scene.scene_number = count++; });
+    });
+}
+
+function applyStructuralScenePatches(blueprint = [], feedback = '') {
+    const operations = parseStructuralPatchOps(feedback);
+    if (!operations.length) return { blueprint, appliedCount: 0 };
+    const nextBlueprint = cloneValue(blueprint) || [];
+    let appliedCount = 0;
+
+    for (const sequence of nextBlueprint) {
+        if (!Array.isArray(sequence?.scenes)) continue;
+        const patched = applyStructuralPatchToItems(sequence.scenes, operations, scenePatchOptions());
+        if (patched.appliedCount > 0) {
+            sequence.scenes = patched.items;
+            appliedCount += patched.appliedCount;
+        }
+    }
+
+    if (appliedCount > 0) renumberBlueprintScenes(nextBlueprint);
+    return { blueprint: nextBlueprint, appliedCount };
 }
 
 function mergeModifiedSequences(currentBlueprint = [], modifiedSequences = []) {
@@ -367,17 +420,19 @@ FIDELITY RULES:
         if (!Array.isArray(modifiedSequences)) {
             throw new Error('Stage 6 revision response was not an array of modified sequences');
         }
+        const mergedData = mergeModifiedSequences(currentBlueprint, modifiedSequences);
+        const structuralPatch = applyStructuralScenePatches(mergedData, feedback);
         return {
             modifiedSequences,
-            updatedData: mergeModifiedSequences(currentBlueprint, modifiedSequences)
+            updatedData: structuralPatch.blueprint
         };
     };
 
     try {
         let result = await runRevisionPrompt(prompt);
-        let { modifiedSequences, updatedData } = parseAndMerge(result);
+        let { updatedData } = parseAndMerge(result);
 
-        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+        if (!hasBlueprintChanged(currentBlueprint, updatedData)) {
             const enforcementPrompt = `${prompt}
 
 MANDATORY SECOND PASS:
@@ -393,10 +448,10 @@ Apply the smallest concrete edits required by the director's feedback now.
 - Return at least one changed sequence. In surgical inference mode, return only the changed/new scene object(s) inside that sequence.`;
 
             result = await runRevisionPrompt(enforcementPrompt, 'Stage 6 Revision enforcement');
-            ({ modifiedSequences, updatedData } = parseAndMerge(result));
+            ({ updatedData } = parseAndMerge(result));
         }
 
-        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+        if (!hasBlueprintChanged(currentBlueprint, updatedData)) {
             const finalRepairPrompt = `${prompt}
 
 FINAL REPAIR PASS:
@@ -413,10 +468,10 @@ Return exactly the smallest sequence set needed to satisfy the director's feedba
 - Return modified sequence objects only. In surgical inference mode, include only the changed/new scene object(s); do not include unrelated scenes.`;
 
             result = await runRevisionPrompt(finalRepairPrompt, 'Stage 6 Revision final repair');
-            ({ modifiedSequences, updatedData } = parseAndMerge(result));
+            ({ updatedData } = parseAndMerge(result));
         }
 
-        if (!modifiedSequences.length || !hasBlueprintChanged(currentBlueprint, updatedData)) {
+        if (!hasBlueprintChanged(currentBlueprint, updatedData)) {
             const noChangeError = new Error('Stage 6 revision produced no blueprint changes after three attempts. Try naming the specific scene/sequence or the exact source beat to restore.');
             noChangeError.code = 'NO_BLUEPRINT_CHANGES';
             throw noChangeError;

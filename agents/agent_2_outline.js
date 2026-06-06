@@ -1,5 +1,9 @@
 const { generateContent } = require('./ai-client');
 const { parseJsonWithRepair } = require('./json_parse');
+const {
+    applyStructuralPatchToItems,
+    parseStructuralPatchOps
+} = require('../utils/revision_patch');
 const fs = require('fs');
 const path = require('path');
 
@@ -132,6 +136,13 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     const items = [];
 
     for (const block of blocks) {
+        if (/\b(delete|remove|cut|omit|drop)\b/i.test(block)
+            && /\b(accidental note|not outline content|final beat|last paragraph|final paragraph)\b/i.test(block)) {
+            const deleteLabel = block.match(/\[([^\]]+)\]/)?.[1];
+            if (deleteLabel) items.push(`Delete [${deleteLabel}]`);
+            if (items.length >= maxItems) break;
+            continue;
+        }
         const lines = block.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
         if (!lines.length) continue;
 
@@ -273,12 +284,30 @@ function outlineBeatText(outlineResult = {}, predicate = () => false) {
 function specialChecklistCoverage(item = '', outlineResult = {}) {
     const itemText = String(item || '').toLowerCase();
     const allText = outlineAllText(outlineResult);
-    if (/\bmidpoint\b/.test(itemText) && /doesn'?t consciously recognize|does not consciously recognize/.test(itemText)) {
-        const midpointText = outlineBeatText(outlineResult, ({ label, description }) => (
-            /\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)
+    const deleteLabel = String(item || '').match(/\[([^\]]+)\]/)?.[1] || '';
+    const itemWithoutBracketedLabels = String(item || '').replace(/\[[^\]]+\]/g, ' ');
+    if (deleteLabel && /\b(delete|remove|cut|omit|drop)\b/i.test(itemWithoutBracketedLabels)) {
+        return !new RegExp(escapeRegExp(deleteLabel), 'i').test(JSON.stringify(outlineResult || {}));
+    }
+    if (/\bmidpoint\b/.test(itemText) && /(doesn|does not|recogniz|should know|hello,\s*becky|dapple was mine|imaginary friend)/.test(itemText)) {
+        const outline = outlineResult?.outline || outlineResult || {};
+        const midpointTexts = [];
+        for (const act of [outline.act_1, outline.act_2, outline.act_3]) {
+            if (!Array.isArray(act)) continue;
+            for (const sequence of act) {
+                for (const beat of sequence?.beats || []) {
+                    const label = beat?.beat_label || beat?.beat || '';
+                    const description = beat?.description || '';
+                    if (/\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)) {
+                        midpointTexts.push(`${label} ${description}`.toLowerCase());
+                    }
+                }
+            }
+        }
+        return midpointTexts.some(midpointText => (
+            /dapple was mine|imaginary friend/.test(midpointText)
+                && !/doesn'?t consciously recognize|does not consciously recognize/.test(midpointText)
         ));
-        return /dapple was mine|imaginary friend/.test(midpointText)
-            && !/doesn'?t consciously recognize|does not consciously recognize/.test(midpointText);
     }
     if (/\bstorm drain\b/.test(itemText) && /\bquiet kingdom\b/.test(itemText)) {
         const rebeccaMemoryText = outlineBeatText(outlineResult, ({ label, description }) => (
@@ -476,6 +505,10 @@ function notesAllowSequenceAdditions(notes = '', sequence = {}) {
     const text = String(notes || '');
     const title = String(sequence?.sequence_number_and_title || '');
     const isFinalSequence = /sequence\s*h\b|resolution|world that remembers|ending|finale/i.test(title);
+    const destructiveFinalInstruction = /(?:\b(delete|remove|cut|omit|drop)\b[\s\S]{0,180}\b(final beat|last paragraph|final paragraph)|\b(final beat|last paragraph|final paragraph)\b[\s\S]{0,180}\b(delete|remove|cut|omit|drop)\b)/i.test(text);
+    if (destructiveFinalInstruction && !/\b(sequence\s*h|closing image|photo on the wall|breakfast for three|visitor passes?)\b/i.test(text)) {
+        return false;
+    }
     const asksRestore = /\b(restore|restoring|missing|omitted|dropped|lost|bring back|add|include)\b/i.test(text);
     const finalBeatTerms = /\b(sequence\s*h|seq\s*h|ending beats?|final beats?|closing image|photo on the wall|breakfast for three|visitor passes?|aftermath.+new order|dapple'?s voluntary surrender)\b/i.test(text);
     return isFinalSequence && asksRestore && finalBeatTerms;
@@ -499,6 +532,57 @@ function sequenceHasEquivalentBeat(sequence = {}, beatToFind = {}) {
     return beats.some(beat => revisedBeatMatchesCurrent(beat, beatToFind));
 }
 
+function outlineBeatPatchOptions() {
+    return {
+        getLabel: beat => beat.beat_label || beat.beat || '',
+        setLabel: (beat, label) => { beat.beat_label = label || beat.beat_label || beat.beat || 'Revised Beat'; },
+        setBody: (beat, body) => { beat.description = body || beat.description || ''; },
+        buildNewItem: op => ({
+            beat_label: op.newLabel || 'Inserted Beat',
+            description: op.newBody || ''
+        })
+    };
+}
+
+function applyStructuralOutlinePatches(outline = {}, notes = '') {
+    const operations = parseStructuralPatchOps(notes);
+    if (!operations.length) return { appliedCount: 0, operations };
+    let appliedCount = 0;
+
+    for (const actKey of ['act_1', 'act_2', 'act_3']) {
+        const act = Array.isArray(outline[actKey]) ? outline[actKey] : [];
+        for (const sequence of act) {
+            if (!Array.isArray(sequence?.beats)) continue;
+            const patched = applyStructuralPatchToItems(sequence.beats, operations, outlineBeatPatchOptions());
+            if (patched.appliedCount > 0) {
+                sequence.beats = patched.items;
+                appliedCount += patched.appliedCount;
+            }
+        }
+    }
+
+    return { appliedCount, operations };
+}
+
+function structuralOperationProtectsCurrentBeat(operations = [], currentSequence = {}, beatIndex = -1) {
+    const currentBeat = currentSequence?.beats?.[beatIndex] || {};
+    const currentLabel = normalizedComparableLabel(currentBeat.beat_label || currentBeat.beat || '');
+    if (!currentLabel) return false;
+
+    return operations.some(op => {
+        const oldLabel = normalizedComparableLabel(op.oldLabel || '');
+        if (!oldLabel || oldLabel !== currentLabel) return false;
+        if (op.type === 'delete') return true;
+        if (op.type !== 'replace') return false;
+        if (!op.anchorLabel) return true;
+        const anchorLabel = normalizedComparableLabel(op.anchorLabel);
+        const anchorIndex = (currentSequence.beats || []).findIndex(beat => (
+            normalizedComparableLabel(beat?.beat_label || beat?.beat || '') === anchorLabel
+        ));
+        return anchorIndex >= 0 && beatIndex > anchorIndex;
+    });
+}
+
 function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, notes = '', { explicitSequenceReplacement = null } = {}) {
     if (explicitSequenceReplacement) return outlineResult;
     const revisedOutline = normalizeOutlineInput(outlineResult);
@@ -507,6 +591,8 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
 
     const mergedOutline = deepClone(currentOutline);
     let appliedScopedChange = false;
+    const structuralPatch = applyStructuralOutlinePatches(mergedOutline, notes);
+    if (structuralPatch.appliedCount > 0) appliedScopedChange = true;
 
     for (const currentActKey of ['act_1', 'act_2', 'act_3']) {
         const currentAct = Array.isArray(currentOutline[currentActKey]) ? currentOutline[currentActKey] : [];
@@ -520,6 +606,7 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
 
             for (let beatIndex = 0; beatIndex < (currentSequence.beats || []).length; beatIndex += 1) {
                 const currentBeat = currentSequence.beats[beatIndex];
+                if (structuralOperationProtectsCurrentBeat(structuralPatch.operations, currentSequence, beatIndex)) continue;
                 if (!notesTargetBeat(notes, currentBeat)) continue;
                 const revisedBeat = findMatchingRevisedBeat(revisedSequence, currentBeat);
                 if (revisedBeat) {
@@ -539,6 +626,16 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
         }
     }
 
+    if (!appliedScopedChange && structuralPatch.operations.length) {
+        if (outlineResult?.outline && typeof outlineResult.outline === 'object') {
+            outlineResult.outline = mergedOutline;
+        } else {
+            for (const key of ['act_1', 'act_2', 'act_3']) {
+                outlineResult[key] = mergedOutline[key] || [];
+            }
+        }
+        return outlineResult;
+    }
     if (!appliedScopedChange) return outlineResult;
     if (outlineResult?.outline && typeof outlineResult.outline === 'object') {
         outlineResult.outline = mergedOutline;
@@ -922,6 +1019,9 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
         const activeRevisionRequest = latestConcreteRevisionText(notes);
+        const postRevisionNotes = notes && activeRevisionRequest && activeRevisionRequest !== String(notes).trim()
+            ? `${activeRevisionRequest}\n\nFULL REVISION CONTEXT:\n${notes}`
+            : (activeRevisionRequest || notes);
         const revisionChecklist = buildRevisionChecklist(notes);
         const explicitSequenceReplacement = extractExplicitSequenceReplacement(notes);
         const checklistBlock = revisionChecklist.length
@@ -966,7 +1066,7 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         if (explicitSequenceReplacement) {
             applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
         }
-        applyPostRevisionSafeguards(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
+        applyPostRevisionSafeguards(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
 
         let missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
         if (missingChecklistItems.length) {
@@ -1014,12 +1114,12 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
             if (explicitSequenceReplacement) {
                 applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
             }
-            applyPostRevisionSafeguards(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
+            applyPostRevisionSafeguards(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
             missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
             if (missingChecklistItems.length) {
                 appendMissingChecklistBeats(parsed.result, missingChecklistItems);
-                restoreDroppedExistingBeats(parsed.result, currentOutline, activeRevisionRequest || notes, { explicitSequenceReplacement });
-                applyRecognitionAndAccountabilityPass(parsed.result, activeRevisionRequest || notes);
+                restoreDroppedExistingBeats(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
+                applyRecognitionAndAccountabilityPass(parsed.result, postRevisionNotes);
                 missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
             }
         }
