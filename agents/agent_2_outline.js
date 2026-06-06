@@ -138,7 +138,7 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     for (const block of blocks) {
         if (/\b(delete|remove|cut|omit|drop)\b/i.test(block)
             && /\b(accidental note|not outline content|final beat|last paragraph|final paragraph)\b/i.test(block)) {
-            const deleteLabel = block.match(/\[([^\]]+)\]/)?.[1];
+            const deleteLabel = bracketedLabelNearestDeleteInstruction(block) || block.match(/\[([^\]]+)\]/)?.[1];
             if (deleteLabel) items.push(`Delete [${deleteLabel}]`);
             if (items.length >= maxItems) break;
             continue;
@@ -172,6 +172,26 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     }
 
     return Array.from(new Set(items)).slice(0, maxItems);
+}
+
+function bracketedLabelNearestDeleteInstruction(text = '') {
+    const source = String(text || '');
+    const deleteMatch = source.match(/\b(delete|remove|cut|omit|drop)\b/i);
+    if (!deleteMatch) return '';
+    const deleteIndex = deleteMatch.index || 0;
+    const labels = Array.from(source.matchAll(/\[([^\]]+)\]/g))
+        .map(match => ({
+            label: (match[1] || '').trim(),
+            index: match.index || 0,
+            endIndex: (match.index || 0) + match[0].length
+        }))
+        .filter(item => item.label);
+    if (!labels.length) return '';
+
+    const before = labels.filter(item => item.endIndex <= deleteIndex).sort((a, b) => b.endIndex - a.endIndex);
+    if (before.length) return before[0].label;
+    const after = labels.filter(item => item.index >= deleteIndex).sort((a, b) => a.index - b.index);
+    return after[0]?.label || '';
 }
 
 function parseBracketedRevisionBeats(text = '') {
@@ -287,6 +307,12 @@ function specialChecklistCoverage(item = '', outlineResult = {}) {
     const deleteLabel = String(item || '').match(/\[([^\]]+)\]/)?.[1] || '';
     const itemWithoutBracketedLabels = String(item || '').replace(/\[[^\]]+\]/g, ' ');
     if (deleteLabel && /\b(delete|remove|cut|omit|drop)\b/i.test(itemWithoutBracketedLabels)) {
+        const matchingBeatCount = outlineCoverageUnits(outlineResult).beatUnits
+            .filter(unit => new RegExp(`\\b${escapeRegExp(normalizedComparableLabel(deleteLabel)).replace(/\\ /g, '\\s+')}\\b`, 'i').test(normalizedComparableLabel(unit)))
+            .length;
+        if (/\b(second|duplicate|copy|copies|after|replace)\b/i.test(itemWithoutBracketedLabels)) {
+            return matchingBeatCount <= 1;
+        }
         return !new RegExp(escapeRegExp(deleteLabel), 'i').test(JSON.stringify(outlineResult || {}));
     }
     if (/\bmidpoint\b/.test(itemText) && /(doesn|does not|recogniz|should know|hello,\s*becky|dapple was mine|imaginary friend)/.test(itemText)) {

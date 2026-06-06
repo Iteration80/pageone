@@ -156,6 +156,8 @@ function parseStructuralPatchOps(notes = '') {
         ops.push({
             type: 'delete',
             oldLabel: occurrence.label,
+            anchorLabel: (after.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || '').trim(),
+            ordinal: ordinalValue(windowText.match(/\b(first|second|third|fourth|last)\b/i)?.[1] || ''),
             finalOnly: /\b(last|final)\s+(?:paragraph|beat|section|entry)\b/i.test(windowText)
         });
     }
@@ -202,8 +204,17 @@ function applyStructuralPatchToItems(items = [], notes = '', options = {}) {
     for (const op of ops) {
         if (op.type === 'delete') {
             const beforeLength = next.length;
-            if (op.finalOnly) {
+            if (op.anchorLabel) {
+                const anchorIndex = next.findIndex(item => labelsEqual(itemLabel(item, getLabel), op.anchorLabel));
+                const deleteIndex = anchorIndex >= 0
+                    ? next.findIndex((item, index) => index > anchorIndex && labelsEqual(itemLabel(item, getLabel), op.oldLabel))
+                    : -1;
+                if (deleteIndex >= 0) next.splice(deleteIndex, 1);
+            } else if (op.finalOnly) {
                 const index = nthMatchingIndex(next, op.oldLabel, 'last', getLabel);
+                if (index >= 0) next.splice(index, 1);
+            } else if (op.ordinal !== null && op.ordinal !== undefined) {
+                const index = nthMatchingIndex(next, op.oldLabel, op.ordinal, getLabel);
                 if (index >= 0) next.splice(index, 1);
             } else {
                 next = next.filter(item => !labelsEqual(itemLabel(item, getLabel), op.oldLabel));

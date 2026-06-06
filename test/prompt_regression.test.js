@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { agent2Outline, outlineHasContent } = require('../agents/agent_2_outline');
+const { agent2Outline, outlineHasContent, buildRevisionChecklist } = require('../agents/agent_2_outline');
 const { agent3Characters } = require('../agents/agent_3_characters');
 const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
@@ -831,6 +831,19 @@ The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the para
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /The Rebecca's Memory - The Storm Drain/);
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /Resolution - A New Accord/);
     assert.equal(sequenceHBeats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+});
+
+test('Stage 2 outline checklist delete items use the label nearest the delete instruction', () => {
+    const notes = `1. Dapple Rising - The Anchor is still missing.
+You still have two copies of [Aftermath - A Quiet Reckoning]. Replace the second one, after [Quist's Betrayal & The Bonded Key], with the Dapple Rising beat.
+[Dapple Rising - The Anchor] Dapple has hijacked the Mobile Processing Core.
+2. There's an accidental note left as a final beat.
+The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the paragraph works but repeats itself. Delete that entirely.`;
+
+    const checklist = buildRevisionChecklist(notes);
+
+    assert.ok(checklist.includes("Delete [The Rebecca's Memory - The Storm Drain]"));
+    assert.ok(!checklist.includes('Delete [Aftermath - A Quiet Reckoning]'));
 });
 
 test('Stage 2 outline parser repairs missing commas between generated beat objects', async () => {
