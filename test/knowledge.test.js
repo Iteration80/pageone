@@ -538,6 +538,8 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     assert.match(serverJs, /app\.post\('\/api\/generate-outline'/);
+    assert.match(serverJs, /require\('\.\/utils\/stage_revision_kernel'\)/);
+    assert.match(serverJs, /applyStageRevisionPlan\(\{[\s\S]*stageId: 'stage2_outline'/);
     assert.match(serverJs, /text\/event-stream/);
     assert.match(serverJs, /: keep-alive\\n\\n/);
     assert.match(serverJs, /type: 'complete'/);
@@ -557,6 +559,7 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
     assert.match(serverJs, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
+    assert.ok(serverJs.indexOf('applyStageRevisionPlan({') < serverJs.indexOf('agent2Outline(stage1'));
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 2 outline'\)/);
     assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage: 2/);

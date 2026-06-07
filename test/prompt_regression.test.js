@@ -29,6 +29,10 @@ const {
     recordStageMutationSnapshots
 } = require('../utils/artifact_snapshots');
 const {
+    applyStageRevisionPlan,
+    STAGE_REVISION_ADAPTERS
+} = require('../utils/stage_revision_kernel');
+const {
     buildSourceGenerationPacket,
     buildStage10RewritePlanPrompt,
     buildStage10RewritePlannerSystemInstruction
@@ -1054,6 +1058,62 @@ test('Stage 2 outline finalizer verifies protected endings preserved from origin
     assert.match(afterOutline.act_3[0].beats.at(-2).description, /Rebecca declines the badge/);
     assert.equal(receipt.verified, true);
     assert.equal(receipt.failures.length, 0);
+});
+
+test('Stage 2 deterministic revision kernel applies structural outline repairs without model rewrite', () => {
+    assert.ok(STAGE_REVISION_ADAPTERS.stage2_outline);
+    const outline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Rebecca and Dave face the diner fallout.'
+            }, {
+                beat_label: "Quist's Betrayal & The Bonded Key",
+                description: 'Quist gives Rebecca the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate placeholder after Quist.'
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders but must answer for what he did.'
+            }, {
+                beat_label: 'Resolution - A New Accord',
+                description: 'A contradictory extra ending.'
+            }]
+        }]
+    };
+    const notes = `Delete the second duplicate [Aftermath - A Quiet Reckoning] that comes after Quist's Betrayal & The Bonded Key.
+Replace that deleted duplicate with [Dapple Rising - The Anchor].
+Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.
+Do not add Resolution - A New Accord.`;
+
+    const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact: outline, notes });
+
+    assert.equal(revision.receipt.verified, true);
+    assert.equal(revision.receipt.planner, 'stage_revision_kernel');
+    assert.deepEqual(revision.receipt.operations.map(op => [op.type, op.oldLabel || op.newLabel]), [
+        ['replace_beat', 'Aftermath - A Quiet Reckoning'],
+        ['ensure_beat_present', 'Aftermath - A New Order'],
+        ['ensure_beat_present', 'Closing Image - The Photo on the Wall'],
+        ['delete_beat', 'Resolution - A New Accord']
+    ]);
+    assert.deepEqual(revision.after.act_2[0].beats.map(beat => beat.beat_label), [
+        'Aftermath - A Quiet Reckoning',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
+    assert.deepEqual(revision.after.act_3[0].beats.map(beat => beat.beat_label), [
+        "Dapple's Last Choice",
+        'Aftermath - A New Order',
+        'Closing Image - The Photo on the Wall'
+    ]);
+    assert.match(revision.after.act_2[0].beats[2].description, /Mobile Processing Core/);
 });
 
 test('Stage 2 outline verification tolerates curly anchors and already-absent deletes', () => {

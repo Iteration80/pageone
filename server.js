@@ -276,6 +276,7 @@ const {
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('./utils/revision_transaction');
+const { applyStageRevisionPlan } = require('./utils/stage_revision_kernel');
 const {
     appendArtifactSnapshot,
     changedStageKeysFromUpdate,
@@ -3571,6 +3572,61 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
 
         const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 2, userMessage: notes || '', forceTextBlock: true });
         const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
+
+        if (notesWithUpload && !uploadedFile) {
+            const deterministicRevision = applyStageRevisionPlan({
+                stageId: 'stage2_outline',
+                artifact: beforeOutlineForChangeCheck,
+                notes: notesWithUpload
+            });
+            if (deterministicRevision?.receipt?.verified && deterministicRevision.plan?.canApplyDirectly) {
+                const existingStage2 = projectData.data?.stage2_outline || {};
+                const outlineData = {
+                    title: existingStage2.title || stage1.title || projectData.title || 'Untitled',
+                    genre: existingStage2.genre || stage1.genre || '',
+                    logline: existingStage2.logline || stage1.logline || '',
+                    ...existingStage2,
+                    outline: deterministicRevision.after
+                };
+                deterministicRevision.receipt.changed = deterministicRevision.changed;
+                const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
+                const snapshotEntries = recordArtifactMutation(projectData, {
+                    projectId,
+                    stage: 2,
+                    before: { outline: beforeOutlineForChangeCheck },
+                    after: outlineData,
+                    operation: 'revision',
+                    note: notesWithUpload,
+                    revisionReceipt: deterministicRevision.receipt
+                });
+
+                projectData.data = projectData.data || {};
+                projectData.data.stage2_outline = outlineData;
+                stampRevised(projectData, 'stage2_outline');
+                await writeJSONQueued(filePath, projectData);
+                const savedContent = await fs.readFile(filePath, 'utf-8');
+                const savedProjectData = JSON.parse(savedContent);
+                const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
+                if (savedOutlineHash !== afterOutlineHash) {
+                    throw new Error('Stage 2 deterministic outline save verification failed: saved project JSON does not match revised outline.');
+                }
+
+                const payload = {
+                    result: outlineData,
+                    changed: deterministicRevision.changed || deterministicRevision.receipt.verified,
+                    saveVerified: true,
+                    revisionReceipt: deterministicRevision.receipt,
+                    snapshotIds: snapshotEntries.map(entry => entry.id),
+                    deterministicRevision: true
+                };
+                if (streaming) {
+                    send({ type: 'complete', ...payload });
+                } else {
+                    res.json(payload);
+                }
+                return;
+            }
+        }
 
         console.log("Generating Stage 2 Outline...");
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
