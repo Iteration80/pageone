@@ -998,6 +998,64 @@ Do not add Resolution - A New Accord.`;
     assert.equal(receipt.failures.length, 0);
 });
 
+test('Stage 2 outline finalizer verifies protected endings preserved from original outline', () => {
+    const beforeOutline = {
+        act_1: [],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders but must answer for what he did.'
+            }, {
+                beat_label: 'Aftermath - A New Order',
+                description: 'The previous saved ending aftermath.'
+            }, {
+                beat_label: 'Closing Image - The Photo on the Wall',
+                description: 'The previous saved kitchen closing image.'
+            }]
+        }]
+    };
+    const afterOutline = {
+        act_1: [],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders but must answer for what he did.'
+            }]
+        }]
+    };
+    const notes = `We've lost the following two beats in Seq H, please restore:
+
+[Aftermath - A New Order] Quist surveys the wreckage. Rebecca declines the badge but agrees to consult on Dapple containment.
+
+[Closing Image - The Photo on the Wall] Rebecca's kitchen. The photo of young Becky and Dapple is framed on the wall, and visitor passes for Dapple and Scott sit on the fridge.`;
+
+    const structuralPatch = applyStructuralOutlinePatches(afterOutline, notes);
+    const receipt = createRevisionTransaction({
+        stageId: 'stage2_outline',
+        before: beforeOutline,
+        after: afterOutline,
+        notes,
+        structuralPatch,
+        adapter: outlineRevisionAdapter
+    }).receipt;
+
+    assert.deepEqual(structuralPatch.operations.map(op => [op.newLabel, op.verifyMode]), [
+        ['Aftermath - A New Order', 'present'],
+        ['Closing Image - The Photo on the Wall', 'present']
+    ]);
+    assert.deepEqual(afterOutline.act_3[0].beats.slice(-2).map(beat => beat.beat_label), [
+        'Aftermath - A New Order',
+        'Closing Image - The Photo on the Wall'
+    ]);
+    assert.match(afterOutline.act_3[0].beats.at(-2).description, /Rebecca declines the badge/);
+    assert.equal(receipt.verified, true);
+    assert.equal(receipt.failures.length, 0);
+});
+
 test('Stage 2 outline verification tolerates curly anchors and already-absent deletes', () => {
     assert.equal(labelsEqual("Quist’s Betrayal & The Bonded Key", "Quist's Betrayal & The Bonded Key"), true);
     const beforeOutline = {

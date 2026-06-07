@@ -81,6 +81,9 @@ function verifyOutlineOperation(op = {}, beforeRows = [], afterRows = []) {
             || countLabel(afterRows, op.oldLabel) < countLabel(beforeRows, op.oldLabel);
     }
     if (op.type === 'insert') {
+        if (op.verifyMode === 'present' || op.presenceOnly) {
+            return countLabel(afterRows, op.newLabel) > 0;
+        }
         if (op.anchorLabel) {
             return hasAdjacentLabel(afterRows, op.anchorLabel, op.newLabel);
         }

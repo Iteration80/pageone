@@ -580,6 +580,37 @@ const KNOWN_ENDING_RESTORE_BEATS = [{
     description: "Rebecca's kitchen holds the framed photo of young Becky and Dapple. Elliot sets breakfast for three with Furdlegurr visible to both, and visitor passes for Dapple and Scott sit on the fridge."
 }];
 
+function isKnownEndingRestoreLabel(label = '') {
+    return KNOWN_ENDING_RESTORE_BEATS.some(beat => labelsEqual(beat.label, label));
+}
+
+function markKnownEndingEnsureOperation(op = {}) {
+    if (op.type === 'insert' && isKnownEndingRestoreLabel(op.newLabel || '')) {
+        return { ...op, verifyMode: 'present' };
+    }
+    return op;
+}
+
+function dedupeStructuralOperations(operations = []) {
+    const seen = new Set();
+    const unique = [];
+    for (const op of operations) {
+        const key = [
+            op.type || '',
+            normalizedComparableLabel(op.oldLabel || ''),
+            normalizedComparableLabel(op.newLabel || ''),
+            normalizedComparableLabel(op.anchorLabel || ''),
+            op.ordinal ?? '',
+            op.finalOnly ? 'final' : '',
+            op.verifyMode || ''
+        ].join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(op);
+    }
+    return unique;
+}
+
 function notesRequestKnownEndingBeat(notes = '', label = '') {
     const text = String(notes || '');
     const normalized = normalizedComparableLabel(label);
@@ -658,7 +689,8 @@ function applyKnownEndingRestores(outlineResult = {}, notes = '') {
                 type: 'insert',
                 newLabel: restoreBeat.label,
                 newBody: restoreBeat.description,
-                anchorLabel: ''
+                anchorLabel: '',
+                verifyMode: 'present'
             });
             appliedCount += 1;
         }
@@ -668,7 +700,7 @@ function applyKnownEndingRestores(outlineResult = {}, notes = '') {
 }
 
 function applyStructuralOutlinePatches(outline = {}, notes = '') {
-    const operations = parseStructuralPatchOps(notes);
+    const operations = parseStructuralPatchOps(notes).map(markKnownEndingEnsureOperation);
     const knownRestores = applyKnownEndingRestores(outline, notes);
     if (!operations.length) return { appliedCount: knownRestores.appliedCount, operations: knownRestores.operations };
     let appliedCount = 0;
@@ -685,7 +717,10 @@ function applyStructuralOutlinePatches(outline = {}, notes = '') {
         }
     }
 
-    return { appliedCount: appliedCount + knownRestores.appliedCount, operations: operations.concat(knownRestores.operations) };
+    return {
+        appliedCount: appliedCount + knownRestores.appliedCount,
+        operations: dedupeStructuralOperations(operations.concat(knownRestores.operations))
+    };
 }
 
 function structuralOperationProtectsCurrentBeat(operations = [], currentSequence = {}, beatIndex = -1) {
