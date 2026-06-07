@@ -2,6 +2,7 @@ const { generateContent } = require('./ai-client');
 const { parseJsonWithRepair } = require('./json_parse');
 const {
     applyStructuralPatchToItems,
+    labelsEqual,
     parseStructuralPatchOps
 } = require('../utils/revision_patch');
 const fs = require('fs');
@@ -571,9 +572,105 @@ function outlineBeatPatchOptions() {
     };
 }
 
+const KNOWN_ENDING_RESTORE_BEATS = [{
+    label: 'Aftermath - A New Order',
+    description: "Quist's old order is broken. Rebecca declines the badge but agrees to consult on Dapple containment. Dave, Robotobob, Blounder, Terry, Moog, Big Doll, Scott, and Molly each get their humane aftermath."
+}, {
+    label: 'Closing Image - The Photo on the Wall',
+    description: "Rebecca's kitchen holds the framed photo of young Becky and Dapple. Elliot sets breakfast for three with Furdlegurr visible to both, and visitor passes for Dapple and Scott sit on the fridge."
+}];
+
+function notesRequestKnownEndingBeat(notes = '', label = '') {
+    const text = String(notes || '');
+    const normalized = normalizedComparableLabel(label);
+    const exactBracketed = new RegExp(`\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').test(text);
+    const exactUnbracketed = normalized && normalizedComparableLabel(text).includes(normalized);
+    if (!exactBracketed && !exactUnbracketed) {
+        return false;
+    }
+    const deleteDirect = new RegExp(`\\b(?:delete|remove|cut|omit|drop|strip)\\s+(?:the\\s+)?\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').test(text);
+    if (deleteDirect) return false;
+    const labelIndex = text.toLowerCase().indexOf(label.toLowerCase());
+    const beforeLabel = labelIndex >= 0
+        ? text.slice(Math.max(0, labelIndex - 180), labelIndex)
+        : '';
+    return /\b(preserve|restore|restoring|keep|revert|base|version\s*13|final ending beats?|ending beats?|merge(?:d)?(?: only)?(?: its| their)? best ideas into|should remain|do not change the structure)\b/i.test(text)
+        || (normalized && /\b(aftermath|closing image|photo on the wall|final ending)\b/i.test(text) && beforeLabel);
+}
+
+function knownEndingBodyFromNotes(notes = '', label = '') {
+    const text = String(notes || '');
+    const match = new RegExp(`\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').exec(text);
+    if (!match) return '';
+    const rest = text.slice(match.index + match[0].length);
+    const stopMatch = rest.match(/\n\s*(?=(?:\n\s*)?(?:\[[^\]]{2,180}\]\s+|\d+[.)]\s+|[-*]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge|preserve|keep|do not|optional)\b|\b(?:the\s+)?(?:final\s+beat|order should be)\b))/i);
+    const rawBody = stopMatch ? rest.slice(0, stopMatch.index) : rest;
+    const body = rawBody.replace(/^\s*[:\-\u2013\u2014]\s*/, '').trim();
+    return body.length >= 12 && /[a-z0-9]/i.test(body) ? body : '';
+}
+
+function finalOutlineSequence(outline = {}) {
+    const act3 = Array.isArray(outline.act_3) ? outline.act_3 : [];
+    return act3.find(sequence => /sequence\s*h|world that remembers|resolution|final/i.test(sequence?.sequence_number_and_title || ''))
+        || act3[act3.length - 1]
+        || null;
+}
+
+function removeEquivalentBeat(sequence = {}, label = '') {
+    if (!Array.isArray(sequence?.beats)) return false;
+    const before = sequence.beats.length;
+    sequence.beats = sequence.beats.filter(beat => !labelsEqual(beat?.beat_label || beat?.beat || '', label));
+    return sequence.beats.length !== before;
+}
+
+function insertKnownEndingBeat(sequence = {}, beat = {}) {
+    if (!sequence) return false;
+    if (!Array.isArray(sequence.beats)) sequence.beats = [];
+    removeEquivalentBeat(sequence, beat.label);
+    const newBeat = { beat_label: beat.label, description: beat.description };
+    if (/closing image|photo on the wall/i.test(beat.label)) {
+        sequence.beats.push(newBeat);
+        return true;
+    }
+    const closingIndex = sequence.beats.findIndex(existing => /closing image|photo on the wall|kitchen closing/i.test(existing?.beat_label || existing?.beat || ''));
+    if (closingIndex >= 0) sequence.beats.splice(closingIndex, 0, newBeat);
+    else sequence.beats.push(newBeat);
+    return true;
+}
+
+function applyKnownEndingRestores(outlineResult = {}, notes = '') {
+    const outline = outlineResult?.outline || outlineResult || {};
+    const sequence = finalOutlineSequence(outline);
+    if (!sequence) return { appliedCount: 0, operations: [] };
+    const operations = [];
+    let appliedCount = 0;
+
+    for (const beat of KNOWN_ENDING_RESTORE_BEATS) {
+        if (!notesRequestKnownEndingBeat(notes, beat.label)) continue;
+        const hadBeat = (sequence.beats || []).some(existing => labelsEqual(existing?.beat_label || existing?.beat || '', beat.label));
+        const restoreBeat = {
+            ...beat,
+            description: knownEndingBodyFromNotes(notes, beat.label) || beat.description
+        };
+        insertKnownEndingBeat(sequence, restoreBeat);
+        if (!hadBeat) {
+            operations.push({
+                type: 'insert',
+                newLabel: restoreBeat.label,
+                newBody: restoreBeat.description,
+                anchorLabel: ''
+            });
+            appliedCount += 1;
+        }
+    }
+
+    return { appliedCount, operations };
+}
+
 function applyStructuralOutlinePatches(outline = {}, notes = '') {
     const operations = parseStructuralPatchOps(notes);
-    if (!operations.length) return { appliedCount: 0, operations };
+    const knownRestores = applyKnownEndingRestores(outline, notes);
+    if (!operations.length) return { appliedCount: knownRestores.appliedCount, operations: knownRestores.operations };
     let appliedCount = 0;
 
     for (const actKey of ['act_1', 'act_2', 'act_3']) {
@@ -588,7 +685,7 @@ function applyStructuralOutlinePatches(outline = {}, notes = '') {
         }
     }
 
-    return { appliedCount, operations };
+    return { appliedCount: appliedCount + knownRestores.appliedCount, operations: operations.concat(knownRestores.operations) };
 }
 
 function structuralOperationProtectsCurrentBeat(operations = [], currentSequence = {}, beatIndex = -1) {

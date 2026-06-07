@@ -55,11 +55,12 @@ function bracketedLabelOccurrences(text = '') {
 
 function bodyAfterLabel(text = '', occurrence = {}) {
     const rest = String(text || '').slice(occurrence.endIndex || 0);
-    const stopMatch = rest.match(/\n\s*\n\s*(?=(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge)\b|\b(?:the\s+)?final\s+beat\b))/i);
+    const stopMatch = rest.match(/\n\s*(?=(?:\n\s*)?(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge|preserve|keep|do not|optional)\b|\b(?:the\s+)?(?:final\s+beat|order should be)\b))/i);
     const rawBody = stopMatch ? rest.slice(0, stopMatch.index) : rest;
-    return rawBody
+    const body = rawBody
         .replace(/^\s*[:\-\u2013\u2014]\s*/, '')
         .trim();
+    return /[a-z0-9]/i.test(body) ? body : '';
 }
 
 function bracketedBlocks(text = '') {
@@ -98,12 +99,12 @@ function inferReplacementBlockAfter(text = '', replaceIndex = 0, anchorLabel = '
 
 function inferDeleteReplaceContextBefore(text = '', replaceIndex = 0) {
     const before = String(text || '').slice(Math.max(0, replaceIndex - 650), replaceIndex);
-    const matches = Array.from(before.matchAll(/\b(?:delete|remove|cut|omit|drop)\s+(?:the\s+)?(?:(first|second|third|fourth|last)\s+)?\[([^\]]+)\](?:\s*,?\s*after\s+\[([^\]]+)\])?/gi));
+    const matches = Array.from(before.matchAll(/\b(?:delete|remove|cut|omit|drop)\s+(?:the\s+)?(?:(first|second|third|fourth|last)\s+)?(?:duplicate\s+)?\[([^\]]+)\](?:[^.\n]{0,160}?\bafter\s+(?:\[([^\]]+)\]|([^.\n]+?))(?=(?:\s+(?:and|then)(?:\s+(?:replace|delete|remove|preserve|keep|do\s+not)\b|\s*$))|[.\n]|$))?/gi));
     const match = matches[matches.length - 1];
     if (!match) return null;
     return {
         oldLabel: (match[2] || '').trim(),
-        anchorLabel: (match[3] || '').trim(),
+        anchorLabel: (match[3] || match[4] || '').trim().replace(/[,;:\s]+$/g, ''),
         ordinal: ordinalValue(match[1] || '')
     };
 }
@@ -129,7 +130,7 @@ function labelLocalAfter(text = '', occurrence = {}, maxChars = 220) {
 
 function hasDirectDeleteBeforeLabel(text = '', occurrence = {}) {
     const before = labelLocalBefore(text, occurrence).replace(/\s+/g, ' ');
-    return /\b(?:delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?(?:(?:first|second|third|fourth|last)\s+)?$/i.test(before);
+    return /\b(?:delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?(?:(?:first|second|third|fourth|last)\s+)?(?:duplicate\s+)?$/i.test(before);
 }
 
 function hasDirectDeleteAfterLabel(text = '', occurrence = {}) {

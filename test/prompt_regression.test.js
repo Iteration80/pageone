@@ -538,7 +538,7 @@ We've lost the following two beats in Seq H, please restore:
         generateContentFn
     });
 
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 1);
     const firstPrompt = collectText(calls[0].contents);
     assert.match(firstPrompt, /REVISION CHECKLIST/);
     assert.match(firstPrompt, /Aftermath - A New Order/);
@@ -546,7 +546,7 @@ We've lost the following two beats in Seq H, please restore:
     const finalText = JSON.stringify(result.outline.act_3[0].beats);
     assert.match(finalText, /Aftermath - A New Order/);
     assert.match(finalText, /Rebecca declines the badge/i);
-    assert.match(finalText, /Kitchen Closing Image/);
+    assert.match(finalText, /Closing Image - The Photo on the Wall/);
     assert.match(finalText, /visitor passes for Dapple and Scott/i);
 });
 
@@ -916,6 +916,86 @@ Also delete [Resolution - A New Accord] entirely or merge only its best ideas in
     assert.equal(operations[1].anchorLabel, "Quist's Betrayal & The Bonded Key");
     assert.doesNotMatch(JSON.stringify(operations), /Aftermath - A New Order/);
     assert.doesNotMatch(JSON.stringify(operations), /Closing Image - The Photo on the Wall/);
+});
+
+test('Stage 2 outline parser handles unbracketed anchors without swallowing later preserve notes', () => {
+    const notes = `Please stop working from version 15. Revert to version 13 as the base.
+
+From version 13, make ONLY these changes:
+Keep Quist's Betrayal & The Bonded Key exactly where it is. Do not delete it.
+Delete the second duplicate [Aftermath - A Quiet Reckoning] that comes after Quist's Betrayal & The Bonded Key.
+Replace that deleted duplicate with [Dapple Rising - The Anchor].
+Delete the accidental final note beat: [The Rebecca's Memory - The Storm Drain].
+Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.
+Do not add Resolution - A New Accord.`;
+
+    const operations = parseStructuralPatchOps(notes);
+
+    assert.equal(operations[0].type, 'replace');
+    assert.equal(operations[0].oldLabel, 'Aftermath - A Quiet Reckoning');
+    assert.equal(operations[0].newLabel, 'Dapple Rising - The Anchor');
+    assert.equal(operations[0].anchorLabel, "Quist's Betrayal & The Bonded Key");
+    assert.equal(operations[0].newBody, '');
+    assert.doesNotMatch(JSON.stringify(operations), /Aftermath - A New Order/);
+    assert.doesNotMatch(JSON.stringify(operations), /Closing Image - The Photo on the Wall/);
+});
+
+test('Stage 2 outline finalizer restores requested protected ending beats from damaged output', () => {
+    const beforeOutline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Rebecca and Dave face the diner fallout.'
+            }, {
+                beat_label: "Quist's Betrayal & The Bonded Key",
+                description: 'Quist gives Rebecca the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate placeholder after Quist.'
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders but must answer for what he did.'
+            }]
+        }]
+    };
+    const afterOutline = JSON.parse(JSON.stringify(beforeOutline));
+    const notes = `Please stop working from version 15. Revert to version 13 as the base.
+
+From version 13, make ONLY these changes:
+Keep Quist's Betrayal & The Bonded Key exactly where it is. Do not delete it.
+Delete the second duplicate [Aftermath - A Quiet Reckoning] that comes after Quist's Betrayal & The Bonded Key.
+Replace that deleted duplicate with [Dapple Rising - The Anchor].
+Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.
+Do not add Resolution - A New Accord.`;
+
+    const structuralPatch = applyStructuralOutlinePatches(afterOutline, notes);
+    const receipt = createRevisionTransaction({
+        stageId: 'stage2_outline',
+        before: beforeOutline,
+        after: afterOutline,
+        notes,
+        structuralPatch,
+        adapter: outlineRevisionAdapter
+    }).receipt;
+
+    assert.deepEqual(afterOutline.act_2[0].beats.map(beat => beat.beat_label), [
+        'Aftermath - A Quiet Reckoning',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
+    assert.deepEqual(afterOutline.act_3[0].beats.slice(-2).map(beat => beat.beat_label), [
+        'Aftermath - A New Order',
+        'Closing Image - The Photo on the Wall'
+    ]);
+    assert.equal(afterOutline.act_3[0].beats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+    assert.equal(receipt.verified, true);
+    assert.equal(receipt.failures.length, 0);
 });
 
 test('Stage 2 outline verification tolerates curly anchors and already-absent deletes', () => {
