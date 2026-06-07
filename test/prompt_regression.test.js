@@ -1116,6 +1116,51 @@ Do not add Resolution - A New Accord.`;
     assert.match(revision.after.act_2[0].beats[2].description, /Mobile Processing Core/);
 });
 
+test('Stage 2 deterministic revision kernel unwraps saved outline artifacts', () => {
+    const artifact = {
+        title: 'I.M.A.G.I.N.E.',
+        genre: 'Animated Family Adventure',
+        logline: 'A mother must remember.',
+        outline: {
+            act_1: [],
+            act_2: [{
+                sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+                beats: [{
+                    beat_label: 'Aftermath - A Quiet Reckoning',
+                    description: 'First aftermath.'
+                }, {
+                    beat_label: "Quist's Betrayal & The Bonded Key",
+                    description: 'Quist gives Rebecca the key.'
+                }, {
+                    beat_label: 'Aftermath - A Quiet Reckoning',
+                    description: 'Duplicate aftermath.'
+                }]
+            }],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: A World That Remembers',
+                beats: [{
+                    beat_label: "Dapple's Last Choice",
+                    description: 'Dapple surrenders.'
+                }]
+            }]
+        }
+    };
+    const notes = `Delete the second duplicate [Aftermath - A Quiet Reckoning] that comes after Quist's Betrayal & The Bonded Key.
+Replace that deleted duplicate with [Dapple Rising - The Anchor].
+Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.`;
+
+    const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact, notes });
+
+    assert.equal(revision.receipt.verified, true);
+    assert.equal(revision.after.title, undefined);
+    assert.deepEqual(revision.after.act_2[0].beats.map(beat => beat.beat_label), [
+        'Aftermath - A Quiet Reckoning',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
+    assert.equal(revision.after.act_3[0].beats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+});
+
 test('Stage 2 outline verification tolerates curly anchors and already-absent deletes', () => {
     assert.equal(labelsEqual("Quist’s Betrayal & The Bonded Key", "Quist's Betrayal & The Bonded Key"), true);
     const beforeOutline = {

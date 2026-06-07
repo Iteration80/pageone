@@ -255,12 +255,13 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
         operations.push({ type: 'delete_beat', oldLabel: 'Resolution - A New Accord' });
     }
 
+    const normalizedOperations = normalizeOutlineOperations(operations);
     return {
         stageId: 'stage2_outline',
         artifactType: 'outline',
         strategy: 'deterministic_patch',
-        operations: normalizeOutlineOperations(operations),
-        canApplyDirectly: operations.length > 0
+        operations: normalizedOperations,
+        canApplyDirectly: normalizedOperations.length > 0
             && /\b(delete|remove|replace|restore|preserve|keep|missing|lost|duplicate|do not add|bring back|include)\b/i.test(text)
     };
 }
@@ -371,6 +372,13 @@ function normalizeStageId(stageId) {
     return String(stageId || '');
 }
 
+function unwrapStageArtifact(stageId, artifact = {}) {
+    if ((stageId === 'stage2_outline' || stageId === 2 || stageId === '2') && artifact?.outline && typeof artifact.outline === 'object') {
+        return artifact.outline;
+    }
+    return artifact;
+}
+
 const STAGE_REVISION_ADAPTERS = {
     stage2_outline: {
         buildPlan: buildStage2OutlinePlan,
@@ -380,10 +388,12 @@ const STAGE_REVISION_ADAPTERS = {
 };
 
 function applyStageRevisionPlan({ stageId, artifact, notes }) {
-    const adapter = STAGE_REVISION_ADAPTERS[normalizeStageId(stageId)];
+    const normalizedStageId = normalizeStageId(stageId);
+    const adapter = STAGE_REVISION_ADAPTERS[normalizedStageId];
     if (!adapter) return null;
-    const before = cloneValue(artifact || {}) || {};
-    const after = cloneValue(artifact || {}) || {};
+    const stageArtifact = unwrapStageArtifact(normalizedStageId, artifact || {});
+    const before = cloneValue(stageArtifact || {}) || {};
+    const after = cloneValue(stageArtifact || {}) || {};
     const plan = adapter.buildPlan(after, notes);
     if (!plan.canApplyDirectly || !plan.operations.length) return null;
 

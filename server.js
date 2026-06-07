@@ -3579,6 +3579,15 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                 artifact: beforeOutlineForChangeCheck,
                 notes: notesWithUpload
             });
+            if (deterministicRevision?.plan?.canApplyDirectly && !deterministicRevision?.receipt?.verified) {
+                const failures = deterministicRevision.receipt?.failures || [];
+                const failureList = failures
+                    .map(failure => failure.newLabel || failure.oldLabel || failure.reason || failure.type || 'requested edit')
+                    .filter(Boolean)
+                    .slice(0, 5)
+                    .join('; ');
+                throw new Error(`Stage 2 deterministic outline revision failed verification${failureList ? `: ${failureList}` : ''}`);
+            }
             if (deterministicRevision?.receipt?.verified && deterministicRevision.plan?.canApplyDirectly) {
                 const existingStage2 = projectData.data?.stage2_outline || {};
                 const outlineData = {

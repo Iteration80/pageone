@@ -540,6 +540,7 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /app\.post\('\/api\/generate-outline'/);
     assert.match(serverJs, /require\('\.\/utils\/stage_revision_kernel'\)/);
     assert.match(serverJs, /applyStageRevisionPlan\(\{[\s\S]*stageId: 'stage2_outline'/);
+    assert.match(serverJs, /Stage 2 deterministic outline revision failed verification/);
     assert.match(serverJs, /text\/event-stream/);
     assert.match(serverJs, /: keep-alive\\n\\n/);
     assert.match(serverJs, /type: 'complete'/);
