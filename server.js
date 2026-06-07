@@ -3201,6 +3201,40 @@ function buildStage4ConfirmationBypassResponse(messages = []) {
     };
 }
 
+function isScopedPolishRequest(message = '') {
+    const text = String(message || '');
+    if (!text.trim()) return false;
+    const hasScopeLanguage = /\b(?:small|minor|tiny|local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
+        || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish))\b/i.test(text);
+    if (!hasScopeLanguage) return false;
+    return /\b(?:clarify|polish|wording|paragraph|line|phrase|word|read|land|fuzzy|cleanly)\b/i.test(text);
+}
+
+function buildScopedPolishPromptBlock(stageId, latestMessage = '') {
+    const bracketedTargets = Array.from(String(latestMessage || '').matchAll(/\[([^\]]{3,140})\]/g))
+        .map(match => (match[1] || '').trim())
+        .filter(Boolean);
+    const targets = Array.from(new Set(bracketedTargets)).slice(0, 6);
+    const targetText = targets.length
+        ? `The latest note explicitly names: ${targets.map(target => `[${target}]`).join(', ')}.`
+        : 'The latest note does not name a bracketed artifact target; infer only from the latest note.';
+    const stageSpecific = Number(stageId) === 2
+        ? '\n- For Stage 2, do not propose midpoint, ending, surrender/accountability, source-fidelity, sequence-order, or structural changes unless the latest note explicitly asks for them.\n- If the latest note mentions the climax only as downstream clarity, you may name a tiny wording echo there, but do not bundle unrelated Sequence H beats.'
+        : '';
+
+    return `## LATEST MESSAGE SCOPE LOCK
+The writer's latest message is a scoped polish/clarity note, not a broad revision audit. ${targetText}
+
+Hard rules:
+- Use only the latest writer message and the current saved artifact to decide the next step.
+- Do not revive older checklist items, unresolved notes, prior assistant proposals, or previously discussed fixes unless they are repeated in the latest writer message.
+- Do not offer a multi-part pass. If you offer execution, scope it to the explicitly named target(s) and any directly named adjacent wording dependency only.
+- If the note says the current structure works or is not structural, do not propose restructuring.
+- Set suggest_plan true only for that narrow local edit. Set execute_immediately false unless the latest message explicitly says to apply/go ahead now.${stageSpecific}
+
+`;
+}
+
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
     const numericStageId = Number(stageId);
     const stageName = STAGE_NAMES[numericStageId];
@@ -4680,10 +4714,11 @@ app.post('/api/brainstorm', requireAuth, aiLimiter, async (req, res) => {
         const stage4CurrentArtifactAnalysis = Number(stageId) === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
         const stage6SourceComparisonAnalysis = Number(stageId) === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
         const stage6ExternalFeedbackReview = Number(stageId) === 6 && isStage6ExternalFeedbackReviewRequest(lastUserMessage);
+        const scopedPolishRequest = !isInit && isScopedPolishRequest(lastUserMessage);
         const sourceLocationQuestion = !isInit
             && /\b(page|pages|issue|source\s+(?:scene|beat|location)|where\s+in\s+the\s+source|where\s+does\b.*\bsource)\b/i.test(lastUserMessage)
             && /\b(source|comic|graphic novel|book|document|page|issue)\b/i.test(lastUserMessage);
-        const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview
+        const messagesForPrompt = stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview || scopedPolishRequest
             ? messages.filter(m => m.role === 'user').slice(-1)
             : messages;
 
@@ -4793,6 +4828,9 @@ Hard rules:
 - Only give a page number, issue number, source item ID, or "corresponds to" claim if that exact locator is visible in the current prompt, attached source text, or project memory.
 - Do not infer a page number from a scene number, plot order, or a plausible memory of the story.
 - If the exact locator is not available, say you cannot verify the source location from the available context. You may still cite the current project scene/beat that triggered the question, clearly labeled as the current artifact rather than the source.\n\n`;
+            }
+            if (scopedPolishRequest) {
+                conversationPrompt += buildScopedPolishPromptBlock(stageId, lastUserMessage);
             }
 
             for (const msg of messagesForPrompt) {
@@ -7369,6 +7407,8 @@ module.exports = {
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
     buildStage4ConfirmationBypassResponse,
+    isScopedPolishRequest,
+    buildScopedPolishPromptBlock,
     extractNumberedSourceItems,
     buildSourceItemInventoryBlock,
     updateKnowledgeSourceMetadata,

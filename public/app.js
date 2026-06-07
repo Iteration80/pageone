@@ -7858,6 +7858,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return /\b(did you|did it|really|actually|show up|showing|not show|isn't showing|is not showing|doesn't show|does not show|verify|check|confirm|was it applied|has it been applied|have you)\b/i.test(clean);
     }
 
+    function isScopedPolishMessage(content = '') {
+        const clean = String(content || '').trim();
+        if (!clean) return false;
+        const hasScopeLanguage = /\b(?:small|minor|tiny|local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
+            || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish))\b/i.test(clean);
+        return hasScopeLanguage && /\b(?:clarify|polish|wording|paragraph|line|phrase|word|read|land|fuzzy|cleanly)\b/i.test(clean);
+    }
+
     function findRecentRevisionProposal(history = []) {
         return history
             .slice(0, -1)
@@ -7917,12 +7925,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Build revision notes that include user requests, the assistant's
                 // latest concrete proposal, and the final execution acknowledgement.
                 const buildRevisionNotes = (assistantSummary, conversationHistory) => {
-                    const userMessages = conversationHistory.filter(m => m.role === 'user');
-                    const latestUserMessage = userMessages[userMessages.length - 1]?.content || '';
-                    const allUserMessages = userMessages
+                    const allUserMessageEntries = conversationHistory.filter(m => m.role === 'user');
+                    const latestUserMessage = allUserMessageEntries[allUserMessageEntries.length - 1]?.content || '';
+                    const latestIsConfirmation = /\b(yes|yep|yeah|sure|ok|okay|do it|go ahead|apply|refine|revise|sounds good|make it|let's do it)\b/i.test(latestUserMessage)
+                        && latestUserMessage.length < 120;
+                    let scopedConversationHistory = conversationHistory;
+                    let scopeLock = '';
+                    const latestUserIndex = conversationHistory.findIndex(m => m === allUserMessageEntries[allUserMessageEntries.length - 1]);
+                    const previousUserMessage = allUserMessageEntries[allUserMessageEntries.length - 2] || null;
+                    const previousUserIndex = previousUserMessage ? conversationHistory.findIndex(m => m === previousUserMessage) : -1;
+                    if (isScopedPolishMessage(latestUserMessage) && latestUserIndex >= 0) {
+                        scopedConversationHistory = conversationHistory.slice(latestUserIndex);
+                        scopeLock = '\n\nSCOPE LOCK:\nThe latest user request is a scoped polish/clarity note. Apply only the explicitly named local polish and do not revive older checklist items, prior assistant proposals, or unrelated structural changes.';
+                    } else if (latestIsConfirmation && previousUserMessage && isScopedPolishMessage(previousUserMessage.content) && previousUserIndex >= 0) {
+                        scopedConversationHistory = conversationHistory.slice(previousUserIndex);
+                        scopeLock = '\n\nSCOPE LOCK:\nThe confirmation is for the immediately preceding scoped polish/clarity note. Apply only that local polish and do not revive older checklist items, prior assistant proposals, or unrelated structural changes.';
+                    }
+                    const userMessages = scopedConversationHistory.filter(m => m.role === 'user');
+                    const scopedLatestUserMessage = scopeLock && latestIsConfirmation && previousUserMessage
+                        ? previousUserMessage.content
+                        : (userMessages[userMessages.length - 1]?.content || latestUserMessage);
+                    const allUserMessageText = userMessages
                         .map(m => m.content)
                         .join('\n');
-                    const recentAssistantMessages = conversationHistory
+                    const recentAssistantMessages = scopedConversationHistory
                         .filter(m => m.role === 'assistant'
                             && typeof m.content === 'string'
                             && m.content.trim()
@@ -7930,16 +7956,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         .slice(-4)
                         .map(m => m.content.trim())
                         .join('\n\n---\n\n');
-                    const recentConversation = conversationHistory
+                    const recentConversation = scopedConversationHistory
                         .slice(-10)
                         .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}:\n${m.content || ''}`)
                         .join('\n\n---\n\n');
-                    const latestIsConfirmation = /\b(yes|yep|yeah|sure|ok|okay|do it|go ahead|apply|refine|revise|sounds good|make it|let's do it)\b/i.test(latestUserMessage)
-                        && latestUserMessage.length < 120;
                     const confirmationHandoff = latestIsConfirmation
-                        ? '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.'
+                        ? (scopeLock
+                            ? '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation of the scoped polish request above. Apply only that scoped request; do not treat older assistant context as additional instructions.'
+                            : '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.')
                         : '';
-                    return `LATEST USER REQUEST:\n${latestUserMessage}\n\nUSER REQUESTS:\n${allUserMessages}${confirmationHandoff}\n\nRECENT ASSISTANT CONTEXT:\n${recentAssistantMessages || 'No prior assistant proposal captured.'}\n\nRECENT CONVERSATION CONTEXT:\n${recentConversation}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
+                    return `LATEST USER REQUEST:\n${scopedLatestUserMessage}\n\nUSER REQUESTS:\n${allUserMessageText}${confirmationHandoff}${scopeLock}\n\nRECENT ASSISTANT CONTEXT:\n${recentAssistantMessages || 'No prior assistant proposal captured.'}\n\nRECENT CONVERSATION CONTEXT:\n${recentConversation}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
                 };
 
                 const postRevisionFollowUp = async (revisionResult = {}) => {

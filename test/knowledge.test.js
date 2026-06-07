@@ -38,6 +38,8 @@ const {
     buildStage4CurrentEventListResponse,
     stage4CurrentEventListTerm,
     buildStage4ConfirmationBypassResponse,
+    isScopedPolishRequest,
+    buildScopedPolishPromptBlock,
     extractNumberedSourceItems,
     buildSourceItemInventoryBlock,
     updateKnowledgeSourceMetadata
@@ -735,6 +737,36 @@ test('frontend Stage 2 chat directly applies outline revision memos and rejects 
     assert.match(appJs, /function revisionReceiptChanged/);
     assert.match(appJs, /function revisionReceiptFailed/);
     assert.match(appJs, /revisionReceiptChanged\(data\)/);
+});
+
+test('Stage 2 scoped polish notes do not revive stale revision checklist items', () => {
+    const note = `One small polish note, not a structural issue:
+
+In [Rebecca's Memory - The Storm Drain], PILLERMOSS is emotionally strong, but the beat currently asks it to function as several things at once: a rusted tin can, a private treasury, and the bonded phrase/password. That is understandable, but it may read a little fuzzy on first pass because the audience needs the memory-object and the memory-word to land cleanly.
+
+Suggestion: clarify that PILLERMOSS is the private name Becky and Dapple gave to the rusted tin can / tiny childhood kingdom, and that saying the word now works because it carries the whole memory.
+
+Then in the climax, when Rebecca says "PILLERMOSS," it is clear why the word breaks through: she is not just saying a magic code. She is naming the private world they shared, the proof that she remembers him specifically and lovingly.
+
+This is only a clarity polish. The current structure works.`;
+    const promptBlock = buildScopedPolishPromptBlock(2, note);
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+
+    assert.equal(isScopedPolishRequest(note), true);
+    assert.equal(isScopedPolishRequest('Please restore the missing ending beats and remove the duplicate aftermath.'), false);
+    assert.match(promptBlock, /LATEST MESSAGE SCOPE LOCK/);
+    assert.match(promptBlock, /Rebecca's Memory - The Storm Drain/);
+    assert.match(promptBlock, /Do not revive older checklist items/);
+    assert.match(promptBlock, /do not propose midpoint, ending, surrender\/accountability/);
+    assert.match(serverJs, /const scopedPolishRequest = !isInit && isScopedPolishRequest\(lastUserMessage\)/);
+    assert.match(serverJs, /stage6ExternalFeedbackReview \|\| scopedPolishRequest/);
+    assert.match(serverJs, /buildScopedPolishPromptBlock\(stageId, lastUserMessage\)/);
+    assert.match(appJs, /function isScopedPolishMessage/);
+    assert.match(appJs, /The confirmation is for the immediately preceding scoped polish\/clarity note/);
+    assert.match(appJs, /Apply only that scoped request/);
+    assert.match(appJs, /scopedConversationHistory = conversationHistory\.slice\(previousUserIndex\)/);
+    assert.match(appJs, /do not revive older checklist items, prior assistant proposals, or unrelated structural changes/);
 });
 
 test('stage chat source-audit questions do not execute stale pending revisions', () => {
