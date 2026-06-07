@@ -23,6 +23,7 @@ const {
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('../utils/revision_transaction');
+const { parseStructuralPatchOps } = require('../utils/revision_patch');
 const {
     buildSourceGenerationPacket,
     buildStage10RewritePlanPrompt,
@@ -849,6 +850,27 @@ The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the para
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /The Rebecca's Memory - The Storm Drain/);
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /Resolution - A New Accord/);
     assert.equal(sequenceHBeats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+});
+
+test('Stage 2 outline structural parser does not delete merge or keep-nearby labels', () => {
+    const notes = `Delete the second [Aftermath - A Quiet Reckoning] after [Quist's Betrayal & The Bonded Key] and replace it with the exact [Dapple Rising - The Anchor] beat.
+
+[Dapple Rising - The Anchor] Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle.
+
+Also delete [Resolution - A New Accord] entirely or merge only its best ideas into [Aftermath - A New Order]. The final beat should remain [Closing Image - The Photo on the Wall].`;
+
+    const operations = parseStructuralPatchOps(notes);
+    assert.deepEqual(operations.map(op => [op.type, op.oldLabel || op.newLabel]), [
+        ['replace', 'Aftermath - A Quiet Reckoning'],
+        ['delete', 'Aftermath - A Quiet Reckoning'],
+        ['delete', 'Resolution - A New Accord']
+    ]);
+    assert.equal(operations[0].newLabel, 'Dapple Rising - The Anchor');
+    assert.equal(operations[0].newBody, 'Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle.');
+    assert.equal(operations[0].anchorLabel, "Quist's Betrayal & The Bonded Key");
+    assert.equal(operations[1].anchorLabel, "Quist's Betrayal & The Bonded Key");
+    assert.doesNotMatch(JSON.stringify(operations), /Aftermath - A New Order/);
+    assert.doesNotMatch(JSON.stringify(operations), /Closing Image - The Photo on the Wall/);
 });
 
 test('Stage 2 server finalizer applies structural outline patches to unchanged model output', () => {

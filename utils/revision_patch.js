@@ -55,7 +55,7 @@ function bracketedLabelOccurrences(text = '') {
 
 function bodyAfterLabel(text = '', occurrence = {}) {
     const rest = String(text || '').slice(occurrence.endIndex || 0);
-    const stopMatch = rest.match(/\n\s*\n\s*(?=(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+))/);
+    const stopMatch = rest.match(/\n\s*\n\s*(?=(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge)\b|\b(?:the\s+)?final\s+beat\b))/i);
     const rawBody = stopMatch ? rest.slice(0, stopMatch.index) : rest;
     return rawBody
         .replace(/^\s*[:\-\u2013\u2014]\s*/, '')
@@ -106,6 +106,35 @@ function inferDeleteReplaceContextBefore(text = '', replaceIndex = 0) {
         anchorLabel: (match[3] || '').trim(),
         ordinal: ordinalValue(match[1] || '')
     };
+}
+
+function labelLocalBefore(text = '', occurrence = {}, maxChars = 160) {
+    const before = String(text || '').slice(Math.max(0, (occurrence.index || 0) - maxChars), occurrence.index || 0);
+    const boundaryIndex = Math.max(
+        before.lastIndexOf('\n'),
+        before.lastIndexOf('.'),
+        before.lastIndexOf(';')
+    );
+    return boundaryIndex >= 0 ? before.slice(boundaryIndex + 1) : before;
+}
+
+function labelLocalAfter(text = '', occurrence = {}, maxChars = 220) {
+    const after = String(text || '').slice(occurrence.endIndex || 0, (occurrence.endIndex || 0) + maxChars);
+    const nextBracket = after.search(/\[[^\]]{2,180}\]/);
+    const nextBreak = after.search(/\n\s*\n/);
+    const candidates = [nextBracket, nextBreak].filter(index => index >= 0);
+    const stopIndex = candidates.length ? Math.min(...candidates) : after.length;
+    return after.slice(0, stopIndex);
+}
+
+function hasDirectDeleteBeforeLabel(text = '', occurrence = {}) {
+    const before = labelLocalBefore(text, occurrence).replace(/\s+/g, ' ');
+    return /\b(?:delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?(?:(?:first|second|third|fourth|last)\s+)?$/i.test(before);
+}
+
+function hasDirectDeleteAfterLabel(text = '', occurrence = {}) {
+    const after = labelLocalAfter(text, occurrence).replace(/\s+/g, ' ');
+    return /\b(?:delete|remove|cut|omit|drop|strip)\s+(?:that|this|it|the\s+(?:paragraph|beat|section|entry))\b/i.test(after);
 }
 
 function parseStructuralPatchOps(notes = '') {
@@ -161,16 +190,17 @@ function parseStructuralPatchOps(notes = '') {
     }
 
     for (const occurrence of occurrences) {
-        const before = text.slice(Math.max(0, occurrence.index - 180), occurrence.index);
-        const after = text.slice(occurrence.endIndex, occurrence.endIndex + 280);
+        const before = labelLocalBefore(text, occurrence);
+        const after = labelLocalAfter(text, occurrence);
+        const anchorAfter = text.slice(occurrence.endIndex, occurrence.endIndex + 180);
         const windowText = `${before} ${after}`;
-        if (!/\b(delete|remove|cut|omit|drop|strip)\b/i.test(windowText)) continue;
+        if (!hasDirectDeleteBeforeLabel(text, occurrence) && !hasDirectDeleteAfterLabel(text, occurrence)) continue;
         if (/\bafter\s*$/i.test(before)) continue;
         if (/\breplace\b/i.test(windowText) && replacementLabels.has(normalizePatchLabel(occurrence.label))) continue;
         ops.push({
             type: 'delete',
             oldLabel: occurrence.label,
-            anchorLabel: (after.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || '').trim(),
+            anchorLabel: (anchorAfter.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || '').trim(),
             ordinal: ordinalValue(windowText.match(/\b(first|second|third|fourth|last)\b/i)?.[1] || ''),
             finalOnly: /\b(last|final)\s+(?:paragraph|beat|section|entry)\b/i.test(windowText)
         });
