@@ -135,6 +135,17 @@ function isRevisionGuardrailBlock(value = '') {
 
 function scopedPolishChecklistItems(text = '', maxItems = 12) {
     const items = [];
+    const replacement = String(text || '').match(/\bTo something like:\s*\n+([\s\S]*?)(?=\n\s*\n(?:Optional:|Do not|Don't|This is only|$))/i);
+    const replacementText = (replacement?.[1] || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .join(' ')
+        .replace(/^["“]|["”]$/g, '')
+        .trim();
+    if (replacementText.length > 20 && !isRevisionGuardrailBlock(replacementText)) {
+        items.push(compactText(replacementText, 700));
+    }
     const suggested = String(text || '').match(/\bSuggested sentence:\s*\n+([\s\S]*?)(?=\n\s*\n(?:Do not|Don't|This is only|$))/i);
     const sentence = (suggested?.[1] || '')
         .split(/\r?\n/)
@@ -477,6 +488,15 @@ function isNegatedSequenceReference(notes = '', sequence = {}) {
     return false;
 }
 
+function scopedPolishTargetLabels(notes = '') {
+    if (!isScopedPolishText(notes)) return [];
+    const text = String(notes || '');
+    const labels = Array.from(text.matchAll(/\[([^\]]{3,140})\]/g))
+        .map(match => (match[1] || '').trim())
+        .filter(label => label && !isNegatedBeatLabelReference(text, label));
+    return Array.from(new Set(labels));
+}
+
 function notesTargetExistingBeat(notes = '', beat = {}) {
     const noteText = String(notes || '').toLowerCase();
     const label = String(beat.beat_label || beat.beat || '').toLowerCase();
@@ -554,6 +574,8 @@ function notesTargetBeat(notes = '', beat = {}) {
     const lower = text.toLowerCase();
     const label = String(beat?.beat_label || beat?.beat || '');
     if (isNegatedBeatLabelReference(text, label)) return false;
+    const scopedTargets = scopedPolishTargetLabels(text);
+    if (scopedTargets.length) return scopedTargets.some(target => labelsEqual(target, label));
     const normalizedLabel = normalizedComparableLabel(label);
     if (label && new RegExp(`\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').test(text)) return true;
     const labelTerms = checklistTerms(label);

@@ -1259,6 +1259,75 @@ Do not change any other beat. Do not change Sequence H. Do not change [Climax - 
     assert.doesNotMatch(JSON.stringify(result.outline), /BAD CLIMAX DRIFT|BAD DAPPLE DRIFT|Do Not Change Any Other Beat/);
 });
 
+test('Stage 2 wording polish inside a named beat protects surrounding beats', async () => {
+    const currentOutline = {
+        act_1: [],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence G: The Bonded Key',
+            beats: [{
+                beat_label: "Rebecca's Memory - The Storm Drain",
+                description: 'Outside, Rebecca remembers the storm drain. And the OBJECT comes back with him: a rusted tin can hidden behind the garage, their private treasury for pebbles and feathers. They called it PILLERMOSS.'
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: 'Climax - The Bonded Phrase',
+                description: 'Rebecca says PILLERMOSS and cancels Protocol Erasure.'
+            }, {
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders.'
+            }]
+        }]
+    };
+    const notes = `One tiny language polish in [Rebecca's Memory - The Storm Drain]:
+
+The phrase “And the OBJECT comes back with him” feels a little like an internal outline note. Please make it feel more lyrical and in-world.
+
+Change:
+
+“And the OBJECT comes back with him: a rusted tin can hidden behind the garage...”
+
+To something like:
+
+“And then the object comes back with him: a rusted tin can hidden behind the garage...”
+
+Optional: add one small key-causality sentence near the end of the beat so the memory connects cleanly to the Bonded Authorization Key:
+
+“The bonded key in her hand warms, recognizing what she has finally admitted.”
+
+Do not change the structure or any surrounding beats. This is only a wording polish inside [Rebecca's Memory - The Storm Drain].`;
+    const attemptedModelOutline = JSON.parse(JSON.stringify(currentOutline));
+    attemptedModelOutline.act_3[0].beats[0].description = 'Outside, Rebecca remembers the storm drain. And then the object comes back with him: a rusted tin can hidden behind the garage, their private treasury for pebbles and feathers. They called it PILLERMOSS. The bonded key in her hand warms, recognizing what she has finally admitted.';
+    attemptedModelOutline.act_3[1].beats[0].description = 'BAD CLIMAX DRIFT.';
+    attemptedModelOutline.act_3[1].beats[1].description = 'BAD DAPPLE DRIFT.';
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            title: 'I.M.A.G.I.N.E.',
+            genre: 'Animated Family Adventure',
+            logline: 'A mother must remember.',
+            outline: attemptedModelOutline
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.deepEqual(buildRevisionChecklist(notes), [
+        'And then the object comes back with him: a rusted tin can hidden behind the garage...'
+    ]);
+    assert.match(result.outline.act_3[0].beats[0].description, /And then the object comes back with him/);
+    assert.match(result.outline.act_3[0].beats[0].description, /bonded key in her hand warms/);
+    assert.doesNotMatch(result.outline.act_3[0].beats[0].description, /OBJECT/);
+    assert.equal(result.outline.act_3[1].beats[0].description, 'Rebecca says PILLERMOSS and cancels Protocol Erasure.');
+    assert.equal(result.outline.act_3[1].beats[1].description, 'Dapple surrenders.');
+    assert.doesNotMatch(JSON.stringify(result.outline), /BAD CLIMAX DRIFT|BAD DAPPLE DRIFT/);
+});
+
 test('Stage 2 deterministic revision kernel unwraps saved outline artifacts', () => {
     const artifact = {
         title: 'I.M.A.G.I.N.E.',
