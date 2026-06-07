@@ -138,7 +138,7 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     for (const block of blocks) {
         if (/\b(delete|remove|cut|omit|drop)\b/i.test(block)
             && /\b(accidental note|not outline content|final beat|last paragraph|final paragraph)\b/i.test(block)) {
-            const deleteLabel = bracketedLabelNearestDeleteInstruction(block) || block.match(/\[([^\]]+)\]/)?.[1];
+            const deleteLabel = bracketedLabelNearestDeleteInstruction(block, { preferLastDelete: true }) || block.match(/\[([^\]]+)\]/)?.[1];
             if (deleteLabel) items.push(`Delete [${deleteLabel}]`);
             if (items.length >= maxItems) break;
             continue;
@@ -174,10 +174,11 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     return Array.from(new Set(items)).slice(0, maxItems);
 }
 
-function bracketedLabelNearestDeleteInstruction(text = '') {
+function bracketedLabelNearestDeleteInstruction(text = '', { preferLastDelete = false } = {}) {
     const source = String(text || '');
-    const deleteMatch = source.match(/\b(delete|remove|cut|omit|drop)\b/i);
-    if (!deleteMatch) return '';
+    const deleteMatches = Array.from(source.matchAll(/\b(delete|remove|cut|omit|drop)\b/gi));
+    if (!deleteMatches.length) return '';
+    const deleteMatch = preferLastDelete ? deleteMatches[deleteMatches.length - 1] : deleteMatches[0];
     const deleteIndex = deleteMatch.index || 0;
     const labels = Array.from(source.matchAll(/\[([^\]]+)\]/g))
         .map(match => ({

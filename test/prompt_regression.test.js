@@ -835,7 +835,7 @@ The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the para
 
 test('Stage 2 outline checklist delete items use the label nearest the delete instruction', () => {
     const notes = `1. Dapple Rising - The Anchor is still missing.
-You still have two copies of [Aftermath - A Quiet Reckoning]. Replace the second one, after [Quist's Betrayal & The Bonded Key], with the Dapple Rising beat.
+You still have two copies of [Aftermath - A Quiet Reckoning]. Delete the second [Aftermath - A Quiet Reckoning], after [Quist's Betrayal & The Bonded Key], and replace it with the Dapple Rising beat.
 [Dapple Rising - The Anchor] Dapple has hijacked the Mobile Processing Core.
 2. There's an accidental note left as a final beat.
 The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the paragraph works but repeats itself. Delete that entirely.`;
