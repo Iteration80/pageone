@@ -268,6 +268,14 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./agents/memory_contract');
 const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
+const {
+    createRevisionTransaction,
+    outlineRevisionAdapter,
+    characterRevisionAdapter,
+    stage4RevisionAdapter,
+    treatmentRevisionAdapter,
+    sceneBlueprintRevisionAdapter
+} = require('./utils/revision_transaction');
 const { generateContent } = require('./agents/ai-client');
 
 const STAGE_NAMES = {
@@ -1013,6 +1021,17 @@ function sourceReferenceForSegment(segment) {
 function sourcePlanDataHash(stageData = '') {
     const text = typeof stageData === 'string' ? stageData : JSON.stringify(stageData ?? '', null, 2);
     return crypto.createHash('sha256').update(text || '').digest('hex').slice(0, 20);
+}
+
+function assertRevisionTransactionVerified(transaction, stageLabel = 'Stage output') {
+    const failures = transaction?.receipt?.failures || [];
+    if (!failures.length) return;
+    const failureList = failures
+        .map(failure => failure.newLabel || failure.oldLabel || failure.label || failure.type || 'requested edit')
+        .filter(Boolean)
+        .slice(0, 5)
+        .join('; ');
+    throw new Error(`${stageLabel} revision failed verification${failureList ? `: ${failureList}` : ''}`);
 }
 
 function sourcePlanCacheKey(stageId) {
@@ -3491,8 +3510,9 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         if (explicitSequenceReplacement) {
             applyExplicitOutlineSequenceReplacement(outlineData, explicitSequenceReplacement);
         }
+        let structuralOutlinePatch = null;
         if (notesWithUpload && outlineData?.outline) {
-            applyStructuralOutlinePatches(outlineData.outline, notesWithUpload);
+            structuralOutlinePatch = applyStructuralOutlinePatches(outlineData.outline, notesWithUpload);
         }
         let missingChecklistItems = revisionChecklist.length
             ? findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData)
@@ -3505,7 +3525,18 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             throw new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
         }
         const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
-        const changed = !notesWithUpload || beforeOutlineHash !== afterOutlineHash;
+        const revisionTransaction = notesWithUpload
+            ? createRevisionTransaction({
+                stageId: 'stage2_outline',
+                before: beforeOutlineForChangeCheck,
+                after: outlineData?.outline || {},
+                notes: notesWithUpload,
+                structuralPatch: structuralOutlinePatch,
+                adapter: outlineRevisionAdapter
+            })
+            : null;
+        assertRevisionTransactionVerified(revisionTransaction, 'Stage 2 outline');
+        const changed = !notesWithUpload || revisionTransaction.changed;
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -3530,6 +3561,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             result: outlineData,
             changed,
             saveVerified: true,
+            revisionReceipt: revisionTransaction?.receipt,
             checklistVerified: revisionChecklist.length > 0,
             ...sourceResponseExtras(sourcePacket)
         };
@@ -3580,7 +3612,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         }
 
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
-        const beforeCharactersHash = sourcePlanDataHash(JSON.stringify(parsedChars || projectData.data?.stage3_characters?.characters || []));
+        const beforeCharactersForRevision = parsedChars || projectData.data?.stage3_characters?.characters || [];
         const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
         const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 
@@ -3588,7 +3620,17 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(3, sourcePacket));
-        const changed = !notesWithUpload || beforeCharactersHash !== sourcePlanDataHash(JSON.stringify(characterData?.characters || []));
+        const revisionTransaction = notesWithUpload
+            ? createRevisionTransaction({
+                stageId: 'stage3_characters',
+                before: beforeCharactersForRevision,
+                after: characterData?.characters || [],
+                notes: notesWithUpload,
+                adapter: characterRevisionAdapter
+            })
+            : null;
+        assertRevisionTransactionVerified(revisionTransaction, 'Stage 3 characters');
+        const changed = !notesWithUpload || revisionTransaction.changed;
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
@@ -3603,7 +3645,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: characterData, changed, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         const detail = publicErrorDetail(error);
@@ -3638,7 +3680,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
     const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
     const isFullStage4Generation = !parsedCurrentBeats;
-    const beforeStage4Hash = sourcePlanDataHash(JSON.stringify(parsedCurrentBeats || projectData.data?.stage4_beats || {}));
+    const beforeStage4ForRevision = parsedCurrentBeats || projectData.data?.stage4_beats || {};
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -3671,7 +3713,17 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         );
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
-        const changed = isFullStage4Generation || beforeStage4Hash !== sourcePlanDataHash(JSON.stringify(beatsResult || {}));
+        const revisionTransaction = notesWithUpload && !isFullStage4Generation
+            ? createRevisionTransaction({
+                stageId: 'stage4_beats',
+                before: beforeStage4ForRevision,
+                after: beatsResult || {},
+                notes: notesWithUpload,
+                adapter: stage4RevisionAdapter
+            })
+            : null;
+        assertRevisionTransactionVerified(revisionTransaction, 'Stage 4 beats');
+        const changed = isFullStage4Generation || revisionTransaction?.changed === true;
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
@@ -3688,7 +3740,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        send({ type: 'complete', result: beatsResult, changed, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         const detail = publicErrorDetail(error);
@@ -3724,7 +3776,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     const comparableCurrentTreatment = parsedTreatment && typeof parsedTreatment === 'object'
         ? Object.fromEntries(Object.entries(parsedTreatment).filter(([key]) => key !== 'notes'))
         : parsedTreatment;
-    const beforeStage5Hash = sourcePlanDataHash(JSON.stringify(comparableCurrentTreatment || projectData.data?.stage5_treatment || {}));
+    const beforeStage5ForRevision = comparableCurrentTreatment || projectData.data?.stage5_treatment || {};
 
     if (!pitchData || !charactersData || !beatsData) {
         return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
@@ -3759,7 +3811,17 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
             (step, total, label) => send({ type: 'progress', step, total, label }),
             getModelConfigWithSourcePacket(5, sourcePacket)
         );
-        const changed = !notesWithUpload || beforeStage5Hash !== sourcePlanDataHash(JSON.stringify(treatmentResult || {}));
+        const revisionTransaction = notesWithUpload
+            ? createRevisionTransaction({
+                stageId: 'stage5_treatment',
+                before: beforeStage5ForRevision,
+                after: treatmentResult || {},
+                notes: notesWithUpload,
+                adapter: treatmentRevisionAdapter
+            })
+            : null;
+        assertRevisionTransactionVerified(revisionTransaction, 'Stage 5 treatment');
+        const changed = !notesWithUpload || revisionTransaction.changed;
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
@@ -3773,7 +3835,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: treatmentResult, changed, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -3906,9 +3968,16 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         console.log("Revising Stage 6 Scene Blueprint...");
         const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6RevisionSeed, { userMessage: feedback });
-        const beforeHash = sourcePlanDataHash(JSON.stringify(currentBlueprint || []));
         const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithSourcePacket(6, sourcePacket));
-        const changed = sourcePlanDataHash(JSON.stringify(updatedBlueprint || [])) !== beforeHash;
+        const revisionTransaction = createRevisionTransaction({
+            stageId: 'stage6_scenes',
+            before: currentBlueprint || [],
+            after: updatedBlueprint || [],
+            notes: feedback,
+            adapter: sceneBlueprintRevisionAdapter
+        });
+        assertRevisionTransactionVerified(revisionTransaction, 'Stage 6 scene blueprint');
+        const changed = revisionTransaction.changed;
 
         send({ type: 'status', message: changed ? 'Saving revised blueprint...' : 'Revision returned no blueprint changes...' });
         projectData.data = projectData.data || {};
@@ -3919,7 +3988,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        const payload = { result: updatedBlueprint, changed, ...sourceResponseExtras(sourcePacket) };
+        const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, ...sourceResponseExtras(sourcePacket) };
         if (streaming) {
             // Keep the final SSE packet small. The browser refreshes the saved
             // Stage 6 data after completion, which avoids large blueprint payloads

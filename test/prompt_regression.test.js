@@ -16,6 +16,14 @@ const { generateSceneDraft } = require('../agents/agent_8_draft');
 const { agent8Coverage } = require('../agents/agent_9_coverage');
 const { rewriteScene } = require('../agents/agent_10_rewrite');
 const {
+    createRevisionTransaction,
+    outlineRevisionAdapter,
+    characterRevisionAdapter,
+    stage4RevisionAdapter,
+    treatmentRevisionAdapter,
+    sceneBlueprintRevisionAdapter
+} = require('../utils/revision_transaction');
+const {
     buildSourceGenerationPacket,
     buildStage10RewritePlanPrompt,
     buildStage10RewritePlannerSystemInstruction
@@ -874,6 +882,86 @@ test('Stage 2 server finalizer applies structural outline patches to unchanged m
         'Dapple Rising - The Anchor'
     ]);
     assert.match(outline.act_2[0].beats[2].description, /Mobile Processing Core/);
+});
+
+test('revision transactions produce verified receipts across structured stages', () => {
+    const beforeOutline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'First aftermath.'
+            }, {
+                beat_label: "Quist's Betrayal & The Bonded Key",
+                description: 'Quist gives the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate aftermath.'
+            }]
+        }],
+        act_3: []
+    };
+    const afterOutline = JSON.parse(JSON.stringify(beforeOutline));
+    const notes = `Delete the second [Aftermath - A Quiet Reckoning], after [Quist's Betrayal & The Bonded Key], and replace it with the Dapple Rising beat.
+
+[Dapple Rising - The Anchor] Dapple hijacks the Mobile Processing Core.`;
+    const structuralPatch = applyStructuralOutlinePatches(afterOutline, notes);
+    const outlineTx = createRevisionTransaction({
+        stageId: 'stage2_outline',
+        before: beforeOutline,
+        after: afterOutline,
+        notes,
+        structuralPatch,
+        adapter: outlineRevisionAdapter
+    });
+    assert.equal(outlineTx.changed, true);
+    assert.equal(outlineTx.receipt.verified, true);
+    assert.match(outlineTx.receipt.summary, /structural outline operation/);
+
+    const failedOutlineTx = createRevisionTransaction({
+        stageId: 'stage2_outline',
+        before: beforeOutline,
+        after: beforeOutline,
+        notes,
+        structuralPatch: { operations: structuralPatch.operations, appliedCount: 0 },
+        adapter: outlineRevisionAdapter
+    });
+    assert.equal(failedOutlineTx.changed, false);
+    assert.equal(failedOutlineTx.receipt.verified, false);
+    assert.ok(failedOutlineTx.receipt.failures.length > 0);
+
+    const characterTx = createRevisionTransaction({
+        stageId: 'stage3_characters',
+        before: [{ name: 'Mara', role: 'Lead' }],
+        after: [{ name: 'Mara', role: 'Lead', brief_summary: 'Now trusts June.' }],
+        adapter: characterRevisionAdapter
+    });
+    assert.equal(characterTx.receipt.operations[0].itemType, 'character');
+
+    const stage4Tx = createRevisionTransaction({
+        stageId: 'stage4_beats',
+        before: { hybrid_beat_sheet: [{ sequence_number: 1, beats: [{ beat_name: 'Opening', detailed_action: 'Old.' }] }] },
+        after: { hybrid_beat_sheet: [{ sequence_number: 1, beats: [{ beat_name: 'Opening', detailed_action: 'New.' }] }] },
+        adapter: stage4RevisionAdapter
+    });
+    assert.equal(stage4Tx.receipt.operations[0].itemType, 'stage4_beat');
+
+    const treatmentTx = createRevisionTransaction({
+        stageId: 'stage5_treatment',
+        before: { act_3: 'Old ending.' },
+        after: { act_3: 'New ending.' },
+        adapter: treatmentRevisionAdapter
+    });
+    assert.equal(treatmentTx.receipt.operations[0].itemType, 'treatment_section');
+
+    const sceneTx = createRevisionTransaction({
+        stageId: 'stage6_scenes',
+        before: [{ scenes: [{ scene_number: 1, scene_heading: 'INT. ROOM', narrative_action: 'Old.' }] }],
+        after: [{ scenes: [{ scene_number: 1, scene_heading: 'INT. ROOM', narrative_action: 'New.' }] }],
+        adapter: sceneBlueprintRevisionAdapter
+    });
+    assert.equal(sceneTx.receipt.operations[0].itemType, 'scene');
 });
 
 test('Stage 2 outline checklist delete items use the label nearest the delete instruction', () => {

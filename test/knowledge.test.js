@@ -553,10 +553,12 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
     assert.match(serverJs, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
-    assert.match(serverJs, /const changed = !notesWithUpload \|\| beforeOutlineHash !== afterOutlineHash/);
+    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
+    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 2 outline'\)/);
+    assert.match(serverJs, /const changed = !notesWithUpload \|\| revisionTransaction\.changed/);
     assert.match(serverJs, /Stage 2 outline save verification failed/);
     assert.match(serverJs, /saveVerified: true/);
-    assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
+    assert.match(appJs, /changed: !revisionReceiptFailed\(data\)[\s\S]*revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
 });
 
 test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
@@ -704,6 +706,9 @@ test('frontend Stage 2 chat directly applies outline revision memos and rejects 
     assert.match(appJs, /function isRevisionStatusQuestion/);
     assert.match(appJs, /did you\|did it\|really\|actually/);
     assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);
+    assert.match(appJs, /function revisionReceiptChanged/);
+    assert.match(appJs, /function revisionReceiptFailed/);
+    assert.match(appJs, /revisionReceiptChanged\(data\)/);
 });
 
 test('stage chat source-audit questions do not execute stale pending revisions', () => {
@@ -786,9 +791,9 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /const assertRevisionApplied =/);
     assert.match(appJs, /The revision engine did not report saved changes/);
     assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentPitch\) !== JSON\.stringify/);
-    assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
-    assert.match(appJs, /changed: completeEvent\.changed !== false && JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
-    assert.match(appJs, /changed: completeEvent\.changed !== false && JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
+    assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
+    assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
+    assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
     assert.match(appJs, /return \{ \.\.\.data, changed: true \}/);
     assert.match(appJs, /stage8LoadEditor\(data\.result\)[\s\S]*return data;/);
     assert.match(appJs, /latestIsConfirmation/);
@@ -811,9 +816,11 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(serverJs, /Do not infer a page number from a scene number/);
     assert.match(serverJs, /Review the updated artifact before treating any broader feedback list as complete/);
     assert.match(serverJs, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
-    assert.match(serverJs, /const beforeCharactersHash = sourcePlanDataHash/);
-    assert.match(serverJs, /const beforeStage4Hash = sourcePlanDataHash/);
-    assert.match(serverJs, /const beforeStage5Hash = sourcePlanDataHash/);
+    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
+    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
+    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage5_treatment'/);
+    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 6 scene blueprint'\)/);
+    assert.match(serverJs, /revisionReceipt: revisionTransaction\?\.receipt/);
     assert.match(serverJs, /const beforeDraftHash = sourcePlanDataHash/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);

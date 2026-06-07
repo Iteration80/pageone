@@ -7845,6 +7845,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return Boolean(findRecentRevisionProposal(history));
     }
 
+    function revisionReceiptChanged(result = {}) {
+        const receipt = result?.revisionReceipt || result?.receipt || null;
+        if (revisionReceiptFailed(result)) return false;
+        return receipt?.changed === true || receipt?.verified === true || Number(receipt?.appliedOperationCount || 0) > 0;
+    }
+
+    function revisionReceiptFailed(result = {}) {
+        const receipt = result?.revisionReceipt || result?.receipt || null;
+        return Array.isArray(receipt?.failures) && receipt.failures.length > 0;
+    }
+
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
         // Guard: skip silently if any required element is missing
         if (!document.getElementById(sendBtnId) || !document.getElementById(inputId) || !document.getElementById(threadId)) {
@@ -7904,10 +7915,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sceneNote = changedScenes.length
                         ? ` Changed scenes: ${changedScenes.join(', ')}.`
                         : '';
+                    const receiptSummary = revisionResult?.revisionReceipt?.summary
+                        ? ` Verified: ${revisionResult.revisionReceipt.summary}`
+                        : '';
                     const outputName = Number(stageId) === 6
                         ? 'scene blueprint'
                         : (STAGE_LABELS[stageId] || 'stage output').toLowerCase();
-                    chat.append('ai', `Applied to the saved ${outputName}.${sceneNote} Review the updated output before treating any broader feedback list as complete.`);
+                    chat.append('ai', `Applied to the saved ${outputName}.${sceneNote}${receiptSummary} Review the updated output before treating any broader feedback list as complete.`);
                 };
 
                 const assertRevisionApplied = (revisionResult, message = 'The revision engine did not report saved changes, so I did not mark this as applied.') => {
@@ -8180,7 +8194,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
             return {
                 ...data,
-                changed: data.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(data.result?.outline || {})
+                changed: !revisionReceiptFailed(data) && (
+                    revisionReceiptChanged(data)
+                    || (data.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(data.result?.outline || {}))
+                )
             };
         }
     });
@@ -8210,7 +8227,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
             return {
                 ...data,
-                changed: data.changed !== false && JSON.stringify(currentCharacters) !== JSON.stringify(data.result?.characters || [])
+                changed: !revisionReceiptFailed(data) && (
+                    revisionReceiptChanged(data)
+                    || (data.changed !== false && JSON.stringify(currentCharacters) !== JSON.stringify(data.result?.characters || []))
+                )
             };
         }
     });
@@ -8242,7 +8262,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!completeEvent) throw new Error('Beat revision finished without a completion event.');
             return {
                 ...completeEvent,
-                changed: completeEvent.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(completeEvent.result || {})
+                changed: !revisionReceiptFailed(completeEvent) && (
+                    revisionReceiptChanged(completeEvent)
+                    || (completeEvent.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(completeEvent.result || {}))
+                )
             };
         }
     });
@@ -8276,7 +8299,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!completeEvent) throw new Error('Treatment revision finished without a completion event.');
             return {
                 ...completeEvent,
-                changed: completeEvent.changed !== false && JSON.stringify(comparableCurrentData) !== JSON.stringify(completeEvent.result || {})
+                changed: !revisionReceiptFailed(completeEvent) && (
+                    revisionReceiptChanged(completeEvent)
+                    || (completeEvent.changed !== false && JSON.stringify(comparableCurrentData) !== JSON.stringify(completeEvent.result || {}))
+                )
             };
         }
     });
@@ -8425,7 +8451,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (streamError) throw streamError;
-        if (completeEvent.changed === false) {
+        if (revisionReceiptFailed(completeEvent) || (completeEvent.changed === false && !revisionReceiptChanged(completeEvent))) {
             throw new Error('The revision engine returned no blueprint changes.');
         }
 
