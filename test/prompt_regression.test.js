@@ -1116,6 +1116,81 @@ Do not add Resolution - A New Accord.`;
     assert.match(revision.after.act_2[0].beats[2].description, /Mobile Processing Core/);
 });
 
+test('Stage 2 deterministic revision kernel honors surgical guardrails in exact outline feedback', () => {
+    const outline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+            beats: [{
+                beat_label: 'B-Story Collides - Robotobob',
+                description: 'Robotobob collides with the B-story.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate placeholder after Robotobob.'
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence F: The Fox Beneath the Coat',
+            beats: [{
+                beat_label: 'Furdlegurr Moves',
+                description: 'The next sequence stays in place.'
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders but must answer for what he did.'
+            }, {
+                beat_label: 'Resolution - A New Accord',
+                description: 'A contradictory extra ending.'
+            }]
+        }]
+    };
+    const notes = `Please make surgical fixes to the current outline only. Do not restructure broadly.
+
+First: after [B-Story Collides - Robotobob], there is currently a second duplicate [Aftermath - A Quiet Reckoning]. Delete that duplicate beat and replace it with these TWO beats, in this exact order:
+
+[Quist's Betrayal & The Bonded Key] Quist arrives and pulls Dave aside. Rebecca eavesdrops. Quist confirms Protocol Erasure and explains the bonded authorization key. Rebecca palms the key off Quist's neck.
+
+[Dapple Rising - The Anchor] Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle. Dapple has hijacked the Mobile Processing Core and chained Furdlegurr to it. Rebecca: 'We go now. No more agency.'
+
+Then keep Sequence F: The Fox Beneath the Coat immediately after those two beats.
+
+Second: the current outline ends too early after [Dapple's Last Choice]. After [Dapple's Last Choice], add these TWO final beats, in this exact order:
+
+[Aftermath - A New Order] Quist surveys the wreckage, furious about the key, but the public optics have already broken her old order. Rebecca declines the badge, then says she will consult.
+
+[Closing Image - The Photo on the Wall] Rebecca's kitchen. The dusty photo of young Becky and Dapple is now framed on the wall, in the light.
+
+Do not add a separate [Resolution - A New Accord]. The final beat should be [Closing Image - The Photo on the Wall].
+
+Do not delete [Quist's Betrayal & The Bonded Key]. Do not delete [Aftermath - A New Order]. Do not delete [Closing Image - The Photo on the Wall]. The only deletion needed in the middle is the duplicate second [Aftermath - A Quiet Reckoning].`;
+
+    const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact: outline, notes });
+
+    assert.equal(revision.receipt.verified, true);
+    assert.deepEqual(revision.receipt.operations.map(op => [op.type, op.oldLabel || op.newLabel, op.anchorLabel]), [
+        ['replace_beat', 'Aftermath - A Quiet Reckoning', 'B-Story Collides - Robotobob'],
+        ['ensure_beat_present', 'Aftermath - A New Order', "Dapple's Last Choice"],
+        ['ensure_beat_present', 'Dapple Rising - The Anchor', "Quist's Betrayal & The Bonded Key"],
+        ['ensure_beat_present', 'Closing Image - The Photo on the Wall', ''],
+        ['delete_beat', 'Resolution - A New Accord', '']
+    ]);
+    assert.deepEqual(revision.after.act_2[0].beats.map(beat => beat.beat_label), [
+        'B-Story Collides - Robotobob',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
+    assert.equal(revision.after.act_2[1].sequence_number_and_title, 'Sequence F: The Fox Beneath the Coat');
+    assert.deepEqual(revision.after.act_3[0].beats.map(beat => beat.beat_label), [
+        "Dapple's Last Choice",
+        'Aftermath - A New Order',
+        'Closing Image - The Photo on the Wall'
+    ]);
+    assert.doesNotMatch(revision.after.act_2[0].beats[2].description, /Then keep|Second:/);
+    assert.doesNotMatch(JSON.stringify(revision.after), /Resolution - A New Accord/);
+});
+
 test('Stage 2 deterministic revision kernel unwraps saved outline artifacts', () => {
     const artifact = {
         title: 'I.M.A.G.I.N.E.',

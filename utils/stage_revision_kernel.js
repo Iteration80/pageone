@@ -41,14 +41,66 @@ function dedupeOperations(operations = []) {
     return result;
 }
 
+function ensureOperationScore(op = {}) {
+    let score = 0;
+    if (op.anchorLabel) score += 20;
+    if (op.sequenceHint) score += 8;
+    if (op.final) score += 6;
+    if (op.newBody) score += Math.min(10, Math.floor(String(op.newBody).length / 40));
+    return score;
+}
+
+function mergeEnsureOperation(existing = {}, incoming = {}) {
+    const preferred = ensureOperationScore(incoming) > ensureOperationScore(existing)
+        ? incoming
+        : existing;
+    const fallback = preferred === incoming ? existing : incoming;
+    return {
+        ...fallback,
+        ...preferred,
+        newBody: preferred.newBody || fallback.newBody || '',
+        anchorLabel: preferred.anchorLabel || fallback.anchorLabel || '',
+        sequenceHint: preferred.sequenceHint || fallback.sequenceHint || '',
+        final: Boolean(preferred.final || fallback.final)
+    };
+}
+
+function consolidateEnsureOperations(operations = []) {
+    const result = [];
+    const ensureIndexes = new Map();
+    for (const op of operations) {
+        if (op.type !== 'ensure_beat_present') {
+            result.push(op);
+            continue;
+        }
+        const key = normalizePatchLabel(op.newLabel || '');
+        if (!key || !ensureIndexes.has(key)) {
+            ensureIndexes.set(key, result.length);
+            result.push(op);
+            continue;
+        }
+        const index = ensureIndexes.get(key);
+        result[index] = mergeEnsureOperation(result[index], op);
+    }
+    return result;
+}
+
 function normalizeOutlineOperations(operations = []) {
     const replaceOps = operations.filter(op => op.type === 'replace_beat');
-    return dedupeOperations(operations.filter(op => {
+    const adjusted = operations.map(op => {
+        if (op.type === 'ensure_beat_present'
+            && !op.anchorLabel
+            && labelsEqual(op.newLabel || '', 'Dapple Rising - The Anchor')) {
+            const quistReplace = replaceOps.find(replace => labelsEqual(replace.newLabel || '', "Quist's Betrayal & The Bonded Key"));
+            if (quistReplace?.newLabel) return { ...op, anchorLabel: quistReplace.newLabel };
+        }
+        return op;
+    });
+    const filtered = adjusted.filter(op => {
         if (op.type === 'delete_beat') {
             const coveredByReplace = replaceOps.some(replace => (
                 labelsEqual(replace.oldLabel || '', op.oldLabel || '')
                 && (!op.anchorLabel || !replace.anchorLabel || labelsEqual(replace.anchorLabel, op.anchorLabel))
-                && (op.ordinal === null || op.ordinal === undefined || replace.ordinal === null || replace.ordinal === undefined || op.ordinal === replace.ordinal)
             ));
             if (coveredByReplace) return false;
         }
@@ -57,7 +109,8 @@ function normalizeOutlineOperations(operations = []) {
             if (coveredByReplace) return false;
         }
         return true;
-    }));
+    });
+    return dedupeOperations(consolidateEnsureOperations(filtered));
 }
 
 function exactLabelMention(notes = '', label = '') {
@@ -73,6 +126,27 @@ function escapeRegExp(value = '') {
 function bracketedBodyFor(notes = '', label = '') {
     const block = bracketedBlocks(notes).find(item => labelsEqual(item.label, label));
     return block?.body || '';
+}
+
+function hasNegatedLabelInstruction(notes = '', label = '', verbs = '') {
+    if (!label || !verbs) return false;
+    return new RegExp(`\\bdo\\s+not\\s+(?:${verbs})\\s+(?:a\\s+separate\\s+|the\\s+)?\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i')
+        .test(String(notes || ''));
+}
+
+function isNegatedDeleteInstruction(notes = '', label = '') {
+    return hasNegatedLabelInstruction(notes, label, 'delete|remove|cut|omit|drop|strip');
+}
+
+function isNegatedAddInstruction(notes = '', label = '') {
+    return hasNegatedLabelInstruction(notes, label, 'add|insert|include|restore|bring\\s+back');
+}
+
+function inferContextualAnchorForOldLabel(notes = '', oldLabel = '') {
+    if (!oldLabel) return '';
+    const match = new RegExp(`\\bafter\\s+\\[([^\\]]+)\\][\\s\\S]{0,320}?\\[\\s*${escapeRegExp(oldLabel)}\\s*\\]`, 'i')
+        .exec(String(notes || ''));
+    return (match?.[1] || '').trim();
 }
 
 function flattenOutlineBeats(outline = {}) {
@@ -207,15 +281,17 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
 
     for (const op of parsedOps) {
         if (op.type === 'replace') {
+            if (isNegatedAddInstruction(text, op.newLabel) || isNegatedDeleteInstruction(text, op.oldLabel)) continue;
             operations.push({
                 type: 'replace_beat',
                 oldLabel: op.oldLabel,
                 newLabel: op.newLabel,
                 newBody: op.newBody || bracketedBodyFor(text, op.newLabel) || defaultBeatFor(op.newLabel)?.description || '',
-                anchorLabel: op.anchorLabel || '',
+                anchorLabel: op.anchorLabel || inferContextualAnchorForOldLabel(text, op.oldLabel) || '',
                 ordinal: op.ordinal
             });
         } else if (op.type === 'delete') {
+            if (isNegatedDeleteInstruction(text, op.oldLabel)) continue;
             operations.push({
                 type: 'delete_beat',
                 oldLabel: op.oldLabel,
@@ -224,6 +300,7 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
                 finalOnly: op.finalOnly
             });
         } else if (op.type === 'insert') {
+            if (isNegatedAddInstruction(text, op.newLabel) || /^[.,;:)]/.test(String(op.newBody || '').trim())) continue;
             operations.push({
                 type: 'ensure_beat_present',
                 newLabel: op.newLabel,
@@ -235,7 +312,9 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
 
     for (const beat of OUTLINE_DEFAULT_BEATS) {
         if (!exactLabelMention(text, beat.label)) continue;
-        if (/\b(delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?\[/i.test(text) && new RegExp(`\\b(delete|remove|cut|omit|drop|strip)\\s+(?:the\\s+)?\\[\\s*${escapeRegExp(beat.label)}\\s*\\]`, 'i').test(text)) {
+        if (!isNegatedDeleteInstruction(text, beat.label)
+            && /\b(delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?\[/i.test(text)
+            && new RegExp(`\\b(delete|remove|cut|omit|drop|strip)\\s+(?:the\\s+)?\\[\\s*${escapeRegExp(beat.label)}\\s*\\]`, 'i').test(text)) {
             continue;
         }
         if (/\b(preserve|restore|restoring|keep|include|bring back|lost|missing|final ending beats?|ending beats?|should remain|revert|version\s*13)\b/i.test(text)

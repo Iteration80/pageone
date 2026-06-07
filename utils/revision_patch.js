@@ -55,7 +55,7 @@ function bracketedLabelOccurrences(text = '') {
 
 function bodyAfterLabel(text = '', occurrence = {}) {
     const rest = String(text || '').slice(occurrence.endIndex || 0);
-    const stopMatch = rest.match(/\n\s*(?=(?:\n\s*)?(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge|preserve|keep|do not|optional)\b|\b(?:the\s+)?(?:final\s+beat|order should be)\b))/i);
+    const stopMatch = rest.match(/\n\s*(?=(?:\n\s*)?(?:\d+[.)]\s+|[-*]\s+|#{1,6}\s+|\[[^\]]{2,180}\]\s+|\b(?:also\s+)?(?:delete|remove|cut|omit|drop|strip|replace|merge|preserve|keep|do not|optional|then\s+keep|first:|second:)\b|\b(?:the\s+)?(?:final\s+beat|order should be)\b))/i);
     const rawBody = stopMatch ? rest.slice(0, stopMatch.index) : rest;
     const body = rawBody
         .replace(/^\s*[:\-\u2013\u2014]\s*/, '')
@@ -150,8 +150,10 @@ function parseStructuralPatchOps(notes = '') {
         const replaceIndex = match.index || 0;
         const span = text.slice(replaceIndex, replaceIndex + 900);
         const deleteReplaceContext = inferDeleteReplaceContextBefore(text, replaceIndex);
-        const anchorLabel = (span.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || deleteReplaceContext?.anchorLabel || '').trim();
-        const ordinal = ordinalValue(span.match(/\b(first|second|third|fourth|last)\b/i)?.[1] || '') ?? deleteReplaceContext?.ordinal ?? null;
+        const explicitAnchor = (span.match(/\breplace\b[\s\S]{0,260}?\bafter\s+\[([^\]]+)\]/i)?.[1] || '').trim();
+        const anchorLabel = (deleteReplaceContext?.anchorLabel || explicitAnchor || '').trim();
+        const explicitOrdinal = ordinalValue(span.match(/\breplace\s+(?:the\s+)?(first|second|third|fourth|last)\b/i)?.[1] || '');
+        const ordinal = deleteReplaceContext?.ordinal ?? explicitOrdinal ?? null;
         const explicitOld = (span.match(/\breplace\s+(?:the\s+)?(?:first|second|third|fourth|last\s+)?\[([^\]]+)\]/i)?.[1] || '').trim();
         const explicitNew = (span.match(/\bwith\s+(?:the\s+)?\[([^\]]+)\]/i)?.[1] || '').trim();
         const replacementBlock = explicitNew
