@@ -276,6 +276,13 @@ const {
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('./utils/revision_transaction');
+const {
+    appendArtifactSnapshot,
+    changedStageKeysFromUpdate,
+    recordStageMutationSnapshots,
+    snapshotForStage,
+    stageConfig
+} = require('./utils/artifact_snapshots');
 const { generateContent } = require('./agents/ai-client');
 
 const STAGE_NAMES = {
@@ -1032,6 +1039,70 @@ function assertRevisionTransactionVerified(transaction, stageLabel = 'Stage outp
         .slice(0, 5)
         .join('; ');
     throw new Error(`${stageLabel} revision failed verification${failureList ? `: ${failureList}` : ''}`);
+}
+
+function recordArtifactMutation(projectData, {
+    projectId = projectData?.id || '',
+    stage,
+    before,
+    after,
+    operation = 'revision',
+    note = '',
+    revisionReceipt = null
+} = {}) {
+    return recordStageMutationSnapshots(projectData, {
+        projectId,
+        stage,
+        before,
+        after,
+        operation,
+        note: compactText(note || '', 500),
+        revisionReceipt
+    });
+}
+
+function recordExportSnapshot(projectData, projectId, stage, note = '') {
+    const config = stageConfig(stage);
+    if (!config) return null;
+    const snapshot = snapshotForStage(projectData, config.stage);
+    return appendArtifactSnapshot(projectData, {
+        projectId,
+        stage: config.stage,
+        snapshot,
+        snapshotType: 'exported',
+        reason: 'export',
+        note: compactText(note || '', 500),
+        force: true
+    });
+}
+
+function exportStageNumber(stage = '') {
+    const key = String(stage || '').toLowerCase();
+    const map = {
+        pitch: 1,
+        outline: 2,
+        characters: 3,
+        beats: 4,
+        treatment: 5,
+        scenes: 6,
+        style: 7,
+        draft: 8,
+        coverage: 9,
+        rewrite: 10
+    };
+    return map[key] || null;
+}
+
+function mergeVersionHistory(existing = [], incoming = []) {
+    const byId = new Map();
+    for (const entry of Array.isArray(existing) ? existing : []) {
+        if (entry?.id) byId.set(entry.id, entry);
+    }
+    for (const entry of Array.isArray(incoming) ? incoming : []) {
+        if (entry?.id) byId.set(entry.id, entry);
+    }
+    return Array.from(byId.values())
+        .sort((a, b) => new Date(a.createdAt || a.approvedAt || 0) - new Date(b.createdAt || b.approvedAt || 0));
 }
 
 function sourcePlanCacheKey(stageId) {
@@ -3537,6 +3608,15 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 2 outline');
         const changed = !notesWithUpload || revisionTransaction.changed;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 2,
+            before: { outline: beforeOutlineForChangeCheck },
+            after: outlineData,
+            operation: notesWithUpload ? 'revision' : 'generation',
+            note: notesWithUpload || '',
+            revisionReceipt: revisionTransaction?.receipt || null
+        });
 
         // Save to Stage 2
         projectData.data = projectData.data || {};
@@ -3562,6 +3642,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             changed,
             saveVerified: true,
             revisionReceipt: revisionTransaction?.receipt,
+            snapshotIds: snapshotEntries.map(entry => entry.id),
             checklistVerified: revisionChecklist.length > 0,
             ...sourceResponseExtras(sourcePacket)
         };
@@ -3631,6 +3712,15 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 3 characters');
         const changed = !notesWithUpload || revisionTransaction.changed;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 3,
+            before: { characters: beforeCharactersForRevision },
+            after: characterData,
+            operation: notesWithUpload ? 'revision' : 'generation',
+            note: notesWithUpload || '',
+            revisionReceipt: revisionTransaction?.receipt || null
+        });
 
         // Save to Stage 3
         projectData.data = projectData.data || {};
@@ -3645,7 +3735,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         const detail = publicErrorDetail(error);
@@ -3724,6 +3814,15 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 4 beats');
         const changed = isFullStage4Generation || revisionTransaction?.changed === true;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 4,
+            before: beforeStage4ForRevision,
+            after: beatsResult,
+            operation: notesWithUpload ? 'revision' : 'generation',
+            note: notesWithUpload || '',
+            revisionReceipt: revisionTransaction?.receipt || null
+        });
 
         projectData.data = projectData.data || {};
         projectData.data.stage4_beats = beatsResult;
@@ -3740,7 +3839,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         const detail = publicErrorDetail(error);
@@ -3822,6 +3921,15 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 5 treatment');
         const changed = !notesWithUpload || revisionTransaction.changed;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 5,
+            before: beforeStage5ForRevision,
+            after: treatmentResult,
+            operation: notesWithUpload ? 'revision' : 'generation',
+            note: notesWithUpload || '',
+            revisionReceipt: revisionTransaction?.receipt || null
+        });
 
         projectData.data = projectData.data || {};
         projectData.data.stage5_treatment = treatmentResult;
@@ -3835,7 +3943,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -3903,6 +4011,14 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
             getModelConfig(6),
             generationNotes
         );
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 6,
+            before: projectData.data?.stage6_scenes || [],
+            after: allSequences,
+            operation: 'generation',
+            note: generationNotes
+        });
 
         projectData.data = projectData.data || {};
         projectData.data.stage6_scenes = allSequences;
@@ -3911,7 +4027,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        send({ type: 'complete', result: allSequences, ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: allSequences, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
         const detail = publicErrorDetail(error);
@@ -3978,6 +4094,15 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         });
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 6 scene blueprint');
         const changed = revisionTransaction.changed;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 6,
+            before: currentBlueprint || [],
+            after: updatedBlueprint || [],
+            operation: 'revision',
+            note: feedback,
+            revisionReceipt: revisionTransaction.receipt
+        });
 
         send({ type: 'status', message: changed ? 'Saving revised blueprint...' : 'Revision returned no blueprint changes...' });
         projectData.data = projectData.data || {};
@@ -3988,7 +4113,7 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usage);
 
-        const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, ...sourceResponseExtras(sourcePacket) };
+        const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) };
         if (streaming) {
             // Keep the final SSE packet small. The browser refreshes the saved
             // Stage 6 data after completion, which avoids large blueprint payloads
@@ -4033,6 +4158,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         if (!projectData.data || !projectData.data.stage6_scenes) {
             return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
         }
+        const beforeDraftSnapshot = JSON.parse(JSON.stringify(projectData.data.stage6_scenes || []));
 
         // Find the scene in the sequences
         let targetedScene = null;
@@ -4082,12 +4208,20 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
             { geminiApiKey: getModelConfig(8).geminiApiKey, anthropicApiKey: getModelConfig(8).anthropicApiKey }
         );
         applyCheckResult(projectData, checkResult, checkUsage);
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 8,
+            before: beforeDraftSnapshot,
+            after: projectData.data.stage6_scenes,
+            operation: 'generation',
+            note: `Scene ${sceneNum} draft`
+        });
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
         const changed = beforeDraftHash !== sourcePlanDataHash(humanizedText || draftText || '');
-        const response = { result: humanizedText, changed, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
+        const response = { result: humanizedText, changed, snapshotIds: snapshotEntries.map(entry => entry.id), ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -4117,6 +4251,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         if (!projectData.data?.stage6_scenes) {
             return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
         }
+        const beforeDraftSnapshot = JSON.parse(JSON.stringify(projectData.data.stage6_scenes || []));
 
         let targetedScene = null;
         for (const sequence of projectData.data.stage6_scenes) {
@@ -4162,11 +4297,19 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
             { geminiApiKey: getModelConfig(8).geminiApiKey, anthropicApiKey: getModelConfig(8).anthropicApiKey }
         );
         applyCheckResult(projectData, checkResult, checkUsage);
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 8,
+            before: beforeDraftSnapshot,
+            after: projectData.data.stage6_scenes,
+            operation: 'revision',
+            note: `Scene ${sceneNum} draft revision: ${feedback || ''}`
+        });
 
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, [draftUsage, humanizeUsage, checkUsage].filter(Boolean));
 
-        const response = { result: humanizedText, ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
+        const response = { result: humanizedText, snapshotIds: snapshotEntries.map(entry => entry.id), ...(styleWarning && { styleWarning }), ...sourceResponseExtras(sourcePacket) };
         if (checkResult.errors?.length > 0) response.continuityErrors = checkResult.errors;
         if (checkResult.warnings?.length > 0) response.continuityWarnings = checkResult.warnings;
         res.json(response);
@@ -4265,6 +4408,14 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         const coverageKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${compactText(fullScriptText, 24_000)}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 9, coverageKnowledgeSeed, { userMessage: 'Generate screenplay coverage against approved project memory.' });
         const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfigWithSourcePacket(9, sourcePacket));
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 9,
+            before: projectData.data?.stage8_coverage || null,
+            after: coverageResult,
+            operation: 'generation',
+            note: source === 'stage10' ? 'Coverage from Stage 10 rewrite' : 'Coverage generation'
+        });
 
         projectData.data = projectData.data || {};
         projectData.data.stage8_coverage = coverageResult;
@@ -4274,7 +4425,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         await writeJSONQueued(filePath, projectData);
         trackUsage(projectId, usageList);
 
-        res.json({ result: coverageResult, ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: coverageResult, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
         res.status(500).json({ error: "Failed to generate coverage" });
@@ -4309,8 +4460,17 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
 
         // If resetting an existing session, preserve the working copy but restart priority_idx
         if (projectData.data?.stage9_rewrites && reset) {
+            const beforeRewrite = JSON.parse(JSON.stringify(projectData.data.stage9_rewrites));
             projectData.data.stage9_rewrites.priority_idx = 0;
             projectData.data.stage9_rewrites.approved = false;
+            recordArtifactMutation(projectData, {
+                projectId,
+                stage: 10,
+                before: beforeRewrite,
+                after: projectData.data.stage9_rewrites,
+                operation: 'reset',
+                note: 'Restart rewrite priorities'
+            });
             await writeJSONQueued(filePath, projectData);
             return res.json({
                 stage9_rewrites: projectData.data.stage9_rewrites,
@@ -4334,11 +4494,20 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
 
         const stage9 = { working, priority_idx: 0, approved: false };
         projectData.data = projectData.data || {};
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 10,
+            before: projectData.data.stage9_rewrites || null,
+            after: stage9,
+            operation: 'generation',
+            note: 'Initialize rewrite working copy'
+        });
         projectData.data.stage9_rewrites = stage9;
         await writeJSONQueued(filePath, projectData);
 
         res.json({
             stage9_rewrites: stage9,
+            snapshotIds: snapshotEntries.map(entry => entry.id),
             macro_todo: projectData.data.stage8_coverage?.macro_todo || [],
             micro_todo:  projectData.data.stage8_coverage?.micro_todo  || [],
         });
@@ -5435,13 +5604,22 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
             // Persist deletion to disk immediately
             projectData.data = projectData.data || {};
             const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
+            const beforeRewrite = JSON.parse(JSON.stringify(stage9));
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = '';
             projectData.data.stage9_rewrites = stage9;
+            const snapshotEntries = recordArtifactMutation(projectData, {
+                projectId,
+                stage: 10,
+                before: beforeRewrite,
+                after: stage9,
+                operation: 'revision',
+                note: `Pending delete for scene ${sceneNum}`
+            });
             const deletionPacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`, { userMessage: priorityTask });
             recordSourceGenerationUsage(projectData, deletionPacket, '', 'single_scene_delete');
             await writeJSONQueued(filePath, projectData);
-            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, ...sourceResponseExtras(deletionPacket) });
+            return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(deletionPacket) });
         }
 
         const { styleContent, referenceContent } = await loadProjectStyle(projectData);
@@ -5469,20 +5647,30 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         );
 
         const modified = proposed.trim() !== sceneText.trim();
+        let snapshotEntries = [];
 
         // Persist pending rewrite to disk immediately so it survives page refresh
         if (modified) {
             projectData.data = projectData.data || {};
             const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
+            const beforeRewrite = JSON.parse(JSON.stringify(stage9));
             stage9.pending = stage9.pending || {};
             stage9.pending[sceneNum] = proposed;
             projectData.data.stage9_rewrites = stage9;
+            snapshotEntries = recordArtifactMutation(projectData, {
+                projectId,
+                stage: 10,
+                before: beforeRewrite,
+                after: stage9,
+                operation: 'revision',
+                note: `Pending rewrite for scene ${sceneNum}`
+            });
         }
         recordSourceGenerationUsage(projectData, sourcePacket, proposed, 'single_scene_rewrite');
         await writeJSONQueued(filePath, projectData);
 
         trackUsage(projectId, usage);
-        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, ...sourceResponseExtras(sourcePacket) });
+        res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene' });
@@ -5500,6 +5688,7 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
         const projectData = JSON.parse(content);
 
         const stage9 = projectData.data?.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
+        const beforeRewrite = JSON.parse(JSON.stringify(stage9));
         if (pendingScenes) {
             for (const [sceneNum, text] of Object.entries(pendingScenes)) {
                 stage9.working[sceneNum] = text;
@@ -5507,10 +5696,18 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
         }
         stage9.pending = {};  // Clear pending — now merged into working
         stage9.priority_idx = newPriorityIdx;
+        const snapshotEntries = recordArtifactMutation(projectData, {
+            projectId,
+            stage: 10,
+            before: beforeRewrite,
+            after: stage9,
+            operation: 'revision',
+            note: 'Approve rewrite priority'
+        });
         projectData.data.stage9_rewrites = stage9;
         await writeJSONQueued(filePath, projectData);
 
-        res.json({ stage9_rewrites: stage9 });
+        res.json({ stage9_rewrites: stage9, snapshotIds: snapshotEntries.map(entry => entry.id) });
     } catch (error) {
         console.error('approve-rewrite-priority error:', error.message);
         res.status(500).json({ error: 'Failed to approve rewrite priority' });
@@ -5576,7 +5773,16 @@ app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
         const projectData = JSON.parse(content);
 
         if (projectData.data?.stage9_rewrites) {
+            const beforeRewrite = JSON.parse(JSON.stringify(projectData.data.stage9_rewrites));
             projectData.data.stage9_rewrites.approved = true;
+            recordArtifactMutation(projectData, {
+                projectId,
+                stage: 10,
+                before: beforeRewrite,
+                after: projectData.data.stage9_rewrites,
+                operation: 'approval',
+                note: 'Finalize Stage 10'
+            });
         }
         await writeJSONQueued(filePath, projectData);
         res.json({ success: true });
@@ -5639,8 +5845,17 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         // Save as directive file (new naming convention)
         await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), styleContent);
 
+        let snapshotEntries = [];
         // Update project if within project context
         if (projectData && filePath) {
+            snapshotEntries = recordArtifactMutation(projectData, {
+                projectId,
+                stage: 7,
+                before: projectData.data?.stage7_style || null,
+                after: slug,
+                operation: 'generation',
+                note: description || ''
+            });
             projectData.data = projectData.data || {};
             projectData.data.stage7_style = slug;
             stampGenerated(projectData, 'stage7_style');
@@ -5649,7 +5864,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
             if (projectId) trackUsage(projectId, usage);
         }
 
-        res.json({ slug, content: styleContent, meta, ...sourceResponseExtras(sourcePacket) });
+        res.json({ slug, content: styleContent, meta, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
         res.status(500).json({ error: 'Failed to generate style' });
@@ -6258,12 +6473,34 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             // Ensure nested .data is merged properly rather than completely overwritten
-            let mergedData = projectData.data || {};
+            const previousData = projectData.data || {};
+            let mergedData = previousData;
             if (updates.data) {
                 mergedData = { ...mergedData, ...updates.data };
+                if (Array.isArray(updates.data.versionHistory)) {
+                    mergedData.versionHistory = mergeVersionHistory(previousData.versionHistory, updates.data.versionHistory);
+                }
             }
 
             const nextProject = { ...projectData, ...updates, data: mergedData };
+            delete nextProject.restoreVersionId;
+            delete nextProject.skipSnapshots;
+
+            if (updates.data && !Array.isArray(updates.data.versionHistory) && !updates.skipSnapshots) {
+                const operation = updates.restoreVersionId ? 'restore' : 'manual_update';
+                for (const key of changedStageKeysFromUpdate(updates.data)) {
+                    const config = stageConfig(key);
+                    if (!config) continue;
+                    recordArtifactMutation(nextProject, {
+                        projectId: id,
+                        stage: config.stage,
+                        before: previousData[key],
+                        after: updates.data[key],
+                        operation,
+                        note: updates.restoreVersionId ? `Restore ${updates.restoreVersionId}` : `Project update: ${key}`
+                    });
+                }
+            }
 
             // If the client signals a stage was revised, stamp staleness on downstream stages
             if (updates.stampRevisedStage) {
@@ -6930,6 +7167,12 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
             return res.status(400).json({ error: `Unknown stage: ${stage}` });
         }
 
+        const exportStage = exportStageNumber(stage);
+        if (exportStage) {
+            recordExportSnapshot(project, projectId, exportStage, `DOCX export: ${stage}`);
+            await writeJSONQueued(getProjectFilePath(projectId), project);
+        }
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buf);
@@ -6967,6 +7210,11 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
 
         const buf = await generateScreenplayPdf(scenes, title);
         const filename = `${safeName}_${stage}.pdf`;
+        const exportStage = exportStageNumber(stage);
+        if (exportStage) {
+            recordExportSnapshot(project, projectId, exportStage, `PDF export: ${stage}`);
+            await writeJSONQueued(getProjectFilePath(projectId), project);
+        }
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

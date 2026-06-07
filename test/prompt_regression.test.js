@@ -25,6 +25,10 @@ const {
 } = require('../utils/revision_transaction');
 const { labelsEqual, parseStructuralPatchOps } = require('../utils/revision_patch');
 const {
+    appendArtifactSnapshot,
+    recordStageMutationSnapshots
+} = require('../utils/artifact_snapshots');
+const {
     buildSourceGenerationPacket,
     buildStage10RewritePlanPrompt,
     buildStage10RewritePlannerSystemInstruction
@@ -37,6 +41,47 @@ const BASE_KNOWLEDGE_PACKET = `### Compact Memory Snapshot
 
 ### Relevant Source Documents
 Graphic Novel.pdf: Mara refuses to leave June behind.`;
+
+test('artifact snapshots preserve WIP, exported, and approved restore points', () => {
+    const project = { id: '1234567890123', data: {} };
+    const entries = recordStageMutationSnapshots(project, {
+        projectId: project.id,
+        stage: 2,
+        before: { outline: { act_1: [{ beats: [{ beat_label: 'Old', description: 'Old.' }] }] } },
+        after: { outline: { act_1: [{ beats: [{ beat_label: 'New', description: 'New.' }] }] } },
+        operation: 'revision',
+        note: 'Update one beat',
+        revisionReceipt: { verified: true }
+    });
+    assert.equal(entries.length, 2);
+    assert.equal(entries[0].snapshotType, 'pre_revision');
+    assert.equal(entries[1].snapshotType, 'post_revision');
+    assert.equal(entries[1].revisionReceipt.verified, true);
+
+    const exported = appendArtifactSnapshot(project, {
+        projectId: project.id,
+        stage: 2,
+        snapshot: { outline: { act_1: [{ beats: [{ beat_label: 'Exported', description: 'Exported.' }] }] } },
+        snapshotType: 'exported',
+        reason: 'export',
+        force: true
+    });
+    assert.equal(exported.snapshotType, 'exported');
+
+    const approved = appendArtifactSnapshot(project, {
+        projectId: project.id,
+        stage: 2,
+        snapshot: { outline: { act_1: [{ beats: [{ beat_label: 'Approved', description: 'Approved.' }] }] } },
+        snapshotType: 'approved',
+        reason: 'approval',
+        force: true
+    });
+    assert.equal(approved.snapshotType, 'approved');
+    assert.ok(project.data.versionHistory.some(entry => entry.snapshotType === 'pre_revision'));
+    assert.ok(project.data.versionHistory.some(entry => entry.snapshotType === 'post_revision'));
+    assert.ok(project.data.versionHistory.some(entry => entry.snapshotType === 'exported'));
+    assert.ok(project.data.versionHistory.some(entry => entry.snapshotType === 'approved'));
+});
 
 const pitch = {
     title: 'Arcade Night',

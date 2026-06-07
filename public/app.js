@@ -1788,13 +1788,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.knowledge;
     }
 
-    function switchToVersionHistory() {
+    async function refreshCurrentProjectData() {
+        if (!activeProjectId) return null;
+        const res = await fetch(`/api/projects/${activeProjectId}`);
+        if (!res.ok) throw new Error('Failed to refresh project data');
+        const project = await res.json();
+        window.currentProjectData = project.data;
+        updateStageNav(project.data);
+        return project.data;
+    }
+
+    async function switchToVersionHistory() {
         for (let i = 1; i <= 10; i++) {
             navItems[i]?.classList.remove('active');
             workspaces[i]?.classList.add('hidden');
         }
         versionHistoryWorkspace?.classList.remove('hidden');
         btnVersionHistory?.classList.add('active');
+        try {
+            await refreshCurrentProjectData();
+        } catch (err) {
+            console.warn('Could not refresh project data before rendering history:', err.message);
+        }
         renderVersionHistory();
     }
 
@@ -2078,11 +2093,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function captureVersionSnapshot(stage, stageKey, stageName, snapshotData) {
         const history = (window.currentProjectData?.versionHistory) || [];
         const existingVersions = history.filter(v => v.stage === stage).length;
+        const createdAt = new Date().toISOString();
         const entry = {
-            id: `${activeProjectId}_stage${stage}_v${existingVersions + 1}`,
+            id: `${activeProjectId}_stage${stage}_approved_${createdAt.replace(/[^0-9]/g, '')}_${existingVersions + 1}`,
             stage, stageKey, stageName,
             version: existingVersions + 1,
-            approvedAt: new Date().toISOString(),
+            snapshotType: 'approved',
+            label: 'Approved',
+            createdAt,
+            approvedAt: createdAt,
             snapshot: JSON.parse(JSON.stringify(snapshotData))
         };
         history.push(entry);
@@ -2119,9 +2138,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const date = new Date(v.approvedAt);
                 const dateStr = date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
                 const timeStr = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+                const label = v.label || (v.snapshotType ? v.snapshotType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Approved');
                 html += `<div style="background:#111827;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
                     <div>
-                        <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">Version ${v.version}</div>
+                        <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">Version ${v.version} · ${escapeHtml(label)}</div>
                         <div style="font-size:0.75rem;color:#6b7280;margin-top:2px">${dateStr} at ${timeStr}</div>
                     </div>
                     <div style="display:flex;gap:8px;flex-shrink:0">
@@ -2155,7 +2175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: { [version.stageKey]: version.snapshot } })
+                body: JSON.stringify({ restoreVersionId: version.id, data: { [version.stageKey]: version.snapshot } })
             });
             if (!res.ok) throw new Error('Server error');
             const updatedProject = await res.json();
@@ -9057,6 +9077,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const versionPreviewTitle = document.getElementById('version-preview-title');
     const versionPreviewBody  = document.getElementById('version-preview-body');
     const versionPreviewClose = document.getElementById('version-preview-close');
+    const versionPreviewCompare = document.getElementById('version-preview-compare');
     const versionPreviewDownload = document.getElementById('version-preview-download');
     const versionPreviewRestore  = document.getElementById('version-preview-restore');
     let currentPreviewVersion = null;
@@ -9086,12 +9107,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return out.trim() || JSON.stringify(snap, null, 2);
         }
 
-        // Stage 2 — Outline (string)
-        if (stage === 2 && typeof snap === 'string') return snap;
+        const renderOutlineSnapshot = (outline) => {
+            const data = outline?.outline || outline;
+            if (!data || typeof data !== 'object') return String(outline || '');
+            const acts = ['act_1', 'act_2', 'act_3'];
+            return acts.map(actKey => {
+                const sequences = Array.isArray(data[actKey]) ? data[actKey] : [];
+                if (!sequences.length) return '';
+                return `${actKey.toUpperCase()}\n\n` + sequences.map(seq => {
+                    const title = seq.sequence_number_and_title || seq.title || 'Sequence';
+                    const beats = Array.isArray(seq.beats) ? seq.beats : [];
+                    return `${title}\n${beats.map(beat => `- ${beat.beat_label || beat.beat || 'Beat'}: ${beat.description || ''}`).join('\n')}`;
+                }).join('\n\n');
+            }).filter(Boolean).join('\n\n---\n\n') || JSON.stringify(snap, null, 2);
+        };
+
+        // Stage 2 — Outline
+        if (stage === 2) return renderOutlineSnapshot(snap);
 
         // Stage 3 — Characters (array of objects)
-        if (stage === 3 && Array.isArray(snap)) {
-            return snap.map(c => {
+        if (stage === 3 && (Array.isArray(snap) || Array.isArray(snap.characters))) {
+            const characters = Array.isArray(snap) ? snap : snap.characters;
+            return characters.map(c => {
                 let out = `${c.name || 'Unnamed'}`;
                 if (c.role) out += ` (${c.role})`;
                 out += '\n';
@@ -9121,8 +9158,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('\n\n');
         }
 
-        // Stage 6 — Scenes (array-like of sequences)
-        if (stage === 6) {
+        // Stage 6 Scenes and Stage 8 Draft snapshots (array-like of sequences)
+        if (stage === 6 || (stage === 8 && (Array.isArray(snap) || Array.isArray(snap?.sequences)))) {
             const seqs = Array.isArray(snap) ? snap : Object.values(snap);
             const allScenes = seqs.flatMap(seq => seq.scenes || []).sort((a, b) => a.scene_number - b.scene_number);
             return allScenes.map(s => {
@@ -9134,7 +9171,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Stage 8 (Draft) — approval flag
         if (stage === 8 || stage === 7) {
-            return '(Stage 8 approval marker — the full draft text is stored in the Stage 6 scenes snapshot.)';
+            return stage === 7
+                ? '(Style approval marker.)'
+                : '(Stage 8 approval marker — the full draft text is stored in the scene snapshots.)';
         }
 
         // Stage 9 (Coverage)
@@ -9221,8 +9260,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = new Date(version.approvedAt);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const label = version.label || (version.snapshotType ? version.snapshotType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Approved');
 
-        versionPreviewTitle.textContent = `Stage ${version.stage}: ${version.stageName} — Version ${version.version} (${dateStr} at ${timeStr})`;
+        versionPreviewTitle.textContent = `Stage ${version.stage}: ${version.stageName} — Version ${version.version} · ${label} (${dateStr} at ${timeStr})`;
         versionPreviewBody.textContent = snapshotToText(version);
         versionPreviewModal?.classList.remove('hidden');
     };
@@ -9232,6 +9272,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (versionPreviewModal) {
         versionPreviewModal.onclick = (e) => { if (e.target === versionPreviewModal) versionPreviewModal.classList.add('hidden'); };
+    }
+    if (versionPreviewCompare) {
+        versionPreviewCompare.onclick = () => {
+            if (!currentPreviewVersion) return;
+            const currentSnapshot = window.currentProjectData?.[currentPreviewVersion.stageKey];
+            const currentVersion = {
+                ...currentPreviewVersion,
+                snapshot: currentSnapshot
+            };
+            versionPreviewBody.textContent = `SELECTED VERSION\n${snapshotToText(currentPreviewVersion)}\n\n====================\n\nCURRENT SAVED ARTIFACT\n${snapshotToText(currentVersion)}`;
+        };
     }
     if (versionPreviewRestore) {
         versionPreviewRestore.onclick = () => {

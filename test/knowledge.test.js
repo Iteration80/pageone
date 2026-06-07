@@ -555,10 +555,28 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 2 outline'\)/);
+    assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage: 2/);
+    assert.match(serverJs, /snapshotIds: snapshotEntries\.map\(entry => entry\.id\)/);
     assert.match(serverJs, /const changed = !notesWithUpload \|\| revisionTransaction\.changed/);
     assert.match(serverJs, /Stage 2 outline save verification failed/);
     assert.match(serverJs, /saveVerified: true/);
     assert.match(appJs, /changed: !revisionReceiptFailed\(data\)[\s\S]*revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
+});
+
+test('server and frontend preserve working artifact snapshots beyond approvals', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(serverJs, /require\('\.\/utils\/artifact_snapshots'\)/);
+    assert.match(serverJs, /recordStageMutationSnapshots/);
+    assert.match(serverJs, /recordExportSnapshot\(project, projectId, exportStage/);
+    assert.match(serverJs, /mergeVersionHistory\(previousData\.versionHistory, updates\.data\.versionHistory\)/);
+    assert.match(serverJs, /restoreVersionId/);
+    assert.match(appJs, /snapshotType: 'approved'/);
+    assert.match(appJs, /async function refreshCurrentProjectData/);
+    assert.match(appJs, /await refreshCurrentProjectData\(\)/);
+    assert.match(appJs, /restoreVersionId: version\.id/);
+    assert.match(appJs, /versionPreviewCompare/);
+    assert.match(appJs, /CURRENT SAVED ARTIFACT/);
 });
 
 test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
