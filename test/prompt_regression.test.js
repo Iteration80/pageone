@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { agent2Outline, outlineHasContent, buildRevisionChecklist } = require('../agents/agent_2_outline');
+const {
+    agent2Outline,
+    outlineHasContent,
+    buildRevisionChecklist,
+    applyStructuralOutlinePatches
+} = require('../agents/agent_2_outline');
 const { agent3Characters } = require('../agents/agent_3_characters');
 const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
@@ -836,6 +841,39 @@ The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the para
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /The Rebecca's Memory - The Storm Drain/);
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /Resolution - A New Accord/);
     assert.equal(sequenceHBeats.at(-1).beat_label, 'Closing Image - The Photo on the Wall');
+});
+
+test('Stage 2 server finalizer applies structural outline patches to unchanged model output', () => {
+    const outline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E: The Breach Starts Counting Down',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Rebecca and Dave face the diner fallout.'
+            }, {
+                beat_label: "Quist's Betrayal & The Bonded Key",
+                description: 'Quist gives Rebecca the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate placeholder after Quist.'
+            }]
+        }],
+        act_3: []
+    };
+    const notes = `Delete the second [Aftermath - A Quiet Reckoning], after [Quist's Betrayal & The Bonded Key], and replace it with the Dapple Rising beat.
+
+[Dapple Rising - The Anchor] Dapple hijacks the Mobile Processing Core.`;
+
+    const patch = applyStructuralOutlinePatches(outline, notes);
+
+    assert.equal(patch.appliedCount, 1);
+    assert.deepEqual(outline.act_2[0].beats.map(beat => beat.beat_label), [
+        'Aftermath - A Quiet Reckoning',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
+    assert.match(outline.act_2[0].beats[2].description, /Mobile Processing Core/);
 });
 
 test('Stage 2 outline checklist delete items use the label nearest the delete instruction', () => {

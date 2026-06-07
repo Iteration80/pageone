@@ -249,7 +249,8 @@ const {
     findUndercoveredChecklistItems: findUndercoveredOutlineChecklistItems,
     appendMissingChecklistBeats: appendMissingOutlineChecklistBeats,
     extractExplicitSequenceReplacement: extractExplicitOutlineSequenceReplacement,
-    applyExplicitSequenceReplacement: applyExplicitOutlineSequenceReplacement
+    applyExplicitSequenceReplacement: applyExplicitOutlineSequenceReplacement,
+    applyStructuralOutlinePatches
 } = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent4Beats } = require('./agents/agent_4_beats');
@@ -3489,6 +3490,9 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const explicitSequenceReplacement = notesWithUpload ? extractExplicitOutlineSequenceReplacement(notesWithUpload) : null;
         if (explicitSequenceReplacement) {
             applyExplicitOutlineSequenceReplacement(outlineData, explicitSequenceReplacement);
+        }
+        if (notesWithUpload && outlineData?.outline) {
+            applyStructuralOutlinePatches(outlineData.outline, notesWithUpload);
         }
         let missingChecklistItems = revisionChecklist.length
             ? findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData)

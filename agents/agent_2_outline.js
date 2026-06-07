@@ -1214,5 +1214,6 @@ module.exports = {
     findUndercoveredChecklistItems,
     appendMissingChecklistBeats,
     extractExplicitSequenceReplacement,
-    applyExplicitSequenceReplacement
+    applyExplicitSequenceReplacement,
+    applyStructuralOutlinePatches
 };
