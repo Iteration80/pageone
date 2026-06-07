@@ -43,38 +43,46 @@ function flattenOutlineBeats(outlineInput = {}) {
     return rows;
 }
 
-function findLabelIndex(rows = [], label = '', startIndex = 0) {
-    return rows.findIndex((row, index) => index >= startIndex && labelsEqual(row.label, label));
-}
-
 function countLabel(rows = [], label = '') {
     return rows.filter(row => labelsEqual(row.label, label)).length;
+}
+
+function hasAdjacentLabel(rows = [], anchorLabel = '', nextLabel = '') {
+    return rows.some((row, index) => {
+        if (!labelsEqual(row.label, anchorLabel)) return false;
+        return Boolean(rows[index + 1] && labelsEqual(rows[index + 1].label, nextLabel));
+    });
+}
+
+function hasAnchorFollowedByDifferentLabel(rows = [], anchorLabel = '', excludedLabel = '') {
+    const anchorIndexes = rows
+        .map((row, index) => (labelsEqual(row.label, anchorLabel) ? index : -1))
+        .filter(index => index >= 0);
+    return anchorIndexes.length > 0 && anchorIndexes.every(index => {
+        const next = rows[index + 1];
+        return !next || !labelsEqual(next.label, excludedLabel);
+    });
 }
 
 function verifyOutlineOperation(op = {}, beforeRows = [], afterRows = []) {
     if (!op?.type) return false;
     if (op.type === 'replace') {
         if (op.anchorLabel) {
-            const anchorIndex = findLabelIndex(afterRows, op.anchorLabel);
-            const next = anchorIndex >= 0 ? afterRows[anchorIndex + 1] : null;
-            return Boolean(next && labelsEqual(next.label, op.newLabel));
+            return hasAdjacentLabel(afterRows, op.anchorLabel, op.newLabel);
         }
         return countLabel(afterRows, op.newLabel) > countLabel(beforeRows, op.newLabel)
             || countLabel(afterRows, op.oldLabel) < countLabel(beforeRows, op.oldLabel);
     }
     if (op.type === 'delete') {
         if (op.anchorLabel) {
-            const anchorIndex = findLabelIndex(afterRows, op.anchorLabel);
-            const next = anchorIndex >= 0 ? afterRows[anchorIndex + 1] : null;
-            return !next || !labelsEqual(next.label, op.oldLabel);
+            return hasAnchorFollowedByDifferentLabel(afterRows, op.anchorLabel, op.oldLabel);
         }
-        return countLabel(afterRows, op.oldLabel) < countLabel(beforeRows, op.oldLabel);
+        return countLabel(afterRows, op.oldLabel) === 0
+            || countLabel(afterRows, op.oldLabel) < countLabel(beforeRows, op.oldLabel);
     }
     if (op.type === 'insert') {
         if (op.anchorLabel) {
-            const anchorIndex = findLabelIndex(afterRows, op.anchorLabel);
-            const next = anchorIndex >= 0 ? afterRows[anchorIndex + 1] : null;
-            return Boolean(next && labelsEqual(next.label, op.newLabel));
+            return hasAdjacentLabel(afterRows, op.anchorLabel, op.newLabel);
         }
         return countLabel(afterRows, op.newLabel) > countLabel(beforeRows, op.newLabel);
     }

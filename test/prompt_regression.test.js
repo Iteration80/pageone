@@ -23,7 +23,7 @@ const {
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('../utils/revision_transaction');
-const { parseStructuralPatchOps } = require('../utils/revision_patch');
+const { labelsEqual, parseStructuralPatchOps } = require('../utils/revision_patch');
 const {
     buildSourceGenerationPacket,
     buildStage10RewritePlanPrompt,
@@ -871,6 +871,53 @@ Also delete [Resolution - A New Accord] entirely or merge only its best ideas in
     assert.equal(operations[1].anchorLabel, "Quist's Betrayal & The Bonded Key");
     assert.doesNotMatch(JSON.stringify(operations), /Aftermath - A New Order/);
     assert.doesNotMatch(JSON.stringify(operations), /Closing Image - The Photo on the Wall/);
+});
+
+test('Stage 2 outline verification tolerates curly anchors and already-absent deletes', () => {
+    assert.equal(labelsEqual("Quist’s Betrayal & The Bonded Key", "Quist's Betrayal & The Bonded Key"), true);
+    const beforeOutline = {
+        act_1: [],
+        act_2: [{
+            sequence_number_and_title: 'Sequence E',
+            beats: [{
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'First aftermath.'
+            }, {
+                beat_label: 'Quist’s Betrayal & The Bonded Key',
+                description: 'Quist gives Rebecca the key.'
+            }, {
+                beat_label: 'Aftermath - A Quiet Reckoning',
+                description: 'Duplicate aftermath.'
+            }]
+        }],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H',
+            beats: [{
+                beat_label: 'Closing Image - The Photo on the Wall',
+                description: 'The final image stays intact.'
+            }]
+        }]
+    };
+    const afterOutline = JSON.parse(JSON.stringify(beforeOutline));
+    const notes = `Delete the second [Aftermath - A Quiet Reckoning] after [Quist's Betrayal & The Bonded Key] and replace it with the exact [Dapple Rising - The Anchor] beat.
+
+[Dapple Rising - The Anchor] Dapple hijacks the Mobile Processing Core.
+
+Delete [Resolution - A New Accord] entirely.`;
+
+    const structuralPatch = applyStructuralOutlinePatches(afterOutline, notes);
+    const receipt = createRevisionTransaction({
+        stageId: 'stage2_outline',
+        before: beforeOutline,
+        after: afterOutline,
+        notes,
+        structuralPatch,
+        adapter: outlineRevisionAdapter
+    }).receipt;
+
+    assert.equal(afterOutline.act_2[0].beats[2].beat_label, 'Dapple Rising - The Anchor');
+    assert.equal(receipt.verified, true);
+    assert.equal(receipt.failures.length, 0);
 });
 
 test('Stage 2 server finalizer applies structural outline patches to unchanged model output', () => {

@@ -9,7 +9,7 @@ function escapeRegExp(value = '') {
 function normalizePatchLabel(value = '') {
     return String(value || '')
         .toLowerCase()
-        .replace(/['"]/g, '')
+        .replace(/['"‘’‚‛`´]/g, '')
         .replace(/[^a-z0-9]+/g, ' ')
         .replace(/\b(the|a|an)\b/g, ' ')
         .replace(/\s+/g, ' ')
