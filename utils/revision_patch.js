@@ -96,6 +96,18 @@ function inferReplacementBlockAfter(text = '', replaceIndex = 0, anchorLabel = '
         .find(block => !anchorLabel || !labelsEqual(block.label, anchorLabel)) || null;
 }
 
+function inferDeleteReplaceContextBefore(text = '', replaceIndex = 0) {
+    const before = String(text || '').slice(Math.max(0, replaceIndex - 650), replaceIndex);
+    const matches = Array.from(before.matchAll(/\b(?:delete|remove|cut|omit|drop)\s+(?:the\s+)?(?:(first|second|third|fourth|last)\s+)?\[([^\]]+)\](?:\s*,?\s*after\s+\[([^\]]+)\])?/gi));
+    const match = matches[matches.length - 1];
+    if (!match) return null;
+    return {
+        oldLabel: (match[2] || '').trim(),
+        anchorLabel: (match[3] || '').trim(),
+        ordinal: ordinalValue(match[1] || '')
+    };
+}
+
 function parseStructuralPatchOps(notes = '') {
     const text = String(notes || '');
     const ops = [];
@@ -107,15 +119,16 @@ function parseStructuralPatchOps(notes = '') {
     for (const match of replaceMatches) {
         const replaceIndex = match.index || 0;
         const span = text.slice(replaceIndex, replaceIndex + 900);
-        const anchorLabel = (span.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || '').trim();
-        const ordinal = ordinalValue(span.match(/\b(first|second|third|fourth|last)\b/i)?.[1] || '');
+        const deleteReplaceContext = inferDeleteReplaceContextBefore(text, replaceIndex);
+        const anchorLabel = (span.match(/\bafter\s+\[([^\]]+)\]/i)?.[1] || deleteReplaceContext?.anchorLabel || '').trim();
+        const ordinal = ordinalValue(span.match(/\b(first|second|third|fourth|last)\b/i)?.[1] || '') ?? deleteReplaceContext?.ordinal ?? null;
         const explicitOld = (span.match(/\breplace\s+(?:the\s+)?(?:first|second|third|fourth|last\s+)?\[([^\]]+)\]/i)?.[1] || '').trim();
         const explicitNew = (span.match(/\bwith\s+(?:the\s+)?\[([^\]]+)\]/i)?.[1] || '').trim();
         const replacementBlock = explicitNew
             ? blocks.find(block => labelsEqual(block.label, explicitNew)) || null
             : inferReplacementBlockAfter(text, replaceIndex, anchorLabel);
         const newLabel = explicitNew || replacementBlock?.label || '';
-        const oldLabel = explicitOld || inferOldLabelBefore(text, replaceIndex, anchorLabel);
+        const oldLabel = explicitOld || deleteReplaceContext?.oldLabel || inferOldLabelBefore(text, replaceIndex, anchorLabel);
 
         if (!oldLabel && !newLabel) continue;
         if (newLabel) replacementLabels.add(normalizePatchLabel(newLabel));
@@ -152,6 +165,7 @@ function parseStructuralPatchOps(notes = '') {
         const after = text.slice(occurrence.endIndex, occurrence.endIndex + 280);
         const windowText = `${before} ${after}`;
         if (!/\b(delete|remove|cut|omit|drop|strip)\b/i.test(windowText)) continue;
+        if (/\bafter\s*$/i.test(before)) continue;
         if (/\breplace\b/i.test(windowText) && replacementLabels.has(normalizePatchLabel(occurrence.label))) continue;
         ops.push({
             type: 'delete',

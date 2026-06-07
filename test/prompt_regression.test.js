@@ -802,7 +802,7 @@ test('Stage 2 outline structural replace and delete notes apply against the save
         }]
     };
     const notes = `1. Dapple Rising - The Anchor is still missing.
-You still have two copies of [Aftermath - A Quiet Reckoning]. Replace the second one, after [Quist's Betrayal & The Bonded Key], with the Dapple Rising beat.
+You still have two copies of [Aftermath - A Quiet Reckoning]. Delete the second [Aftermath - A Quiet Reckoning], after [Quist's Betrayal & The Bonded Key], and replace it with the Dapple Rising beat.
 
 [Dapple Rising - The Anchor] Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle. Dapple has hijacked the Mobile Processing Core, chained Furdlegurr to it, and is using the bear's pure, recently-betrayed bond with Elliot as the perfect anchor to drag the Breach into reality. Every retired figment in Seattle is being pulled toward him. Protocol Erasure is counting down. Rebecca: 'We go now. No more agency.' Elliot, fierce: 'I'm coming. He came for me even after I told him not to.'
 
@@ -826,6 +826,11 @@ The last paragraph is [The Rebecca's Memory - The Storm Drain] and says the para
 
     const sequenceEBeats = result.outline.act_2[0].beats;
     const sequenceHBeats = result.outline.act_3[0].beats;
+    assert.deepEqual(sequenceEBeats.map(beat => beat.beat_label), [
+        'Aftermath - A Quiet Reckoning',
+        "Quist's Betrayal & The Bonded Key",
+        'Dapple Rising - The Anchor'
+    ]);
     assert.equal(sequenceEBeats[2].beat_label, 'Dapple Rising - The Anchor');
     assert.match(sequenceEBeats[2].description, /Mobile Processing Core/);
     assert.doesNotMatch(JSON.stringify(sequenceHBeats), /The Rebecca's Memory - The Storm Drain/);
