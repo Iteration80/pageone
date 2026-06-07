@@ -7861,7 +7861,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function isScopedPolishMessage(content = '') {
         const clean = String(content || '').trim();
         if (!clean) return false;
-        const hasScopeLanguage = /\b(?:small|minor|tiny|local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
+        const hasScopeLanguage = /\bone\s+(?:small|minor|tiny)\s+(?:local\s+)?(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
+            || /\b(?:local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
             || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish))\b/i.test(clean);
         return hasScopeLanguage && /\b(?:clarify|polish|wording|paragraph|line|phrase|word|read|land|fuzzy|cleanly)\b/i.test(clean);
     }

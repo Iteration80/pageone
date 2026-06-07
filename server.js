@@ -3204,7 +3204,8 @@ function buildStage4ConfirmationBypassResponse(messages = []) {
 function isScopedPolishRequest(message = '') {
     const text = String(message || '');
     if (!text.trim()) return false;
-    const hasScopeLanguage = /\b(?:small|minor|tiny|local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
+    const hasScopeLanguage = /\bone\s+(?:small|minor|tiny)\s+(?:local\s+)?(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
+        || /\b(?:local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
         || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish))\b/i.test(text);
     if (!hasScopeLanguage) return false;
     return /\b(?:clarify|polish|wording|paragraph|line|phrase|word|read|land|fuzzy|cleanly)\b/i.test(text);

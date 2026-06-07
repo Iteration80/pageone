@@ -120,9 +120,40 @@ function looksLikeChecklistHeader(line = '') {
         || /^[A-Z][A-Za-z0-9' -]{2,}$/.test(clean);
 }
 
+function isScopedPolishText(value = '') {
+    const text = String(value || '');
+    const scoped = /\bone\s+(?:small|minor|tiny)\s+(?:local\s+)?(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
+        || /\b(?:local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(text)
+        || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|do\s+not\s+restructure|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish)|local\s+polish\s+only)\b/i.test(text);
+    return scoped && /\b(?:clarify|polish|wording|paragraph|line|phrase|word|sentence|read|land|fuzzy|cleanly|payoff)\b/i.test(text);
+}
+
+function isRevisionGuardrailBlock(value = '') {
+    return /\b(?:do\s+not|don't)\s+(?:change|modify|edit|alter|touch|revise|update|restructure|delete|remove)\b/i.test(String(value || ''))
+        || /\b(?:do\s+not|don't)\s+(?:add|include|restore|bring\s+back)\s+(?:a\s+separate\s+)?\[/i.test(String(value || ''));
+}
+
+function scopedPolishChecklistItems(text = '', maxItems = 12) {
+    const items = [];
+    const suggested = String(text || '').match(/\bSuggested sentence:\s*\n+([\s\S]*?)(?=\n\s*\n(?:Do not|Don't|This is only|$))/i);
+    const sentence = (suggested?.[1] || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    if (sentence.length > 20 && !isRevisionGuardrailBlock(sentence)) {
+        items.push(compactText(sentence, 700));
+    }
+    return items.slice(0, maxItems);
+}
+
 function buildRevisionChecklist(notes = '', maxItems = 12) {
     const text = latestConcreteRevisionText(notes);
     if (!text) return [];
+    if (isScopedPolishText(text)) {
+        return scopedPolishChecklistItems(text, maxItems);
+    }
     if (!/\n/.test(text)) {
         return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore|midpoint|recogniz|dapple was mine|storm drain|quiet kingdom|source[- ]?faith|ending line|accountability|answer for what you did)\b/i.test(text)
             && text.length > 40
@@ -137,6 +168,7 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
     const items = [];
 
     for (const block of blocks) {
+        if (isRevisionGuardrailBlock(block)) continue;
         if (/\b(delete|remove|cut|omit|drop)\b/i.test(block)
             && /\b(accidental note|not outline content|final beat|last paragraph|final paragraph)\b/i.test(block)) {
             const deleteLabel = bracketedLabelNearestDeleteInstruction(block, { preferLastDelete: true }) || block.match(/\[([^\]]+)\]/)?.[1];
@@ -425,6 +457,26 @@ function normalizedComparableLabel(value = '') {
         .trim();
 }
 
+function isNegatedBeatLabelReference(notes = '', label = '') {
+    if (!label) return false;
+    return new RegExp(`\\b(?:do\\s+not|don't)\\s+(?:change|modify|edit|alter|touch|revise|update|delete|remove)\\s+(?:the\\s+)?\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i')
+        .test(String(notes || ''));
+}
+
+function isNegatedSequenceReference(notes = '', sequence = {}) {
+    const title = String(sequence?.sequence_number_and_title || '');
+    const id = sequenceId(sequence);
+    if (!id) return false;
+    const text = String(notes || '');
+    if (new RegExp(`\\b(?:do\\s+not|don't)\\s+(?:change|modify|edit|alter|touch|revise|update|restructure)\\s+(?:sequence\\s*)${escapeRegExp(id)}\\b`, 'i').test(text)) {
+        return true;
+    }
+    if (title && new RegExp(`\\b(?:do\\s+not|don't)\\s+(?:change|modify|edit|alter|touch|revise|update|restructure)\\s+(?:the\\s+)?${escapeRegExp(title)}\\b`, 'i').test(text)) {
+        return true;
+    }
+    return false;
+}
+
 function notesTargetExistingBeat(notes = '', beat = {}) {
     const noteText = String(notes || '').toLowerCase();
     const label = String(beat.beat_label || beat.beat || '').toLowerCase();
@@ -501,6 +553,7 @@ function notesTargetBeat(notes = '', beat = {}) {
     const text = String(notes || '');
     const lower = text.toLowerCase();
     const label = String(beat?.beat_label || beat?.beat || '');
+    if (isNegatedBeatLabelReference(text, label)) return false;
     const normalizedLabel = normalizedComparableLabel(label);
     if (label && new RegExp(`\\[\\s*${escapeRegExp(label)}\\s*\\]`, 'i').test(text)) return true;
     const labelTerms = checklistTerms(label);
@@ -761,6 +814,7 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
             const mergedSequence = mergedAct[sequenceIndex];
             const revisedSequence = findMatchingSequence(revisedOutline, currentSequence);
             if (!mergedSequence || !revisedSequence) continue;
+            if (isNegatedSequenceReference(notes, currentSequence)) continue;
             if (!Array.isArray(mergedSequence.beats)) mergedSequence.beats = [];
 
             for (let beatIndex = 0; beatIndex < (currentSequence.beats || []).length; beatIndex += 1) {

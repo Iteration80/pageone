@@ -1191,6 +1191,74 @@ Do not delete [Quist's Betrayal & The Bonded Key]. Do not delete [Aftermath - A 
     assert.doesNotMatch(JSON.stringify(revision.after), /Resolution - A New Accord/);
 });
 
+test('Stage 2 local polish notes cannot turn guardrails into checklist beats or alter protected Sequence H', async () => {
+    const currentOutline = {
+        act_1: [],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence G: The Bonded Key',
+            beats: [{
+                beat_label: "Rebecca's Memory - The Storm Drain",
+                description: 'Memory. They called it PILLERMOSS. Not a password exactly — a whole kingdom compressed into one nonsense word.'
+            }]
+        }, {
+            sequence_number_and_title: 'Sequence H: A World That Remembers',
+            beats: [{
+                beat_label: 'Climax - The Bonded Phrase',
+                description: 'Rebecca says PILLERMOSS and cancels Protocol Erasure.'
+            }, {
+                beat_label: "Dapple's Last Choice",
+                description: 'Dapple surrenders.'
+            }, {
+                beat_label: 'Aftermath - A New Order',
+                description: 'New order.'
+            }, {
+                beat_label: 'Closing Image - The Photo on the Wall',
+                description: 'Kitchen.'
+            }]
+        }]
+    };
+    const notes = `One tiny local polish only. Do not restructure anything.
+
+In [Rebecca's Memory - The Storm Drain], the PILLERMOSS clarification is working. Please keep the new language that explains PILLERMOSS as the private name for the rusted tin can / tiny childhood kingdom.
+
+Only add back one final key-mechanics payoff sentence at the end of that same beat, so the memory connects cleanly to the Bonded Authorization Key.
+
+Suggested sentence:
+
+The bonded key in her hand blazes — not because she has solved a code, but because the relay has registered the remembered bond.
+
+Do not change any other beat. Do not change Sequence H. Do not change [Climax - The Bonded Phrase]. This is only a local polish to [Rebecca's Memory - The Storm Drain].`;
+    const attemptedModelOutline = JSON.parse(JSON.stringify(currentOutline));
+    attemptedModelOutline.act_3[0].beats[0].description += ' The bonded key in her hand blazes — not because she has solved a code, but because the relay has registered the remembered bond.';
+    attemptedModelOutline.act_3[1].beats[0].description = 'BAD CLIMAX DRIFT.';
+    attemptedModelOutline.act_3[1].beats[1].description = 'BAD DAPPLE DRIFT.';
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            title: 'I.M.A.G.I.N.E.',
+            genre: 'Animated Family Adventure',
+            logline: 'A mother must remember.',
+            outline: attemptedModelOutline
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.deepEqual(buildRevisionChecklist(notes), [
+        'The bonded key in her hand blazes — not because she has solved a code, but because the relay has registered the remembered bond.'
+    ]);
+    assert.deepEqual(result.outline.act_3.map(sequence => sequence.beats.length), [1, 4]);
+    assert.match(result.outline.act_3[0].beats[0].description, /relay has registered the remembered bond/);
+    assert.equal(result.outline.act_3[1].beats[0].description, 'Rebecca says PILLERMOSS and cancels Protocol Erasure.');
+    assert.equal(result.outline.act_3[1].beats[1].description, 'Dapple surrenders.');
+    assert.doesNotMatch(JSON.stringify(result.outline), /BAD CLIMAX DRIFT|BAD DAPPLE DRIFT|Do Not Change Any Other Beat/);
+});
+
 test('Stage 2 deterministic revision kernel unwraps saved outline artifacts', () => {
     const artifact = {
         title: 'I.M.A.G.I.N.E.',
