@@ -543,9 +543,13 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /type: 'complete'/);
     assert.match(appJs, /function consumeOutlineGenerationResponse/);
     assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
+    assert.match(appJs, /function isLikelyStreamTransportError/);
     assert.match(appJs, /readSSEStream\(response/);
+    assert.match(appJs, /serverStreamError/);
     assert.match(appJs, /recoveredFromInterruptedStream/);
     assert.match(appJs, /previousOutline/);
+    assert.match(appJs, /Outline stream was interrupted before the server responded/);
+    assert.match(appJs, /Outline stream was interrupted before the server sent a completion event/);
     assert.match(appJs, /Outline stream ended before the server sent a completion event/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);

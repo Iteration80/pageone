@@ -2268,19 +2268,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return recoveredEvent;
     }
 
+    function isLikelyStreamTransportError(err) {
+        const message = String(err?.message || err || '');
+        return /\b(network error|failed to fetch|load failed|fetch failed|terminated|abort|connection|stream)\b/i.test(message);
+    }
+
     async function consumeOutlineGenerationResponse(response, { chat = null, fallback = 'Outline request failed', previousOutline = null } = {}) {
         if (!response.ok) throw new Error(await apiErrorMessage(response, fallback));
 
         const contentType = response.headers.get('content-type') || '';
         if (/\btext\/event-stream\b/i.test(contentType)) {
             let completeEvent = null;
-            await readSSEStream(response, async (event) => {
-                if (event.type === 'complete') {
-                    completeEvent = event;
-                } else if (event.type === 'error') {
-                    throw new Error(event.message || fallback);
+            let serverStreamError = null;
+            try {
+                await readSSEStream(response, async (event) => {
+                    if (event.type === 'complete') {
+                        completeEvent = event;
+                    } else if (event.type === 'error') {
+                        serverStreamError = new Error(event.message || fallback);
+                        throw serverStreamError;
+                    }
+                });
+            } catch (err) {
+                if (serverStreamError && err === serverStreamError) throw err;
+                const recoveredEvent = await recoverOutlineFromInterruptedStream(previousOutline, { chat });
+                if (recoveredEvent) return recoveredEvent;
+                if (isLikelyStreamTransportError(err)) {
+                    throw new Error('Outline stream was interrupted before the server sent a completion event. If Railway was deploying or restarting, wait for the deploy to finish and try again.');
                 }
-            });
+                throw err;
+            }
             if (!completeEvent) {
                 const recoveredEvent = await recoverOutlineFromInterruptedStream(previousOutline, { chat });
                 if (recoveredEvent) return recoveredEvent;
@@ -8205,11 +8222,26 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
             formData.append('stream', 'true');
-            const res = await fetch('/api/generate-outline', {
-                method: 'POST',
-                headers: { 'Accept': 'text/event-stream' },
-                body: formData
-            });
+            let res;
+            try {
+                res = await fetch('/api/generate-outline', {
+                    method: 'POST',
+                    headers: { 'Accept': 'text/event-stream' },
+                    body: formData
+                });
+            } catch (err) {
+                const recoveredEvent = await recoverOutlineFromInterruptedStream(currentBeats, { chat: stageChatWindows[2] });
+                if (recoveredEvent) {
+                    return {
+                        ...recoveredEvent,
+                        changed: true
+                    };
+                }
+                if (isLikelyStreamTransportError(err)) {
+                    throw new Error('Outline stream was interrupted before the server responded. If Railway was deploying or restarting, wait for the deploy to finish and try again.');
+                }
+                throw err;
+            }
             const data = await consumeOutlineGenerationResponse(res, { chat: stageChatWindows[2], fallback: 'Outline revision failed', previousOutline: currentBeats });
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
             return {
