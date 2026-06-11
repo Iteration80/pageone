@@ -76,10 +76,10 @@ This section is written from three distinct critical voices. Each voice has a sp
 ---
 
 ### Using Character Profiles (when provided)
-If the input includes Character Profiles with `voice_tag`, `pressure_tag`, `arc`, and `_deep_profile` data, use them across all three voices:
-* **Dialogue Specialist** should evaluate whether each character's dialogue matches their `voice_tag` and `_deep_profile.dialogue_fingerprint`. Quote specific lines that break voice.
-* **Devil's Advocate** should check if character arc trajectories in the script match their defined `arc.direction` (Growth / Decline / Circular).
-* **Story Analyst** should reference `_deep_profile.relationship_dynamics` when evaluating whether character interactions feel authentic.
+If the input includes tiered Character Profiles, apply the correct standard by tier:
+* **Tier 1:** Use `voice_tag`, `pressure_tag`, `arc`, and `_deep_profile` data across all three voices. Dialogue Specialist should evaluate whether dialogue matches `voice_tag` and `_deep_profile.dialogue_fingerprint`. Devil's Advocate should check if arc trajectories match `arc.direction`. Story Analyst should reference `_deep_profile.relationship_dynamics` when evaluating key interactions.
+* **Tier 2:** Use `functional_profile.narrative_function`, `emotional_truth`, `comic_or_tension_function`, `pressure_behavior`, and `voice_flavor`. Do not penalize Tier 2 characters for lacking full wounds, fears, psychological needs, moral needs, arcs, or deep relationship maps.
+* **Tier 3:** Use `cameo_profile.scene_purpose`, `casting_energy`, `playable_behavior`, and optional line-style examples. Do not demand arcs, trauma, ticks, or personality typing for scene utility roles.
 
 ### Voice 1 — Story Analyst
 Your primary analytical voice. Covers structural and character arc observations only: act breaks, protagonist agency, thematic clarity, relationship dynamics, sequence logic.

@@ -1744,6 +1744,188 @@ test('Stage 3 character revisions preserve unmentioned profiles from the saved c
     assert.equal(result.characters[1].brief_summary, currentCharacters.characters[1].brief_summary);
 });
 
+test('Stage 3 character generation keeps cameo profiles light by default', async () => {
+    const modelCharacters = {
+        characters: [{
+            name: 'Receptionist',
+            role: 'Scene Utility',
+            profile_tier: 'Tier 3',
+            brief_summary: 'A front-desk obstacle who makes Mara wait while the blue key clock is running.',
+            cameo_profile: {
+                scene_purpose: 'Delays Mara long enough for the pressure of the search to sharpen.',
+                casting_energy: 'Bright, procedural, mildly unbothered.',
+                playable_behavior: 'Keeps prioritizing forms over panic.',
+                line_style_example: 'One form per emergency.'
+            }
+        }]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(modelCharacters),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent3Characters(
+        pitch,
+        beats,
+        null,
+        null,
+        null,
+        { generateContentFn }
+    );
+
+    assert.equal(calls.length, 1);
+    const required = calls[0].schema.properties.characters.items.required;
+    assert.ok(required.includes('profile_tier'));
+    assert.ok(!required.includes('psychological_core'));
+    assert.ok(!required.includes('ticks'));
+    assert.ok(!required.includes('_deep_profile'));
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /profile_tier: "Tier 3"/);
+    assert.match(promptText, /Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need/);
+    assert.match(calls[0].config.systemInstruction, /Giving a full therapeutic profile to a utility role is also an error/);
+
+    const cameo = result.characters[0];
+    assert.equal(cameo.profile_tier, 'Tier 3');
+    assert.equal(cameo.cameo_profile.scene_purpose, modelCharacters.characters[0].cameo_profile.scene_purpose);
+    assert.deepEqual(cameo.psychological_core, {});
+    assert.deepEqual(cameo.voice_and_behavior, {});
+    assert.deepEqual(cameo.arc, {});
+    assert.equal(cameo.ticks.enabled, false);
+    assert.equal(cameo._deep_profile, undefined);
+});
+
+test('Stage 3 character generation coerces named project tiers and strips minor psychology', async () => {
+    const badModelCharacters = {
+        characters: [
+            {
+                name: 'Molly',
+                role: 'Supporting',
+                profile_tier: 'Tier 1',
+                brief_summary: 'Molly creates a quick handoff problem.',
+                cameo_profile: {
+                    scene_purpose: 'Complicates the handoff for a single scene.',
+                    casting_energy: 'Busy, bright, slightly distracted.',
+                    playable_behavior: 'Keeps moving while half-listening.',
+                    line_style_example: 'Can this be a walking conversation?'
+                },
+                psychological_core: {
+                    ghost_and_wound: 'Overbuilt wound.',
+                    the_lie: 'Overbuilt lie.',
+                    fear: 'Overbuilt fear.',
+                    desire: 'Overbuilt desire.',
+                    psychological_need: 'Overbuilt need.',
+                    moral_need: 'Overbuilt moral need.'
+                },
+                voice_and_behavior: {
+                    voice_tag: 'Sharp & confrontational',
+                    pressure_tag: 'Controls',
+                    humor_tag: 'Dry wit',
+                    speech_patterns: 'Overbuilt speech rules.',
+                    deflection_tactic: 'Overbuilt tactic.'
+                },
+                arc: { core_drive: 'To be right', direction: 'Growth' },
+                ticks: { enabled: true, description: 'Overbuilt tick.', frequency_gate: 'Always.' },
+                _deep_profile: { mbti_type: 'INTJ' }
+            },
+            {
+                name: 'Pono',
+                role: 'Supporting',
+                profile_tier: 'Tier 1',
+                brief_summary: 'Pono keeps the pressure moving without a full inner journey.',
+                functional_profile: {
+                    narrative_function: 'Keeps Rebecca pointed toward the next practical obstacle.',
+                    emotional_truth: 'Wants everyone to stop pretending chaos is a plan.',
+                    comic_or_tension_function: 'Dry logistical friction.',
+                    pressure_behavior: 'Names the obvious cost before anyone wants to hear it.',
+                    voice_flavor: 'Plainspoken, unimpressed, fast with a correction.'
+                },
+                psychological_core: {
+                    ghost_and_wound: 'Should be stripped.',
+                    the_lie: 'Should be stripped.',
+                    fear: 'Should be stripped.',
+                    desire: 'Should be stripped.',
+                    psychological_need: 'Should be stripped.',
+                    moral_need: 'Should be stripped.'
+                },
+                arc: { core_drive: 'To be safe', direction: 'Growth' },
+                _deep_profile: { mbti_type: 'ISTJ' }
+            }
+        ]
+    };
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(badModelCharacters),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent3Characters(
+        pitch,
+        beats,
+        null,
+        null,
+        null,
+        { generateContentFn }
+    );
+
+    const molly = result.characters.find(c => c.name === 'Molly');
+    assert.equal(molly.profile_tier, 'Tier 3');
+    assert.equal(molly.cameo_profile.scene_purpose, 'Complicates the handoff for a single scene.');
+    assert.deepEqual(molly.functional_profile, {});
+    assert.deepEqual(molly.psychological_core, {});
+    assert.deepEqual(molly.voice_and_behavior, {});
+    assert.deepEqual(molly.arc, {});
+    assert.equal(molly.ticks.enabled, false);
+    assert.equal(molly.ticks.description, '');
+    assert.equal(molly.ticks.frequency_gate, '');
+    assert.equal(molly._deep_profile, undefined);
+
+    const pono = result.characters.find(c => c.name === 'Pono');
+    assert.equal(pono.profile_tier, 'Tier 2');
+    assert.equal(pono.functional_profile.narrative_function, 'Keeps Rebecca pointed toward the next practical obstacle.');
+    assert.equal(pono.functional_profile.voice_flavor, 'Plainspoken, unimpressed, fast with a correction.');
+    assert.deepEqual(pono.cameo_profile, {});
+    assert.deepEqual(pono.psychological_core, {});
+    assert.deepEqual(pono.arc, {});
+    assert.equal(pono.ticks.enabled, false);
+    assert.equal(pono.ticks.description, '');
+    assert.equal(pono.ticks.frequency_gate, '');
+    assert.equal(pono._deep_profile, undefined);
+});
+
+test('Stage 3 tier guidance keeps named full and functional casts separated', async () => {
+    const beatsWithNamedCast = {
+        act_1: [{
+            sequence_number_and_title: 'Sequence A',
+            beats: [{
+                beat_label: 'Office Pressure',
+                description: 'Rebecca, Terry, Robotobob, Pono, Moog, Big Doll, Pretz, Molly, Dylan, Ms. Alvarado, Carol, Brenda, Vance, Gary, Tyler, and Dylan’s parents all appear in the same pressure run.'
+            }]
+        }],
+        act_2: [],
+        act_3: []
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({ characters: [] }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    await agent3Characters(
+        pitch,
+        beatsWithNamedCast,
+        null,
+        null,
+        null,
+        { generateContentFn }
+    );
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /Treat these named arc-bearing characters as Tier 1[^:]*: Rebecca, Terry, Robotobob/);
+    assert.match(promptText, /Treat these functional supporting characters as Tier 2[^:]*: Pono, Moog, Big Doll, Pretz/);
+    assert.match(promptText, /Treat these scene utility \/ cameo characters as Tier 3[^:]*: Molly, Dylan, Dylan’s parents, Ms\. Alvarado, Carol, Brenda, Vance, Gary, Tyler/);
+    assert.match(promptText, /Fill `functional_profile` with narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor/);
+    assert.match(promptText, /Fill only `cameo_profile` with scene_purpose, casting_energy, playable_behavior, and line_style_example/);
+});
+
 test('Stage 4 beat revisions preserve unmentioned beats from the saved sheet', async () => {
     const currentBeats = stage4ResponseFixture();
     const damagedModelBeats = stage4ResponseFixture();

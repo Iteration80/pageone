@@ -4840,7 +4840,7 @@ Hard rules:
 
             // Stage 3-specific: keep character conversations inside the character artifact boundary
             if (stageId === 3) {
-                conversationPrompt += `\n## STAGE 3 CHARACTER BOUNDARY\nYou are discussing the Characters stage. Keep the conversation anchored in character-profile mechanics: ghost/wound, lie, desire, psychological need, moral need, paradox, pressure behavior, tick gates, relationship dynamics, voice tags, and downstream handoff notes.\n\nUse the outline only as context for why a character mechanic matters. Do NOT prescribe sequence-level or scene-level plot placement unless the writer explicitly asks to change the outline, beats, treatment, or scene blueprint. Avoid saying things like "put this in Sequence E" or "this should happen in Scene 12." Instead, translate timing into character-arc language such as "mid-story regression," "late Act 2 pressure peak," "climax handoff," or "profile note for downstream stages."\n\nIf a generated character profile already mentions sequence labels, discuss whether the profile needs a clearer pressure ladder or tick gate, not where to stage the beat. Stage 3 execution means updating character profiles only. If the writer asks for structural placement, flag that it belongs in Stage 4+ and ask whether they want to carry the character note forward.\n\n`;
+                conversationPrompt += `\n## STAGE 3 CHARACTER BOUNDARY\nYou are discussing the Characters stage. Keep the conversation anchored in character-profile mechanics: profile_tier, Tier 1 ghost/wound, lie, desire, psychological need, moral need, optional paradox, pressure behavior, optional tick gates, relationship dynamics, voice tags, Tier 2 narrative function/emotional truth/comic or tension function/pressure behavior/voice flavor, Tier 3 scene purpose/casting energy/playable behavior/line style, and downstream handoff notes.\n\nUse the outline only as context for why a character mechanic matters. Do NOT prescribe sequence-level or scene-level plot placement unless the writer explicitly asks to change the outline, beats, treatment, or scene blueprint. Avoid saying things like "put this in Sequence E" or "this should happen in Scene 12." Instead, translate timing into character-arc language such as "mid-story regression," "late Act 2 pressure peak," "climax handoff," or "profile note for downstream stages."\n\nIf a generated character profile already mentions sequence labels, discuss whether the profile needs a clearer Tier 1 pressure ladder/tick gate, Tier 2 functional support role, or Tier 3 cameo purpose, not where to stage the beat. Stage 3 execution means updating character profiles only. If the writer asks for structural placement, flag that it belongs in Stage 4+ and ask whether they want to carry the character note forward.\n\n`;
             }
 
             // Stage 7-specific: tell the model what "execution" means for style generation
@@ -4981,7 +4981,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
         const priorityList = allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n');
         const characters = projectData.data?.stage3_characters?.characters || [];
         const charSummary = characters.length > 0
-            ? characters.map(c => `${c.name} (${c.role}): ${c.brief_summary || ''}`).join('\n')
+            ? characters.map(c => `${c.name} (${c.role}, ${c.profile_tier || 'Tier 1'}): ${c.brief_summary || ''}`).join('\n')
             : '';
         const charBlock = charSummary ? `\n\n## CHARACTERS\n${charSummary}` : '';
         const contextBlock = `## PROJECT: ${title}${charBlock}\n\n## STAGE 9 PRIORITIES\n${priorityList}\n\n## FULL SCREENPLAY (current working draft)\n${fullScript}`;
@@ -5526,7 +5526,17 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         const contextSection = trimmedContext ? `\n\n## BRAINSTORM CONTEXT\n${trimmedContext}` : '';
         const characters = projectData.data?.stage3_characters?.characters || [];
         const charBlock = characters.length > 0
-            ? `\n\n## CHARACTERS\n${characters.map(c => `${c.name} (${c.role}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`).join('\n')}`
+            ? `\n\n## CHARACTERS\n${characters.map(c => {
+                const tier = c.profile_tier || 'Tier 1';
+                const tierText = String(tier).toLowerCase();
+                if (/\b3\b|cameo|utility/.test(tierText)) {
+                    return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}`;
+                }
+                if (/\b2\b|functional/.test(tierText)) {
+                    return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}`;
+                }
+                return `${c.name} (${c.role}, ${tier}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`;
+            }).join('\n')}`
             : '';
         const { styleContent: plannerStyleContent, referenceContent: plannerRefContent } = await loadProjectStyle(projectData);
         let styleNote = '';
@@ -5734,7 +5744,15 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         const charProfiles = characters.length > 0
             ? characters.map(c => {
                 const dp = c._deep_profile || {};
-                return `${c.name} (${c.role}): voice=${c.voice_and_behavior?.voice_tag || 'unknown'}, pressure=${c.voice_and_behavior?.pressure_tag || 'unknown'}${dp.dialogue_fingerprint ? `\nDialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
+                const tier = c.profile_tier || 'Tier 1';
+                const tierText = String(tier).toLowerCase();
+                if (/\b3\b|cameo|utility/.test(tierText)) {
+                    return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}, playable behavior=${c.cameo_profile?.playable_behavior || 'unknown'}${c.cameo_profile?.line_style_example ? `\nLine style example: ${c.cameo_profile.line_style_example}` : ''}`;
+                }
+                if (/\b2\b|functional/.test(tierText)) {
+                    return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}`;
+                }
+                return `${c.name} (${c.role}, ${tier}): voice=${c.voice_and_behavior?.voice_tag || 'unknown'}, pressure=${c.voice_and_behavior?.pressure_tag || 'unknown'}${dp.dialogue_fingerprint ? `\nDialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
             }).join('\n\n')
             : '';
 

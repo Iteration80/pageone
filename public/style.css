@@ -3099,14 +3099,16 @@ textarea.synopsis-input {
 
 /* ── Stage 3: Arc Direction Toggle ────────────────────── */
 
-.char-arc-toggle {
+.char-arc-toggle,
+.char-tier-toggle {
     display: inline-flex;
     border: 1px solid #374151;
     border-radius: 6px;
     overflow: hidden;
 }
 
-.char-arc-btn {
+.char-arc-btn,
+.char-tier-btn {
     background: transparent;
     color: #9ca3af;
     border: none;
@@ -3117,14 +3119,17 @@ textarea.synopsis-input {
     transition: background 0.15s, color 0.15s;
     border-right: 1px solid #374151;
 }
-.char-arc-btn:last-child {
+.char-arc-btn:last-child,
+.char-tier-btn:last-child {
     border-right: none;
 }
-.char-arc-btn:hover {
+.char-arc-btn:hover,
+.char-tier-btn:hover {
     background: rgba(59, 130, 246, 0.1);
     color: #d1d5db;
 }
-.char-arc-btn.active {
+.char-arc-btn.active,
+.char-tier-btn.active {
     background: rgba(59, 130, 246, 0.25);
     color: #93c5fd;
     font-weight: 600;

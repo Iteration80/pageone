@@ -115,7 +115,7 @@ function buildSourceAuthorityBlock(projectData, targetStageKey) {
     const STAGE_CONTEXT = {
         stage5_treatment: 'for narrative content, character actions, and scene specifics. Where Stage 4 (Beats) conflicts with Stage 5, defer to Stage 5.',
         stage4_beats: 'for structural beat placement and sequence pacing. Where Stage 3 (Characters) conflicts with Stage 4, defer to Stage 4.',
-        stage3_characters: 'for character psychology, voice, and arc. Any character behavior in earlier stages must be interpreted through this revised profile.',
+        stage3_characters: 'for tiered character profiles, Tier 1 psychology/voice/arc, Tier 2 narrative function/emotional truth/comic or tension function/pressure behavior/voice flavor, and Tier 3 cameo purpose/casting energy/playable behavior/line style. Any character behavior in earlier stages must be interpreted through this revised profile.',
         stage2_outline: 'for sequence structure and act breaks.',
         stage1_pitch: 'for premise, logline, theme, and title.',
     };

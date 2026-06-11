@@ -2641,6 +2641,75 @@ document.addEventListener('DOMContentLoaded', () => {
         core_drive: ['To be right', 'To be needed', 'To succeed', 'To be unique', 'To understand', 'To be safe', 'To be free', 'To be in control', 'To keep peace'],
     };
 
+    const CHARACTER_PROFILE_TIERS = ['Tier 1', 'Tier 2', 'Tier 3'];
+    const TIER_1_PROJECT_CHARACTER_NAMES = ['Rebecca', 'Dapple', 'Dave', 'Terry', 'Elliot', 'Furdlegurr', 'Blounder', 'Quist', 'Scott', 'Robotobob'];
+    const TIER_2_PROJECT_CHARACTER_NAMES = ['Pono', 'Moog', 'Big Doll', 'Pretz'];
+    const TIER_3_PROJECT_CHARACTER_NAMES = ['Molly', 'Dylan', "Dylan's parents", 'Dylan’s parents', 'Ms. Alvarado', 'Carol', 'Brenda', 'Vance', 'Gary', 'Tyler'];
+
+    function normalizeProjectCharacterName(value = '') {
+        return String(value || '')
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[’‘`]/g, "'")
+            .replace(/\b([A-Za-z0-9]+)'s\b/g, '$1s')
+            .replace(/[^A-Za-z0-9]+/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
+    }
+
+    function projectTierForCharacterName(name = '') {
+        const normalized = normalizeProjectCharacterName(name);
+        if (!normalized) return null;
+        if (TIER_1_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 1';
+        if (TIER_2_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 2';
+        if (TIER_3_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 3';
+        return null;
+    }
+
+    function normalizeCharacterProfileTier(value = '', character = {}) {
+        const projectTier = projectTierForCharacterName(character.name);
+        if (projectTier) return projectTier;
+        const text = String(value || '').toLowerCase();
+        if (/\b(?:tier\s*)?3\b/.test(text) || /\b(cameo|scene utility|utility|minor)\b/.test(text)) return 'Tier 3';
+        if (/\b(?:tier\s*)?2\b/.test(text) || /\b(functional|supporting|recurring)\b/.test(text)) return 'Tier 2';
+        if (/\b(?:tier\s*)?1\b/.test(text) || /\b(full|major|arc-bearing|arc bearing)\b/.test(text)) return 'Tier 1';
+        if (character.cameo_profile) return 'Tier 3';
+        if (character.functional_profile) return 'Tier 2';
+        return 'Tier 1';
+    }
+
+    function characterProfileTierRank(value = '', character = {}) {
+        const tier = normalizeCharacterProfileTier(value, character);
+        if (tier === 'Tier 3') return 3;
+        if (tier === 'Tier 2') return 2;
+        return 1;
+    }
+
+    function normalizeFunctionalProfileForEditor(character = {}) {
+        const functional = character.functional_profile || {};
+        const cameo = character.cameo_profile || {};
+        const voice = character.voice_and_behavior || {};
+        return {
+            narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || '',
+            emotional_truth: functional.emotional_truth || character.emotional_truth || '',
+            comic_or_tension_function: functional.comic_or_tension_function || functional.comic_function || functional.tension_function || character.comic_or_tension_function || '',
+            pressure_behavior: functional.pressure_behavior || functional.temptation_choice_or_pressure || functional.temptation_or_choice || functional.playable_behavior || cameo.playable_behavior || character.playable_behavior || character.pressure_behavior || '',
+            voice_flavor: functional.voice_flavor || functional.line_style_or_dialogue_flavor || functional.line_style || functional.dialogue_flavor || character.voice_flavor || character.line_style_or_dialogue_flavor || character.dialogue_flavor || voice.voice_tag || ''
+        };
+    }
+
+    function normalizeCameoProfileForEditor(character = {}) {
+        const cameo = character.cameo_profile || {};
+        const functional = character.functional_profile || {};
+        return {
+            scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || '',
+            casting_energy: cameo.casting_energy || functional.casting_energy || character.casting_energy || '',
+            playable_behavior: cameo.playable_behavior || functional.playable_behavior || functional.pressure_behavior || character.playable_behavior || '',
+            line_style_example: cameo.line_style_example || cameo.optional_line_style_example || functional.line_style_or_dialogue_flavor || functional.voice_flavor || character.line_style_example || ''
+        };
+    }
+
     function markStage3Dirty() {
         if (btnStage3Approve) {
             btnStage3Approve.textContent = 'Approve';
@@ -2660,9 +2729,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const core = character.psychological_core || {};
         const voice = character.voice_and_behavior || {};
         const ticks = character.ticks || {};
-        const normalized = {
-            ...character,
-            psychological_core: {
+        const profile_tier = normalizeCharacterProfileTier(character.profile_tier, character);
+        const isFullProfile = profile_tier === 'Tier 1';
+        const psychological_core = isFullProfile
+            ? {
                 ghost_and_wound: core.ghost_and_wound || core.wound || core.ghost || '',
                 the_lie: core.the_lie || core.false_belief || core.lie || '',
                 fear: core.fear || '',
@@ -2670,25 +2740,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 psychological_need: core.psychological_need || core.need || '',
                 moral_need: core.moral_need || '',
                 paradox: core.paradox || voice.paradox || ''
-            },
-            voice_and_behavior: {
+            }
+            : {};
+        const voice_and_behavior = isFullProfile
+            ? {
                 voice_tag: voice.voice_tag || '',
                 pressure_tag: voice.pressure_tag || '',
                 humor_tag: voice.humor_tag || '',
                 speech_patterns: voice.speech_patterns || '',
                 deflection_tactic: voice.deflection_tactic || ''
-            },
-            arc: {
+            }
+            : {};
+        const arc = isFullProfile
+            ? {
                 core_drive: character.arc?.core_drive || '',
                 direction: character.arc?.direction || 'Growth'
-            },
+            }
+            : {};
+        const normalized = {
+            ...character,
+            profile_tier,
+            functional_profile: profile_tier === 'Tier 2' ? normalizeFunctionalProfileForEditor(character) : {},
+            cameo_profile: profile_tier === 'Tier 3' ? normalizeCameoProfileForEditor(character) : {},
+            psychological_core,
+            voice_and_behavior,
+            arc,
             ticks: {
-                enabled: ticks.enabled === true,
-                description: ticks.description || '',
-                frequency_gate: ticks.frequency_gate || ''
+                enabled: isFullProfile && ticks.enabled === true,
+                description: isFullProfile ? (ticks.description || '') : '',
+                frequency_gate: isFullProfile ? (ticks.frequency_gate || '') : ''
             }
         };
-        if (character._deep_profile) normalized._deep_profile = character._deep_profile;
+        if (isFullProfile && character._deep_profile) {
+            normalized._deep_profile = character._deep_profile;
+        } else if (!isFullProfile) {
+            delete normalized._deep_profile;
+        }
         if (character.subtlety_guidelines) normalized.subtlety_guidelines = character.subtlety_guidelines;
         return normalized;
     }
@@ -2704,7 +2791,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const role = (r.role || '').toLowerCase();
                 if (role.includes('protagonist')) return 0;
                 if (role.includes('antagonist')) return 1;
-                return 2;
+                return 2 + characterProfileTierRank(r.profile_tier, r);
             };
             return rank(a) - rank(b);
         });
@@ -2712,6 +2799,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sorted.forEach((char, index) => {
             const role = char.role || '';
             const roleLower = role.toLowerCase();
+            const profileTier = normalizeCharacterProfileTier(char.profile_tier, char);
+            const profileTierRank = characterProfileTierRank(profileTier, char);
+            const tierLabel = profileTierRank === 1 ? 'Full Profile' : (profileTierRank === 2 ? 'Functional' : 'Cameo');
 
             // Cache _deep_profile
             if (char._deep_profile) {
@@ -2765,6 +2855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Store name & role as data attributes for reliable scraping
             card.dataset.charName = char.name || '';
             card.dataset.charRole = role;
+            card.dataset.profileTier = profileTier;
 
             // Build field helper: label + auto-expanding transparent textarea
             const field = (label, dataField, value) => `
@@ -2814,12 +2905,106 @@ document.addEventListener('DOMContentLoaded', () => {
             const arcDir = char.arc?.direction || 'Growth';
             const arcDrive = char.arc?.core_drive || '';
             const dirOptions = ['Growth', 'Decline', 'Circular'];
+            const tierToggle = `
+                <div style="margin-top: 14px;">
+                    <div style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 5px;">Profile Tier</div>
+                    <div class="char-tier-toggle" data-field="profile_tier">
+                        ${CHARACTER_PROFILE_TIERS.map(t => `<button class="char-tier-btn${t === profileTier ? ' active' : ''}" data-value="${t}">${t}</button>`).join('')}
+                    </div>
+                    <div style="color: #6b7280; font-size: 0.72rem; margin-top: 4px;">${tierLabel}</div>
+                </div>
+            `;
+            const ticksSectionHtml = `
+                <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                <div class="char-ticks-section" data-enabled="${ticksEnabled}">
+                    <div class="char-ticks-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <span class="char-ticks-arrow">${ticksEnabled ? '▼' : '▶'}</span>
+                        <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;">Ticks</div>
+                        ${!ticksEnabled ? '<button class="char-ticks-add-btn" style="font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;">Add Tick</button>' : ''}
+                    </div>
+                    <div class="char-ticks-body" style="margin-top: 8px; ${ticksEnabled ? '' : 'display: none;'}">
+                        ${ticksEnabled ? `
+                            ${field('Description', 'ticks.description', tickDesc)}
+                            ${field('Frequency Gate', 'ticks.frequency_gate', tickGate)}
+                            <button class="char-ticks-remove-btn" style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer; margin-top: 4px;">Remove Tick</button>
+                        ` : `
+                            <div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>
+                        `}
+                    </div>
+                </div>
+            `;
+            const fullProfileHtml = `
+                <!-- PSYCHOLOGICAL CORE -->
+                <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Psychological Core</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                    ${field('Ghost & Wound', 'psychological_core.ghost_and_wound', char.psychological_core?.ghost_and_wound)}
+                    ${field('The Lie', 'psychological_core.the_lie', char.psychological_core?.the_lie)}
+                    ${field('Fear', 'psychological_core.fear', char.psychological_core?.fear)}
+                    ${field('Desire', 'psychological_core.desire', char.psychological_core?.desire)}
+                    ${field('Psychological Need', 'psychological_core.psychological_need', char.psychological_core?.psychological_need)}
+                    ${field('Moral Need', 'psychological_core.moral_need', char.psychological_core?.moral_need)}
+                </div>
+                ${field('Paradox (optional)', 'psychological_core.paradox', char.psychological_core?.paradox || char.voice_and_behavior?.paradox)}
+
+                <!-- VOICE & BEHAVIOR -->
+                <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Voice &amp; Behavior</div>
+                <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+                    ${tagPill('Voice', 'voice_and_behavior.voice_tag', char.voice_and_behavior?.voice_tag, 'voice_tag')}
+                    ${tagPill('Pressure', 'voice_and_behavior.pressure_tag', char.voice_and_behavior?.pressure_tag, 'pressure_tag')}
+                    ${tagPill('Humor', 'voice_and_behavior.humor_tag', char.voice_and_behavior?.humor_tag, 'humor_tag')}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                    ${field('Speech Patterns', 'voice_and_behavior.speech_patterns', char.voice_and_behavior?.speech_patterns)}
+                    ${field('Deflection Tactic', 'voice_and_behavior.deflection_tactic', char.voice_and_behavior?.deflection_tactic)}
+                </div>
+
+                <!-- ARC -->
+                <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Arc</div>
+                <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+                    ${tagPill('Core Drive', 'arc.core_drive', arcDrive, 'core_drive')}
+                    <div>
+                        <div style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 3px;">Direction</div>
+                        <div class="char-arc-toggle" data-field="arc.direction">
+                            ${dirOptions.map(d => `<button class="char-arc-btn${d === arcDir ? ' active' : ''}" data-value="${d}">${d}</button>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                ${ticksSectionHtml}
+            `;
+            const functionalProfileHtml = `
+                <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Functional Supporting Profile</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                    ${field('Narrative Function', 'functional_profile.narrative_function', char.functional_profile?.narrative_function)}
+                    ${field('Emotional Truth', 'functional_profile.emotional_truth', char.functional_profile?.emotional_truth)}
+                    ${field('Comic / Tension Function', 'functional_profile.comic_or_tension_function', char.functional_profile?.comic_or_tension_function)}
+                    ${field('Pressure Behavior', 'functional_profile.pressure_behavior', char.functional_profile?.pressure_behavior)}
+                    ${field('Voice Flavor', 'functional_profile.voice_flavor', char.functional_profile?.voice_flavor)}
+                </div>
+                ${ticksEnabled ? ticksSectionHtml : ''}
+            `;
+            const cameoProfileHtml = `
+                <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Cameo / Scene Utility Profile</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                    ${field('Scene Purpose', 'cameo_profile.scene_purpose', char.cameo_profile?.scene_purpose)}
+                    ${field('Casting Energy', 'cameo_profile.casting_energy', char.cameo_profile?.casting_energy)}
+                    ${field('Playable Behavior', 'cameo_profile.playable_behavior', char.cameo_profile?.playable_behavior)}
+                    ${field('Line Style', 'cameo_profile.line_style_example', char.cameo_profile?.line_style_example)}
+                </div>
+            `;
+            const rightColumnHtml = profileTierRank === 1
+                ? fullProfileHtml
+                : (profileTierRank === 2 ? functionalProfileHtml : cameoProfileHtml);
 
             card.innerHTML = `
                 <!-- LEFT COLUMN: Identity -->
                 <div style="border-right: 1px solid #1f2937; padding-right: 24px;">
                     <h3 style="margin: 0 0 4px; color: #f9fafb; font-size: 1.5rem; font-weight: 700;">${escapeHtml(char.name || 'Unnamed')}</h3>
-                    <div style="display: inline-block; background: ${badgeBg}; color: ${badgeColor}; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 10px; border-radius: 20px; margin-bottom: 16px;">${escapeHtml(role)}</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <div style="display: inline-block; background: ${badgeBg}; color: ${badgeColor}; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 10px; border-radius: 20px;">${escapeHtml(role)}</div>
+                        <div style="display: inline-block; background: rgba(16,185,129,0.12); color: #86efac; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 10px; border-radius: 20px;">${escapeHtml(profileTier)}</div>
+                    </div>
                     <div>
                         <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Bio</div>
                         <textarea
@@ -2830,66 +3015,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             style="${taStyle} font-style: italic; color: #9ca3af;"
                         >${escapeHtml(char.brief_summary || '')}</textarea>
                     </div>
+                    ${tierToggle}
                 </div>
 
-                <!-- RIGHT COLUMN: Deep Dive -->
+                <!-- RIGHT COLUMN: Tiered Profile -->
                 <div>
-                    <!-- PSYCHOLOGICAL CORE -->
-                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Psychological Core</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
-                        ${field('Ghost & Wound', 'psychological_core.ghost_and_wound', char.psychological_core?.ghost_and_wound)}
-                        ${field('The Lie', 'psychological_core.the_lie', char.psychological_core?.the_lie)}
-                        ${field('Fear', 'psychological_core.fear', char.psychological_core?.fear)}
-                        ${field('Desire', 'psychological_core.desire', char.psychological_core?.desire)}
-                        ${field('Psychological Need', 'psychological_core.psychological_need', char.psychological_core?.psychological_need)}
-                        ${field('Moral Need', 'psychological_core.moral_need', char.psychological_core?.moral_need)}
-                    </div>
-                    ${field('Paradox', 'psychological_core.paradox', char.psychological_core?.paradox || char.voice_and_behavior?.paradox)}
-
-                    <!-- VOICE & BEHAVIOR -->
-                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
-                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Voice &amp; Behavior</div>
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
-                        ${tagPill('Voice', 'voice_and_behavior.voice_tag', char.voice_and_behavior?.voice_tag, 'voice_tag')}
-                        ${tagPill('Pressure', 'voice_and_behavior.pressure_tag', char.voice_and_behavior?.pressure_tag, 'pressure_tag')}
-                        ${tagPill('Humor', 'voice_and_behavior.humor_tag', char.voice_and_behavior?.humor_tag, 'humor_tag')}
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
-                        ${field('Speech Patterns', 'voice_and_behavior.speech_patterns', char.voice_and_behavior?.speech_patterns)}
-                        ${field('Deflection Tactic', 'voice_and_behavior.deflection_tactic', char.voice_and_behavior?.deflection_tactic)}
-                    </div>
-
-                    <!-- ARC -->
-                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
-                    <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px;">Arc</div>
-                    <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-                        ${tagPill('Core Drive', 'arc.core_drive', arcDrive, 'core_drive')}
-                        <div>
-                            <div style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 3px;">Direction</div>
-                            <div class="char-arc-toggle" data-field="arc.direction">
-                                ${dirOptions.map(d => `<button class="char-arc-btn${d === arcDir ? ' active' : ''}" data-value="${d}">${d}</button>`).join('')}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TICKS -->
-                    <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
-                    <div class="char-ticks-section" data-enabled="${ticksEnabled}">
-                        <div class="char-ticks-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <span class="char-ticks-arrow">${ticksEnabled ? '▼' : '▶'}</span>
-                            <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;">Ticks</div>
-                            ${!ticksEnabled ? '<button class="char-ticks-add-btn" style="font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;">Add Tick</button>' : ''}
-                        </div>
-                        <div class="char-ticks-body" style="margin-top: 8px; ${ticksEnabled ? '' : 'display: none;'}">
-                            ${ticksEnabled ? `
-                                ${field('Description', 'ticks.description', tickDesc)}
-                                ${field('Frequency Gate', 'ticks.frequency_gate', tickGate)}
-                                <button class="char-ticks-remove-btn" style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer; margin-top: 4px;">Remove Tick</button>
-                            ` : `
-                                <div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>
-                            `}
-                        </div>
-                    </div>
+                    ${rightColumnHtml}
                     ${legacySubtlety ? `
                         <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
                         <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (legacy)</div>
@@ -2951,6 +3082,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', () => {
                     card.querySelectorAll('.char-arc-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    markStage3Dirty();
+                });
+            });
+
+            // Profile tier toggle
+            card.querySelectorAll('.char-tier-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    card.querySelectorAll('.char-tier-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    card.dataset.profileTier = btn.dataset.value || 'Tier 1';
+                    const current = scrapeCharacters();
+                    renderCharacters(current);
                     markStage3Dirty();
                 });
             });
@@ -3042,13 +3185,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         charCards.forEach((card) => {
             const charName = card.dataset.charName || '';
+            const activeTierBtn = card.querySelector('.char-tier-btn.active');
+            const profileTier = normalizeCharacterProfileTier(activeTierBtn?.dataset.value || card.dataset.profileTier || 'Tier 1', { name: charName });
+            const isFullProfile = profileTier === 'Tier 1';
             const charObj = {
                 name: charName,
                 role: card.dataset.charRole || '',
+                profile_tier: profileTier,
                 brief_summary: '',
-                psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '', paradox: '' },
-                voice_and_behavior: { voice_tag: '', pressure_tag: '', humor_tag: '', speech_patterns: '', deflection_tactic: '' },
-                arc: { core_drive: '', direction: 'Growth' },
+                functional_profile: {
+                    narrative_function: '',
+                    emotional_truth: '',
+                    comic_or_tension_function: '',
+                    pressure_behavior: '',
+                    voice_flavor: ''
+                },
+                cameo_profile: { scene_purpose: '', casting_energy: '', playable_behavior: '', line_style_example: '' },
+                psychological_core: isFullProfile ? { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '', paradox: '' } : {},
+                voice_and_behavior: isFullProfile ? { voice_tag: '', pressure_tag: '', humor_tag: '', speech_patterns: '', deflection_tactic: '' } : {},
+                arc: isFullProfile ? { core_drive: '', direction: 'Growth' } : {},
                 ticks: { enabled: false, description: '', frequency_gate: '' },
             };
 
@@ -3063,6 +3218,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     charObj.psychological_core[f.split('.')[1]] = val;
                 } else if (f.startsWith('voice_and_behavior.')) {
                     charObj.voice_and_behavior[f.split('.')[1]] = val;
+                } else if (f.startsWith('functional_profile.')) {
+                    charObj.functional_profile[f.split('.')[1]] = val;
+                } else if (f.startsWith('cameo_profile.')) {
+                    charObj.cameo_profile[f.split('.')[1]] = val;
                 } else if (f.startsWith('ticks.')) {
                     charObj.ticks[f.split('.')[1]] = val;
                 }
@@ -3085,6 +3244,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 charObj.arc.direction = activeArcBtn.dataset.value || 'Growth';
             }
 
+            if (!isFullProfile) {
+                charObj.psychological_core = {};
+                charObj.voice_and_behavior = {};
+                charObj.arc = {};
+                charObj.ticks = { enabled: false, description: '', frequency_gate: '' };
+                if (profileTier === 'Tier 2') {
+                    charObj.cameo_profile = {};
+                } else {
+                    charObj.functional_profile = {};
+                }
+            }
+
             // Scrape ticks enabled state + re-append downstream warning to frequency_gate
             const ticksSection = card.querySelector('.char-ticks-section');
             if (ticksSection) {
@@ -3098,7 +3269,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Re-attach _deep_profile from cache
-            if (_deepProfileCache[charName]) {
+            if (isFullProfile && _deepProfileCache[charName]) {
                 charObj._deep_profile = _deepProfileCache[charName];
             }
 
@@ -3289,6 +3460,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const oc = oldChars.find(c => c.name === nc.name);
             if (!oc) { changes.push(`Added new character: ${nc.name} (${nc.role})`); continue; }
             if (oc.role !== nc.role) changes.push(`${nc.name}: role changed from "${oc.role}" to "${nc.role}"`);
+            if ((oc.profile_tier || 'Tier 1') !== (nc.profile_tier || 'Tier 1')) changes.push(`${nc.name}: profile tier changed from "${oc.profile_tier || 'Tier 1'}" to "${nc.profile_tier || 'Tier 1'}"`);
+            const fOld = oc.functional_profile || {};
+            const fNew = nc.functional_profile || {};
+            for (const k of ['narrative_function', 'emotional_truth', 'comic_or_tension_function', 'pressure_behavior', 'voice_flavor']) {
+                if ((fOld[k] || '') !== (fNew[k] || '')) changes.push(`${nc.name}: ${k.replace(/_/g, ' ')} updated`);
+            }
+            const cOld = oc.cameo_profile || {};
+            const cNew = nc.cameo_profile || {};
+            for (const k of ['scene_purpose', 'casting_energy', 'playable_behavior', 'line_style_example']) {
+                if ((cOld[k] || '') !== (cNew[k] || '')) changes.push(`${nc.name}: ${k.replace(/_/g, ' ')} updated`);
+            }
             const pOld = oc.psychological_core || {};
             const pNew = nc.psychological_core || {};
             for (const k of ['ghost_and_wound', 'the_lie', 'fear', 'desire', 'psychological_need', 'moral_need', 'paradox']) {
@@ -9190,9 +9372,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return characters.map(c => {
                 let out = `${c.name || 'Unnamed'}`;
                 if (c.role) out += ` (${c.role})`;
+                if (c.profile_tier) out += ` [${c.profile_tier}]`;
                 out += '\n';
+                if (c.brief_summary) out += `  ${c.brief_summary}\n`;
                 if (c.description) out += `  ${c.description}\n`;
-                if (c.arc) out += `  Arc: ${c.arc}\n`;
+                if (c.functional_profile?.narrative_function) out += `  Narrative Function: ${c.functional_profile.narrative_function}\n`;
+                if (c.functional_profile?.emotional_truth) out += `  Emotional Truth: ${c.functional_profile.emotional_truth}\n`;
+                if (c.functional_profile?.comic_or_tension_function) out += `  Comic/Tension Function: ${c.functional_profile.comic_or_tension_function}\n`;
+                if (c.functional_profile?.pressure_behavior) out += `  Pressure Behavior: ${c.functional_profile.pressure_behavior}\n`;
+                if (c.functional_profile?.voice_flavor) out += `  Voice Flavor: ${c.functional_profile.voice_flavor}\n`;
+                if (c.cameo_profile?.scene_purpose) out += `  Scene Purpose: ${c.cameo_profile.scene_purpose}\n`;
+                if (c.cameo_profile?.casting_energy) out += `  Casting Energy: ${c.cameo_profile.casting_energy}\n`;
+                if (c.cameo_profile?.playable_behavior) out += `  Playable Behavior: ${c.cameo_profile.playable_behavior}\n`;
+                if (c.cameo_profile?.line_style_example) out += `  Line Style: ${c.cameo_profile.line_style_example}\n`;
+                if (typeof c.arc === 'string') out += `  Arc: ${c.arc}\n`;
+                if (c.arc?.direction || c.arc?.core_drive) out += `  Arc: ${[c.arc.direction, c.arc.core_drive].filter(Boolean).join(', ')}\n`;
                 if (c.backstory) out += `  Backstory: ${c.backstory}\n`;
                 return out;
             }).join('\n');

@@ -340,6 +340,91 @@ async function generateOutlineDocx(outline, projectTitle) {
 // Stage 3: Characters → .docx
 // ─────────────────────────────────────────────────────────────────────────────
 
+const TIER_1_PROJECT_CHARACTER_NAMES = ['Rebecca', 'Dapple', 'Dave', 'Terry', 'Elliot', 'Furdlegurr', 'Blounder', 'Quist', 'Scott', 'Robotobob'];
+const TIER_2_PROJECT_CHARACTER_NAMES = ['Pono', 'Moog', 'Big Doll', 'Pretz'];
+const TIER_3_PROJECT_CHARACTER_NAMES = ['Molly', 'Dylan', "Dylan's parents", 'Dylan’s parents', 'Ms. Alvarado', 'Carol', 'Brenda', 'Vance', 'Gary', 'Tyler'];
+
+function normalizeProjectCharacterName(value = '') {
+    return String(value || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[’‘`]/g, "'")
+        .replace(/\b([A-Za-z0-9]+)'s\b/g, '$1s')
+        .replace(/[^A-Za-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+}
+
+function projectTierForCharacterName(name = '') {
+    const normalized = normalizeProjectCharacterName(name);
+    if (!normalized) return null;
+    if (TIER_1_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 1';
+    if (TIER_2_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 2';
+    if (TIER_3_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 3';
+    return null;
+}
+
+function normalizeCharacterProfileTier(value = '', character = {}) {
+    const projectTier = projectTierForCharacterName(character.name);
+    if (projectTier) return projectTier;
+    const text = String(value || '').toLowerCase();
+    if (/\b(?:tier\s*)?3\b/.test(text) || /\b(cameo|scene utility|utility|minor)\b/.test(text)) return 'Tier 3';
+    if (/\b(?:tier\s*)?2\b/.test(text) || /\b(functional|supporting|recurring)\b/.test(text)) return 'Tier 2';
+    if (/\b(?:tier\s*)?1\b/.test(text) || /\b(full|major|arc-bearing|arc bearing)\b/.test(text)) return 'Tier 1';
+    if (character.cameo_profile) return 'Tier 3';
+    if (character.functional_profile) return 'Tier 2';
+    return 'Tier 1';
+}
+
+function characterTierLabel(tier = 'Tier 1') {
+    if (tier === 'Tier 3') return 'Tier 3 — Cameo / Scene Utility';
+    if (tier === 'Tier 2') return 'Tier 2 — Functional Supporting';
+    return 'Tier 1 — Full Profile';
+}
+
+function normalizeFunctionalProfile(character = {}) {
+    const functional = character.functional_profile || {};
+    const cameo = character.cameo_profile || {};
+    const voice = character.voice_and_behavior || {};
+    return {
+        narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || '',
+        emotional_truth: functional.emotional_truth || character.emotional_truth || '',
+        comic_or_tension_function: functional.comic_or_tension_function || functional.comic_function || functional.tension_function || character.comic_or_tension_function || '',
+        pressure_behavior: functional.pressure_behavior || functional.temptation_choice_or_pressure || functional.temptation_or_choice || functional.playable_behavior || cameo.playable_behavior || character.playable_behavior || character.pressure_behavior || '',
+        voice_flavor: functional.voice_flavor || functional.line_style_or_dialogue_flavor || functional.line_style || functional.dialogue_flavor || character.voice_flavor || character.line_style_or_dialogue_flavor || character.dialogue_flavor || voice.voice_tag || ''
+    };
+}
+
+function normalizeCameoProfile(character = {}) {
+    const cameo = character.cameo_profile || {};
+    const functional = character.functional_profile || {};
+    return {
+        scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || '',
+        casting_energy: cameo.casting_energy || functional.casting_energy || character.casting_energy || '',
+        playable_behavior: cameo.playable_behavior || functional.playable_behavior || functional.pressure_behavior || character.playable_behavior || '',
+        line_style_example: cameo.line_style_example || cameo.optional_line_style_example || functional.line_style_or_dialogue_flavor || functional.voice_flavor || character.line_style_example || ''
+    };
+}
+
+function addKeyValueSection(children, label, obj, fields) {
+    if (!obj) return;
+    const validFields = fields.filter(([, k]) => obj[k]);
+    if (!validFields.length) return;
+
+    children.push(h1(label));
+    validFields.forEach(([fieldLabel, key]) => {
+        const val = Array.isArray(obj[key]) ? obj[key].join(', ') : String(obj[key]);
+        children.push(new Paragraph({
+            children: [
+                new TextRun({ text: `${fieldLabel}:  `, bold: true, font: 'Arial', size: 22, color: '374151' }),
+                new TextRun({ text: val, font: 'Arial', size: 22 })
+            ],
+            spacing: { before: 80, after: 80 }
+        }));
+    });
+}
+
 async function generateCharactersDocx(characters, projectTitle) {
     const children = [
         new Paragraph({
@@ -356,6 +441,9 @@ async function generateCharactersDocx(characters, projectTitle) {
 
     (characters || []).forEach((char, idx) => {
         if (idx > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
+        const tier = normalizeCharacterProfileTier(char.profile_tier, char);
+        const functionalProfile = normalizeFunctionalProfile(char);
+        const cameoProfile = normalizeCameoProfile(char);
 
         children.push(
             new Paragraph({
@@ -364,6 +452,10 @@ async function generateCharactersDocx(characters, projectTitle) {
             }),
             new Paragraph({
                 children: [new TextRun({ text: char.role || '', size: 22, font: 'Arial', italics: true, color: '6B7280' })],
+                spacing: { after: 80 }
+            }),
+            new Paragraph({
+                children: [new TextRun({ text: characterTierLabel(tier), size: 20, font: 'Arial', bold: true, color: '276221' })],
                 spacing: { after: 240 }
             })
         );
@@ -372,38 +464,41 @@ async function generateCharactersDocx(characters, projectTitle) {
             children.push(body(char.brief_summary, { spacingAfter: 240 }));
         }
 
-        const sections = [
-            { label: 'PSYCHOLOGICAL CORE', obj: char.psychological_core, fields: [
+        if (tier === 'Tier 3') {
+            addKeyValueSection(children, 'CAMEO / SCENE UTILITY PROFILE', cameoProfile, [
+                ['Scene Purpose', 'scene_purpose'], ['Casting Energy', 'casting_energy'],
+                ['Playable Behavior', 'playable_behavior'], ['Line Style', 'line_style_example']
+            ]);
+        } else if (tier === 'Tier 2') {
+            addKeyValueSection(children, 'FUNCTIONAL SUPPORTING PROFILE', functionalProfile, [
+                ['Narrative Function', 'narrative_function'], ['Emotional Truth', 'emotional_truth'],
+                ['Comic / Tension Function', 'comic_or_tension_function'], ['Pressure Behavior', 'pressure_behavior'],
+                ['Voice Flavor', 'voice_flavor']
+            ]);
+        } else {
+            addKeyValueSection(children, 'PSYCHOLOGICAL CORE', char.psychological_core, [
                 ['Ghost & Wound', 'ghost_and_wound'], ['The Lie', 'the_lie'], ['Fear', 'fear'],
-                ['Desire', 'desire'], ['Psychological Need', 'psychological_need'], ['Moral Need', 'moral_need']
-            ]},
-            { label: 'VOICE & BEHAVIOR', obj: char.voice_and_behavior, fields: [
-                ['Speech Patterns', 'speech_patterns'], ['Behavioral Quirks', 'behavioral_quirks'],
-                ['Defense Mechanisms', 'defense_mechanisms']
-            ]},
-            { label: 'DRAMATIC FUNCTION', obj: char, fields: [
+                ['Desire', 'desire'], ['Psychological Need', 'psychological_need'], ['Moral Need', 'moral_need'],
+                ['Paradox', 'paradox']
+            ]);
+            addKeyValueSection(children, 'VOICE & BEHAVIOR', char.voice_and_behavior, [
+                ['Voice Tag', 'voice_tag'], ['Pressure Tag', 'pressure_tag'], ['Humor Tag', 'humor_tag'],
+                ['Speech Patterns', 'speech_patterns'], ['Deflection Tactic', 'deflection_tactic'],
+                ['Behavioral Quirks', 'behavioral_quirks'], ['Defense Mechanisms', 'defense_mechanisms']
+            ]);
+            addKeyValueSection(children, 'ARC', char.arc, [
+                ['Core Drive', 'core_drive'], ['Direction', 'direction']
+            ]);
+            if (char.ticks?.enabled) {
+                addKeyValueSection(children, 'TICKS', char.ticks, [
+                    ['Description', 'description'], ['Frequency Gate', 'frequency_gate']
+                ]);
+            }
+            addKeyValueSection(children, 'DRAMATIC FUNCTION', char, [
                 ['Character Arc', 'character_arc'], ['Role in Story', 'role_in_story'],
                 ['Key Relationships', 'key_relationships']
-            ]}
-        ];
-
-        sections.forEach(({ label, obj, fields }) => {
-            if (!obj) return;
-            const validFields = fields.filter(([, k]) => obj[k]);
-            if (!validFields.length) return;
-
-            children.push(h1(label));
-            validFields.forEach(([fieldLabel, key]) => {
-                const val = Array.isArray(obj[key]) ? obj[key].join(', ') : String(obj[key]);
-                children.push(new Paragraph({
-                    children: [
-                        new TextRun({ text: `${fieldLabel}:  `, bold: true, font: 'Arial', size: 22, color: '374151' }),
-                        new TextRun({ text: val, font: 'Arial', size: 22 })
-                    ],
-                    spacing: { before: 80, after: 80 }
-                }));
-            });
-        });
+            ]);
+        }
     });
 
     return await Packer.toBuffer(makeDoc(children));

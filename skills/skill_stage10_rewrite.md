@@ -44,7 +44,7 @@ If you find drift, adjust the rewritten lines to match the reference patterns â€
 When only STYLE DIRECTIVES are present (no reference), maintain the voice as guidance but do not perform a formal compliance check.
 
 **Character Profiles (when provided):**
-If your input includes a `CHARACTER PROFILES` section with voice tags and dialogue fingerprints, consult it when rewriting dialogue. Maintain each character's established voice â€” their `voice_tag`, `speech_patterns`, and `_deep_profile.dialogue_fingerprint` are your reference. Under high-stress scenes, use `pressure_tag` to inform how the character's speech changes.
+If your input includes a `CHARACTER PROFILES` section with tiered profiles, consult it when rewriting dialogue. For Tier 1 characters, maintain established voice using `voice_tag`, `speech_patterns`, and `_deep_profile.dialogue_fingerprint`; under high-stress scenes, use `pressure_tag` to inform how speech changes. For Tier 2 characters, use `functional_profile.narrative_function`, `emotional_truth`, `comic_or_tension_function`, `pressure_behavior`, and `voice_flavor` as light guidance, not rigid dialogue rules. For Tier 3 characters, use only `cameo_profile.scene_purpose`, `casting_energy`, `playable_behavior`, and optional line-style examples. Do not invent trauma, full arcs, tics, or personality-typing logic for minor scene utility roles. If Tier 2 or Tier 3 characters include `_deep_profile` only for backward compatibility, treat it as non-binding unless the writer explicitly requested it.
 
 **Fountain Formatting:**
 Preserve all Fountain syntax exactly:

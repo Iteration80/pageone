@@ -230,10 +230,34 @@ function formatOutlineBeat(beat = {}, index = 0) {
 }
 
 function formatCharacterLock(character = {}) {
+    const tier = character.profile_tier || 'Tier 1';
+    const tierText = String(tier).toLowerCase();
+    const isTier3 = /\b3\b|cameo|utility/.test(tierText);
+    const isTier2 = /\b2\b|functional/.test(tierText);
+    const functional = character.functional_profile || {};
+    const cameo = character.cameo_profile || {};
     const core = character.psychological_core || {};
     const arc = character.arc || {};
+    if (isTier3) {
+        return [
+            `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}, ${tier}): ${character.brief_summary || ''}`,
+            cameo.scene_purpose ? `Scene purpose: ${cameo.scene_purpose}` : '',
+            cameo.playable_behavior ? `Playable behavior: ${cameo.playable_behavior}` : '',
+            cameo.casting_energy ? `Casting energy: ${cameo.casting_energy}` : ''
+        ].filter(Boolean).join(' | ');
+    }
+    if (isTier2) {
+        return [
+            `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}, ${tier}): ${character.brief_summary || ''}`,
+            functional.narrative_function ? `Narrative function: ${functional.narrative_function}` : '',
+            functional.emotional_truth ? `Emotional truth: ${functional.emotional_truth}` : '',
+            functional.comic_or_tension_function ? `Comic/tension function: ${functional.comic_or_tension_function}` : '',
+            functional.pressure_behavior ? `Pressure behavior: ${functional.pressure_behavior}` : '',
+            functional.voice_flavor ? `Voice flavor: ${functional.voice_flavor}` : ''
+        ].filter(Boolean).join(' | ');
+    }
     return [
-        `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}): ${character.brief_summary || ''}`,
+        `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}, ${tier}): ${character.brief_summary || ''}`,
         core.desire ? `Want: ${core.desire}` : '',
         core.psychological_need || core.moral_need ? `Need: ${[core.psychological_need, core.moral_need].filter(Boolean).join(' / ')}` : '',
         core.ghost_and_wound ? `Wound: ${core.ghost_and_wound}` : '',

@@ -55,9 +55,12 @@ You must format the scene using standard screenplay conventions so the frontend 
 If STYLE DIRECTIVES are present in the system prompt, treat them as primary craft instructions for dialogue rhythm, action detail, tonal register, pacing, and voice. Apply them consistently across all scenes. They sit above general craft rules but below the Scene Blueprint (what happens in the scene always takes priority). If no style directives are present, use your default professional screenplay voice.
 
 ## 5.1 DEEP PROFILE: DIALOGUE FINGERPRINT (PRIMARY GUIDANCE)
-When Character Profiles include `_deep_profile.dialogue_fingerprint`, treat it as your PRIMARY technical reference for writing that character's dialogue. The fingerprint contains concrete rules: preferred sentence length, vocabulary domain, question style, interruption tendency, topics they avoid, and filler words. Follow these rules precisely.
+When Tier 1 Character Profiles include `_deep_profile.dialogue_fingerprint`, treat it as your PRIMARY technical reference for writing that character's dialogue. The fingerprint contains concrete rules: preferred sentence length, vocabulary domain, question style, interruption tendency, topics they avoid, and filler words. Follow these rules precisely.
 
 Additionally:
-* **`voice_and_behavior.voice_tag`** sets the broad creative direction for how the character sounds.
-* **`voice_and_behavior.pressure_tag`** dictates how the character's speech changes under duress — consult it for high-tension scenes.
+* **`voice_and_behavior.voice_tag`** sets the broad creative direction for how a Tier 1 character sounds.
+* **`voice_and_behavior.pressure_tag`** dictates how a Tier 1 character's speech changes under duress — consult it for high-tension scenes.
+* **Tier 2 profiles** use `functional_profile.narrative_function`, `emotional_truth`, `comic_or_tension_function`, `pressure_behavior`, and `voice_flavor` as light supporting-character guidance. Do not turn these into rigid dialogue rules or full character journeys.
+* **Tier 3 profiles** use `cameo_profile.scene_purpose`, `casting_energy`, `playable_behavior`, and optional `line_style_example` only. Do not invent trauma, arcs, tics, or personality-typing logic for scene utility characters.
+* **Minor-character deep profile boundary** — If a Tier 2 or Tier 3 character has `_deep_profile` only for backward compatibility, treat it as non-binding unless the writer explicitly requested hidden drafting guidance for that minor character.
 * **`ticks.frequency_gate`** — If present, only surface the character's tic in scenes matching this condition. If `ticks.enabled: false`, the character has NO tic.

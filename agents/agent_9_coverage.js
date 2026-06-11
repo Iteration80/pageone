@@ -180,7 +180,19 @@ const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) 
     const charSection = chars.length > 0
         ? `\n\nCharacter Profiles:\n${chars.map(c => {
             const dp = c._deep_profile || {};
-            return `- ${c.name} (${c.role}): ${c.brief_summary || ''}
+            const tier = c.profile_tier || 'Tier 1';
+            const tierText = String(tier).toLowerCase();
+            if (/\b3\b|cameo|utility/.test(tierText)) {
+                const cameo = c.cameo_profile || {};
+                return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
+  Scene purpose: ${cameo.scene_purpose || 'unknown'} | Playable behavior: ${cameo.playable_behavior || 'unknown'}`;
+            }
+            if (/\b2\b|functional/.test(tierText)) {
+                const functional = c.functional_profile || {};
+                return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
+  Narrative function: ${functional.narrative_function || 'unknown'} | Emotional truth: ${functional.emotional_truth || 'unknown'} | Comic/tension: ${functional.comic_or_tension_function || 'unknown'} | Pressure behavior: ${functional.pressure_behavior || 'unknown'} | Voice flavor: ${functional.voice_flavor || 'unknown'}`;
+            }
+            return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
   Voice: ${c.voice_and_behavior?.voice_tag || 'unknown'} | Pressure: ${c.voice_and_behavior?.pressure_tag || 'unknown'} | Humor: ${c.voice_and_behavior?.humor_tag || 'unknown'}
   Arc: ${c.arc?.core_drive || 'unknown'} → ${c.arc?.direction || 'unknown'}${dp.dialogue_fingerprint ? `\n  Dialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
         }).join('\n')}`
