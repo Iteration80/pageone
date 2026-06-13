@@ -107,11 +107,11 @@ test('knowledge context includes accepted divergences and relevant source proven
     assert.match(sourceBibleSummary(project.data.knowledge), /Project Adaptation Notes/);
 });
 
-test('brainstorm route returns JSON 404 when the active project file is missing', () => {
+test('assistant route returns JSON 404 when the active project file is missing', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    const brainstormRoute = serverSource.match(/app\.post\('\/api\/brainstorm'[\s\S]*?app\.post\('\/api\/brainstorm-rewrite'/)?.[0] || '';
+    const assistantRoute = serverSource.match(/app\.post\('\/api\/assistant'[\s\S]*?res\.status\(500\)\.json\(\{ error: detail \? `Assistant request failed:/)?.[0] || '';
 
-    assert.match(brainstormRoute, /catch\s*\{\s*return res\.status\(404\)\.json\(\{ error: 'Project not found' \}\);/);
+    assert.match(assistantRoute, /catch\s*\{\s*return res\.status\(404\)\.json\(\{ error: 'Project not found' \}\);/);
 });
 
 test('unknown API routes return JSON 404 diagnostics', () => {
@@ -143,9 +143,9 @@ test('build fingerprint is exposed, cached, and stamped into exports', () => {
     assert.doesNotMatch(agentCoverageSource, /JSON\.parse\(response\.text\)/);
 
     clearSkillCache();
-    assert.equal(normalizeSkillFilename('skill_brainstorm'), 'skill_brainstorm.md');
-    assert.strictEqual(loadSkill('skill_brainstorm'), loadSkill('skill_brainstorm.md'));
-    assert.throws(() => loadSkill('../skill_brainstorm'), /Invalid skill name/);
+    assert.equal(normalizeSkillFilename('skill_assistant_core'), 'skill_assistant_core.md');
+    assert.strictEqual(loadSkill('skill_assistant_core'), loadSkill('skill_assistant_core.md'));
+    assert.throws(() => loadSkill('../skill_assistant_core'), /Invalid skill name/);
 });
 
 test('compactAuditForKnowledge bounds noisy audit payloads', () => {
@@ -531,12 +531,14 @@ test('frontend Stage 7 offers four style paths and trained upload', () => {
 test('Stage 3 character regeneration handles legacy cards and direct rebuild requests', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const agent3Js = fs.readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
+    const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
     assert.match(appJs, /normalizeStage3CharacterForEditor/);
     assert.match(appJs, /core\.false_belief/);
     assert.match(appJs, /core\.wound/);
-    assert.match(appJs, /isStage3DirectRevisionRequest/);
-    assert.match(appJs, /Applying those character changes now/);
+    assert.match(assistantJs, /STAGE 3 CHARACTER BOUNDARY/);
+    assert.doesNotMatch(appJs, /isStage3DirectRevisionRequest/);
+    assert.doesNotMatch(appJs, /Applying those character changes now/);
 
     assert.match(agent3Js, /normalizeLegacyCharacter/);
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
@@ -553,12 +555,11 @@ test('Claude client streams long Opus requests used by Stage 3 characters', () =
 });
 
 test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    assert.match(serverJs, /STAGE 3 CHARACTER BOUNDARY/);
-    assert.match(serverJs, /ghost\/wound, lie, desire/);
-    assert.match(serverJs, /Do NOT prescribe sequence-level or scene-level plot placement/);
-    assert.match(serverJs, /mid-story regression/);
-    assert.match(serverJs, /Stage 3 execution means updating character profiles only/);
+    const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
+    assert.match(assistantJs, /STAGE 3 CHARACTER BOUNDARY/);
+    assert.match(assistantJs, /character-profile mechanics/);
+    assert.match(assistantJs, /Do NOT prescribe sequence- or scene-level plot placement/);
+    assert.match(assistantJs, /Stage 3 execution means updating character profiles only/);
 });
 
 test('Stage 2 outline generation supports streamed assistant revisions', () => {
@@ -640,7 +641,7 @@ test('Stage 4 chat treats current beat evidence as newer than stale analysis his
     assert.match(serverJs, /function isStage4CurrentArtifactAnalysisRequest/);
     assert.match(serverJs, /CURRENT ARTIFACT ANALYSIS MODE/);
     assert.match(serverJs, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
-    assert.match(serverJs, /persistStageConversation\(filePath, projectData, `stage\$\{stageId\}`, messagesForPrompt, result\.message\)/);
+    assert.match(serverJs, /persistStageConversation\(filePath, projectData, conversationKey, historyForTurn, result\.message\)/);
     assert.match(serverJs, /delete projectData\.data\.conversations\.stage4/);
 
     assert.match(appJs, /function resetStageChatForNewArtifact/);
@@ -676,7 +677,6 @@ test('Stage 4 current event list questions are answered without model analysis',
     );
 
     const response = buildStage4CurrentEventListResponse(project, 'List every Kaiju-related event by sequence and beat name from the current beat sheet only.');
-    assert.equal(response.suggest_plan, false);
     assert.match(response.message, /current Stage 4 beat sheet only/);
     assert.match(response.message, /Sequence 6: Code Wendy — All Is Lost/);
     assert.match(response.message, /Kaiju swallows Slatern/);
@@ -726,19 +726,16 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
         }
     ]);
 
-    assert.equal(response.execute_immediately, true);
-    assert.equal(retryResponse.execute_immediately, true);
-    assert.equal(response.suggest_plan, true);
     assert.match(response.message, /Stage 4 revision/);
-    assert.match(appJs, /function isRevisionConfirmation/);
-    assert.match(appJs, /function isRevisionStatusQuestion/);
-    assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);
-    assert.match(appJs, /function findRecentRevisionProposal/);
-    assert.match(appJs, /function isAssistantErrorMessage/);
-    assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
+    assert.match(retryResponse.message, /Stage 4 revision/);
+    assert.doesNotMatch(appJs, /function isRevisionConfirmation/);
+    assert.doesNotMatch(appJs, /function isRevisionStatusQuestion/);
+    assert.doesNotMatch(appJs, /function findRecentRevisionProposal/);
+    assert.doesNotMatch(appJs, /executeRevision && !attachment && isRevisionConfirmation/);
     assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
     assert.match(serverJs, /function findRecentStage4RevisionProposal/);
     assert.match(serverJs, /buildStage4ConfirmationBypassResponse\(messages\)/);
+    assert.match(serverJs, /name: 'apply_revision'/);
     assert.match(serverJs, /req\.path === '\/app\.js'/);
     assert.match(serverJs, /Cache-Control', 'no-store, max-age=0'/);
     assert.match(serverJs, /X-Accel-Buffering', 'no'/);
@@ -747,19 +744,22 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
 });
 
-test('tool assistant migration covers stages 1 through 7 and 10 with carried guardrails', () => {
+test('tool assistant migration covers stages 1 through 8 and 10 with carried guardrails', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
-    assert.match(appJs, /const TOOL_ASSISTANT_STAGES = new Set\(\[1, 2, 3, 4, 5, 6, 7, 10\]\)/);
     assert.match(serverJs, /app\.post\('\/api\/assistant'/);
+    assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm'/);
+    assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm-rewrite'/);
     assert.match(serverJs, /buildToolAssistantContextAdditions/);
     assert.match(serverJs, /buildStage4ConfirmationRevisionBrief/);
     assert.match(serverJs, /buildMemoryRecallResponse\(projectData/);
+    assert.match(assistantJs, /STAGE 8 DRAFT BOUNDARY/);
     assert.match(assistantJs, /name: 'generate_style'/);
     assert.match(assistantJs, /name: 'generate_rewrite_plan'/);
     assert.match(appJs, /toolInputBrief\(call\)/);
+    assert.match(appJs, /stageId:\s*8,[\s\S]*sceneNumber: currentDraftSceneNumber/);
     assert.match(appJs, /stageId: 10, messages: msgs/);
 });
 
@@ -781,18 +781,18 @@ test('global style creator uses the tool assistant instead of legacy style-chat 
     assert.doesNotMatch(createStyleBlock, /execute_immediately/);
 });
 
-test('frontend Stage 2 chat directly applies outline revision memos and rejects status questions', () => {
+test('frontend Stage 2 chat delegates outline revision decisions to the tool assistant', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
-    assert.match(appJs, /function isStage2DirectRevisionRequest/);
-    assert.match(appJs, /Number\(stageId\) === 2 && isStage2DirectRevisionRequest\(_text\)/);
-    assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
-    assert.match(appJs, /Applying those outline changes now/);
-    assert.match(appJs, /outline revision failed/);
+    assert.match(appJs, /toolAssistantTurn\(\{[\s\S]*stageId,[\s\S]*messages: history/);
+    assert.match(assistantJs, /revision_brief/);
+    assert.doesNotMatch(appJs, /function isStage2DirectRevisionRequest/);
+    assert.doesNotMatch(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.doesNotMatch(appJs, /Applying those outline changes now/);
+    assert.doesNotMatch(appJs, /outline revision failed/);
     assert.doesNotMatch(appJs, /saved outline came back unchanged/);
-    assert.match(appJs, /function isRevisionStatusQuestion/);
-    assert.match(appJs, /did you\|did it\|really\|actually/);
-    assert.match(appJs, /if \(isRevisionStatusQuestion\(clean\)\) return false;/);
+    assert.doesNotMatch(appJs, /function isRevisionStatusQuestion/);
     assert.match(appJs, /function revisionReceiptChanged/);
     assert.match(appJs, /function revisionReceiptFailed/);
     assert.match(appJs, /revisionReceiptChanged\(data\)/);
@@ -818,17 +818,15 @@ This is only a clarity polish. The current structure works.`;
     assert.match(promptBlock, /Rebecca's Memory - The Storm Drain/);
     assert.match(promptBlock, /Do not revive older checklist items/);
     assert.match(promptBlock, /do not propose midpoint, ending, surrender\/accountability/);
+    assert.match(promptBlock, /Call apply_revision only for that narrow local edit/);
     assert.match(serverJs, /const scopedPolishRequest = !isInit && isScopedPolishRequest\(lastUserMessage\)/);
     assert.match(serverJs, /stage6ExternalFeedbackReview \|\| scopedPolishRequest/);
-    assert.match(serverJs, /buildScopedPolishPromptBlock\(stageId, lastUserMessage\)/);
-    assert.match(appJs, /function isScopedPolishMessage/);
-    assert.match(appJs, /The confirmation is for the immediately preceding scoped polish\/clarity note/);
-    assert.match(appJs, /Apply only that scoped request/);
-    assert.match(appJs, /scopedConversationHistory = conversationHistory\.slice\(previousUserIndex\)/);
-    assert.match(appJs, /do not revive older checklist items, prior assistant proposals, or unrelated structural changes/);
+    assert.match(serverJs, /buildToolScopedPolishPromptBlock\(numericStageId, lastUserMessage\)/);
+    assert.doesNotMatch(appJs, /function isScopedPolishMessage/);
+    assert.doesNotMatch(appJs, /CONFIRMATION HANDOFF/);
 });
 
-test('stage chat source-audit questions do not execute stale pending revisions', () => {
+test('stage chat source-audit questions are handled by analysis-only tool context', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const sourceItems = extractNumberedSourceItems(`1.3 — Elliot at school playground. Elliot plays with Furdlegurr.
@@ -840,19 +838,17 @@ test('stage chat source-audit questions do not execute stale pending revisions',
     assert.deepEqual(sourceItems.map(item => item.id), ['1.3', '1.4', '4.2']);
     assert.match(inventory, /1\.3: Elliot at school playground/);
     assert.match(inventory, /1\.4: Pono recruits Furdlegurr/);
-    assert.match(appJs, /const asksForAnalysis = \/\[\?\]\/\.test\(clean\)/);
-    assert.match(appJs, /if \(asksForAnalysis\) return false;/);
-    assert.match(appJs, /if \(pendingRevision && !attachment && isRevisionConfirmation\(_text, history\)\)/);
-    assert.match(appJs, /if \(pendingRevision\) \{\s*pendingRevision = false;\s*pendingNotes = '';/);
-    assert.match(appJs, /executeRevision && !attachment && isRevisionConfirmation\(_text, history\)/);
+    assert.doesNotMatch(appJs, /pendingRevision/);
+    assert.doesNotMatch(appJs, /isRevisionConfirmation/);
     assert.match(serverJs, /function isStage6SourceComparisonRequest/);
     assert.match(serverJs, /function extractNumberedSourceItems/);
     assert.match(serverJs, /buildSourceItemInventoryBlock\(attachmentText\)/);
     assert.match(serverJs, /STAGE 6 SOURCE COMPARISON MODE/);
     assert.match(serverJs, /Do not treat this as revision confirmation/);
+    assert.match(serverJs, /Do not call apply_revision for this turn/);
     assert.match(serverJs, /Source Coverage Matrix/);
     assert.match(serverJs, /EVERY numbered source item/);
-    assert.match(serverJs, /If the writer later calls out a source item ID you missed/);
+    assert.match(serverJs, /Before finalizing, scan the SOURCE ITEM INVENTORY again/);
     assert.match(serverJs, /stage4CurrentArtifactAnalysis \|\| stage6SourceComparisonAnalysis/);
 });
 
@@ -880,19 +876,15 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(serverJs, /res\.flush\?\.\(\)/);
 });
 
-test('frontend Stage 6 chat directly executes structured revision memos and guards no-op revisions', () => {
+test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const brainstormSkill = fs.readFileSync(require.resolve('../skills/skill_brainstorm.md'), 'utf8');
+    const assistantSkill = fs.readFileSync(require.resolve('../skills/skill_assistant_core.md'), 'utf8');
     const stage6RevisionAgent = fs.readFileSync(require.resolve('../agents/agent_6_revise.js'), 'utf8');
-    assert.match(appJs, /function isStage6DirectRevisionRequest/);
-    assert.match(appJs, /Number\(stageId\) === 6 && isStage6DirectRevisionRequest\(_text\)/);
-    assert.match(appJs, /DIRECT USER REVISION REQUEST:/);
-    assert.match(appJs, /function isStage6AnalysisOnlyFeedback/);
-    assert.match(appJs, /function isStage6ExternalFeedbackDump/);
-    assert.match(appJs, /function hasStage6ExplicitApplyIntent/);
-    assert.match(appJs, /hard canon breaks/);
-    assert.match(appJs, /stage6AnalysisOnlyFeedback && data\.suggest_plan/);
+    assert.doesNotMatch(appJs, /function isStage6DirectRevisionRequest/);
+    assert.doesNotMatch(appJs, /DIRECT USER REVISION REQUEST:/);
+    assert.doesNotMatch(appJs, /stage6AnalysisOnlyFeedback && data\.suggest_plan/);
+    assert.match(appJs, /toolAssistantTurn\(\{[\s\S]*stageId,[\s\S]*messages: history/);
     assert.match(appJs, /function shouldRegenerateStage6FromChat/);
     assert.match(appJs, /do not\|don't\|dont\|not\|never/);
     assert.match(appJs, /function reviseStage6Blueprint/);
@@ -905,33 +897,24 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(appJs, /Revision completed, but the updated blueprint could not be refreshed/);
     assert.match(appJs, /highlightStage6ChangedScenes/);
     assert.match(appJs, /returned no blueprint changes/);
-    assert.match(appJs, /const assertRevisionApplied =/);
-    assert.match(appJs, /The revision engine did not report saved changes/);
     assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentPitch\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
     assert.match(appJs, /return \{ \.\.\.data, changed: true \}/);
     assert.match(appJs, /stage8LoadEditor\(data\.result\)[\s\S]*return data;/);
-    assert.match(appJs, /latestIsConfirmation/);
-    assert.match(appJs, /CONFIRMATION HANDOFF/);
-    assert.match(appJs, /RECENT ASSISTANT CONTEXT/);
-    assert.match(appJs, /RECENT CONVERSATION CONTEXT/);
-    assert.match(appJs, /Review the updated output before treating any broader feedback list as complete/);
+    assert.match(appJs, /toolResultFromExecution\(call, rev\)/);
     assert.doesNotMatch(appJs, /chat\.history\.push\(\{ role: 'user', content: '\[Revision applied successfully/);
     assert.match(appJs, /dataset\.sceneNumber/);
     assert.match(fs.readFileSync(require.resolve('../public/style.css'), 'utf8'), /scene-card-revision-highlight/);
-    assert.match(brainstormSkill, /Project-Agnostic Thinking Protocol/);
-    assert.match(brainstormSkill, /constraint map/);
-    assert.match(brainstormSkill, /stay inside that active scope/);
-    assert.match(brainstormSkill, /dormant craft note/);
-    assert.match(brainstormSkill, /Do not infer page numbers from scene numbers or plot order/);
-    assert.match(brainstormSkill, /Do not surface the next unresolved item/);
+    assert.match(assistantSkill, /Project-Agnostic Thinking Protocol/);
+    assert.match(assistantSkill, /constraint map/);
+    assert.match(assistantSkill, /stay inside that active scope/);
+    assert.match(assistantSkill, /Do not infer page numbers from scene numbers or plot order/);
     assert.match(serverJs, /Project Constraint Map/);
-    assert.match(serverJs, /Required passes/);
     assert.match(serverJs, /SOURCE LOCATION GROUNDING MODE/);
     assert.match(serverJs, /Do not infer a page number from a scene number/);
-    assert.match(serverJs, /Review the updated artifact before treating any broader feedback list as complete/);
+    assert.match(serverJs, /Do not call apply_revision for this turn/);
     assert.match(serverJs, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
@@ -941,10 +924,9 @@ test('frontend Stage 6 chat directly executes structured revision memos and guar
     assert.match(serverJs, /const beforeDraftHash = sourcePlanDataHash/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
-    assert.match(serverJs, /Do not set suggest_plan true or execute_immediately true/);
+    assert.match(serverJs, /Do not call apply_revision for this turn/);
     assert.match(serverJs, /same recommended batch/);
-    assert.match(serverJs, /same active batch or the next unresolved decision from that same triage/);
-    assert.match(serverJs, /dormant notes from earlier feedback as competing next steps/);
+    assert.match(serverJs, /Do not ask the revision engine to apply the whole note dump/);
     assert.match(serverJs, /stageKey: 'stage6_scenes'/);
     assert.match(stage6RevisionAgent, /function buildRevisionChecklist/);
     assert.match(stage6RevisionAgent, /Treat these as explicit obligations from the feedback/);

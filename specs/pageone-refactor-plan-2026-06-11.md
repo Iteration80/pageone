@@ -1,7 +1,7 @@
 # PageOne Refactor Plan — 2026-06-11
 
 Author: Claude (Fable 5), based on full-codebase audit 2026-06-11.
-Status: Phase 1 pilot validated and Phase 2 stage rollout in progress. Stages 1–7, Stage 10 planning chat, and global style creation now route through the tool-calling assistant; legacy chat routes remain only for cleanup paths.
+Status: Phase 2 assistant unification is implemented for active chat surfaces. Stages 1–8, Stage 10 planning chat, and global style creation now route through the tool-calling assistant; legacy `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, frontend flag/regex scaffolding, and `skill_brainstorm.md` have been removed.
 
 ## Why
 
@@ -53,19 +53,18 @@ through the client so the server stays stateless across the two HTTP legs of a t
   (stage name, available tools, context fragments, entry-analysis prompts).
 - `skills/skill_assistant_core.md` — editorial SOP for the tool-based assistant. Derived from
   `skill_brainstorm.md` minus the Execution Boundary / flag-output sections, plus a Tools section.
-  Cached at module load. `skill_brainstorm.md` stays untouched for legacy stages.
-- `POST /api/assistant` in server.js (additive; `/api/brainstorm` untouched until cutover).
-- Frontend: `TOOL_ASSISTANT_STAGES` set in app.js; member stages route through the new
-  endpoint/handler. Pilot: **Stage 5 (Treatment)** — single clean revision path, has entry analysis.
+  Cached at module load. `skill_brainstorm.md` was removed after cutover.
+- `POST /api/assistant` in server.js. Pilot was **Stage 5 (Treatment)**; the route now serves active stage/global chat surfaces.
+- Frontend: stage chat routes through the tool assistant; the old `TOOL_ASSISTANT_STAGES` cutover flag was removed after all active consumers migrated.
 
 ### Rollout order
 1. Pilot Stage 5; Carsten tests conversationally. **Done.**
 2. Stages 2, 3, 4, 6 (same shape; stage-specific context fragments carried over). **Done for routing + guardrail carry-over; needs live conversational smoke on real projects.**
 3. Stage 1 (refine-pitch as the tool), Stage 7 (tool = `generate_style`), then fold Stage 10
    (`/api/brainstorm-rewrite` becomes config: priority-list context + `apply_priority_rewrite` tool)
-   and Stage 7's `/api/style-chat`. **Stage 1, project Stage 7, Stage 10 planning chat, and global style creation are done.**
+   and Stage 7's `/api/style-chat`. **Stage 1, project Stage 7, Stage 8, Stage 10 planning chat, and global style creation are done.**
 4. Delete `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, the regex layer,
-   and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes).
+   and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes). **Legacy routes, frontend regex layer, and old SOP are done; agent_2 loop remains.**
 
 ### Conversation persistence compatibility
 The new endpoint persists to the same `projectData.data.conversations.stageN` shape
@@ -76,8 +75,7 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 - Stage entry analysis (isInit) for stages 5/6/7
 - Decision cadence checkpoint (exchange-count based)
 - Knowledge context block, prior-stage conversations, attachments
-- Stage 4 deterministic bypasses stay in the legacy endpoint until Stage 4 migrates;
-  when it does, the bypasses move into the new endpoint as pre-model short-circuits (unchanged logic).
+- Stage 4 deterministic bypasses moved into `/api/assistant` as pre-model short-circuits.
 
 ### Codex continuation notes — 2026-06-13
 - Stage 5 check found and fixed one contract leak: a no-op revision receipt (`changed: false`) is now treated as a failed tool turn, so tools are withheld on the resume leg and the assistant must report the failure.
@@ -90,7 +88,7 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 - Stage 1 now routes through `/api/assistant` and uses the existing `apply_revision` browser executor for pitch refinement.
 - Project Stage 7 now routes through `/api/assistant` with a first-class `generate_style` tool; its proactive 3-writer opening message and saved-style context are carried over.
 - The browser tool loop now supports both `apply_revision` and `generate_style`, returning tool-specific receipts to the model before the closing message.
-- Remaining Phase 2 work: selected-scene Stage 10 feedback cleanup if desired, removal of the legacy `/api/brainstorm`/`/api/brainstorm-rewrite`/`/api/style-chat` paths and old frontend regex/flag scaffolding after all consumers are migrated.
+- Remaining Phase 2 work: selected-scene Stage 10 feedback cleanup if desired and embedded `agent_2_outline` conversation-loop cleanup.
 
 ### Codex continuation notes — 2026-06-13 (third pass)
 - Stage 10 no-scene-selected planning chat now routes through `/api/assistant` with a `generate_rewrite_plan` tool.
@@ -102,7 +100,14 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 - Global style creation now routes through `/api/assistant` with `stageId: "style_global"` and the existing `generate_style` browser tool executor.
 - The standalone style assistant carries existing style-library names plus project pitch context, but does not require or persist to a project conversation.
 - The create-style modal no longer calls `/api/style-chat` or consumes `execute_immediately`; it waits for the real saved-style receipt before opening the new style detail.
-- Legacy `/api/style-chat` remains in the server only until the explicit deletion pass.
+- Legacy `/api/style-chat` remained in the server only until the explicit deletion pass.
+
+### Codex continuation notes — 2026-06-13 (fifth pass)
+- Stage 8 Draft chat now routes through `/api/assistant` with `apply_revision`, passing the active `currentDraftSceneNumber` so the model sees and revises the selected scene.
+- Frontend `TOOL_ASSISTANT_STAGES`, `pendingRevision`/`pendingNotes`, local confirmation regexes, direct Stage 2/3/6 revision detectors, `buildRevisionNotes`, and synthetic post-revision follow-up scaffolding were removed.
+- Server `/api/brainstorm`, `/api/brainstorm-rewrite`, and `/api/style-chat` were deleted after the last active consumer migrated.
+- `skill_brainstorm.md` was removed; active assistant behavior now lives in `skill_assistant_core.md`.
+- Remaining cleanup target from Fabel 5's Phase 2 list: the embedded conversation loop in `agent_2_outline` and any selected-scene Stage 10 cleanup desired later.
 
 ---
 

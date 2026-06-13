@@ -72,7 +72,13 @@ Rules:
 - Also mention: "Or choose 'No Style' above to draft in a clean, neutral voice."
 - Do not call any tool for this message.`
     },
-    8: { name: 'Draft', artifactName: 'scene draft', revisionTool: true },
+    8: {
+        name: 'Draft', artifactName: 'current scene draft', revisionTool: true,
+        stageFragment: `## STAGE 8 DRAFT BOUNDARY
+You are discussing the currently selected drafted scene, not the whole screenplay. The context block contains the active scene number, heading, and current draft text. Execution means revising that current scene draft through the apply_revision tool.
+
+Call apply_revision when the writer gives a concrete draft note for the selected scene or explicitly confirms a discussed scene-level change. Keep the revision_brief self-contained: include the active scene number if visible, the exact prose/dialogue/behavior note, and what must be preserved from the current draft and approved blueprint. Do not call the tool for whole-project coverage, rewrite-priority planning, or notes that belong in Stage 10.`
+    },
     9: { name: 'Coverage', artifactName: 'coverage report', revisionTool: false },
     10: {
         name: 'Rewrite', artifactName: 'rewrite plan', revisionTool: false, rewritePlanTool: true,

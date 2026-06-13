@@ -8054,52 +8054,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (message) chat.append('system', message);
     }
 
-    const revisionProposalPattern = /\b(want me to|should we|do you want|revise|revising|revision|update|align|work that|apply|applying|change|improve|sequence\s*5|kaiju march|source spiritually|faithful|flow)\b/i;
-    const assistantErrorPattern = /^(error:|something went wrong|assistant request timed out|application failed|failed to respond)/i;
-
-    function isAssistantErrorMessage(content = '') {
-        return assistantErrorPattern.test(String(content || '').trim());
-    }
-
-    function isRevisionStatusQuestion(content = '') {
-        const clean = String(content || '').trim();
-        if (!/[?]/.test(clean)) return false;
-        return /\b(did you|did it|really|actually|show up|showing|not show|isn't showing|is not showing|doesn't show|does not show|verify|check|confirm|was it applied|has it been applied|have you)\b/i.test(clean);
-    }
-
-    function isScopedPolishMessage(content = '') {
-        const clean = String(content || '').trim();
-        if (!clean) return false;
-        const hasScopeLanguage = /\bone\s+(?:small|minor|tiny)\s+(?:local\s+)?(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
-            || /\b(?:local|single)\s+(?:polish|clarity|wording|language|line|paragraph|beat)\b/i.test(clean)
-            || /\b(?:not\s+a\s+structural\s+issue|not\s+structural|structure\s+works|current\s+structure\s+works|only\s+a\s+(?:clarity|wording|polish)|just\s+a\s+(?:clarity|wording|polish))\b/i.test(clean);
-        return hasScopeLanguage && /\b(?:clarify|polish|wording|paragraph|line|phrase|word|read|land|fuzzy|cleanly)\b/i.test(clean);
-    }
-
-    function findRecentRevisionProposal(history = []) {
-        return history
-            .slice(0, -1)
-            .reverse()
-            .find(m => m.role === 'assistant'
-                && typeof m.content === 'string'
-                && m.content.trim()
-                && !isAssistantErrorMessage(m.content)
-                && revisionProposalPattern.test(m.content));
-    }
-
-    function isRevisionConfirmation(text = '', history = []) {
-        const clean = String(text || '').trim();
-        if (!clean || clean.length > 240) return false;
-        if (isRevisionStatusQuestion(clean)) return false;
-        const asksForAnalysis = /[?]/.test(clean) &&
-            /\b(how|what|why|which|are there|do we|does|compare|analysis|analy[sz]e|audit|missing|need|thoughts)\b/i.test(clean);
-        if (asksForAnalysis) return false;
-        const lower = clean.toLowerCase();
-        const affirmative = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i'm ok|i am ok|fine)\b/.test(lower);
-        if (!affirmative) return false;
-        return Boolean(findRecentRevisionProposal(history));
-    }
-
     function revisionReceiptChanged(result = {}) {
         const receipt = result?.revisionReceipt || result?.receipt || null;
         if (revisionReceiptFailed(result)) return false;
@@ -8110,12 +8064,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const receipt = result?.revisionReceipt || result?.receipt || null;
         return Array.isArray(receipt?.failures) && receipt.failures.length > 0;
     }
-
-    // Stages migrated to the tool-calling assistant (/api/assistant).
-    // For these stages the model decides whether to execute by calling a
-    // native tool — no suggest_plan flags, no confirmation regexes.
-    // Expand this set as stages are migrated (see specs/pageone-refactor-plan-2026-06-11.md).
-    const TOOL_ASSISTANT_STAGES = new Set([1, 2, 3, 4, 5, 6, 7, 10]);
 
     function toolWorkingLabel(toolCalls = []) {
         if (toolCalls.some(call => call?.name === 'generate_rewrite_plan')) return 'Generating rewrite plan';
@@ -8231,8 +8179,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn(`initStageChat: missing element(s) for stage ${stageId}`);
             return null;
         }
-        let pendingRevision = false;
-        let pendingNotes = '';
         const chat = new ChatWindow({
             threadId, inputId, sendBtnId,
             attachInputId: explicitAttachId === false ? null : (explicitAttachId || `stage${stageId}-chat-attach`),
@@ -8246,235 +8192,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     return el;
                 };
 
-                // Tool-calling assistant path: the model decides whether to revise
-                // by calling apply_revision; everything below (confirmation regexes,
-                // pendingRevision state, suggest_plan flags) is legacy-path only.
-                if (TOOL_ASSISTANT_STAGES.has(Number(stageId))) {
-                    await toolAssistantTurn({
-                        chat, stageId, executeRevision, showWorking,
-                        body: { projectId: activeProjectId, stageId, messages: history, ...(attachment && { attachment }) }
-                    });
-                    return;
-                }
-
-                // Build revision notes that include user requests, the assistant's
-                // latest concrete proposal, and the final execution acknowledgement.
-                const buildRevisionNotes = (assistantSummary, conversationHistory) => {
-                    const allUserMessageEntries = conversationHistory.filter(m => m.role === 'user');
-                    const latestUserMessage = allUserMessageEntries[allUserMessageEntries.length - 1]?.content || '';
-                    const latestIsConfirmation = /\b(yes|yep|yeah|sure|ok|okay|do it|go ahead|apply|refine|revise|sounds good|make it|let's do it)\b/i.test(latestUserMessage)
-                        && latestUserMessage.length < 120;
-                    let scopedConversationHistory = conversationHistory;
-                    let scopeLock = '';
-                    const latestUserIndex = conversationHistory.findIndex(m => m === allUserMessageEntries[allUserMessageEntries.length - 1]);
-                    const previousUserMessage = allUserMessageEntries[allUserMessageEntries.length - 2] || null;
-                    const previousUserIndex = previousUserMessage ? conversationHistory.findIndex(m => m === previousUserMessage) : -1;
-                    if (isScopedPolishMessage(latestUserMessage) && latestUserIndex >= 0) {
-                        scopedConversationHistory = conversationHistory.slice(latestUserIndex);
-                        scopeLock = '\n\nSCOPE LOCK:\nThe latest user request is a scoped polish/clarity note. Apply only the explicitly named local polish and do not revive older checklist items, prior assistant proposals, or unrelated structural changes.';
-                    } else if (latestIsConfirmation && previousUserMessage && isScopedPolishMessage(previousUserMessage.content) && previousUserIndex >= 0) {
-                        scopedConversationHistory = conversationHistory.slice(previousUserIndex);
-                        scopeLock = '\n\nSCOPE LOCK:\nThe confirmation is for the immediately preceding scoped polish/clarity note. Apply only that local polish and do not revive older checklist items, prior assistant proposals, or unrelated structural changes.';
+                await toolAssistantTurn({
+                    chat, stageId, executeRevision, showWorking,
+                    body: {
+                        projectId: activeProjectId,
+                        stageId,
+                        messages: history,
+                        ...(Number(stageId) === 8 && currentDraftSceneNumber ? { sceneNumber: currentDraftSceneNumber } : {}),
+                        ...(attachment && { attachment })
                     }
-                    const userMessages = scopedConversationHistory.filter(m => m.role === 'user');
-                    const scopedLatestUserMessage = scopeLock && latestIsConfirmation && previousUserMessage
-                        ? previousUserMessage.content
-                        : (userMessages[userMessages.length - 1]?.content || latestUserMessage);
-                    const allUserMessageText = userMessages
-                        .map(m => m.content)
-                        .join('\n');
-                    const recentAssistantMessages = scopedConversationHistory
-                        .filter(m => m.role === 'assistant'
-                            && typeof m.content === 'string'
-                            && m.content.trim()
-                            && !isAssistantErrorMessage(m.content))
-                        .slice(-4)
-                        .map(m => m.content.trim())
-                        .join('\n\n---\n\n');
-                    const recentConversation = scopedConversationHistory
-                        .slice(-10)
-                        .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}:\n${m.content || ''}`)
-                        .join('\n\n---\n\n');
-                    const confirmationHandoff = latestIsConfirmation
-                        ? (scopeLock
-                            ? '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation of the scoped polish request above. Apply only that scoped request; do not treat older assistant context as additional instructions.'
-                            : '\n\nCONFIRMATION HANDOFF:\nThe latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.')
-                        : '';
-                    return `LATEST USER REQUEST:\n${scopedLatestUserMessage}\n\nUSER REQUESTS:\n${allUserMessageText}${confirmationHandoff}${scopeLock}\n\nRECENT ASSISTANT CONTEXT:\n${recentAssistantMessages || 'No prior assistant proposal captured.'}\n\nRECENT CONVERSATION CONTEXT:\n${recentConversation}\n\nASSISTANT DIRECTION:\n${assistantSummary}`;
-                };
-
-                const postRevisionFollowUp = async (revisionResult = {}) => {
-                    const changedScenes = Array.isArray(revisionResult.changedSceneNumbers)
-                        ? revisionResult.changedSceneNumbers
-                            .filter(n => Number.isFinite(Number(n)))
-                            .map(n => Number(n))
-                            .sort((a, b) => a - b)
-                        : [];
-                    const sceneNote = changedScenes.length
-                        ? ` Changed scenes: ${changedScenes.join(', ')}.`
-                        : '';
-                    const receiptSummary = revisionResult?.revisionReceipt?.summary
-                        ? ` Verified: ${revisionResult.revisionReceipt.summary}`
-                        : '';
-                    const outputName = Number(stageId) === 6
-                        ? 'scene blueprint'
-                        : (STAGE_LABELS[stageId] || 'stage output').toLowerCase();
-                    chat.append('ai', `Applied to the saved ${outputName}.${sceneNote}${receiptSummary} Review the updated output before treating any broader feedback list as complete.`);
-                };
-
-                const assertRevisionApplied = (revisionResult, message = 'The revision engine did not report saved changes, so I did not mark this as applied.') => {
-                    if (!revisionResult || revisionResult.changed === false) {
-                        throw new Error(message);
-                    }
-                };
-
-                if (pendingRevision && !attachment && isRevisionConfirmation(_text, history)) {
-                    const notesForRevision = pendingNotes;
-                    pendingRevision = false;
-                    pendingNotes = '';
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(buildRevisionNotes(notesForRevision, history));
-                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'Something went wrong: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                    return;
-                }
-                if (pendingRevision) {
-                    pendingRevision = false;
-                    pendingNotes = '';
-                }
-
-                if (Number(stageId) === 2 && isStage2DirectRevisionRequest(_text)) {
-                    chat.append('ai', 'Applying those outline changes now.');
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
-                        assertRevisionApplied(revisionResult, 'The outline revision returned no saved changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'I tried to apply that, but the outline revision failed: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                    return;
-                }
-
-                if (executeRevision && !attachment && isRevisionConfirmation(_text, history)) {
-                    chat.append('ai', 'On it — applying that revision now.');
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(buildRevisionNotes('Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.', history));
-                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'Something went wrong: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                    return;
-                }
-
-                if (Number(stageId) === 3 && isStage3DirectRevisionRequest(_text)) {
-                    chat.append('ai', 'Applying those character changes now.');
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
-                        assertRevisionApplied(revisionResult, 'The character revision returned no saved changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'I tried to apply that, but the character revision failed: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                    return;
-                }
-
-                if (Number(stageId) === 6 && isStage6DirectRevisionRequest(_text)) {
-                    chat.append('ai', 'Applying those changes to the scene blueprint now.');
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(`DIRECT USER REVISION REQUEST:\n${_text}`);
-                        assertRevisionApplied(revisionResult, 'The revision engine returned no blueprint changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'I tried to apply that, but the saved blueprint came back unchanged: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                    return;
-                }
-
-                let data;
-                chat.setThinking(true);
-                try {
-                    const res = await fetch('/api/brainstorm', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, stageId, messages: history, ...(attachment && { attachment }) })
-                    });
-                    if (!res.ok) {
-                        const errorMessage = await apiErrorMessage(res, 'Assistant request failed');
-                        chat.setThinking(false);
-                        chat.append('ai', 'Error: ' + errorMessage);
-                        return;
-                    }
-                    data = await res.json();
-                } catch (err) {
-                    chat.setThinking(false);
-                    chat.append('ai', 'Error: ' + err.message);
-                    return;
-                }
-                chat.setThinking(false);
-                noteSavedSource(chat, data.savedSource);
-                noteSourceMemoryUsed(chat, data.sourceMemory);
-                if (normalizeSourceWarnings(data.sourceWarnings).length) {
-                    await handleSourceGenerationResult(stageId, data, { chat, postGenerationCheck: false });
-                }
-                const stage6AnalysisOnlyFeedback = Number(stageId) === 6 && isStage6AnalysisOnlyFeedback(_text);
-                if (stage6AnalysisOnlyFeedback && data.suggest_plan) {
-                    data = { ...data, suggest_plan: false, execute_immediately: false };
-                }
-                chat.append('ai', data.message);
-                if (data.suggest_plan && data.execute_immediately) {
-                    // Clear directive — execute revision immediately, no confirmation needed
-                    chat.setDisabled(true);
-                    const indicator = showWorking();
-                    try {
-                        const revisionResult = await executeRevision(buildRevisionNotes(data.message, history));
-                        assertRevisionApplied(revisionResult, 'The revision engine returned no saved changes, so I did not mark this as applied.');
-                        indicator.remove();
-                        await postRevisionFollowUp(revisionResult);
-                    } catch (err) {
-                        indicator.remove();
-                        chat.append('ai', 'Something went wrong: ' + err.message);
-                    } finally {
-                        chat.setDisabled(false);
-                    }
-                } else if (data.suggest_plan) {
-                    // Brainstorm reached plan readiness — wait for user confirmation
-                    pendingRevision = true;
-                    pendingNotes = data.message;
-                }
+                });
             }
         });
         chat.applySourceAudit = async (audit, button) => {
@@ -8731,8 +8458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const initEndpoint = TOOL_ASSISTANT_STAGES.has(5) ? '/api/assistant' : '/api/brainstorm';
-            const res = await fetch(initEndpoint, {
+            const res = await fetch('/api/assistant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 5, messages: [], isInit: true })
@@ -8746,73 +8472,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             chat.setThinking(false);
         }
-    }
-
-    function isStage2DirectRevisionRequest(text) {
-        const value = String(text || '').trim();
-        if (value.length < 40) return false;
-
-        const asksForDiscussion = /[?]/.test(value) &&
-            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how|analysis|audit|compare)\b/i.test(value);
-        if (asksForDiscussion) return false;
-
-        const referencesOutlineTarget = /\b(seq(?:uence)?\s*[a-h1-8]\b|act\s+[123]|outline|beat|beats|coda|closing image|final image|aftermath|resolution|finale)\b/i.test(value);
-        const containsDirective = /\b(please\s+)?(restore|add|include|keep|revise|update|fix|replace|remove|delete|move|relocate|compress|expand|change|apply|work in)\b/i.test(value);
-        const structuredMemo = /\n\s*(?:\[[^\]]+\]|[-*]\s+|\d+[.)]\s+|[A-Z][^\n]{2,80}\n)/.test(value);
-
-        return referencesOutlineTarget && containsDirective && (structuredMemo || value.length > 120);
-    }
-
-    // Stage 6
-    function isStage3DirectRevisionRequest(text) {
-        const value = String(text || '').trim();
-        if (value.length < 18) return false;
-
-        const asksForDiscussion = /[?]/.test(value) &&
-            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
-        if (asksForDiscussion) return false;
-
-        const referencesCharacters = /\b(character|characters|cast|profile|profiles|protagonist|antagonist)\b/i.test(value);
-        const containsDirective = /\b(regenerate|re-generate|redo|rebuild|recast|start over|from scratch|fresh pass|fresh set|revise|refine|apply|fix|add|remove|delete|replace|make|change|update|deepen|sharpen)\b/i.test(value);
-        const structuredMemo = /\n\s*(?:\d+\.|[-*]\s+|==)/.test(value);
-
-        return referencesCharacters && containsDirective && (structuredMemo || value.length > 80 || /\b(regenerate|re-generate|redo|rebuild|recast|from scratch)\b/i.test(value));
-    }
-
-    function hasStage6ExplicitApplyIntent(text) {
-        const value = String(text || '').trim();
-        const opening = value.slice(0, 420);
-        return /\b(?:please|pls|go ahead|apply|revise|update|implement|integrate|work in|make)\b[\s\S]{0,100}\b(?:these|this|following|feedback|notes|changes|fixes|blueprint|scene|sequence)\b/i.test(opening)
-            || /\b(?:apply|revise|update|implement|integrate|fix)\s+(?:the\s+)?(?:scene\s+)?blueprint\b/i.test(value);
-    }
-
-    function isStage6ExternalFeedbackDump(text) {
-        const value = String(text || '').trim();
-        const opening = value.slice(0, 420);
-        return /\b(?:claude|gemini|coverage|reader|editor|script notes|feedback)\b/i.test(opening)
-            || /\b(?:tier\s+\d|hard canon breaks|what'?s working|craft flags|internal continuity)\b/i.test(value);
-    }
-
-    function isStage6AnalysisOnlyFeedback(text) {
-        const value = String(text || '').trim();
-        return (isStage6ExternalFeedbackDump(value) || value.length > 1400) && !hasStage6ExplicitApplyIntent(value);
-    }
-
-    function isStage6DirectRevisionRequest(text) {
-        const value = String(text || '').trim();
-        if (value.length < 24) return false;
-
-        const asksForDiscussion = /[?]/.test(value) &&
-            /\b(thoughts|what do you think|should we|should i|do you think|wonder|maybe|could we|which|why|how)\b/i.test(value);
-        if (asksForDiscussion) return false;
-
-        if (isStage6AnalysisOnlyFeedback(value)) return false;
-
-        const referencesBlueprintTarget = /\bscene[s]?\s+\d+\b|\bsequence[s]?\s+\d+\b|\b\d+\s*\+\s*\d+\b|\bblueprint\b/i.test(value);
-        const containsDirective = /\b(final[- ]polish|revision pass|relocation pass|refine|revise|apply|fix|restore|add|tag|strip|replace|rephrase|merge|compress|relocate|move|remove|delete|lock|confirm|keep|do not touch)\b/i.test(value);
-        const structuredMemo = /\n\s*(?:\d+\.|[-*]\s+|==)/.test(value);
-
-        return referencesBlueprintTarget && containsDirective && (structuredMemo || value.length > 160);
     }
 
     function latestUserRequestFromRevisionNotes(notes) {
@@ -8930,8 +8589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const initEndpoint = TOOL_ASSISTANT_STAGES.has(6) ? '/api/assistant' : '/api/brainstorm';
-            const res = await fetch(initEndpoint, {
+            const res = await fetch('/api/assistant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 6, messages: [], isInit: true })
@@ -9026,8 +8684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const initEndpoint = TOOL_ASSISTANT_STAGES.has(7) ? '/api/assistant' : '/api/brainstorm';
-            const res = await fetch(initEndpoint, {
+            const res = await fetch('/api/assistant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 7, messages: [], isInit: true })
@@ -9943,8 +9600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stage10Chat?.setDisabled(true);
                 stage10Chat?.setThinking(true);
                 try {
-                    const initEndpoint = TOOL_ASSISTANT_STAGES.has(10) ? '/api/assistant' : '/api/brainstorm-rewrite';
-                    const initRes = await fetch(initEndpoint, {
+                    const initRes = await fetch('/api/assistant', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ projectId: activeProjectId, stageId: 10, messages: [], isInit: true })
@@ -10088,39 +9744,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         // No scene selected: planning brainstorm
                         const msgs = history.filter(m => m.role !== 'system');
-                        if (TOOL_ASSISTANT_STAGES.has(10)) {
-                            await toolAssistantTurn({
-                                chat: stage10Chat,
-                                stageId: 10,
-                                executeRevision: async (brief) => stage10GeneratePlan({ toolBrief: brief, quiet: true }),
-                                showWorking: (label = 'Generating rewrite plan') => {
-                                    const el = document.createElement('div');
-                                    el.className = 'chat-message chat-message-working';
-                                    el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
-                                    stage10Chat.thread.appendChild(el);
-                                    stage10Chat.thread.scrollTop = stage10Chat.thread.scrollHeight;
-                                    return el;
-                                },
-                                body: { projectId: activeProjectId, stageId: 10, messages: msgs, isInit: false, ...(attachment && { attachment }) }
-                            });
-                        } else {
-                            stage10Chat.setThinking(true);
-                            const res = await fetch('/api/brainstorm-rewrite', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
-                            });
-                            stage10Chat.setThinking(false);
-                            if (!res.ok) throw new Error((await res.json()).error);
-                            const data = await res.json();
-                            noteSavedSource(stage10Chat, data.savedSource);
-                            noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
-                            if (normalizeSourceWarnings(data.sourceWarnings).length) {
-                                await handleSourceGenerationResult(10, data, { chat: stage10Chat, postGenerationCheck: false });
-                            }
-                            stage10Chat.append('ai', data.message);
-                            if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
-                        }
+                        await toolAssistantTurn({
+                            chat: stage10Chat,
+                            stageId: 10,
+                            executeRevision: async (brief) => stage10GeneratePlan({ toolBrief: brief, quiet: true }),
+                            showWorking: (label = 'Generating rewrite plan') => {
+                                const el = document.createElement('div');
+                                el.className = 'chat-message chat-message-working';
+                                el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
+                                stage10Chat.thread.appendChild(el);
+                                stage10Chat.thread.scrollTop = stage10Chat.thread.scrollHeight;
+                                return el;
+                            },
+                            body: { projectId: activeProjectId, stageId: 10, messages: msgs, isInit: false, ...(attachment && { attachment }) }
+                        });
                     }
                 }
             });
@@ -10202,8 +9839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     stage10Chat.setThinking(true);
                     stage10Chat.setDisabled(true);
-                    const initEndpoint = TOOL_ASSISTANT_STAGES.has(10) ? '/api/assistant' : '/api/brainstorm-rewrite';
-                    const initRes = await fetch(initEndpoint, {
+                    const initRes = await fetch('/api/assistant', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ projectId: activeProjectId, stageId: 10, messages: [], isInit: true })
