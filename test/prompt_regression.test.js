@@ -1713,7 +1713,7 @@ test('Stage 3 character generation keeps cameo profiles light by default', async
     assert.equal(cameo._deep_profile, undefined);
 });
 
-test('Stage 3 character generation coerces named project tiers and strips minor psychology', async () => {
+test('Stage 3 character generation coerces configured project tiers and strips minor psychology', async () => {
     const badModelCharacters = {
         characters: [
             {
@@ -1782,7 +1782,10 @@ test('Stage 3 character generation coerces named project tiers and strips minor 
         null,
         null,
         null,
-        { generateContentFn }
+        {
+            generateContentFn,
+            tierOverrides: { Molly: 3, Pono: 2 }
+        }
     );
 
     const molly = result.characters.find(c => c.name === 'Molly');
@@ -1810,7 +1813,7 @@ test('Stage 3 character generation coerces named project tiers and strips minor 
     assert.equal(pono._deep_profile, undefined);
 });
 
-test('Stage 3 tier guidance keeps named full and functional casts separated', async () => {
+test('Stage 3 tier guidance uses project tier overrides when names appear', async () => {
     const beatsWithNamedCast = {
         act_1: [{
             sequence_number_and_title: 'Sequence A',
@@ -1826,6 +1829,24 @@ test('Stage 3 tier guidance keeps named full and functional casts separated', as
         text: JSON.stringify({ characters: [] }),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
+    const tierOverrides = {
+        Rebecca: 1,
+        Terry: 1,
+        Robotobob: 1,
+        Pono: 2,
+        Moog: 2,
+        'Big Doll': 2,
+        Pretz: 2,
+        Molly: 3,
+        Dylan: 3,
+        'Dylan’s parents': 3,
+        'Ms. Alvarado': 3,
+        Carol: 3,
+        Brenda: 3,
+        Vance: 3,
+        Gary: 3,
+        Tyler: 3
+    };
 
     await agent3Characters(
         pitch,
@@ -1833,7 +1854,7 @@ test('Stage 3 tier guidance keeps named full and functional casts separated', as
         null,
         null,
         null,
-        { generateContentFn }
+        { generateContentFn, tierOverrides }
     );
 
     const promptText = collectText(calls[0].contents);

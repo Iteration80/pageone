@@ -1991,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 stageKey: 'stage3_characters',
                 stageName: 'Characters',
-                snapshot: characters?.length ? { characters } : data.stage3_characters
+                snapshot: characters?.length ? stage3PayloadFromCharacters(characters) : data.stage3_characters
             };
         }
         if (stageNum === 4) {
@@ -2669,9 +2669,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const CHARACTER_PROFILE_TIERS = ['Tier 1', 'Tier 2', 'Tier 3'];
-    const TIER_1_PROJECT_CHARACTER_NAMES = ['Rebecca', 'Dapple', 'Dave', 'Terry', 'Elliot', 'Furdlegurr', 'Blounder', 'Quist', 'Scott', 'Robotobob'];
-    const TIER_2_PROJECT_CHARACTER_NAMES = ['Pono', 'Moog', 'Big Doll', 'Pretz'];
-    const TIER_3_PROJECT_CHARACTER_NAMES = ['Molly', 'Dylan', "Dylan's parents", 'Dylan’s parents', 'Ms. Alvarado', 'Carol', 'Brenda', 'Vance', 'Gary', 'Tyler'];
 
     function normalizeProjectCharacterName(value = '') {
         return String(value || '')
@@ -2685,22 +2682,36 @@ document.addEventListener('DOMContentLoaded', () => {
             .toLowerCase();
     }
 
-    function projectTierForCharacterName(name = '') {
-        const normalized = normalizeProjectCharacterName(name);
-        if (!normalized) return null;
-        if (TIER_1_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 1';
-        if (TIER_2_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 2';
-        if (TIER_3_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 3';
+    function normalizeTierOverrideValue(value = '') {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        if (/^(?:tier\s*)?1$|full|major|arc-bearing|arc bearing/.test(text)) return 'Tier 1';
+        if (/^(?:tier\s*)?2$|functional|supporting|recurring/.test(text)) return 'Tier 2';
+        if (/^(?:tier\s*)?3$|cameo|scene utility|utility|minor/.test(text)) return 'Tier 3';
         return null;
     }
 
-    function normalizeCharacterProfileTier(value = '', character = {}) {
-        const projectTier = projectTierForCharacterName(character.name);
+    function currentCharacterTierOverrides() {
+        const overrides = window.currentProjectData?.stage3_characters?.tier_overrides;
+        return overrides && typeof overrides === 'object' && !Array.isArray(overrides) ? overrides : {};
+    }
+
+    function projectTierForCharacterName(name = '', overrides = currentCharacterTierOverrides()) {
+        const normalized = normalizeProjectCharacterName(name);
+        if (!normalized) return null;
+        for (const [overrideName, overrideTier] of Object.entries(overrides || {})) {
+            if (normalizeProjectCharacterName(overrideName) === normalized) {
+                return normalizeTierOverrideValue(overrideTier);
+            }
+        }
+        return null;
+    }
+
+    function normalizeCharacterProfileTier(value = '', character = {}, overrides = currentCharacterTierOverrides()) {
+        const projectTier = projectTierForCharacterName(character.name, overrides);
         if (projectTier) return projectTier;
-        const text = String(value || '').toLowerCase();
-        if (/\b(?:tier\s*)?3\b/.test(text) || /\b(cameo|scene utility|utility|minor)\b/.test(text)) return 'Tier 3';
-        if (/\b(?:tier\s*)?2\b/.test(text) || /\b(functional|supporting|recurring)\b/.test(text)) return 'Tier 2';
-        if (/\b(?:tier\s*)?1\b/.test(text) || /\b(full|major|arc-bearing|arc bearing)\b/.test(text)) return 'Tier 1';
+        const normalizedTier = normalizeTierOverrideValue(value);
+        if (normalizedTier) return normalizedTier;
         if (character.cameo_profile) return 'Tier 3';
         if (character.functional_profile) return 'Tier 2';
         return 'Tier 1';
@@ -2711,6 +2722,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tier === 'Tier 3') return 3;
         if (tier === 'Tier 2') return 2;
         return 1;
+    }
+
+    function profileTierNumber(value = '') {
+        const tier = normalizeTierOverrideValue(value);
+        if (tier === 'Tier 3') return 3;
+        if (tier === 'Tier 2') return 2;
+        return 1;
+    }
+
+    function stage3TierOverridesFromCharacters(characters = []) {
+        const overrides = { ...currentCharacterTierOverrides() };
+        for (const character of characters || []) {
+            const name = String(character?.name || '').trim();
+            if (!name) continue;
+            overrides[name] = profileTierNumber(character.profile_tier);
+        }
+        return overrides;
+    }
+
+    function stage3PayloadFromCharacters(characters = []) {
+        return {
+            ...(window.currentProjectData?.stage3_characters || {}),
+            characters,
+            tier_overrides: stage3TierOverridesFromCharacters(characters)
+        };
+    }
+
+    function setCurrentStage3Payload(payload) {
+        if (!window.currentProjectData) return;
+        window.currentProjectData.stage3_characters = payload?.characters
+            ? {
+                ...(window.currentProjectData.stage3_characters || {}),
+                ...payload,
+                tier_overrides: payload.tier_overrides || stage3TierOverridesFromCharacters(payload.characters)
+            }
+            : payload;
     }
 
     function normalizeFunctionalProfileForEditor(character = {}) {
@@ -3120,6 +3167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     card.dataset.profileTier = btn.dataset.value || 'Tier 1';
                     const current = scrapeCharacters();
+                    setCurrentStage3Payload(stage3PayloadFromCharacters(current));
                     renderCharacters(current);
                     markStage3Dirty();
                 });
@@ -3213,7 +3261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         charCards.forEach((card) => {
             const charName = card.dataset.charName || '';
             const activeTierBtn = card.querySelector('.char-tier-btn.active');
-            const profileTier = normalizeCharacterProfileTier(activeTierBtn?.dataset.value || card.dataset.profileTier || 'Tier 1', { name: charName });
+            const profileTier = normalizeTierOverrideValue(activeTierBtn?.dataset.value || card.dataset.profileTier || 'Tier 1') || 'Tier 1';
             const isFullProfile = profileTier === 'Tier 1';
             const charObj = {
                 name: charName,
@@ -3338,7 +3386,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSourceGenerationResult(3, data);
 
             renderCharacters(data.result.characters);
-            if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
+            setCurrentStage3Payload(data.result);
 
             const projectRes = await fetch(`/api/projects/${activeProjectId}`);
             const projectDetails = await projectRes.json();
@@ -3401,7 +3449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             data: {
-                                stage3_characters: { characters: currentCharacters }
+                                stage3_characters: stage3PayloadFromCharacters(currentCharacters)
                             }
                         })
                     });
@@ -3430,6 +3478,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData();
                 formData.append('projectId', activeProjectId);
                 formData.append('currentCharacters', JSON.stringify(currentCharacters));
+                formData.append('tierOverrides', JSON.stringify(stage3TierOverridesFromCharacters(currentCharacters)));
                 formData.append('notes', notes);
                 if (stage3PdfUpload && stage3PdfUpload.files[0]) {
                     formData.append('pdfFile', stage3PdfUpload.files[0]);
@@ -3447,7 +3496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 await handleSourceGenerationResult(3, data);
                 renderCharacters(data.result.characters);
-                if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
+                setCurrentStage3Payload(data.result);
 
                 // Clear notes and PDF
                 if (stage3Notes) stage3Notes.value = ''; // clear notes
@@ -3705,7 +3754,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage3Approve.disabled = true;
             btnStage3Approve.classList.remove('approve-btn-green');
 
-            const stage3Snapshot = { characters: currentCharacters };
+            const stage3Snapshot = stage3PayloadFromCharacters(currentCharacters);
             const versionHistory3 = captureVersionSnapshot(3, 'stage3_characters', 'Characters', stage3Snapshot);
 
             try {
@@ -7840,7 +7889,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderOutline(result.outline);
             if (btnStage2Approve) { btnStage2Approve.textContent = 'Approve'; btnStage2Approve.classList.remove('approve-btn-green'); }
         } else if (Number(stageId) === 3 && result?.characters) {
-            window.currentProjectData.stage3_characters = result;
+            setCurrentStage3Payload(result);
             renderCharacters(result.characters);
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
         } else if (Number(stageId) === 4 && result) {
@@ -8354,6 +8403,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
             formData.append('currentCharacters', JSON.stringify(currentCharacters));
+            formData.append('tierOverrides', JSON.stringify(stage3TierOverridesFromCharacters(currentCharacters)));
             formData.append('notes', notes);
             const res = await fetch('/api/generate-characters', { method: 'POST', body: formData });
             if (!res.ok) {
@@ -8363,7 +8413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             await handleSourceGenerationResult(3, data, { chat: stageChatWindows[3] });
             renderCharacters(data.result.characters);
-            if (window.currentProjectData) window.currentProjectData.stage3_characters = data.result;
+            setCurrentStage3Payload(data.result);
             if (btnStage3Approve) { btnStage3Approve.textContent = 'Approve'; btnStage3Approve.classList.remove('approve-btn-green'); }
             return {
                 ...data,

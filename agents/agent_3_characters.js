@@ -11,10 +11,6 @@ const PROFILE_TIERS = {
     CAMEO: 'Tier 3'
 };
 
-const TIER_1_PROJECT_NAMES = ['Rebecca', 'Dapple', 'Dave', 'Terry', 'Elliot', 'Furdlegurr', 'Blounder', 'Quist', 'Scott', 'Robotobob'];
-const TIER_2_PROJECT_NAMES = ['Pono', 'Moog', 'Big Doll', 'Pretz'];
-const TIER_3_PROJECT_NAMES = ['Molly', 'Dylan', "Dylan's parents", 'Dylan’s parents', 'Ms. Alvarado', 'Carol', 'Brenda', 'Vance', 'Gary', 'Tyler'];
-
 function normalizeProjectName(value = '') {
     return String(value || '')
         .normalize('NFKD')
@@ -27,22 +23,36 @@ function normalizeProjectName(value = '') {
         .toLowerCase();
 }
 
-function projectTierForCharacterName(name = '') {
-    const normalized = normalizeProjectName(name);
-    if (!normalized) return null;
-    if (TIER_1_PROJECT_NAMES.some(projectName => normalizeProjectName(projectName) === normalized)) return PROFILE_TIERS.FULL;
-    if (TIER_2_PROJECT_NAMES.some(projectName => normalizeProjectName(projectName) === normalized)) return PROFILE_TIERS.FUNCTIONAL;
-    if (TIER_3_PROJECT_NAMES.some(projectName => normalizeProjectName(projectName) === normalized)) return PROFILE_TIERS.CAMEO;
+function normalizeTierValue(value = '') {
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return null;
+    if (/^(?:tier\s*)?1$|full|major|arc-bearing|arc bearing/.test(text)) return PROFILE_TIERS.FULL;
+    if (/^(?:tier\s*)?2$|functional|supporting|recurring/.test(text)) return PROFILE_TIERS.FUNCTIONAL;
+    if (/^(?:tier\s*)?3$|cameo|scene utility|utility|minor/.test(text)) return PROFILE_TIERS.CAMEO;
     return null;
 }
 
-function normalizeProfileTier(value = '', character = {}) {
-    const projectTier = projectTierForCharacterName(character.name);
+function normalizeTierOverrides(overrides = {}) {
+    if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return {};
+    return Object.entries(overrides).reduce((acc, [name, tier]) => {
+        const normalizedName = normalizeProjectName(name);
+        const normalizedTier = normalizeTierValue(tier);
+        if (normalizedName && normalizedTier) acc[normalizedName] = normalizedTier;
+        return acc;
+    }, {});
+}
+
+function projectTierForCharacterName(name = '', tierOverrides = {}) {
+    const normalized = normalizeProjectName(name);
+    if (!normalized) return null;
+    return normalizeTierOverrides(tierOverrides)[normalized] || null;
+}
+
+function normalizeProfileTier(value = '', character = {}, tierOverrides = {}) {
+    const projectTier = projectTierForCharacterName(character.name, tierOverrides);
     if (projectTier) return projectTier;
-    const text = String(value || '').toLowerCase();
-    if (/\b(?:tier\s*)?3\b/.test(text) || /\b(cameo|scene utility|utility|minor)\b/.test(text)) return PROFILE_TIERS.CAMEO;
-    if (/\b(?:tier\s*)?2\b/.test(text) || /\b(functional|supporting|recurring)\b/.test(text)) return PROFILE_TIERS.FUNCTIONAL;
-    if (/\b(?:tier\s*)?1\b/.test(text) || /\b(full|major|arc-bearing|arc bearing)\b/.test(text)) return PROFILE_TIERS.FULL;
+    const normalizedTier = normalizeTierValue(value);
+    if (normalizedTier) return normalizedTier;
     if (character.cameo_profile) return PROFILE_TIERS.CAMEO;
     if (character.functional_profile) return PROFILE_TIERS.FUNCTIONAL;
     return PROFILE_TIERS.FULL;
@@ -72,11 +82,11 @@ function normalizeCameoProfile(character = {}) {
     };
 }
 
-function normalizeLegacyCharacter(character = {}) {
+function normalizeLegacyCharacter(character = {}, tierOverrides = {}) {
     const core = character.psychological_core || {};
     const voice = character.voice_and_behavior || {};
     const ticks = character.ticks || {};
-    const profile_tier = normalizeProfileTier(character.profile_tier, character);
+    const profile_tier = normalizeProfileTier(character.profile_tier, character, tierOverrides);
     const isFullProfile = profile_tier === PROFILE_TIERS.FULL;
     const psychological_core = isFullProfile
         ? {
@@ -127,11 +137,11 @@ function normalizeLegacyCharacter(character = {}) {
     return normalized;
 }
 
-function normalizeCurrentCharacters(currentCharacters) {
+function normalizeCurrentCharacters(currentCharacters, tierOverrides = {}) {
     const list = Array.isArray(currentCharacters)
         ? currentCharacters
         : (Array.isArray(currentCharacters?.characters) ? currentCharacters.characters : []);
-    return list.map(normalizeLegacyCharacter);
+    return list.map(character => normalizeLegacyCharacter(character, tierOverrides));
 }
 
 function needsCharacterModernization(characters = []) {
@@ -164,10 +174,10 @@ function isFullCharacterRegenerationRequest(notes = '') {
     return asksForCharacters && asksForFreshPass && !surgicalQualifier;
 }
 
-function characterFromPatchOperation(op = {}) {
+function characterFromPatchOperation(op = {}, tierOverrides = {}) {
     const labelAndBody = `${op.newLabel || ''} ${op.newBody || ''}`;
     const looksLikeCameo = /\b(receptionist|aide|parent|construction worker|civilian|social worker|guard|clerk|driver|bystander|one-scene|scene utility|cameo)\b/i.test(labelAndBody);
-    const projectTier = projectTierForCharacterName(op.newLabel);
+    const projectTier = projectTierForCharacterName(op.newLabel, tierOverrides);
     const profile_tier = projectTier || (looksLikeCameo ? PROFILE_TIERS.CAMEO : PROFILE_TIERS.FUNCTIONAL);
     return normalizeLegacyCharacter({
         name: op.newLabel || 'New Character',
@@ -191,25 +201,34 @@ function characterFromPatchOperation(op = {}) {
         voice_and_behavior: {},
         arc: {},
         ticks: {}
-    });
+    }, tierOverrides);
 }
 
-function normalizeCharacterResult(result = {}) {
+function normalizeCharacterResult(result = {}, tierOverrides = {}, rawTierOverrides = tierOverrides) {
     return {
         ...result,
-        characters: normalizeCurrentCharacters(result)
+        tier_overrides: result.tier_overrides || rawTierOverrides || {},
+        characters: normalizeCurrentCharacters(result, tierOverrides)
     };
 }
 
-function buildProjectTierGuidance(...sources) {
+function buildProjectTierGuidance(tierOverrides = {}, ...sources) {
+    const normalizedOverrides = normalizeTierOverrides(tierOverrides);
+    const overrideEntries = Object.entries(tierOverrides || {})
+        .map(([name, tier]) => ({ name, tier: normalizeTierValue(tier), normalizedName: normalizeProjectName(name) }))
+        .filter(entry => entry.name && entry.tier && entry.normalizedName && normalizedOverrides[entry.normalizedName]);
+    if (!overrideEntries.length) return '';
     const sourceText = sources.map(source => {
         if (!source) return '';
         return typeof source === 'string' ? source : JSON.stringify(source);
     }).join('\n');
     const nameMentioned = name => new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(name)}(?!['’])(?:$|[^A-Za-z0-9])`, 'i').test(sourceText);
-    const mentionedTier1 = TIER_1_PROJECT_NAMES.filter(nameMentioned);
-    const mentionedTier2 = TIER_2_PROJECT_NAMES.filter(nameMentioned);
-    const mentionedTier3 = TIER_3_PROJECT_NAMES.filter(nameMentioned);
+    const namesForTier = tier => overrideEntries
+        .filter(entry => entry.tier === tier && nameMentioned(entry.name))
+        .map(entry => entry.name);
+    const mentionedTier1 = namesForTier(PROFILE_TIERS.FULL);
+    const mentionedTier2 = namesForTier(PROFILE_TIERS.FUNCTIONAL);
+    const mentionedTier3 = namesForTier(PROFILE_TIERS.CAMEO);
     const lines = [];
     if (mentionedTier1.length) {
         lines.push(`- Treat these named arc-bearing characters as Tier 1 unless the outline clearly demotes them: ${mentionedTier1.join(', ')}.`);
@@ -236,10 +255,10 @@ function explicitOnlyCharacterTargets(notes = '', currentList = []) {
         .filter(name => name && new RegExp(`\\b(?:only|just)\\s+(?:update|revise|change|adjust|rewrite|work on)\\s+(?:the\\s+)?${escapeRegExp(name)}\\b`, 'i').test(text));
 }
 
-function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false } = {}) {
+function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false, tierOverrides = {} } = {}) {
     if (legacyModernizationNeeded || isBroadRevisionIntent(notes)) return modelResult;
-    const currentList = normalizeCurrentCharacters(currentCharacters);
-    const revisedList = normalizeCurrentCharacters(modelResult);
+    const currentList = normalizeCurrentCharacters(currentCharacters, tierOverrides);
+    const revisedList = normalizeCurrentCharacters(modelResult, tierOverrides);
     if (!currentList.length || !revisedList.length) return modelResult;
     const targetLabels = explicitOnlyCharacterTargets(notes, currentList);
 
@@ -248,7 +267,7 @@ function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, n
         getLabel: character => character.name || '',
         setLabel: (character, label) => { character.name = label || character.name || 'New Character'; },
         setBody: (character, body) => { character.brief_summary = body || character.brief_summary || ''; },
-        buildNewItem: characterFromPatchOperation
+        buildNewItem: op => characterFromPatchOperation(op, tierOverrides)
     });
 
     if (!merged.changed) return modelResult;
@@ -264,8 +283,13 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         geminiApiKey = process.env.GEMINI_API_KEY,
         anthropicApiKey = process.env.ANTHROPIC_API_KEY,
         knowledgeContext = '',
-        generateContentFn = generateContent
+        generateContentFn = generateContent,
+        tierOverrides = {}
     } = modelConfig;
+    const rawTierOverrides = tierOverrides && typeof tierOverrides === 'object' && !Array.isArray(tierOverrides)
+        ? tierOverrides
+        : {};
+    const normalizedTierOverrides = normalizeTierOverrides(rawTierOverrides);
 
     const charactersSOP = loadSkill('skill_stage3_characters');
 
@@ -374,7 +398,7 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         }
     };
 
-    const normalizedCurrentCharacters = normalizeCurrentCharacters(currentCharacters);
+    const normalizedCurrentCharacters = normalizeCurrentCharacters(currentCharacters, normalizedTierOverrides);
     const fullRegenerationRequested = isFullCharacterRegenerationRequest(notes);
     const legacyModernizationNeeded = normalizedCurrentCharacters.length > 0 && needsCharacterModernization(normalizedCurrentCharacters);
 
@@ -407,7 +431,11 @@ Please apply the note surgically and return the full updated character list in J
 
         const parsed = JSON.parse(response.text);
         return {
-            result: normalizeCharacterResult(applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded })),
+            result: normalizeCharacterResult(
+                applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded, tierOverrides: normalizedTierOverrides }),
+                normalizedTierOverrides,
+                rawTierOverrides
+            ),
             usage: response.usage
         };
     }
@@ -426,13 +454,13 @@ Please apply the note surgically and return the full updated character list in J
     }
 
     const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-    const projectTierGuidance = buildProjectTierGuidance(pitchData, beatsData, normalizedCurrentCharacters, notes, knowledgeContext);
+    const projectTierGuidance = buildProjectTierGuidance(rawTierOverrides, pitchData, beatsData, normalizedCurrentCharacters, notes, knowledgeContext);
     let contentsText = `${sourceBlock}MANDATORY FIRST STEP — OUTLINE CHARACTER COVERAGE AND TIERING: Before creating any characters, read the outline below and identify every distinct character it describes — whether referred to by proper name (e.g., "Jax", "Silas") or by a specific role or function (e.g., "a hacker", "the engineer", "an acrobat", "an enforcer"). Every such individual MUST receive a tier-appropriate entry, not necessarily a full psychological profile. Invent a proper name for role-only characters only when they recur, affect story movement, or need to be tracked later; one-scene utility roles may keep functional labels such as "Receptionist" or "Construction Worker." Only after all outline characters are covered may you invent additional characters.
 
 TIERING INSTRUCTIONS:
-1. FULL PSYCHOLOGICAL PROFILES: Assign \`profile_tier: "Tier 1"\` only to major or recurring arc-bearing characters with real internal change or sustained moral/psychological pressure. In this project, use full profiles for Rebecca, Dapple, Dave, Terry, Elliot, Furdlegurr, Blounder, Quist, Scott, and Robotobob. Preserve the full psychological core, arc, voice, relationship, ticks-if-useful, and optional \`_deep_profile\` behavior for these characters.
-2. FUNCTIONAL SUPPORTING PROFILES: Assign \`profile_tier: "Tier 2"\` to functional supporting characters who affect story movement but do not need a full therapeutic arc. In this project, use Tier 2 for Pono, Moog, Big Doll, and Pretz. Fill \`functional_profile\` with narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor. Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, relationship maps, or full arc machinery for Tier 2.
-3. SCENE UTILITY / CAMEO PROFILES: Assign \`profile_tier: "Tier 3"\` to one-scene or near-one-scene utility roles. In this project, use Tier 3 for Molly, Dylan, Dylan's parents, Ms. Alvarado, Carol, Brenda, Vance, Gary, and Tyler. Fill only \`cameo_profile\` with scene_purpose, casting_energy, playable_behavior, and line_style_example. Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, deep profiles, or full arcs for Tier 3.
+1. FULL PSYCHOLOGICAL PROFILES: Assign \`profile_tier: "Tier 1"\` only to major or recurring arc-bearing characters with real internal change or sustained moral/psychological pressure. Preserve the full psychological core, arc, voice, relationship, ticks-if-useful, and optional \`_deep_profile\` behavior for these characters.
+2. FUNCTIONAL SUPPORTING PROFILES: Assign \`profile_tier: "Tier 2"\` to functional supporting characters who affect story movement but do not need a full therapeutic arc. Fill \`functional_profile\` with narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor. Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, relationship maps, or full arc machinery for Tier 2.
+3. SCENE UTILITY / CAMEO PROFILES: Assign \`profile_tier: "Tier 3"\` to one-scene or near-one-scene utility roles. Fill only \`cameo_profile\` with scene_purpose, casting_energy, playable_behavior, and line_style_example. Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, deep profiles, or full arcs for Tier 3.
 4. Ticks and paradox are optional for Tier 1. Include them only when naturally visible on screen and useful for the writer/actor.
 5. Do not invent trauma, moral failure, or arc machinery for characters whose only job is scene utility.${projectTierGuidance}
 
@@ -470,7 +498,7 @@ ${JSON.stringify(beatsData, null, 2)}`;
         schema: characterSchema
     });
 
-    return { result: normalizeCharacterResult(JSON.parse(response.text)), usage: response.usage };
+    return { result: normalizeCharacterResult(JSON.parse(response.text), normalizedTierOverrides, rawTierOverrides), usage: response.usage };
 };
 
 module.exports = { agent3Characters };

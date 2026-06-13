@@ -4010,7 +4010,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
 
 app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     try {
-        const { projectId, currentCharacters, notes } = req.body;
+        const { projectId, currentCharacters, notes, tierOverrides } = req.body;
         const uploadedFile = req.file;
 
         if (!isValidProjectId(projectId)) {
@@ -4035,6 +4035,10 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         }
 
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
+        const parsedTierOverrides = tierOverrides ? safeParse(tierOverrides, null) : null;
+        const activeTierOverrides = parsedTierOverrides && typeof parsedTierOverrides === 'object' && !Array.isArray(parsedTierOverrides)
+            ? parsedTierOverrides
+            : (projectData.data?.stage3_characters?.tier_overrides || {});
         const beforeCharactersForRevision = parsedChars || projectData.data?.stage3_characters?.characters || [];
         const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
         const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
@@ -4042,7 +4046,18 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         console.log("Generating Stage 3 Characters...");
         const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
-        const { result: characterData, usage } = await agent3Characters(pitchData, beatsData, parsedChars, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(3, sourcePacket));
+        const { result: characterData, usage } = await agent3Characters(
+            pitchData,
+            beatsData,
+            parsedChars,
+            notesWithUpload,
+            uploadContext.agentFile,
+            {
+                ...getModelConfigWithSourcePacket(3, sourcePacket),
+                tierOverrides: activeTierOverrides
+            }
+        );
+        characterData.tier_overrides = activeTierOverrides;
         const revisionTransaction = notesWithUpload
             ? createRevisionTransaction({
                 stageId: 'stage3_characters',

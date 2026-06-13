@@ -531,9 +531,12 @@ test('frontend Stage 7 offers four style paths and trained upload', () => {
 test('Stage 3 character regeneration handles legacy cards and direct rebuild requests', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const agent3Js = fs.readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
     assert.match(appJs, /normalizeStage3CharacterForEditor/);
+    assert.match(appJs, /currentCharacterTierOverrides/);
+    assert.match(appJs, /tier_overrides: stage3TierOverridesFromCharacters\(characters\)/);
     assert.match(appJs, /core\.false_belief/);
     assert.match(appJs, /core\.wound/);
     assert.match(assistantJs, /STAGE 3 CHARACTER BOUNDARY/);
@@ -541,6 +544,10 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.doesNotMatch(appJs, /Applying those character changes now/);
 
     assert.match(agent3Js, /normalizeLegacyCharacter/);
+    assert.match(agent3Js, /function normalizeTierOverrides/);
+    assert.match(serverJs, /tierOverrides: activeTierOverrides/);
+    assert.doesNotMatch(agent3Js, /TIER_1_PROJECT_NAMES/);
+    assert.doesNotMatch(agent3Js, /Rebecca, Dapple, Dave, Terry, Elliot/);
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
     assert.match(agent3Js, /LEGACY MODERNIZATION/);
     assert.match(agent3Js, /fresh character regeneration/);
