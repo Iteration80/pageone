@@ -28,8 +28,9 @@ function loadCoreSop() {
 
 /**
  * Per-stage assistant configuration.
- * artifactName  — what apply_revision changes, in writer-facing language.
+ * artifactName  — what the tool changes/creates, in writer-facing language.
  * revisionTool  — whether this stage has an apply_revision path.
+ * styleTool     — whether this stage can generate a style file.
  * stageFragment — extra system-prompt guidance specific to the stage.
  * entryAnalysis — isInit instruction appended to the first user message.
  */
@@ -52,7 +53,21 @@ The writer has just generated or loaded the treatment and is viewing it for the 
         entryAnalysis: `## STAGE ENTRY ANALYSIS
 The writer has just generated the scene blueprint and is reviewing it for the first time. Analyze it as a script coordinator would — identify 2-3 specific observations about scene count balance across sequences, slugline consistency and geography, dramaturgical gaps (connective-tissue scenes without their own conflict), and pacing rhythm. Reference specific scene numbers and headings. Do NOT summarize the blueprint. Rank the most important concern first. End by recommending the best area to dig into. Do not call any tool for this message.`
     },
-    7: { name: 'Style', artifactName: 'style directives', revisionTool: false },
+    7: {
+        name: 'Style', artifactName: 'style directives', revisionTool: false, styleTool: true,
+        stageFragment: `## STAGE 7 STYLE CONTEXT
+You are helping the writer choose or create screenplay style directives for drafting. Discuss style in terms of concrete prose behavior: sentence shape, image density, dialogue rhythm, scene description, transitions, interiority, tension management, humor, and restraint. Execution means generating a saved style file with the generate_style tool. If the writer is still choosing among references or asking about fit, keep discussing. When they explicitly choose a style or confirm a direction ("use Garland", "yes, generate it", "sounds good"), call generate_style with a complete self-contained style brief.`,
+        entryAnalysis: `## STAGE 7 STYLE SUGGESTION
+The writer has scenes ready and is choosing a writing style. Suggest exactly 3 specific filmmakers or screenwriters whose style would suit this story.
+
+Rules:
+- For each suggestion: writer name, 1-sentence style description, and 1 sentence connecting it to something specific in their scenes or project context.
+- Suggest a range: one intense/visceral, one restrained/observational, one unexpected/wild-card.
+- If the context lists saved styles that fit, include one as a suggestion: "You already have a [Name] style that could work here."
+- End with: "Pick one and I'll build the style, or describe something different."
+- Also mention: "Or choose 'No Style' above to draft in a clean, neutral voice."
+- Do not call any tool for this message.`
+    },
     8: { name: 'Draft', artifactName: 'scene draft', revisionTool: true },
     9: { name: 'Coverage', artifactName: 'coverage report', revisionTool: false },
     10: { name: 'Rewrite', artifactName: 'screenplay scenes', revisionTool: false }
@@ -60,6 +75,22 @@ The writer has just generated the scene blueprint and is reviewing it for the fi
 
 function buildTools(stageId) {
     const config = STAGE_CONFIG[stageId];
+    if (config?.styleTool) {
+        return [{
+            name: 'generate_style',
+            description: `Generate and save a Stage ${stageId} style directive file for this project. Calling this actually runs PageOne's style generator — it is the ONLY way a new style is created from the chat. Call it when the writer explicitly chooses a style direction or confirms that you should generate/build/use it. Do NOT call it while the writer is still comparing options, asking questions, or describing a vibe without confirming generation. The result reports the saved style slug/name.`,
+            input_schema: {
+                type: 'object',
+                properties: {
+                    style_brief: {
+                        type: 'string',
+                        description: 'Complete, self-contained style-generation brief. Include the chosen reference(s), desired tonal/prose behavior, project-specific fit, constraints, and anything to avoid.'
+                    }
+                },
+                required: ['style_brief']
+            }
+        }];
+    }
     if (!config?.revisionTool) return [];
     return [{
         name: 'apply_revision',

@@ -3388,6 +3388,19 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
             stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2);
             break;
         case 7: {
+            const savedStyleNames = [];
+            try {
+                const styleFiles = await fs.readdir(STYLES_DIR);
+                for (const f of styleFiles) {
+                    if (!f.endsWith('-directive.md') && !f.endsWith('.md')) continue;
+                    if (f.endsWith('-reference.md')) continue;
+                    try {
+                        const raw = await fs.readFile(path.join(STYLES_DIR, f), 'utf-8');
+                        const { meta } = parseStyleFile(raw);
+                        if (meta.name) savedStyleNames.push(meta.name);
+                    } catch {}
+                }
+            } catch {}
             const styleSlug = projectData.data?.stage7_style;
             if (styleSlug) {
                 try {
@@ -3403,6 +3416,9 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
                 }
             } else {
                 stageData = 'No style selected yet. Help the writer define their style.';
+            }
+            if (savedStyleNames.length) {
+                stageData += `\n\nSaved styles in library: ${savedStyleNames.join(', ')}`;
             }
             const s6 = projectData.data?.stage6_scenes || [];
             if (s6.length > 0) {

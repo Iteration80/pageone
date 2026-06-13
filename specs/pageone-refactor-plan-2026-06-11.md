@@ -1,7 +1,7 @@
 # PageOne Refactor Plan — 2026-06-11
 
 Author: Claude (Fable 5), based on full-codebase audit 2026-06-11.
-Status: Phase 1 pilot validated and Phase 2 stage rollout started. Stages 2, 3, 4, 5, and 6 now route through the tool-calling assistant; legacy chat routes remain for unmigrated stages.
+Status: Phase 1 pilot validated and Phase 2 stage rollout in progress. Stages 1–7 now route through the tool-calling assistant; legacy chat routes remain for Stage 10, global style creation, and unmigrated cleanup paths.
 
 ## Why
 
@@ -63,7 +63,7 @@ through the client so the server stays stateless across the two HTTP legs of a t
 2. Stages 2, 3, 4, 6 (same shape; stage-specific context fragments carried over). **Done for routing + guardrail carry-over; needs live conversational smoke on real projects.**
 3. Stage 1 (refine-pitch as the tool), Stage 7 (tool = `generate_style`), then fold Stage 10
    (`/api/brainstorm-rewrite` becomes config: priority-list context + `apply_priority_rewrite` tool)
-   and Stage 7's `/api/style-chat`.
+   and Stage 7's `/api/style-chat`. **Stage 1 and project Stage 7 are done; Stage 10 and global `/api/style-chat` remain.**
 4. Delete `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, the regex layer,
    and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes).
 
@@ -82,9 +82,15 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 ### Codex continuation notes — 2026-06-13
 - Stage 5 check found and fixed one contract leak: a no-op revision receipt (`changed: false`) is now treated as a failed tool turn, so tools are withheld on the resume leg and the assistant must report the failure.
 - `/api/assistant` now carries memory recall, Stage 4 current-event/current-artifact guardrails, Stage 4 confirmation short-circuit as a real `apply_revision` tool call, Stage 6 source-comparison/external-feedback modes, source-location grounding, and scoped-polish scope locks.
-- `TOOL_ASSISTANT_STAGES` is now `[2, 3, 4, 5, 6]`.
+- `TOOL_ASSISTANT_STAGES` was expanded to `[2, 3, 4, 5, 6]` in the first pass.
 - Build fingerprint loading was corrected to use the unwrapped `nativeFetch('/health')`, matching the Phase 0 safety-rail test.
 - Verified: `node --check agents/assistant.js agents/tool_messages.js agents/ai-client.js server.js public/app.js`, `node --test test/assistant_tool_loop.test.js`, and `npm run test:knowledge` (110 tests).
+
+### Codex continuation notes — 2026-06-13 (second pass)
+- Stage 1 now routes through `/api/assistant` and uses the existing `apply_revision` browser executor for pitch refinement.
+- Project Stage 7 now routes through `/api/assistant` with a first-class `generate_style` tool; its proactive 3-writer opening message and saved-style context are carried over.
+- The browser tool loop now supports both `apply_revision` and `generate_style`, returning tool-specific receipts to the model before the closing message.
+- Remaining Phase 2 work: Stage 10 rewrite chat/planning, global `/api/style-chat`, removal of the legacy `/api/brainstorm` path and old frontend regex/flag scaffolding after all consumers are migrated.
 
 ---
 

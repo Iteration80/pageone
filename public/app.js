@@ -8087,10 +8087,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stages migrated to the tool-calling assistant (/api/assistant).
-    // For these stages the model decides whether to revise by calling the
-    // apply_revision tool — no suggest_plan flags, no confirmation regexes.
+    // For these stages the model decides whether to execute by calling a
+    // native tool — no suggest_plan flags, no confirmation regexes.
     // Expand this set as stages are migrated (see specs/pageone-refactor-plan-2026-06-11.md).
-    const TOOL_ASSISTANT_STAGES = new Set([2, 3, 4, 5, 6]);
+    const TOOL_ASSISTANT_STAGES = new Set([1, 2, 3, 4, 5, 6, 7]);
+
+    function toolWorkingLabel(toolCalls = []) {
+        return toolCalls.some(call => call?.name === 'generate_style') ? 'Generating style' : 'Applying changes';
+    }
+
+    function toolInputBrief(call = {}) {
+        if (call.name === 'generate_style') return call.input?.style_brief || call.input?.description || '';
+        return call.input?.revision_brief || '';
+    }
+
+    function toolResultFromExecution(call = {}, result = {}) {
+        if (call.name === 'generate_style') {
+            const changed = result?.changed !== false && Boolean(result?.slug || result?.directive || result?.content);
+            return {
+                changed,
+                styleSlug: result?.slug,
+                styleName: result?.meta?.name || result?.name || result?.slug,
+                ...(result?.tier && { tier: result.tier }),
+                ...(!changed ? { error: 'The style generator did not return a saved style.' } : {})
+            };
+        }
+        const changed = !revisionReceiptFailed(result) && (
+            revisionReceiptChanged(result) || (result && result.changed !== false)
+        );
+        const receiptSummary = result?.revisionReceipt?.summary || result?.receipt?.summary || undefined;
+        return {
+            changed,
+            changedSceneNumbers: Array.isArray(result?.changedSceneNumbers) ? result.changedSceneNumbers : undefined,
+            receiptSummary,
+            ...(!changed ? { error: receiptSummary || 'The revision engine returned no saved changes.' } : {})
+        };
+    }
 
     async function toolAssistantTurn({ chat, stageId, executeRevision, showWorking, body }) {
         let data;
@@ -8119,34 +8151,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.message) chat.append('ai', data.message);
         if (data.type !== 'tool_call' || !Array.isArray(data.toolCalls)) return;
 
-        // Execute each tool call through the existing revision machinery, then
+        // Execute each tool call through the existing browser-side machinery, then
         // resume the same model turn with the real result (receipt or error) so
         // the assistant's closing message reflects what actually happened.
         const toolResults = [];
         chat.setDisabled(true);
-        const indicator = showWorking();
+        const indicator = showWorking(toolWorkingLabel(data.toolCalls));
         try {
             for (const call of data.toolCalls) {
-                if (call.name !== 'apply_revision' || !executeRevision) {
+                if (!['apply_revision', 'generate_style'].includes(call.name) || !executeRevision) {
                     toolResults.push({ id: call.id, name: call.name, result: { error: `Tool ${call.name} is not available in this stage.` }, isError: true });
                     continue;
                 }
                 try {
-                    const rev = await executeRevision(call.input?.revision_brief || '');
-                    const changed = !revisionReceiptFailed(rev) && (
-                        revisionReceiptChanged(rev) || (rev && rev.changed !== false)
-                    );
-                    const receiptSummary = rev?.revisionReceipt?.summary || rev?.receipt?.summary || undefined;
+                    const rev = await executeRevision(toolInputBrief(call));
+                    const toolResult = toolResultFromExecution(call, rev);
                     toolResults.push({
                         id: call.id,
                         name: call.name,
-                        result: {
-                            changed,
-                            changedSceneNumbers: Array.isArray(rev?.changedSceneNumbers) ? rev.changedSceneNumbers : undefined,
-                            receiptSummary,
-                            ...(!changed ? { error: receiptSummary || 'The revision engine returned no saved changes.' } : {})
-                        },
-                        isError: !changed
+                        result: toolResult,
+                        isError: !toolResult.changed
                     });
                 } catch (err) {
                     toolResults.push({ id: call.id, name: call.name, result: { error: err.message }, isError: true });
@@ -8175,10 +8199,10 @@ document.addEventListener('DOMContentLoaded', () => {
             threadId, inputId, sendBtnId,
             attachInputId: explicitAttachId === false ? null : (explicitAttachId || `stage${stageId}-chat-attach`),
             onSend: async (_text, history, attachment) => {
-                const showWorking = () => {
+                const showWorking = (label = 'Applying changes') => {
                     const el = document.createElement('div');
                     el.className = 'chat-message chat-message-working';
-                    el.innerHTML = 'Applying changes <div class="chat-working-dots"><span></span><span></span><span></span></div>';
+                    el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
                     chat.thread.appendChild(el);
                     chat.thread.scrollTop = chat.thread.scrollHeight;
                     return el;
@@ -8964,7 +8988,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const res = await fetch('/api/brainstorm', {
+            const initEndpoint = TOOL_ASSISTANT_STAGES.has(7) ? '/api/assistant' : '/api/brainstorm';
+            const res = await fetch(initEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 7, messages: [], isInit: true })

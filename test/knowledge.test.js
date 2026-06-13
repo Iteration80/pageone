@@ -747,15 +747,18 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
 });
 
-test('tool assistant migration covers stages 2 through 6 with carried guardrails', () => {
+test('tool assistant migration covers stages 1 through 7 with carried guardrails', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
-    assert.match(appJs, /const TOOL_ASSISTANT_STAGES = new Set\(\[2, 3, 4, 5, 6\]\)/);
+    assert.match(appJs, /const TOOL_ASSISTANT_STAGES = new Set\(\[1, 2, 3, 4, 5, 6, 7\]\)/);
     assert.match(serverJs, /app\.post\('\/api\/assistant'/);
     assert.match(serverJs, /buildToolAssistantContextAdditions/);
     assert.match(serverJs, /buildStage4ConfirmationRevisionBrief/);
     assert.match(serverJs, /buildMemoryRecallResponse\(projectData/);
+    assert.match(assistantJs, /name: 'generate_style'/);
+    assert.match(appJs, /toolInputBrief\(call\)/);
 });
 
 test('frontend Stage 2 chat directly applies outline revision memos and rejects status questions', () => {
