@@ -5,8 +5,7 @@ const {
     labelsEqual,
     parseStructuralPatchOps
 } = require('../utils/revision_patch');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 function normalizeOutlineInput(outline) {
     if (!outline || typeof outline !== 'object') return null;
@@ -1204,8 +1203,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
     } = modelConfig;
     const hasCurrentOutline = outlineHasContent(currentOutline);
 
-    const skillPath = path.join(__dirname, '../skills/skill_stage2_outline.md');
-    const outlineSOP = fs.readFileSync(skillPath, 'utf8');
+    const outlineSOP = loadSkill('skill_stage2_outline');
 
     const beatItemSchema = {
         type: 'object',

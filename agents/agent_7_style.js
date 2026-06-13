@@ -1,6 +1,5 @@
 const { generateContent } = require('./ai-client');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 /**
  * Stage 7: The Style Agent
@@ -21,7 +20,7 @@ const generateDirective = async (input, modelConfig = {}) => {
         knowledgeContext = ''
     } = modelConfig;
 
-    const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
+    const styleSop = loadSkill('skill_stage7_style');
 
     const {
         description = '',
@@ -88,7 +87,7 @@ const generateTrainedStyle = async (input, modelConfig = {}) => {
         knowledgeContext = ''
     } = modelConfig;
 
-    const styleSop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage7_style.md'), 'utf8');
+    const styleSop = loadSkill('skill_stage7_style');
 
     const {
         styleName = '',

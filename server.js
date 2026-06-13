@@ -8,6 +8,13 @@ const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const {
+    BUILD_COMMIT,
+    BUILD_DEPLOYMENT_ID,
+    BUILD_TIMESTAMP,
+    getBuildInfo
+} = require('./utils/build_info');
+const { loadSkill } = require('./utils/skills_cache');
 
 // ─── Storage paths ───────────────────────────────────────────────────────────
 const BUNDLED_DATA_ROOT = path.join(__dirname, 'data');
@@ -180,8 +187,6 @@ async function loadSettings() {
 
 const APP_SECRET = process.env.APP_SECRET;
 const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!APP_SECRET && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
-const BUILD_COMMIT = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || null;
-const BUILD_DEPLOYMENT_ID = process.env.RAILWAY_DEPLOYMENT_ID || null;
 
 /** Returns the model + API keys to use for a given stage number (1–10). */
 function getModelConfig(stageNum) {
@@ -285,6 +290,7 @@ const {
     stageConfig
 } = require('./utils/artifact_snapshots');
 const { generateContent } = require('./agents/ai-client');
+const { runAssistantTurn, buildNeutralMessages } = require('./agents/assistant');
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
@@ -3201,6 +3207,25 @@ function buildStage4ConfirmationBypassResponse(messages = []) {
     };
 }
 
+function buildStage4ConfirmationRevisionBrief(messages = []) {
+    const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+    const priorAssistant = findRecentStage4RevisionProposal(messages);
+    const recentConversation = messages
+        .slice(-10)
+        .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}:\n${m.content || ''}`)
+        .join('\n\n---\n\n');
+    return `LATEST USER CONFIRMATION:
+${latestUserMessage}
+
+Apply the most recent concrete Stage 4 beat-sheet revision proposal from the assistant context below. Preserve any constraints in the latest user confirmation. Do not treat older, unrelated discussion items as additional instructions.
+
+RECENT ASSISTANT PROPOSAL:
+${priorAssistant?.content || 'No prior assistant proposal captured.'}
+
+RECENT CONVERSATION CONTEXT:
+${recentConversation}`;
+}
+
 function isScopedPolishRequest(message = '') {
     const text = String(message || '');
     if (!text.trim()) return false;
@@ -3234,6 +3259,106 @@ Hard rules:
 - Set suggest_plan true only for that narrow local edit. Set execute_immediately false unless the latest message explicitly says to apply/go ahead now.${stageSpecific}
 
 `;
+}
+
+function buildToolScopedPolishPromptBlock(stageId, latestMessage = '') {
+    return buildScopedPolishPromptBlock(stageId, latestMessage)
+        .replace(
+            /- Set suggest_plan true only for that narrow local edit\. Set execute_immediately false unless the latest message explicitly says to apply\/go ahead now\./,
+            '- Call apply_revision only for that narrow local edit, and only when the latest message explicitly says to apply/go ahead now. Otherwise, offer that narrow edit and wait for confirmation.'
+        );
+}
+
+function isSourceLocationQuestion(message = '') {
+    return /\b(page|pages|issue|source\s+(?:scene|beat|location)|where\s+in\s+the\s+source|where\s+does\b.*\bsource)\b/i.test(message)
+        && /\b(source|comic|graphic novel|book|document|page|issue)\b/i.test(message);
+}
+
+function buildToolAssistantContextAdditions({ projectData, stageId, lastUserMessage = '', attachmentText = '', isInit = false }) {
+    const numericStageId = Number(stageId);
+    const stage4CurrentArtifactAnalysis = !isInit && numericStageId === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
+    const stage6SourceComparisonAnalysis = !isInit && numericStageId === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
+    const stage6ExternalFeedbackReview = !isInit && numericStageId === 6 && isStage6ExternalFeedbackReviewRequest(lastUserMessage);
+    const scopedPolishRequest = !isInit && isScopedPolishRequest(lastUserMessage);
+    const sourceLocationQuestion = !isInit && isSourceLocationQuestion(lastUserMessage);
+
+    const fragments = [];
+
+    if (numericStageId === 4) {
+        const outlineBoundary = buildStage4OutlineDiscussionBoundary(projectData);
+        if (outlineBoundary) fragments.push(outlineBoundary);
+    }
+
+    if (stage4CurrentArtifactAnalysis) {
+        fragments.push(`## CURRENT ARTIFACT ANALYSIS MODE
+The writer is asking you to analyze the current Stage 4 beat sheet. Ignore earlier Stage 4 assistant analysis or claims because they may describe a previous regenerated version. Use only the CURRENT Stage 4 artifact, the approved Stage 2 outline, source/project memory, and the latest writer question.
+
+When flagging a contradiction or structural drift, cite the current sequence number and beat name that supports the claim. If the current beat sheet does not support a prior claim, do not repeat it. Do not call apply_revision unless the writer explicitly asks you to apply a concrete change.`);
+        const currentBeatEvidence = buildStage4CurrentBeatEvidenceBlock(projectData);
+        if (currentBeatEvidence) fragments.push(currentBeatEvidence);
+    }
+
+    if (stage6SourceComparisonAnalysis) {
+        fragments.push(buildSourceItemInventoryBlock(attachmentText));
+        fragments.push(`## STAGE 6 SOURCE COMPARISON MODE
+The writer attached a source scene breakdown and is asking for an audit against the CURRENT Stage 6 scene blueprint.
+
+Hard rules:
+- Do not treat this as revision confirmation, even if the message says changes are acceptable.
+- Do not call apply_revision for this turn. Analyze and triage only.
+- Ignore prior Stage 6 assistant claims or post-revision follow-up language unless the current blueprint and attached source support them.
+- Use the ATTACHED FILE as source-breakdown evidence and the STAGE 6 Scene Blueprint above as the current adaptation artifact.
+- Produce an exhaustive coverage-matrix comparison, not a best-highlights note.
+
+Audit structure:
+1. Project Constraint Map: briefly list the recurring entities, visual/physical identities, roles/backstories, props, protected lines/motifs, world rules, setup/payoff promises, and known adaptation inventions you inferred from the attached source and project memory.
+2. Source Coverage Matrix: include one row or bullet for EVERY numbered source item in SOURCE ITEM INVENTORY. For each, give status: "covered", "compressed/relocated", "underrepresented", "missing", or "intentionally omitted", and cite closest current blueprint scene number/heading or "no clear match".
+3. Constraint Drift / Canon Breaks: run explicit passes for entity identity, role/backstory, visual description, prop paths, preserved lines/motifs, setup/payoff plants, timeline/geography, and stale internal scene references.
+4. Missing or underrepresented source scenes/beats: prioritize from the matrix.
+5. Current blueprint scenes that may be redundant or not source-load-bearing: cite scene numbers/headings.
+6. Spiritually faithful adaptation changes: name source departures that improve film flow and should probably remain.
+7. Recommended next steps, separated into "discuss first" and "safe to revise later" buckets.
+
+Before finalizing, scan the SOURCE ITEM INVENTORY again and verify every item ID appears in your response exactly once in the matrix.`);
+    }
+
+    if (stage6ExternalFeedbackReview) {
+        fragments.push(`## STAGE 6 EXTERNAL FEEDBACK REVIEW MODE
+The writer pasted a long note set from an external reviewer, coverage source, or another AI. Treat it as material to analyze and triage against the CURRENT Stage 6 scene blueprint, not as permission to revise.
+
+Hard rules:
+- Do not say or imply that any change was applied.
+- Do not call apply_revision for this turn.
+- Do not ask the revision engine to apply the whole note dump.
+- Identify which notes are hard project-constraint/continuity issues, which are craft suggestions, and which require a writer decision.
+- If the notes contain many fixes, recommend a small first surgical batch rather than attempting all of them at once.
+- If the writer later answers one decision from your triage, keep the next response scoped to that decision or the same recommended batch.
+
+Output shape:
+1. Highest-risk findings from the feedback that appear plausible against the current blueprint.
+2. Items that need writer decision before changing.
+3. Items that are safe candidates for a later surgical pass.
+4. One recommended first batch, with scene numbers if clear.`);
+    }
+
+    if (sourceLocationQuestion) {
+        fragments.push(`## SOURCE LOCATION GROUNDING MODE
+The writer is asking for a page, issue, or source-location citation. Treat this as a factual evidence request, not an editorial inference.
+
+Hard rules:
+- Only give a page number, issue number, source item ID, or "corresponds to" claim if that exact locator is visible in the current prompt, attached source text, or project memory.
+- Do not infer a page number from a scene number, plot order, or a plausible memory of the story.
+- If the exact locator is not available, say you cannot verify the source location from the available context. You may still cite the current project scene/beat that triggered the question, clearly labeled as the current artifact rather than the source.`);
+    }
+
+    if (scopedPolishRequest) {
+        fragments.push(buildToolScopedPolishPromptBlock(numericStageId, lastUserMessage));
+    }
+
+    return {
+        context: fragments.filter(Boolean).join('\n\n---\n\n'),
+        latestOnly: stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview || scopedPolishRequest
+    };
 }
 
 async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
@@ -3429,7 +3554,8 @@ app.get('/health', (_req, res) => {
     res.json({
         ok: true,
         commit: BUILD_COMMIT,
-        deploymentId: BUILD_DEPLOYMENT_ID
+        deploymentId: BUILD_DEPLOYMENT_ID,
+        buildTimestamp: BUILD_TIMESTAMP
     });
 });
 
@@ -4862,7 +4988,7 @@ Hard rules:
             conversationPrompt += 'Continue the conversation as the editorial assistant.';
         }
 
-        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+        const brainstormSop = loadSkill('skill_brainstorm');
 
         // When the last user message is the post-revision trigger, inject a short high-priority
         // override at the top of the system prompt. Prose rules buried 200 lines in lose to the
@@ -4940,6 +5066,183 @@ ${brainstormSop}`
         console.error('brainstorm error:', error);
         const detail = publicErrorDetail(error);
         res.status(500).json({ error: detail ? `Brainstorm request failed: ${detail}` : 'Brainstorm request failed' });
+    }
+});
+
+// Tool-calling stage assistant (Phase 1 replacement for /api/brainstorm).
+// Two-leg tool turns: a response of {type:'tool_call', turnState} means the browser
+// must execute the revision via its existing executeRevision machinery and POST the
+// result back with the same turnState so the model sees the real receipt.
+// Stages are migrated one at a time via TOOL_ASSISTANT_STAGES in public/app.js;
+// /api/brainstorm remains the legacy path until cutover.
+app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
+    try {
+        const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false, turnState = null, toolResults = null } = req.body;
+        if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
+
+        const filePath = path.join(DATA_DIR, `${projectId}.json`);
+        let content;
+        try {
+            content = await fs.readFile(filePath, 'utf-8');
+        } catch {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        const projectData = JSON.parse(content);
+        const pitch = projectData.data?.stage1_pitch?.pitch;
+        const title = pitch?.title || projectData.title || 'Untitled';
+
+        const modelConfig = getBrainstormModelConfig(stageId);
+        let savedSource = null;
+        let sourceMemory = null;
+        let contextBlock = '';
+        let historyForTurn = messages;
+
+        // Context is only needed on the first leg of a turn; resumed tool turns
+        // carry their full message list in turnState.
+        if (!turnState) {
+            let stageName, stageData;
+            try {
+                ({ stageName, stageData } = await buildStageDataForAssistant(projectData, stageId, sceneNumber));
+            } catch {
+                return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
+            }
+
+            const lastUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+            let attachmentText = '';
+            if (attachment) {
+                const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage: lastUserMessage, projectId });
+                attachmentText = persisted.fileText;
+                savedSource = persisted.savedSource;
+                if (savedSource) await writeJSONQueued(filePath, projectData);
+            }
+
+            const knowledgeContext = buildKnowledgeContextBlock(projectData, { stageId, userMessage: lastUserMessage, stageName, stageData });
+            sourceMemory = memoryUsageForStage(projectData, stageId, stageData, lastUserMessage);
+
+            const deterministicStage4EventList = !isInit && Number(stageId) === 4
+                ? buildStage4CurrentEventListResponse(projectData, lastUserMessage)
+                : null;
+            if (deterministicStage4EventList) {
+                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
+                return res.json({
+                    type: 'message',
+                    message: deterministicStage4EventList.message,
+                    ...(savedSource && { savedSource }),
+                    ...(sourceMemory && { sourceMemory })
+                });
+            }
+
+            const memoryRecall = !isInit ? buildMemoryRecallResponse(projectData, {
+                stageId,
+                stageName,
+                userMessage: lastUserMessage,
+                stageData
+            }) : null;
+            if (memoryRecall) {
+                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, memoryRecall.message);
+                return res.json({
+                    type: 'message',
+                    message: memoryRecall.message,
+                    ...(savedSource && { savedSource }),
+                    ...((memoryRecall.sourceMemory || sourceMemory) && { sourceMemory: memoryRecall.sourceMemory || sourceMemory })
+                });
+            }
+
+            const savedConversations = projectData.data?.conversations || {};
+            let priorContext = '';
+            for (let s = 1; s < stageId; s++) {
+                const prior = savedConversations[`stage${s}`];
+                if (prior?.length) {
+                    priorContext += `\n--- Stage ${s} (${STAGE_NAMES[s]}) Conversations ---\n`;
+                    for (const m of prior.slice(-20)) {
+                        priorContext += `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}\n`;
+                    }
+                }
+            }
+
+            contextBlock = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}`;
+            if (knowledgeContext) contextBlock += `\n\n---\n\n${knowledgeContext}`;
+            if (priorContext) contextBlock += `\n\n---\n\n## PREVIOUS STAGE CONVERSATIONS\n${priorContext}`;
+            if (attachmentText) contextBlock += `\n\n---\n\n## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}`;
+
+            const contextAdditions = buildToolAssistantContextAdditions({
+                projectData,
+                stageId,
+                lastUserMessage,
+                attachmentText,
+                isInit
+            });
+            if (contextAdditions.context) contextBlock += `\n\n---\n\n${contextAdditions.context}`;
+            if (contextAdditions.latestOnly) {
+                historyForTurn = messages.filter(m => m.role === 'user').slice(-1);
+            }
+
+            const stage4ConfirmationBypass = !isInit && Number(stageId) === 4
+                ? buildStage4ConfirmationBypassResponse(messages)
+                : null;
+            if (stage4ConfirmationBypass) {
+                const toolCall = {
+                    id: `server_stage4_confirmation_${Date.now()}`,
+                    name: 'apply_revision',
+                    input: { revision_brief: buildStage4ConfirmationRevisionBrief(messages) }
+                };
+                const neutralMessages = buildNeutralMessages({
+                    contextBlock,
+                    history: historyForTurn,
+                    isInit: false,
+                    stageId: Number(stageId)
+                });
+                neutralMessages.push({
+                    role: 'assistant',
+                    text: stage4ConfirmationBypass.message,
+                    toolCalls: [toolCall]
+                });
+                return res.json({
+                    type: 'tool_call',
+                    message: stage4ConfirmationBypass.message,
+                    toolCalls: [toolCall],
+                    turnState: JSON.stringify(neutralMessages),
+                    ...(savedSource && { savedSource }),
+                    ...(sourceMemory && { sourceMemory })
+                });
+            }
+        }
+
+        const result = await runAssistantTurn({
+            stageId: Number(stageId),
+            contextBlock,
+            history: historyForTurn,
+            isInit,
+            turnState,
+            toolResults,
+            modelConfig
+        });
+        console.log(`Assistant stage${stageId}: type=${result.type}${result.toolCalls ? ` tools=${result.toolCalls.map(c => c.name).join(',')}` : ''}`);
+        trackUsage(projectId, result.usageList);
+
+        // Persist conversation only when the turn produced a final message.
+        // Tool-turn acknowledgment text lives in turnState and reaches the writer's
+        // screen, but only the closing message is added to saved history.
+        if (!isInit && result.type === 'message') {
+            try {
+                await persistStageConversation(filePath, projectData, `stage${stageId}`, historyForTurn, result.message);
+            } catch (saveErr) {
+                console.error('Failed to persist assistant conversation:', saveErr.message);
+            }
+        }
+
+        res.json({
+            type: result.type,
+            message: result.message,
+            ...(result.toolCalls && { toolCalls: result.toolCalls }),
+            ...(result.turnState && { turnState: result.turnState }),
+            ...(savedSource && { savedSource }),
+            ...(sourceMemory && { sourceMemory })
+        });
+    } catch (error) {
+        console.error('assistant error:', error);
+        const detail = publicErrorDetail(error);
+        res.status(500).json({ error: detail ? `Assistant request failed: ${detail}` : 'Assistant request failed' });
     }
 });
 
@@ -5062,7 +5365,7 @@ app.post('/api/brainstorm-rewrite', requireAuth, aiLimiter, async (req, res) => 
             conversationPrompt += 'Continue the conversation as the editorial assistant.';
         }
 
-        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+        const brainstormSop = loadSkill('skill_brainstorm');
         const brainstormSchema = {
             type: 'object',
             properties: {
@@ -5517,7 +5820,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
 
         const sceneList = buildStage10PlannerSceneList(allScenes, working);
 
-        const plannerSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage10_planner.md'), 'utf8');
+        const plannerSop = loadSkill('skill_stage10_planner');
         const feedbackSection = userFeedback ? `\n\n## WRITER NOTES ON SCOPE\n${userFeedback}` : '';
         // Trim conversation context to last ~4000 chars to keep prompt manageable
         const trimmedContext = conversationContext && conversationContext.length > 4000
@@ -6032,7 +6335,7 @@ app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) =>
         const previewPacket = buildSourceGenerationPacket(projectData, 7, `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(scene, null, 2)}`, { userMessage: 'Preview this scene in the selected style.' });
 
         // Use the Draft agent with style directives injected
-        const draftSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage8_draft.md'), 'utf8');
+        const draftSop = loadSkill('skill_stage8_draft');
         const prompt = `${draftSop}
 
 ${previewPacket.contextBlock ? `## PROJECT SOURCE CANON\n${previewPacket.contextBlock}\n` : ''}
@@ -6319,8 +6622,8 @@ app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
 app.post('/api/style-chat', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { messages, isInit } = req.body;
-        const styleSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_stage7_style.md'), 'utf8');
-        const brainstormSop = require('fs').readFileSync(path.join(__dirname, 'skills/skill_brainstorm.md'), 'utf8');
+        const styleSop = loadSkill('skill_stage7_style');
+        const brainstormSop = loadSkill('skill_brainstorm');
 
         let systemPrompt = `${brainstormSop}\n\n## STYLE SOP\n${styleSop}\n\n`;
         systemPrompt += `You are helping a writer create a style for their screenplay projects. You are NOT in a project context — there are no scenes to reference. Help them describe the style they want, then generate a directive when they're ready.
@@ -6415,13 +6718,14 @@ When you have enough info to generate, ask: "Ready to generate this style?" (or 
 // --- Settings Routes --- //
 
 app.get('/api/settings', requireAuth, (req, res) => {
-    res.json({
-        geminiApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey ? '***' : '',
-        anthropicApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey ? '***' : '',
-        stageModels: appSettings.stageModels || {},
-        runtimeApiKeysEnabled: RUNTIME_API_KEYS_ENABLED,
-        apiKeysManagedByServer: !RUNTIME_API_KEYS_ENABLED
-    });
+        res.json({
+            geminiApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey ? '***' : '',
+            anthropicApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey ? '***' : '',
+            stageModels: appSettings.stageModels || {},
+            runtimeApiKeysEnabled: RUNTIME_API_KEYS_ENABLED,
+            apiKeysManagedByServer: !RUNTIME_API_KEYS_ENABLED,
+            build: getBuildInfo()
+        });
 });
 
 app.post('/api/settings', requireAuth, async (req, res) => {

@@ -61,6 +61,7 @@
                 </div>
             </section>
         </main>
+        <footer id="hubBuildFingerprint" class="build-fingerprint hub-build-fingerprint">Build unavailable</footer>
     </div>
 
     <!-- Import Script Modal -->
@@ -294,6 +295,7 @@
                     </svg>
                 </button>
             </div>
+            <div id="buildFingerprintFooter" class="build-fingerprint sidebar-build-fingerprint">Build unavailable</div>
         </aside>
 
         <!-- Main Workspace (Stage 1) -->
@@ -1147,6 +1149,11 @@
                 <div id="settings-stage-models" style="display:flex;flex-direction:column;gap:8px">
                     <!-- Injected by JS -->
                 </div>
+            </section>
+
+            <section class="settings-build-panel">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Build</h4>
+                <p id="settings-build-fingerprint" class="settings-build-fingerprint">Build unavailable</p>
             </section>
 
             <div class="modal-actions" style="margin-top:24px">

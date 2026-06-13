@@ -1,3 +1,5 @@
+const nativeFetch = window.fetch.bind(window);
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
@@ -5,8 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDraftSceneNumber = 1;
     let isBatchGenerating = false;
     const AUTH_STORAGE_KEY = 'pageone_access_key';
-    const nativeFetch = window.fetch.bind(window);
-
     function getAuthSecret() {
         return sessionStorage.getItem(AUTH_STORAGE_KEY) || '';
     }
@@ -112,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupAuthGate();
+
+    loadBuildInfo();
 
     function autoResize(textarea) {
         if (!textarea) return;
@@ -8084,6 +8086,83 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.isArray(receipt?.failures) && receipt.failures.length > 0;
     }
 
+    // Stages migrated to the tool-calling assistant (/api/assistant).
+    // For these stages the model decides whether to revise by calling the
+    // apply_revision tool — no suggest_plan flags, no confirmation regexes.
+    // Expand this set as stages are migrated (see specs/pageone-refactor-plan-2026-06-11.md).
+    const TOOL_ASSISTANT_STAGES = new Set([2, 3, 4, 5, 6]);
+
+    async function toolAssistantTurn({ chat, stageId, executeRevision, showWorking, body }) {
+        let data;
+        chat.setThinking(true);
+        try {
+            const res = await fetch('/api/assistant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                const errorMessage = await apiErrorMessage(res, 'Assistant request failed');
+                chat.setThinking(false);
+                chat.append('ai', 'Error: ' + errorMessage);
+                return;
+            }
+            data = await res.json();
+        } catch (err) {
+            chat.setThinking(false);
+            chat.append('ai', 'Error: ' + err.message);
+            return;
+        }
+        chat.setThinking(false);
+        noteSavedSource(chat, data.savedSource);
+        noteSourceMemoryUsed(chat, data.sourceMemory);
+        if (data.message) chat.append('ai', data.message);
+        if (data.type !== 'tool_call' || !Array.isArray(data.toolCalls)) return;
+
+        // Execute each tool call through the existing revision machinery, then
+        // resume the same model turn with the real result (receipt or error) so
+        // the assistant's closing message reflects what actually happened.
+        const toolResults = [];
+        chat.setDisabled(true);
+        const indicator = showWorking();
+        try {
+            for (const call of data.toolCalls) {
+                if (call.name !== 'apply_revision' || !executeRevision) {
+                    toolResults.push({ id: call.id, name: call.name, result: { error: `Tool ${call.name} is not available in this stage.` }, isError: true });
+                    continue;
+                }
+                try {
+                    const rev = await executeRevision(call.input?.revision_brief || '');
+                    const changed = !revisionReceiptFailed(rev) && (
+                        revisionReceiptChanged(rev) || (rev && rev.changed !== false)
+                    );
+                    const receiptSummary = rev?.revisionReceipt?.summary || rev?.receipt?.summary || undefined;
+                    toolResults.push({
+                        id: call.id,
+                        name: call.name,
+                        result: {
+                            changed,
+                            changedSceneNumbers: Array.isArray(rev?.changedSceneNumbers) ? rev.changedSceneNumbers : undefined,
+                            receiptSummary,
+                            ...(!changed ? { error: receiptSummary || 'The revision engine returned no saved changes.' } : {})
+                        },
+                        isError: !changed
+                    });
+                } catch (err) {
+                    toolResults.push({ id: call.id, name: call.name, result: { error: err.message }, isError: true });
+                }
+            }
+        } finally {
+            indicator.remove();
+            chat.setDisabled(false);
+        }
+
+        await toolAssistantTurn({
+            chat, stageId, executeRevision, showWorking,
+            body: { projectId: body.projectId, stageId, messages: body.messages, turnState: data.turnState, toolResults }
+        });
+    }
+
     function initStageChat({ stageId, threadId, inputId, sendBtnId, executeRevision, attachInputId: explicitAttachId }) {
         // Guard: skip silently if any required element is missing
         if (!document.getElementById(sendBtnId) || !document.getElementById(inputId) || !document.getElementById(threadId)) {
@@ -8104,6 +8183,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat.thread.scrollTop = chat.thread.scrollHeight;
                     return el;
                 };
+
+                // Tool-calling assistant path: the model decides whether to revise
+                // by calling apply_revision; everything below (confirmation regexes,
+                // pendingRevision state, suggest_plan flags) is legacy-path only.
+                if (TOOL_ASSISTANT_STAGES.has(Number(stageId))) {
+                    await toolAssistantTurn({
+                        chat, stageId, executeRevision, showWorking,
+                        body: { projectId: activeProjectId, stageId, messages: history, ...(attachment && { attachment }) }
+                    });
+                    return;
+                }
 
                 // Build revision notes that include user requests, the assistant's
                 // latest concrete proposal, and the final execution acknowledgement.
@@ -8579,7 +8669,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const res = await fetch('/api/brainstorm', {
+            const initEndpoint = TOOL_ASSISTANT_STAGES.has(5) ? '/api/assistant' : '/api/brainstorm';
+            const res = await fetch(initEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 5, messages: [], isInit: true })
@@ -8777,7 +8868,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chat.setThinking(true);
         try {
-            const res = await fetch('/api/brainstorm', {
+            const initEndpoint = TOOL_ASSISTANT_STAGES.has(6) ? '/api/assistant' : '/api/brainstorm';
+            const res = await fetch(initEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: activeProjectId, stageId: 6, messages: [], isInit: true })
@@ -10315,6 +10407,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+// --- Build fingerprint (top-level: used by both the DOMContentLoaded closure
+//     and the settings modal code below, which lives outside that closure) ---
+let currentBuildInfo = null;
+
+function normalizeBuildInfo(info = {}) {
+    return {
+        commit: info.commit || '',
+        deploymentId: info.deploymentId || '',
+        buildTimestamp: info.buildTimestamp || info.timestamp || ''
+    };
+}
+
+function formatCommit(commit, full = false) {
+    if (!commit) return 'local';
+    return full ? commit : commit.slice(0, 8);
+}
+
+function formatBuildTimestamp(value, exact = false) {
+    if (!value) return 'timestamp unknown';
+    if (exact) return value;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    });
+}
+
+function formatBuildFingerprint(info, options = {}) {
+    const build = normalizeBuildInfo(info);
+    const commit = formatCommit(build.commit, options.fullCommit);
+    const timestamp = formatBuildTimestamp(build.buildTimestamp, options.exactTimestamp);
+    return `Commit ${commit} · Built ${timestamp}`;
+}
+
+function renderBuildInfo(info) {
+    const build = normalizeBuildInfo(info || currentBuildInfo || {});
+    currentBuildInfo = build;
+    const footerText = formatBuildFingerprint(build);
+    const fullText = formatBuildFingerprint(build, { fullCommit: true, exactTimestamp: true });
+
+    for (const id of ['buildFingerprintFooter', 'hubBuildFingerprint']) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.textContent = footerText;
+        el.title = fullText;
+    }
+
+    const settingsBuild = document.getElementById('settings-build-fingerprint');
+    if (settingsBuild) settingsBuild.textContent = fullText;
+}
+
+async function loadBuildInfo() {
+    try {
+        const res = await nativeFetch('/health');
+        if (!res.ok) throw new Error(`Health returned ${res.status}`);
+        renderBuildInfo(await res.json());
+    } catch (err) {
+        console.warn('Could not load build info:', err);
+        renderBuildInfo({});
+    }
+}
+
 // --- Stage 8 Helpers ---
     function getFlatScenes() {
         const data = window.currentProjectData?.stage6_scenes;
@@ -10382,6 +10537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn('Could not load settings:', e);
         }
+        renderBuildInfo(settings.build || currentBuildInfo || {});
 
         const apiKeySection = document.getElementById('settings-api-key-section');
         const managedKeySection = document.getElementById('settings-api-key-managed');

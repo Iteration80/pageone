@@ -3,8 +3,7 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
@@ -38,7 +37,7 @@ const rewriteScene = async (sceneText, priorityTask, sceneContext, userFeedback 
         generateContentFn = generateContent
     } = modelConfig;
 
-    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage10_rewrite.md'), 'utf8');
+    const sop = loadSkill('skill_stage10_rewrite');
 
     const plannedChangeSection = userFeedback
         ? `\n## PLANNED CHANGE FOR THIS SCENE\n${userFeedback}\n`

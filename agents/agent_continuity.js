@@ -1,8 +1,5 @@
 const { generateContent } = require('./ai-client');
-const fs = require('fs');
-const path = require('path');
-
-const SKILL_PATH = path.join(__dirname, '../skills/skill_continuity_supervisor.md');
+const { loadSkill } = require('../utils/skills_cache');
 
 /**
  * Run the continuity supervisor on a newly drafted scene.
@@ -15,7 +12,7 @@ async function runContinuityCheck(draftText, sceneData, projectData, modelConfig
     } = modelConfig;
 
     const model = 'gemini-3-flash-preview';
-    const supervisorSOP = fs.readFileSync(SKILL_PATH, 'utf8');
+    const supervisorSOP = loadSkill('skill_continuity_supervisor');
     const activeFacts = getActiveFacts(projectData, sceneData.scene_number);
     const characters = projectData.data?.stage3_characters?.characters || [];
     const characterCues = extractCharacterCues(draftText);

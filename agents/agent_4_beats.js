@@ -12,8 +12,7 @@ const {
     parseSequenceTargets,
     textMentionsLabel
 } = require('../utils/revision_patch');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
@@ -319,8 +318,7 @@ const agent4Beats = async (pitchData, beatsData, charactersData, currentBeats = 
         retryDelayMs = 750
     } = modelConfig;
 
-    const skillPath = path.join(__dirname, '../skills/skill_stage4_beats.md');
-    const beatsSOP = fs.readFileSync(skillPath, 'utf8');
+    const beatsSOP = loadSkill('skill_stage4_beats');
     const systemInstruction = buildMemorySourceSystemInstruction(beatsSOP, 'Stage 4 Beat Sheet');
     const sourceBlock = buildMemorySourcePromptBlock(knowledgeContext, 'Stage 4 Beat Sheet');
     const beatContract = buildStage4BeatContract({ pitchData, beatsData, charactersData });

@@ -176,6 +176,70 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     return normalizeClaudeMessage(response);
 }
 
+// ─── Chat with tools ──────────────────────────────────────────────────────────
+
+const {
+    toAnthropicMessages, toAnthropicTools, parseAnthropicResponse,
+    toGeminiContents, toGeminiTools, parseGeminiResponse
+} = require('./tool_messages');
+
+/**
+ * chatWithTools({ model, geminiApiKey, anthropicApiKey, system, messages, tools, temperature, maxTokens })
+ *
+ * Single model turn with native function/tool calling on either provider.
+ * `messages` uses the neutral format defined in tool_messages.js. The caller
+ * owns the loop: when the response contains toolCalls, append the assistant
+ * turn and a {role:'tool'} results turn, then call again.
+ *
+ * @returns {{ text: string, toolCalls: [{id,name,input}], usage: {model,inputTokens,outputTokens}, stopReason: string|null }}
+ */
+async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, messages, tools = [], temperature = 0.7, maxTokens = 4000 }) {
+    const provider = detectProvider(model);
+
+    if (provider === 'anthropic') {
+        const client = new Anthropic({ apiKey: anthropicApiKey });
+        const request = {
+            model,
+            max_tokens: maxTokens,
+            ...(CLAUDE_NO_TEMPERATURE.includes(model) ? {} : { temperature }),
+            ...(system ? { system } : {}),
+            messages: toAnthropicMessages(messages),
+            ...(tools.length ? { tools: toAnthropicTools(tools) } : {})
+        };
+        const response = await client.messages.create(request);
+        const parsed = parseAnthropicResponse(response);
+        return {
+            ...parsed,
+            usage: {
+                model,
+                inputTokens: response.usage?.input_tokens || 0,
+                outputTokens: response.usage?.output_tokens || 0
+            }
+        };
+    }
+
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { timeout: 300_000 } });
+    const response = await ai.models.generateContent({
+        model,
+        contents: toGeminiContents(messages),
+        config: {
+            ...(system ? { systemInstruction: system } : {}),
+            temperature,
+            maxOutputTokens: maxTokens,
+            ...(tools.length ? { tools: toGeminiTools(tools) } : {})
+        }
+    });
+    const parsed = parseGeminiResponse(response);
+    return {
+        ...parsed,
+        usage: {
+            model,
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+        }
+    };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -198,4 +262,4 @@ async function generateContent({ model, geminiApiKey, anthropicApiKey, contents,
     return callGemini({ model, geminiApiKey, contents, config, schema });
 }
 
-module.exports = { generateContent };
+module.exports = { generateContent, chatWithTools };

@@ -3,8 +3,7 @@ const {
     isBroadRevisionIntent,
     mergeSurgicalLabeledItems
 } = require('../utils/revision_patch');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 const PROFILE_TIERS = {
     FULL: 'Tier 1',
@@ -268,8 +267,7 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         generateContentFn = generateContent
     } = modelConfig;
 
-    const skillPath = path.join(__dirname, '../skills/skill_stage3_characters.md');
-    const charactersSOP = fs.readFileSync(skillPath, 'utf8');
+    const charactersSOP = loadSkill('skill_stage3_characters');
 
     const characterSchema = {
         type: 'object',

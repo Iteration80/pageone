@@ -4,8 +4,8 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
-const fs = require('fs');
-const path = require('path');
+const { parseJsonWithRepair } = require('./json_parse');
+const { loadSkill } = require('../utils/skills_cache');
 
 // Note: consolidateCoverage is initialized lazily so it picks up the API key
 // that may have been set via settings after module load.
@@ -129,7 +129,10 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
         },
         schema: coverageSchema
     });
-    return { parsed: JSON.parse(response.text), usage: response.usage };
+    return {
+        parsed: parseJsonWithRepair(response.text, { schema: coverageSchema, label: 'Stage 9 coverage response' }),
+        usage: response.usage
+    };
 };
 
 /**
@@ -137,9 +140,7 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
  * Always uses the fast Gemini flash model — intentional cost optimization.
  */
 const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') => {
-    const consolidatorSop = fs.readFileSync(
-        path.join(__dirname, '../skills/skill_coverage_consolidator.md'), 'utf8'
-    );
+    const consolidatorSop = loadSkill('skill_coverage_consolidator');
     const sourceBlock = buildMemorySourcePromptBlock(sourceContext, 'Stage 9 Coverage Consolidation');
     const prompt = `${sourceBlock ? `${sourceBlock}\n\n---\n\n` : ''}Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions. Preserve source-alignment findings when multiple reports flag them or when a finding concerns an approved project lock.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
 
@@ -159,7 +160,10 @@ const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') =>
         inputTokens: response.usageMetadata?.promptTokenCount || 0,
         outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
     };
-    return { parsed: JSON.parse(response.text), usage };
+    return {
+        parsed: parseJsonWithRepair(response.text, { schema: coverageSchema, label: 'Stage 9 coverage consolidation response' }),
+        usage
+    };
 };
 
 /**
@@ -172,7 +176,7 @@ const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') =>
  * @returns {Promise<object>} - Structured coverage report
  */
 const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
-    const sop = fs.readFileSync(path.join(__dirname, '../skills/skill_stage9_coverage.md'), 'utf8');
+    const sop = loadSkill('skill_stage9_coverage');
     const sourceSection = buildMemorySourcePromptBlock(modelConfig.knowledgeContext, 'Stage 9 Coverage');
 
     // Build character profiles section if available

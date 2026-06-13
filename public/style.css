@@ -109,6 +109,24 @@ body {
     aspect-ratio: 1;
 }
 
+.build-fingerprint {
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    line-height: 1.35;
+    opacity: 0.72;
+    overflow-wrap: anywhere;
+}
+
+.sidebar-build-fingerprint {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.hub-build-fingerprint {
+    align-self: flex-end;
+    margin-top: 24px;
+}
+
 .sidebar-home-btn {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -904,6 +922,20 @@ textarea.synopsis-input {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 8px;
+}
+
+.settings-build-panel {
+    border-top: 1px solid var(--card-border);
+    margin-top: 8px;
+    padding-top: 16px;
+}
+
+.settings-build-fingerprint {
+    color: var(--text-secondary);
+    font-family: "Courier Prime", monospace;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
 }
 
 .approval-source-content,

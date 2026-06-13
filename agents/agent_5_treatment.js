@@ -3,8 +3,7 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 const TREATMENT_FIELDS = [
     {
@@ -244,8 +243,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
         generateContentFn = generateContent
     } = modelConfig;
 
-    const skillPath = path.join(__dirname, '../skills/skill_stage5_treatment.md');
-    const treatmentSOP = fs.readFileSync(skillPath, 'utf8');
+    const treatmentSOP = loadSkill('skill_stage5_treatment');
 
     const systemInstruction = buildMemorySourceSystemInstruction(treatmentSOP, 'Stage 5 Treatment');
 

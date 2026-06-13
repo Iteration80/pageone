@@ -3,8 +3,7 @@ const {
     buildMemorySourceContract,
     buildMemorySourcePromptBlock
 } = require('./memory_contract');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
@@ -25,9 +24,7 @@ const generateSceneDraft = async (sceneData, projectContext, revisionNotes = nul
         generateContentFn = generateContent
     } = modelConfig;
 
-    // Read the Screenwriting SOP rules
-    const rulesPath = path.join(__dirname, '../skills/skill_stage8_draft.md');
-    const screenwritingRules = fs.readFileSync(rulesPath, 'utf8');
+    const screenwritingRules = loadSkill('skill_stage8_draft');
 
     const styleSection = styleContent
         ? `\n## STYLE DIRECTIVES\nThe following directives describe the writing style for this project.\nTreat them as primary craft instructions when making decisions about dialogue rhythm,\naction detail, tonal register, pacing, and voice.\n\n${styleContent}\n`

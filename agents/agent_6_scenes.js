@@ -4,8 +4,7 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
 const { parseJsonWithRepair } = require('./json_parse');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 /**
  * Parses a treatment or beat text into a dictionary keyed by sequence number.
@@ -282,8 +281,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         retryDelayMs = 750
     } = modelConfig;
 
-    const skillPath = path.join(__dirname, '../skills/skill_stage6_scenes.md');
-    const scenesSOP = fs.readFileSync(skillPath, 'utf8');
+    const scenesSOP = loadSkill('skill_stage6_scenes');
 
     const sequenceSchema = {
         type: 'object',

@@ -1,6 +1,5 @@
 const { GoogleGenAI } = require('@google/genai');
-const fs = require('fs');
-const path = require('path');
+const { loadSkill } = require('../utils/skills_cache');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -19,8 +18,7 @@ const HUMANIZER_MODEL = 'gemini-3-flash-preview';
  * @returns {Promise<string>} - Humanized Fountain text
  */
 const humanizeDraft = async (draftText, styleContent = null) => {
-    const rulesPath = path.join(__dirname, '../skills/skill_humanizer.md');
-    const humanizerRules = fs.readFileSync(rulesPath, 'utf8');
+    const humanizerRules = loadSkill('skill_humanizer');
     const styleSection = styleContent
         ? `\n## PROJECT STYLE DIRECTIVES TO PRESERVE\nThe scene has already been drafted in this style. During the surgical polish, do not flatten or remove intentional style choices that match these directives. Only fix clear AI-generation signals.\n\n${styleContent}\n`
         : '';
