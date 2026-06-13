@@ -98,6 +98,13 @@ test('buildTools exposes generate_style for Stage 7', () => {
     assert.deepStrictEqual(tools[0].input_schema.required, ['style_brief']);
 });
 
+test('buildTools exposes generate_style for global style creator', () => {
+    const tools = buildTools('style_global');
+    assert.strictEqual(tools.length, 1);
+    assert.strictEqual(tools[0].name, 'generate_style');
+    assert.match(tools[0].description, /style library/);
+});
+
 test('buildTools exposes generate_rewrite_plan for Stage 10', () => {
     const tools = buildTools(10);
     assert.strictEqual(tools.length, 1);
@@ -137,6 +144,13 @@ test('buildNeutralMessages isInit produces a single entry-analysis user message'
     assert.strictEqual(msgs.length, 1);
     assert.match(msgs[0].text, /STAGE ENTRY ANALYSIS/);
     assert.match(msgs[0].text, /Do not call any tool/);
+});
+
+test('buildNeutralMessages uses standalone opening for global style creator', () => {
+    const msgs = buildNeutralMessages({ contextBlock: 'ctx', history: [], isInit: true, stageId: 'style_global' });
+    assert.strictEqual(msgs.length, 1);
+    assert.match(msgs[0].text, /STYLE CREATOR ENTRY/);
+    assert.match(msgs[0].text, /Who do you want to write like/);
 });
 
 test('toolResultsContainFailure treats no-change receipts as failed tool turns', () => {

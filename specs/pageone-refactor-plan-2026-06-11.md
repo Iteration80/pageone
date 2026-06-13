@@ -1,7 +1,7 @@
 # PageOne Refactor Plan — 2026-06-11
 
 Author: Claude (Fable 5), based on full-codebase audit 2026-06-11.
-Status: Phase 1 pilot validated and Phase 2 stage rollout in progress. Stages 1–7 and Stage 10 planning chat now route through the tool-calling assistant; legacy chat routes remain for global style creation and cleanup paths.
+Status: Phase 1 pilot validated and Phase 2 stage rollout in progress. Stages 1–7, Stage 10 planning chat, and global style creation now route through the tool-calling assistant; legacy chat routes remain only for cleanup paths.
 
 ## Why
 
@@ -63,7 +63,7 @@ through the client so the server stays stateless across the two HTTP legs of a t
 2. Stages 2, 3, 4, 6 (same shape; stage-specific context fragments carried over). **Done for routing + guardrail carry-over; needs live conversational smoke on real projects.**
 3. Stage 1 (refine-pitch as the tool), Stage 7 (tool = `generate_style`), then fold Stage 10
    (`/api/brainstorm-rewrite` becomes config: priority-list context + `apply_priority_rewrite` tool)
-   and Stage 7's `/api/style-chat`. **Stage 1, project Stage 7, and Stage 10 planning chat are done; global `/api/style-chat` remains.**
+   and Stage 7's `/api/style-chat`. **Stage 1, project Stage 7, Stage 10 planning chat, and global style creation are done.**
 4. Delete `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, the regex layer,
    and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes).
 
@@ -90,13 +90,19 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 - Stage 1 now routes through `/api/assistant` and uses the existing `apply_revision` browser executor for pitch refinement.
 - Project Stage 7 now routes through `/api/assistant` with a first-class `generate_style` tool; its proactive 3-writer opening message and saved-style context are carried over.
 - The browser tool loop now supports both `apply_revision` and `generate_style`, returning tool-specific receipts to the model before the closing message.
-- Remaining Phase 2 work: global `/api/style-chat`, selected-scene Stage 10 feedback cleanup if desired, removal of the legacy `/api/brainstorm`/`/api/brainstorm-rewrite` paths and old frontend regex/flag scaffolding after all consumers are migrated.
+- Remaining Phase 2 work: selected-scene Stage 10 feedback cleanup if desired, removal of the legacy `/api/brainstorm`/`/api/brainstorm-rewrite`/`/api/style-chat` paths and old frontend regex/flag scaffolding after all consumers are migrated.
 
 ### Codex continuation notes — 2026-06-13 (third pass)
 - Stage 10 no-scene-selected planning chat now routes through `/api/assistant` with a `generate_rewrite_plan` tool.
 - The browser executes `generate_rewrite_plan` through the existing `/api/plan-rewrite` flow, renders the plan card, and returns affected-scene/strategy receipt data before the model writes its closing message.
 - Stage 10 conversations still persist to `conversations.stage9` for compatibility with existing project data and frontend hydration.
 - Selected-scene Stage 10 feedback remains on the direct `/api/rewrite-scene-feedback` endpoint because it is already an explicit scene rewrite action, not an assistant planning chat.
+
+### Codex continuation notes — 2026-06-13 (fourth pass)
+- Global style creation now routes through `/api/assistant` with `stageId: "style_global"` and the existing `generate_style` browser tool executor.
+- The standalone style assistant carries existing style-library names plus project pitch context, but does not require or persist to a project conversation.
+- The create-style modal no longer calls `/api/style-chat` or consumes `execute_immediately`; it waits for the real saved-style receipt before opening the new style detail.
+- Legacy `/api/style-chat` remains in the server only until the explicit deletion pass.
 
 ---
 

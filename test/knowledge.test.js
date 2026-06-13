@@ -763,6 +763,24 @@ test('tool assistant migration covers stages 1 through 7 and 10 with carried gua
     assert.match(appJs, /stageId: 10, messages: msgs/);
 });
 
+test('global style creator uses the tool assistant instead of legacy style-chat flags', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
+    const createStyleBlock = appJs.slice(
+        appJs.indexOf('// Conversational path'),
+        appJs.indexOf('// Trained path')
+    );
+
+    assert.match(assistantJs, /style_global/);
+    assert.match(serverJs, /isGlobalStyleAssistantStage\(stageId\)/);
+    assert.match(serverJs, /buildGlobalStyleAssistantContext/);
+    assert.match(appJs, /stageId: 'style_global'/);
+    assert.match(appJs, /triggerStyleGeneration\(thread, brief, \{ quiet: true, deferOpen: true \}\)/);
+    assert.doesNotMatch(createStyleBlock, /fetch\('\/api\/style-chat'/);
+    assert.doesNotMatch(createStyleBlock, /execute_immediately/);
+});
+
 test('frontend Stage 2 chat directly applies outline revision memos and rejects status questions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
 

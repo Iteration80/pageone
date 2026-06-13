@@ -31,6 +31,8 @@ function loadCoreSop() {
  * artifactName  — what the tool changes/creates, in writer-facing language.
  * revisionTool  — whether this stage has an apply_revision path.
  * styleTool     — whether this stage can generate a style file.
+ * styleToolDescription — writer-facing target for the generate_style tool.
+ * includeStyleSop — append the Stage 7 style SOP to the system prompt.
  * rewritePlanTool — whether this stage can generate a rewrite plan.
  * stageFragment — extra system-prompt guidance specific to the stage.
  * entryAnalysis — isInit instruction appended to the first user message.
@@ -56,6 +58,7 @@ The writer has just generated the scene blueprint and is reviewing it for the fi
     },
     7: {
         name: 'Style', artifactName: 'style directives', revisionTool: false, styleTool: true,
+        styleToolDescription: 'a Stage 7 style directive file for this project',
         stageFragment: `## STAGE 7 STYLE CONTEXT
 You are helping the writer choose or create screenplay style directives for drafting. Discuss style in terms of concrete prose behavior: sentence shape, image density, dialogue rhythm, scene description, transitions, interiority, tension management, humor, and restraint. Execution means generating a saved style file with the generate_style tool. If the writer is still choosing among references or asking about fit, keep discussing. When they explicitly choose a style or confirm a direction ("use Garland", "yes, generate it", "sounds good"), call generate_style with a complete self-contained style brief.`,
         entryAnalysis: `## STAGE 7 STYLE SUGGESTION
@@ -85,15 +88,29 @@ Otherwise, if some priorities are marked [DONE], briefly acknowledge progress by
 If no priorities are marked [DONE], present the coverage priorities exactly as listed, grouped under MACRO TO-DO and MICRO TO-DO, preserving labels and task text. Ask which priority the writer wants to tackle first.
 
 Do not call any tool for this opening message.`
+    },
+    style_global: {
+        name: 'Style Creator', artifactName: 'style directives', revisionTool: false, styleTool: true,
+        styleToolDescription: "a reusable style directive file in the writer's style library",
+        includeStyleSop: true,
+        stageFragment: `## GLOBAL STYLE CREATOR CONTEXT
+You are helping the writer create a reusable screenplay style outside any single project. There are no active scenes unless the context block lists project pitches for possible fit. Discuss style in terms of concrete prose behavior: sentence shape, image density, dialogue rhythm, scene description, transitions, interiority, tension management, humor, and restraint.
+
+Execution means generating a saved style file in the writer's style library with the generate_style tool. If the writer is still choosing among references, asking about fit, or describing a vague vibe without asking you to build it, keep discussing. When they explicitly choose a style direction or confirm generation ("use Garland", "yes, generate it", "sounds good"), call generate_style with a complete self-contained style brief.`,
+        entryAnalysis: `## STYLE CREATOR ENTRY
+Open with this exact question, without calling any tool:
+
+"Who do you want to write like? Name a writer, describe a vibe, or if you have a screenplay you'd like me to analyze, we can do that on the style detail page after creation."`
     }
 };
 
 function buildTools(stageId) {
     const config = STAGE_CONFIG[stageId];
     if (config?.styleTool) {
+        const styleToolDescription = config.styleToolDescription || `a Stage ${stageId} style directive file for this project`;
         return [{
             name: 'generate_style',
-            description: `Generate and save a Stage ${stageId} style directive file for this project. Calling this actually runs PageOne's style generator — it is the ONLY way a new style is created from the chat. Call it when the writer explicitly chooses a style direction or confirms that you should generate/build/use it. Do NOT call it while the writer is still comparing options, asking questions, or describing a vibe without confirming generation. The result reports the saved style slug/name.`,
+            description: `Generate and save ${styleToolDescription}. Calling this actually runs PageOne's style generator — it is the ONLY way a new style is created from the chat. Call it when the writer explicitly chooses a style direction or confirms that you should generate/build/use it. Do NOT call it while the writer is still comparing options, asking questions, or describing a vibe without confirming generation. The result reports the saved style slug/name.`,
             input_schema: {
                 type: 'object',
                 properties: {
@@ -142,6 +159,7 @@ function buildTools(stageId) {
 function buildSystemPrompt(stageId) {
     const config = STAGE_CONFIG[stageId] || {};
     let system = loadCoreSop();
+    if (config.includeStyleSop) system += `\n\n---\n\n## STYLE SOP\n${loadSkill('skill_stage7_style')}`;
     if (config.stageFragment) system += `\n\n---\n\n${config.stageFragment}`;
     return system;
 }

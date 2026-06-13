@@ -1665,6 +1665,53 @@ function conversationKeyForAssistantStage(stageId) {
     return Number(stageId) === 10 ? 'stage9' : `stage${stageId}`;
 }
 
+function isGlobalStyleAssistantStage(stageId) {
+    return String(stageId) === 'style_global';
+}
+
+async function buildGlobalStyleAssistantContext() {
+    let contextBlock = `## STYLE CREATOR
+You are helping the writer create a reusable style outside any single project. There is no active project artifact to revise. Use the generate_style tool only when the writer confirms a concrete style direction.`;
+
+    const existingStyles = [];
+    try {
+        const files = await fs.readdir(STYLES_DIR);
+        for (const file of files) {
+            if (!file.endsWith('-directive.md') && !file.endsWith('.md')) continue;
+            if (file.endsWith('-reference.md')) continue;
+            try {
+                const raw = await fs.readFile(path.join(STYLES_DIR, file), 'utf-8');
+                const { meta } = parseStyleFile(raw);
+                existingStyles.push(meta.name || file.replace(/-directive\.md$|\.md$/g, ''));
+            } catch {}
+        }
+    } catch {}
+
+    if (existingStyles.length > 0) {
+        contextBlock += `\n\n## EXISTING STYLES\n${existingStyles.map(name => `- ${name}`).join('\n')}`;
+    }
+
+    try {
+        const projectFiles = await fs.readdir(DATA_DIR);
+        const pitches = [];
+        for (const f of projectFiles) {
+            if (!f.endsWith('.json')) continue;
+            try {
+                const pData = JSON.parse(await fs.readFile(path.join(DATA_DIR, f), 'utf-8'));
+                const pitch = pData.data?.stage1_pitch?.pitch;
+                if (pitch?.title) {
+                    pitches.push(`- "${pitch.title}" (${pitch.genre || 'genre TBD'}): ${(pitch.synopsis || '').slice(0, 200)}`);
+                }
+            } catch {}
+        }
+        if (pitches.length > 0) {
+            contextBlock += `\n\n## WRITER'S PROJECTS\n${pitches.join('\n')}\nIf the writer mentions a project by name, tailor the style to that story.`;
+        }
+    } catch {}
+
+    return contextBlock;
+}
+
 function recordSourceGenerationUsage(projectData, packet, stageData = '', reason = 'generation') {
     if (!packet?.stageId) return null;
     return recordSourcePlanUsage(projectData, packet.stageId, stageData, reason, packet.sourceUsePlan);
@@ -5132,6 +5179,25 @@ ${brainstormSop}`
 app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, stageId, messages = [], sceneNumber, attachment, isInit = false, turnState = null, toolResults = null } = req.body;
+        if (isGlobalStyleAssistantStage(stageId)) {
+            const result = await runAssistantTurn({
+                stageId: 'style_global',
+                contextBlock: turnState ? '' : await buildGlobalStyleAssistantContext(),
+                history: messages,
+                isInit,
+                turnState,
+                toolResults,
+                modelConfig: getBrainstormModelConfig(7)
+            });
+            console.log(`Assistant style_global: type=${result.type}${result.toolCalls ? ` tools=${result.toolCalls.map(c => c.name).join(',')}` : ''}`);
+            return res.json({
+                type: result.type,
+                message: result.message,
+                ...(result.toolCalls && { toolCalls: result.toolCalls }),
+                ...(result.turnState && { turnState: result.turnState })
+            });
+        }
+
         if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
 
         const filePath = path.join(DATA_DIR, `${projectId}.json`);

@@ -749,6 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper to render a chat message in the style thread
     function styleThreadAppend(thread, role, text) {
+        if (!thread) return;
         const div = document.createElement('div');
         div.className = `chat-message ${role === 'user' ? 'chat-message-user' : 'chat-message-ai'}`;
         // Safe text rendering: split on newlines, insert <br> elements — no innerHTML with user/AI content
@@ -761,6 +762,52 @@ document.addEventListener('DOMContentLoaded', () => {
         thread.scrollTop = thread.scrollHeight;
     }
 
+    let createStyleThinkingEl = null;
+
+    function styleThreadWorking(thread, label = 'Thinking') {
+        const el = document.createElement('div');
+        el.className = 'chat-message chat-message-working';
+        el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
+        if (thread) {
+            thread.appendChild(el);
+            thread.scrollTop = thread.scrollHeight;
+        }
+        return el;
+    }
+
+    function setCreateStyleDisabled(disabled) {
+        const sendBtn = document.getElementById('btnCreateStyleChatSend');
+        const input = document.getElementById('createStyleChatInput');
+        if (sendBtn) sendBtn.disabled = disabled;
+        if (input) input.disabled = disabled;
+    }
+
+    function createStyleMessagesForAssistant() {
+        return createStyleChatHistory
+            .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+            .map(m => ({ role: m.role, content: m.content }));
+    }
+
+    function createStyleChatAdapter(thread) {
+        return {
+            thread,
+            setThinking(active) {
+                if (active) {
+                    if (!createStyleThinkingEl) createStyleThinkingEl = styleThreadWorking(thread, 'Thinking');
+                } else {
+                    createStyleThinkingEl?.remove();
+                    createStyleThinkingEl = null;
+                }
+            },
+            setDisabled: setCreateStyleDisabled,
+            append(role, content) {
+                const normalizedRole = role === 'user' ? 'user' : 'assistant';
+                if (content) createStyleChatHistory.push({ role: normalizedRole, content });
+                styleThreadAppend(thread, normalizedRole === 'user' ? 'user' : 'ai', content);
+            }
+        };
+    }
+
     document.getElementById('btnCreateStyleConversational')?.addEventListener('click', async () => {
         document.getElementById('createStylePaths')?.classList.add('hidden');
         const chatPath = document.getElementById('createStyleChatPath');
@@ -768,22 +815,15 @@ document.addEventListener('DOMContentLoaded', () => {
         createStyleChatHistory = [];
 
         const thread = document.getElementById('createStyleChatThread');
-        if (thread) thread.innerHTML = '<div class="chat-message chat-message-working">Thinking <div class="chat-working-dots"><span></span><span></span><span></span></div></div>';
+        if (thread) thread.innerHTML = '';
 
-        // Init chat — assistant introduces itself with project context
-        try {
-            const res = await fetch('/api/style-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [], isInit: true })
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            createStyleChatHistory.push({ role: 'model', content: data.reply });
-            if (thread) { thread.innerHTML = ''; styleThreadAppend(thread, 'ai', data.reply); }
-        } catch (err) {
-            if (thread) thread.innerHTML = '<p style="color:#ef4444;padding:8px">Failed to start chat. Check your API key in Settings.</p>';
-        }
+        await toolAssistantTurn({
+            chat: createStyleChatAdapter(thread),
+            stageId: 'style_global',
+            executeRevision: null,
+            showWorking: (label = 'Generating style') => styleThreadWorking(thread, label),
+            body: { stageId: 'style_global', messages: [], isInit: true }
+        });
     });
 
     // Enter key sends message (Shift+Enter for newline)
@@ -804,74 +844,59 @@ document.addEventListener('DOMContentLoaded', () => {
         styleThreadAppend(thread, 'user', text);
         input.value = '';
 
-        // Show thinking dots
-        const thinking = document.createElement('div');
-        thinking.className = 'chat-message chat-message-working';
-        thinking.innerHTML = 'Thinking <div class="chat-working-dots"><span></span><span></span><span></span></div>';
-        thread.appendChild(thinking);
-        thread.scrollTop = thread.scrollHeight;
-
-        try {
-            const messages = createStyleChatHistory.map(m => ({
-                role: m.role === 'user' ? 'user' : 'model',
-                parts: [{ text: m.content }]
-            }));
-            const res = await fetch('/api/style-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages })
-            });
-            thinking.remove();
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            createStyleChatHistory.push({ role: 'model', content: data.reply });
-            styleThreadAppend(thread, 'ai', data.reply);
-
-            // Auto-trigger generation when the assistant signals readiness
-            if (data.execute_immediately) {
-                triggerStyleGeneration(thread);
-            }
-        } catch (err) {
-            thinking.remove();
-            styleThreadAppend(thread, 'ai', 'Error — try again.');
+        let generatedStyle = null;
+        await toolAssistantTurn({
+            chat: createStyleChatAdapter(thread),
+            stageId: 'style_global',
+            executeRevision: async (brief) => {
+                generatedStyle = await triggerStyleGeneration(thread, brief, { quiet: true, deferOpen: true });
+                return generatedStyle;
+            },
+            showWorking: (label = 'Generating style') => styleThreadWorking(thread, label),
+            body: { stageId: 'style_global', messages: createStyleMessagesForAssistant() }
+        });
+        if (generatedStyle?.slug) {
+            document.getElementById('createStyleModal')?.classList.add('hidden');
+            loadHubStyles();
+            openStyleDetail(generatedStyle.slug);
         }
     });
 
-    async function triggerStyleGeneration(thread) {
+    async function triggerStyleGeneration(thread, descriptionOverride = '', options = {}) {
+        const quiet = options.quiet === true;
+        const deferOpen = options.deferOpen === true;
         // Show generating indicator in chat
-        const genIndicator = document.createElement('div');
-        genIndicator.className = 'chat-message chat-message-working';
-        genIndicator.innerHTML = 'Generating style <div class="chat-working-dots"><span></span><span></span><span></span></div>';
-        if (thread) { thread.appendChild(genIndicator); thread.scrollTop = thread.scrollHeight; }
+        const genIndicator = quiet ? null : styleThreadWorking(thread, 'Generating style');
 
         // Disable input during generation
-        const sendBtn = document.getElementById('btnCreateStyleChatSend');
-        const input = document.getElementById('createStyleChatInput');
-        if (sendBtn) sendBtn.disabled = true;
-        if (input) input.disabled = true;
+        if (!quiet) setCreateStyleDisabled(true);
 
         try {
             const lastUserMsg = createStyleChatHistory.filter(m => m.role === 'user').pop()?.content || '';
+            const description = descriptionOverride || lastUserMsg;
             const res = await fetch('/api/generate-stage7-style', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    description: lastUserMsg,
+                    description,
                     conversationHistory: createStyleChatHistory.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
                 })
             });
             if (!res.ok) throw new Error('Generation failed');
             const data = await res.json();
-            document.getElementById('createStyleModal')?.classList.add('hidden');
-            loadHubStyles();
-            openStyleDetail(data.slug);
+            if (!deferOpen) {
+                document.getElementById('createStyleModal')?.classList.add('hidden');
+                loadHubStyles();
+                openStyleDetail(data.slug);
+            }
+            return data;
         } catch (err) {
             console.error('Create style error:', err);
             if (genIndicator) genIndicator.remove();
-            styleThreadAppend(thread, 'ai', 'Failed to generate style — try again.');
+            if (!quiet) styleThreadAppend(thread, 'ai', 'Failed to generate style — try again.');
+            throw err;
         } finally {
-            if (sendBtn) sendBtn.disabled = false;
-            if (input) input.disabled = false;
+            if (!quiet) setCreateStyleDisabled(false);
         }
     }
 
