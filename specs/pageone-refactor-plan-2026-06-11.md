@@ -145,7 +145,8 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Stage 3 character tiering now reads `data.stage3_characters.tier_overrides` in both `agent_3_characters.js` and `public/app.js`.
 - `/api/generate-characters` accepts/persists `tierOverrides`; the browser writes override maps when tiers are toggled, saved, approved, or sent through chat revisions.
 - The Stage 3 agent prompt no longer embeds the I.M.A.G.I.N.E. character tier lists; project-specific tier guidance is generated only from project JSON overrides.
-- Remaining Phase 3 tier work: add/run the one-off I.M.A.G.I.N.E. migration script to seed existing projects, then continue with protected-beat de-hardcoding.
+- The one-off I.M.A.G.I.N.E. migration utility now exists at `scripts/seed-stage3-tier-overrides.js` (`npm run migrate:stage3-tiers -- --write` to persist; dry-run by default).
+- Remaining Phase 3 tier work: run the migration when ready to mutate saved project JSON, then continue with protected-beat de-hardcoding.
 
 ## Phase 4 — Structural cleanup (hand-off-able; do AFTER Phase 2 deletes code)
 1. Extract shared generation-endpoint factory for stages 2–6 (~70% duplicated scaffolding:
