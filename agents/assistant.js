@@ -31,6 +31,7 @@ function loadCoreSop() {
  * artifactName  — what the tool changes/creates, in writer-facing language.
  * revisionTool  — whether this stage has an apply_revision path.
  * styleTool     — whether this stage can generate a style file.
+ * rewritePlanTool — whether this stage can generate a rewrite plan.
  * stageFragment — extra system-prompt guidance specific to the stage.
  * entryAnalysis — isInit instruction appended to the first user message.
  */
@@ -70,7 +71,21 @@ Rules:
     },
     8: { name: 'Draft', artifactName: 'scene draft', revisionTool: true },
     9: { name: 'Coverage', artifactName: 'coverage report', revisionTool: false },
-    10: { name: 'Rewrite', artifactName: 'screenplay scenes', revisionTool: false }
+    10: {
+        name: 'Rewrite', artifactName: 'rewrite plan', revisionTool: false, rewritePlanTool: true,
+        stageFragment: `## STAGE 10 REWRITE PLANNING CONTEXT
+You are helping the writer discuss the active rewrite priority before PageOne plans scene-level changes. The generate_rewrite_plan tool creates and displays a rewrite plan card; it does not execute scene rewrites. Call it when the writer has selected a priority, confirmed a direction, or the discussion has enough concrete guidance to plan affected scenes. Do NOT call it while the writer is still asking questions, comparing options, or exploring a vague concern. If a scene is selected, the browser handles scene-specific feedback outside this planning conversation.`,
+        entryAnalysis: `## STAGE 10 REWRITE ENTRY
+You are opening the rewrite planning conversation. Use the STAGE 10 PRIORITIES block in context.
+
+If CHARACTER CHANGE CONTEXT is present, acknowledge the character changes, briefly name the draft areas most likely affected, and ask whether the writer wants a rewrite plan focused on implementing those changes.
+
+Otherwise, if some priorities are marked [DONE], briefly acknowledge progress by count, then present the next [OPEN] priority using its exact label and task text. Move straight into discussing what this priority involves and which scenes are likely affected. Do not re-list all priorities.
+
+If no priorities are marked [DONE], present the coverage priorities exactly as listed, grouped under MACRO TO-DO and MICRO TO-DO, preserving labels and task text. Ask which priority the writer wants to tackle first.
+
+Do not call any tool for this opening message.`
+    }
 };
 
 function buildTools(stageId) {
@@ -88,6 +103,22 @@ function buildTools(stageId) {
                     }
                 },
                 required: ['style_brief']
+            }
+        }];
+    }
+    if (config?.rewritePlanTool) {
+        return [{
+            name: 'generate_rewrite_plan',
+            description: `Generate and display a Stage ${stageId} rewrite plan for the active coverage priority. Calling this runs PageOne's rewrite planner and creates the plan card the writer can review before executing rewrites. Call it only when the writer has chosen or confirmed a concrete rewrite direction, or when the discussion has enough actionable guidance to plan affected scenes. Do NOT call it while the writer is still exploring options or asking questions.`,
+            input_schema: {
+                type: 'object',
+                properties: {
+                    plan_brief: {
+                        type: 'string',
+                        description: 'Complete, self-contained planning brief for the rewrite planner. Include the active priority, agreed direction, affected characters/story constraints, specific scenes or concerns discussed, and anything to preserve or avoid.'
+                    }
+                },
+                required: ['plan_brief']
             }
         }];
     }

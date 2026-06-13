@@ -89,7 +89,6 @@ test('toAnthropicTools / toGeminiTools carry the JSON schema through', () => {
 
 test('buildTools returns no tools for read-only stages', () => {
     assert.strictEqual(buildTools(9).length, 0);
-    assert.strictEqual(buildTools(10).length, 0);
 });
 
 test('buildTools exposes generate_style for Stage 7', () => {
@@ -97,6 +96,13 @@ test('buildTools exposes generate_style for Stage 7', () => {
     assert.strictEqual(tools.length, 1);
     assert.strictEqual(tools[0].name, 'generate_style');
     assert.deepStrictEqual(tools[0].input_schema.required, ['style_brief']);
+});
+
+test('buildTools exposes generate_rewrite_plan for Stage 10', () => {
+    const tools = buildTools(10);
+    assert.strictEqual(tools.length, 1);
+    assert.strictEqual(tools[0].name, 'generate_rewrite_plan');
+    assert.deepStrictEqual(tools[0].input_schema.required, ['plan_brief']);
 });
 
 test('buildNeutralMessages prepends context to the first user message', () => {

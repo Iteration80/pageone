@@ -1661,6 +1661,10 @@ async function persistStageConversation(filePath, projectData, stageKey, message
     await writeJSONQueued(filePath, projectData);
 }
 
+function conversationKeyForAssistantStage(stageId) {
+    return Number(stageId) === 10 ? 'stage9' : `stage${stageId}`;
+}
+
 function recordSourceGenerationUsage(projectData, packet, stageData = '', reason = 'generation') {
     if (!packet?.stageId) return null;
     return recordSourcePlanUsage(projectData, packet.stageId, stageData, reason, packet.sourceUsePlan);
@@ -3446,9 +3450,43 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
         case 9:
             stageData = JSON.stringify(projectData.data?.stage8_coverage || {}, null, 2);
             break;
-        case 10:
-            stageData = JSON.stringify(projectData.data?.stage9_rewrites?.working || {}, null, 2);
+        case 10: {
+            const coverage = projectData.data?.stage8_coverage;
+            const macroTodo = coverage?.macro_todo || [];
+            const microTodo = coverage?.micro_todo || [];
+            const priorityIdx = projectData.data?.stage9_rewrites?.priority_idx ?? 0;
+            const allPriorities = [
+                ...macroTodo.map((t, i) => ({ label: `MACRO TO-DO P${i + 1}`, task: t.task || t, done: i < priorityIdx })),
+                ...microTodo.map((t, i) => ({ label: `MICRO TO-DO P${i + 1}`, task: t.task || t, done: (macroTodo.length + i) < priorityIdx })),
+            ];
+            const priorityList = allPriorities.length
+                ? allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n')
+                : 'No rewrite priorities are available yet.';
+            const characters = projectData.data?.stage3_characters?.characters || [];
+            const charSummary = characters.length > 0
+                ? characters.map(c => `${c.name} (${c.role}, ${c.profile_tier || 'Tier 1'}): ${c.brief_summary || ''}`).join('\n')
+                : '';
+            const stage6Scenes = projectData.data?.stage6_scenes || [];
+            const allScenes = [];
+            for (const seq of stage6Scenes) { if (seq.scenes) allScenes.push(...seq.scenes); }
+            allScenes.sort((a, b) => a.scene_number - b.scene_number);
+            const working = projectData.data?.stage9_rewrites?.working || {};
+            const fullScript = allScenes
+                .map(s => `## SCENE ${s.scene_number} — ${s.scene_heading || s.slugline || ''}\n${working[s.scene_number] || s.humanized_draft_text || s.draft_text || ''}`)
+                .join('\n\n---\n\n');
+            const doneCount = allPriorities.filter(p => p.done).length;
+            const nextPriority = allPriorities.find(p => !p.done);
+            stageData = `## STAGE 10 PRIORITIES
+${priorityList}
+
+Done priorities: ${doneCount} of ${allPriorities.length}
+${nextPriority ? `Next open priority: ${nextPriority.label}: ${nextPriority.task}` : 'No open priorities remain.'}
+${charSummary ? `\n\n## CHARACTERS\n${charSummary}` : ''}
+
+## FULL SCREENPLAY (current working draft)
+${fullScript || JSON.stringify(working, null, 2)}`;
             break;
+        }
         default:
             throw new Error(`Unknown stageId: ${stageId}`);
     }
@@ -5112,6 +5150,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
         let sourceMemory = null;
         let contextBlock = '';
         let historyForTurn = messages;
+        const conversationKey = conversationKeyForAssistantStage(stageId);
 
         // Context is only needed on the first leg of a turn; resumed tool turns
         // carry their full message list in turnState.
@@ -5134,12 +5173,20 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
 
             const knowledgeContext = buildKnowledgeContextBlock(projectData, { stageId, userMessage: lastUserMessage, stageName, stageData });
             sourceMemory = memoryUsageForStage(projectData, stageId, stageData, lastUserMessage);
+            let stage10InitContext = '';
+            if (isInit && Number(stageId) === 10 && projectData.data?.characterChangeContext) {
+                stage10InitContext = `## CHARACTER CHANGE CONTEXT
+The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Specific changes:
+${projectData.data.characterChangeContext}`;
+                delete projectData.data.characterChangeContext;
+                await writeJSONQueued(filePath, projectData);
+            }
 
             const deterministicStage4EventList = !isInit && Number(stageId) === 4
                 ? buildStage4CurrentEventListResponse(projectData, lastUserMessage)
                 : null;
             if (deterministicStage4EventList) {
-                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
+                await persistStageConversation(filePath, projectData, conversationKey, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
                 return res.json({
                     type: 'message',
                     message: deterministicStage4EventList.message,
@@ -5155,7 +5202,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
                 stageData
             }) : null;
             if (memoryRecall) {
-                await persistStageConversation(filePath, projectData, `stage${stageId}`, messages, memoryRecall.message);
+                await persistStageConversation(filePath, projectData, conversationKey, messages, memoryRecall.message);
                 return res.json({
                     type: 'message',
                     message: memoryRecall.message,
@@ -5166,7 +5213,8 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
 
             const savedConversations = projectData.data?.conversations || {};
             let priorContext = '';
-            for (let s = 1; s < stageId; s++) {
+            const lastPriorStage = Number(stageId) === 10 ? 8 : Number(stageId) - 1;
+            for (let s = 1; s <= lastPriorStage; s++) {
                 const prior = savedConversations[`stage${s}`];
                 if (prior?.length) {
                     priorContext += `\n--- Stage ${s} (${STAGE_NAMES[s]}) Conversations ---\n`;
@@ -5177,6 +5225,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
             }
 
             contextBlock = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}`;
+            if (stage10InitContext) contextBlock += `\n\n---\n\n${stage10InitContext}`;
             if (knowledgeContext) contextBlock += `\n\n---\n\n${knowledgeContext}`;
             if (priorContext) contextBlock += `\n\n---\n\n## PREVIOUS STAGE CONVERSATIONS\n${priorContext}`;
             if (attachmentText) contextBlock += `\n\n---\n\n## ATTACHED FILE: ${attachment.name}\n${compactText(attachmentText, 80_000)}`;
@@ -5241,7 +5290,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
         // screen, but only the closing message is added to saved history.
         if (!isInit && result.type === 'message') {
             try {
-                await persistStageConversation(filePath, projectData, `stage${stageId}`, historyForTurn, result.message);
+                await persistStageConversation(filePath, projectData, conversationKey, historyForTurn, result.message);
             } catch (saveErr) {
                 console.error('Failed to persist assistant conversation:', saveErr.message);
             }

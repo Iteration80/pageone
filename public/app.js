@@ -8090,18 +8090,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // For these stages the model decides whether to execute by calling a
     // native tool — no suggest_plan flags, no confirmation regexes.
     // Expand this set as stages are migrated (see specs/pageone-refactor-plan-2026-06-11.md).
-    const TOOL_ASSISTANT_STAGES = new Set([1, 2, 3, 4, 5, 6, 7]);
+    const TOOL_ASSISTANT_STAGES = new Set([1, 2, 3, 4, 5, 6, 7, 10]);
 
     function toolWorkingLabel(toolCalls = []) {
+        if (toolCalls.some(call => call?.name === 'generate_rewrite_plan')) return 'Generating rewrite plan';
         return toolCalls.some(call => call?.name === 'generate_style') ? 'Generating style' : 'Applying changes';
     }
 
     function toolInputBrief(call = {}) {
         if (call.name === 'generate_style') return call.input?.style_brief || call.input?.description || '';
+        if (call.name === 'generate_rewrite_plan') return call.input?.plan_brief || '';
         return call.input?.revision_brief || '';
     }
 
     function toolResultFromExecution(call = {}, result = {}) {
+        if (call.name === 'generate_rewrite_plan') {
+            const scenes = Array.isArray(result?.affected_scenes) ? result.affected_scenes : [];
+            const changed = Boolean(result?.rewrite_strategy || scenes.length || result?.plan);
+            return {
+                changed,
+                rewriteStrategy: result?.rewrite_strategy,
+                affectedSceneNumbers: scenes.map(scene => scene.scene_number).filter(n => n !== undefined),
+                ...(result?.sourceMemory && { sourceMemory: result.sourceMemory }),
+                ...(!changed ? { error: 'The rewrite planner did not return a usable plan.' } : {})
+            };
+        }
         if (call.name === 'generate_style') {
             const changed = result?.changed !== false && Boolean(result?.slug || result?.directive || result?.content);
             return {
@@ -8159,7 +8172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const indicator = showWorking(toolWorkingLabel(data.toolCalls));
         try {
             for (const call of data.toolCalls) {
-                if (!['apply_revision', 'generate_style'].includes(call.name) || !executeRevision) {
+                if (!['apply_revision', 'generate_style', 'generate_rewrite_plan'].includes(call.name) || !executeRevision) {
                     toolResults.push({ id: call.id, name: call.name, result: { error: `Tool ${call.name} is not available in this stage.` }, isError: true });
                     continue;
                 }
@@ -9762,15 +9775,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let stage10GeneratingPlan = false;
 
-    async function stage10GeneratePlan() {
-        if (!stage10Chat || stage10GeneratingPlan || window.stage10CurrentPlan) return;
+    async function stage10GeneratePlan(options = {}) {
+        const toolBrief = typeof options === 'string' ? options : (options.toolBrief || '');
+        const quiet = typeof options === 'object' && options.quiet === true;
+        if (!stage10Chat) return null;
+        if (window.stage10CurrentPlan) return window.stage10CurrentPlan;
+        if (stage10GeneratingPlan) return null;
         stage10GeneratingPlan = true;
         const priorities = stage10GetPriorityList();
         const task = priorities[stage10State.priority_idx]?.task;
-        if (!task) { stage10Chat.append('system', 'No active priority task.'); stage10GeneratingPlan = false; return; }
-        stage10Chat.append('system', 'Generating rewrite plan...');
+        if (!task) {
+            if (!quiet) stage10Chat.append('system', 'No active priority task.');
+            stage10GeneratingPlan = false;
+            return null;
+        }
+        if (!quiet) stage10Chat.append('system', 'Generating rewrite plan...');
         stage10Chat.setThinking(true);
-        const conversationContext = stage10Chat.history.map(m => `${m.role}: ${m.content}`).join('\n');
+        const conversationContext = [
+            stage10Chat.history.map(m => `${m.role}: ${m.content}`).join('\n'),
+            toolBrief ? `TOOL PLANNING BRIEF:\n${toolBrief}` : ''
+        ].filter(Boolean).join('\n\n---\n\n');
         try {
             const res = await fetch('/api/plan-rewrite', {
                 method: 'POST',
@@ -9783,8 +9807,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.stage10CurrentPlan = plan;
             stage10Chat.append('ai', '', { html: stage10RenderPlanCard(plan) });
             document.getElementById('btnExecutePlanInChat')?.addEventListener('click', () => stage10ExecutePlan(plan));
+            return plan;
         } catch (err) {
             stage10Chat.append('system', 'Planning failed: ' + err.message);
+            throw err;
         } finally {
             stage10Chat.setThinking(false);
             stage10GeneratingPlan = false;
@@ -9892,10 +9918,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 stage10Chat?.setDisabled(true);
                 stage10Chat?.setThinking(true);
                 try {
-                    const initRes = await fetch('/api/brainstorm-rewrite', {
+                    const initEndpoint = TOOL_ASSISTANT_STAGES.has(10) ? '/api/assistant' : '/api/brainstorm-rewrite';
+                    const initRes = await fetch(initEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
+                        body: JSON.stringify({ projectId: activeProjectId, stageId: 10, messages: [], isInit: true })
                     });
                     const initData = await initRes.json();
                     stage10Chat?.append('ai', initData.message);
@@ -10036,22 +10063,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         // No scene selected: planning brainstorm
                         const msgs = history.filter(m => m.role !== 'system');
-                        stage10Chat.setThinking(true);
-                        const res = await fetch('/api/brainstorm-rewrite', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
-                        });
-                        stage10Chat.setThinking(false);
-                        if (!res.ok) throw new Error((await res.json()).error);
-                        const data = await res.json();
-                        noteSavedSource(stage10Chat, data.savedSource);
-                        noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
-                        if (normalizeSourceWarnings(data.sourceWarnings).length) {
-                            await handleSourceGenerationResult(10, data, { chat: stage10Chat, postGenerationCheck: false });
+                        if (TOOL_ASSISTANT_STAGES.has(10)) {
+                            await toolAssistantTurn({
+                                chat: stage10Chat,
+                                stageId: 10,
+                                executeRevision: async (brief) => stage10GeneratePlan({ toolBrief: brief, quiet: true }),
+                                showWorking: (label = 'Generating rewrite plan') => {
+                                    const el = document.createElement('div');
+                                    el.className = 'chat-message chat-message-working';
+                                    el.innerHTML = `${escapeHtml(label)} <div class="chat-working-dots"><span></span><span></span><span></span></div>`;
+                                    stage10Chat.thread.appendChild(el);
+                                    stage10Chat.thread.scrollTop = stage10Chat.thread.scrollHeight;
+                                    return el;
+                                },
+                                body: { projectId: activeProjectId, stageId: 10, messages: msgs, isInit: false, ...(attachment && { attachment }) }
+                            });
+                        } else {
+                            stage10Chat.setThinking(true);
+                            const res = await fetch('/api/brainstorm-rewrite', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ projectId: activeProjectId, messages: msgs, isInit: false, ...(attachment && { attachment }) })
+                            });
+                            stage10Chat.setThinking(false);
+                            if (!res.ok) throw new Error((await res.json()).error);
+                            const data = await res.json();
+                            noteSavedSource(stage10Chat, data.savedSource);
+                            noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
+                            if (normalizeSourceWarnings(data.sourceWarnings).length) {
+                                await handleSourceGenerationResult(10, data, { chat: stage10Chat, postGenerationCheck: false });
+                            }
+                            stage10Chat.append('ai', data.message);
+                            if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
                         }
-                        stage10Chat.append('ai', data.message);
-                        if (data.suggest_plan && !window.stage10CurrentPlan && !stage10ExecutingPlan) stage10GeneratePlan();
                     }
                 }
             });
@@ -10133,10 +10177,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     stage10Chat.setThinking(true);
                     stage10Chat.setDisabled(true);
-                    const initRes = await fetch('/api/brainstorm-rewrite', {
+                    const initEndpoint = TOOL_ASSISTANT_STAGES.has(10) ? '/api/assistant' : '/api/brainstorm-rewrite';
+                    const initRes = await fetch(initEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId: activeProjectId, messages: [], isInit: true })
+                        body: JSON.stringify({ projectId: activeProjectId, stageId: 10, messages: [], isInit: true })
                     });
                     if (initRes.ok) {
                         const initData = await initRes.json();
