@@ -356,29 +356,14 @@ test('Stage 2 outline checklist scopes repair to latest concrete request', async
             }]
         }
     };
-    const notesBundle = `LATEST USER REQUEST:
-Kitchen closing image
-Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image should stay.
-
-USER REQUESTS:
-Stuff To Restore
-Dapple's voluntary surrender
-He shrinks, could run, sees Scott, chooses kindness, lets himself be cuffed.
-
-Kitchen closing image
-Photo of young Becky and Dapple framed in the light.
-
-RECENT ASSISTANT CONTEXT:
-On it — restoring the kitchen closing image to the end of Sequence H.
-
-ASSISTANT DIRECTION:
-On it — restoring the kitchen closing image to the end of Sequence H.`;
+    const revisionBrief = `Kitchen closing image
+Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image should stay.`;
     const { calls, generateContentFn } = makeRecorder((_request, callIndex) => ({
         text: JSON.stringify(callIndex === 1 ? firstResponse : repairedResponse),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+    const { result } = await agent2Outline(pitch, currentOutline, revisionBrief, null, {
         model: 'gemini-test',
         geminiApiKey: 'test-key',
         generateContentFn
@@ -388,7 +373,7 @@ On it — restoring the kitchen closing image to the end of Sequence H.`;
     const firstPrompt = collectText(calls[0].contents);
     const repairPrompt = collectText(calls[1].contents);
     assert.match(firstPrompt, /ACTIVE REVISION REQUEST/);
-    assert.match(firstPrompt, /BACKGROUND CONVERSATION NOTES \(context only/);
+    assert.doesNotMatch(firstPrompt, /BACKGROUND CONVERSATION NOTES/);
     const missingSection = repairPrompt.match(/MISSING OR UNDERREPRESENTED CHECKLIST ITEMS:\n([\s\S]*?)\n\nORIGINAL USER NOTE:/)?.[1] || '';
     assert.match(missingSection, /Kitchen closing image/);
     assert.doesNotMatch(missingSection, /voluntary surrender/i);
@@ -420,12 +405,9 @@ test('Stage 2 outline deterministically appends checklist beat after failed repa
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    const { result } = await agent2Outline(pitch, currentOutline, `LATEST USER REQUEST:
-itchen closing image
+    const { result } = await agent2Outline(pitch, currentOutline, `Kitchen closing image
 Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
-
-USER REQUESTS:
-Older request that should not become the active checklist.`, null, {
+`, null, {
         model: 'gemini-test',
         geminiApiKey: 'test-key',
         generateContentFn
@@ -439,7 +421,7 @@ Older request that should not become the active checklist.`, null, {
     assert.match(JSON.stringify(finalSequence.beats), /visitor passes for Dapple and Scott/i);
 });
 
-test('Stage 2 outline confirmation handoff verifies the prior concrete restore request', async () => {
+test('Stage 2 outline tool revision brief verifies the concrete restore request', async () => {
     const currentOutline = {
         act_1: [{ sequence_number_and_title: 'Sequence A', beats: [{ beat_label: 'Opening', description: 'Mara enters.' }] }],
         act_2: [],
@@ -459,44 +441,16 @@ test('Stage 2 outline confirmation handoff verifies the prior concrete restore r
             }]
         }
     };
-    const notesBundle = `LATEST USER REQUEST:
-yes
-
-USER REQUESTS:
-Kitchen closing image
+    const revisionBrief = `Kitchen closing image
 Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
-yes
-
-CONFIRMATION HANDOFF:
-The latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.
-
-RECENT ASSISTANT CONTEXT:
-The kitchen closing image has been consistently dropped from the saved outline. I am ready to restore that final emotional image.
-
-RECENT CONVERSATION CONTEXT:
-USER:
-Kitchen closing image
-Photo of young Becky and Dapple framed in the light. Breakfast for three. Furdlegurr visible to both. Visitor passes for Dapple and Scott. That image is doing a lot of emotional work and should absolutely stay. --> this is still missing; please restore.
-
----
-
-ASSISTANT:
-Want me to go ahead and restore that final beat to the outline now?
-
----
-
-USER:
-yes
-
-ASSISTANT DIRECTION:
-Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.`;
+`;
 
     const { calls, generateContentFn } = makeRecorder(() => ({
         text: JSON.stringify(missingKitchenResponse),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+    const { result } = await agent2Outline(pitch, currentOutline, revisionBrief, null, {
         model: 'gemini-test',
         geminiApiKey: 'test-key',
         generateContentFn
@@ -525,8 +479,7 @@ test('Stage 2 outline extracts bracketed one-line restore beats as checklist ite
         logline: pitch.logline,
         outline: currentOutline
     };
-    const notes = `DIRECT USER REVISION REQUEST:
-We've lost the following two beats in Seq H, please restore:
+    const notes = `We've lost the following two beats in Seq H, please restore:
 
 [Aftermath - A New Order] Quist surveys the wreckage. The public optics have broken her old order. Rebecca declines the badge, but agrees to consult on Dapple's containment. Dave and Robotobob walk off with Blounder. Terry takes custody of Moog and Big Doll. Scott gets real help. Molly briefly sees pink and smiles.
 
@@ -572,8 +525,7 @@ test('Stage 2 outline deterministically replaces Sequence H with explicit bracke
         logline: pitch.logline,
         outline: currentOutline
     };
-    const notes = `DIRECT USER REVISION REQUEST:
-Replace sequence H with these beats:
+    const notes = `Replace sequence H with these beats:
 
 Sequence H: A World That Remembers
 
@@ -608,7 +560,7 @@ Sequence H: A World That Remembers
     assert.match(JSON.stringify(result.outline.act_3[0].beats), /visitor passes for Dapple and Scott/i);
 });
 
-test('Stage 2 outline recognition pass preserves existing ending beats after confirmation', async () => {
+test('Stage 2 outline recognition pass preserves existing ending beats from a tool revision brief', async () => {
     const recognitionNote = `The main thing I would still address:
 
 Rebecca Should Know At The Midpoint
@@ -683,39 +635,6 @@ Act I is doing a lot now: Blounder, Moog, Rebecca/Elliot, Pono, Furdlegurr captu
             }
         ]
     };
-    const notesBundle = `LATEST USER REQUEST:
-yes
-
-USER REQUESTS:
-${recognitionNote}
-yes
-
-CONFIRMATION HANDOFF:
-The latest user message is a short confirmation. Apply the most recent concrete revision proposal from RECENT ASSISTANT CONTEXT and RECENT CONVERSATION CONTEXT; do not treat the confirmation text alone as the full brief.
-
-RECENT ASSISTANT CONTEXT:
-Regarding the memory, I recommend reverting to the Storm Drain memory from the source material. It grounds the climax in the original text's specific imagery while keeping your 'Pillermoss' password as the emotional trigger that proves she never truly erased him.
-
-I'll fold in the midpoint recognition, the source-accurate memory, and the accountability line in Dapple's surrender. Want me to go ahead and update the outline with this 'Recognition and Accountability' pass?
-
-RECENT CONVERSATION CONTEXT:
-USER:
-${recognitionNote}
-
----
-
-ASSISTANT:
-Regarding the memory, I recommend reverting to the Storm Drain memory from the source material. It grounds the climax in the original text's specific imagery while keeping your 'Pillermoss' password as the emotional trigger that proves she never truly erased him.
-
-I'll fold in the midpoint recognition, the source-accurate memory, and the accountability line in Dapple's surrender. Want me to go ahead and update the outline with this 'Recognition and Accountability' pass?
-
----
-
-USER:
-yes
-
-ASSISTANT DIRECTION:
-Apply the most recent concrete assistant revision proposal while preserving the user constraints in the latest confirmation.`;
     const { calls, generateContentFn } = makeRecorder(() => ({
         text: JSON.stringify({
             title: 'I.M.A.G.I.N.E.',
@@ -726,7 +645,7 @@ Apply the most recent concrete assistant revision proposal while preserving the 
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    const { result } = await agent2Outline(pitch, currentOutline, notesBundle, null, {
+    const { result } = await agent2Outline(pitch, currentOutline, recognitionNote, null, {
         model: 'gemini-test',
         geminiApiKey: 'test-key',
         generateContentFn
@@ -806,8 +725,7 @@ test('Stage 2 outline midpoint-only revisions cannot alter Sequence H ending bea
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    const { result } = await agent2Outline(pitch, currentOutline, `DIRECT USER REVISION REQUEST:
-Only revise [Midpoint - The Name Drop]. When Dapple says "Hello, Becky," Rebecca should know enough: this was her friend. Dapple is hers. Dave sees it land and looks away. Do not change any ending beats.`, null, {
+    const { result } = await agent2Outline(pitch, currentOutline, `Only revise [Midpoint - The Name Drop]. When Dapple says "Hello, Becky," Rebecca should know enough: this was her friend. Dapple is hers. Dave sees it land and looks away. Do not change any ending beats.`, null, {
         model: 'gemini-test',
         geminiApiKey: 'test-key',
         generateContentFn

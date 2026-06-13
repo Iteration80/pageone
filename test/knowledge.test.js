@@ -748,10 +748,15 @@ test('tool assistant migration covers stages 1 through 8 and 10 with carried gua
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
+    const agent2Js = fs.readFileSync(require.resolve('../agents/agent_2_outline.js'), 'utf8');
 
     assert.match(serverJs, /app\.post\('\/api\/assistant'/);
     assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm'/);
     assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm-rewrite'/);
+    assert.doesNotMatch(agent2Js, /LATEST USER REQUEST/);
+    assert.doesNotMatch(agent2Js, /RECENT CONVERSATION CONTEXT/);
+    assert.doesNotMatch(agent2Js, /latestConcreteUserFromRecentContext/);
+    assert.match(agent2Js, /function normalizeRevisionBrief/);
     assert.match(serverJs, /buildToolAssistantContextAdditions/);
     assert.match(serverJs, /buildStage4ConfirmationRevisionBrief/);
     assert.match(serverJs, /buildMemoryRecallResponse\(projectData/);

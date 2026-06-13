@@ -59,54 +59,11 @@ function compactText(value, maxChars = 900) {
     return `${text.slice(0, maxChars - 80).trim()} [...truncated]`;
 }
 
-function isShortConfirmationText(value = '') {
-    return /^(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|sounds good)[\s.!]*$/i.test(String(value || '').trim());
-}
-
-function concreteRevisionCandidate(value = '') {
-    const text = String(value || '').trim();
-    if (!text || isShortConfirmationText(text)) return false;
-    if (text.length < 18) return false;
-    return /\b(restore|add|include|keep|revise|revision|update|change|remove|replace|fix|missing|canon|source|origin|aftermath|closing|image|photo|breakfast|visitor|surrender|coda|finale|beat|scene|sequence)\b/i.test(text)
-        || text.length > 80;
-}
-
-function latestConcreteUserFromRecentContext(text = '') {
-    if (!/RECENT CONVERSATION CONTEXT:/i.test(text)) return '';
-    const recent = text.split(/RECENT CONVERSATION CONTEXT:\r?\n/i).pop() || '';
-    const userMatches = Array.from(recent.matchAll(/(?:^|\n)USER:\r?\n([\s\S]*?)(?=\r?\n\r?\n---\r?\n\r?\n(?:USER|ASSISTANT):|\r?\n\r?\nASSISTANT DIRECTION:|$)/g));
-    for (const match of userMatches.reverse()) {
-        const candidate = (match[1] || '').trim();
-        if (concreteRevisionCandidate(candidate)) return candidate;
-    }
-    return '';
-}
-
-function latestConcreteRevisionText(notes = '') {
-    const text = String(notes || '').trim();
-    const sectionPattern = /LATEST USER REQUEST:\r?\n([\s\S]*?)(?=\r?\n\r?\n(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):|$)/g;
-    const matches = Array.from(text.matchAll(sectionPattern));
-    const latest = matches.length ? matches[matches.length - 1][1] : '';
-    let extracted = (latest || '').trim();
-
-    if (isShortConfirmationText(extracted)) {
-        const concretePriorUserRequest = latestConcreteUserFromRecentContext(text);
-        if (concretePriorUserRequest) return concretePriorUserRequest;
-    }
-
-    if (!extracted && /RECENT CONVERSATION CONTEXT:/i.test(text)) {
-        extracted = latestConcreteUserFromRecentContext(text);
-    }
-
-    if (!extracted && !/(?:USER REQUESTS|RECENT ASSISTANT CONTEXT|RECENT CONVERSATION CONTEXT|ASSISTANT DIRECTION):/i.test(text)) {
-        extracted = text;
-    }
-
-    if (extracted && !isShortConfirmationText(extracted)) {
-        return extracted;
-    }
-    const direction = text.match(/ASSISTANT DIRECTION:\n([\s\S]*)$/);
-    return (direction ? direction[1] : extracted || text).trim();
+function normalizeRevisionBrief(notes = '') {
+    return String(notes || '')
+        .trim()
+        .replace(/^(?:ACTIVE REVISION REQUEST|REVISION BRIEF):\s*/i, '')
+        .trim();
 }
 
 function looksLikeChecklistHeader(line = '') {
@@ -159,7 +116,7 @@ function scopedPolishChecklistItems(text = '', maxItems = 12) {
 }
 
 function buildRevisionChecklist(notes = '', maxItems = 12) {
-    const text = latestConcreteRevisionText(notes);
+    const text = normalizeRevisionBrief(notes);
     if (!text) return [];
     if (isScopedPolishText(text)) {
         return scopedPolishChecklistItems(text, maxItems);
@@ -252,7 +209,7 @@ function parseBracketedRevisionBeats(text = '') {
 }
 
 function extractExplicitSequenceReplacement(notes = '') {
-    const text = latestConcreteRevisionText(notes);
+    const text = normalizeRevisionBrief(notes);
     if (!text || !/\breplace\b/i.test(text) || !/\bwith\b/i.test(text) || !/\bbeats?\b/i.test(text)) return null;
     const sequenceMatch = text.match(/\breplace\s+(?:the\s+)?(?:sequence\s*)?([a-h]|[1-8])\b/i);
     if (!sequenceMatch) return null;
@@ -1251,22 +1208,16 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         const revisionSystemInstruction = `${outlineSOP}\n\nROLE: Structural Story Analyst. Apply the user's note to the existing 8-sequence outline. You MUST keep unaffected sequences 100% identical to the current draft. HOWEVER, if the user's note creates a logical narrative ripple effect (e.g., changing the Midpoint changes the Finale), you are authorized to update subsequent sequences so the story's cause-and-effect makes logical sense. Maintain the exact same JSON schema.`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-        const activeRevisionRequest = latestConcreteRevisionText(notes);
-        const postRevisionNotes = notes && activeRevisionRequest && activeRevisionRequest !== String(notes).trim()
-            ? `${activeRevisionRequest}\n\nFULL REVISION CONTEXT:\n${notes}`
-            : (activeRevisionRequest || notes);
+        const activeRevisionRequest = normalizeRevisionBrief(notes);
+        const postRevisionNotes = activeRevisionRequest || notes;
         const revisionChecklist = buildRevisionChecklist(notes);
         const explicitSequenceReplacement = extractExplicitSequenceReplacement(notes);
         const checklistBlock = revisionChecklist.length
             ? `\nREVISION CHECKLIST:\nTreat each item below as a concrete obligation. It must be visibly present in the revised outline, unless the current outline already contains it.\n${revisionChecklist.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n`
             : '';
-        const backgroundNotes = activeRevisionRequest && notes && activeRevisionRequest !== String(notes).trim()
-            ? `\nBACKGROUND CONVERSATION NOTES (context only; do not treat older requests here as required unless repeated in the active request):\n${compactText(notes, 5000)}\n`
-            : '';
         const revisionPrompt = `${sourceBlock}ACTIVE REVISION REQUEST:
 ${activeRevisionRequest || notes}
 ${checklistBlock}
-${backgroundNotes}
 
 EXISTING OUTLINE:
 ${JSON.stringify(currentOutline, null, 2)}

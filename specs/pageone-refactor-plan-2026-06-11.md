@@ -1,7 +1,7 @@
 # PageOne Refactor Plan — 2026-06-11
 
 Author: Claude (Fable 5), based on full-codebase audit 2026-06-11.
-Status: Phase 2 assistant unification is implemented for active chat surfaces. Stages 1–8, Stage 10 planning chat, and global style creation now route through the tool-calling assistant; legacy `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, frontend flag/regex scaffolding, and `skill_brainstorm.md` have been removed.
+Status: Phase 2 assistant unification is implemented for active chat surfaces. Stages 1–8, Stage 10 planning chat, and global style creation now route through the tool-calling assistant; legacy `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, frontend flag/regex scaffolding, `skill_brainstorm.md`, and the embedded Stage 2 outline transcript-bundle parser have been removed.
 
 ## Why
 
@@ -64,7 +64,7 @@ through the client so the server stays stateless across the two HTTP legs of a t
    (`/api/brainstorm-rewrite` becomes config: priority-list context + `apply_priority_rewrite` tool)
    and Stage 7's `/api/style-chat`. **Stage 1, project Stage 7, Stage 8, Stage 10 planning chat, and global style creation are done.**
 4. Delete `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, the regex layer,
-   and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes). **Legacy routes, frontend regex layer, and old SOP are done; agent_2 loop remains.**
+   and the embedded loop in agent_2_outline (its revision path stays; its conversation logic goes). **Done.**
 
 ### Conversation persistence compatibility
 The new endpoint persists to the same `projectData.data.conversations.stageN` shape
@@ -107,7 +107,13 @@ so history restore, prior-stage context injection, and the legacy stages keep wo
 - Frontend `TOOL_ASSISTANT_STAGES`, `pendingRevision`/`pendingNotes`, local confirmation regexes, direct Stage 2/3/6 revision detectors, `buildRevisionNotes`, and synthetic post-revision follow-up scaffolding were removed.
 - Server `/api/brainstorm`, `/api/brainstorm-rewrite`, and `/api/style-chat` were deleted after the last active consumer migrated.
 - `skill_brainstorm.md` was removed; active assistant behavior now lives in `skill_assistant_core.md`.
-- Remaining cleanup target from Fabel 5's Phase 2 list: the embedded conversation loop in `agent_2_outline` and any selected-scene Stage 10 cleanup desired later.
+- Remaining cleanup target from Fabel 5's Phase 2 list after this pass: selected-scene Stage 10 cleanup if desired.
+
+### Codex continuation notes — 2026-06-13 (sixth pass)
+- `agent_2_outline` no longer parses old frontend transcript bundles (`LATEST USER REQUEST`, `RECENT CONVERSATION CONTEXT`, confirmation handoffs) to recover a revision request.
+- Stage 2 outline revision still accepts a self-contained revision brief and keeps its surgical revision path, checklist repair, deterministic patching, and post-revision safeguards.
+- Prompt regressions were updated to exercise the tool-assistant contract: the assistant sends the concrete Stage 2 revision brief directly.
+- Remaining Phase 2 cleanup, if desired before Phase 3: selected-scene Stage 10 feedback cleanup; it is currently an explicit `/api/rewrite-scene-feedback` action rather than a planning chat.
 
 ---
 
