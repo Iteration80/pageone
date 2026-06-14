@@ -1738,6 +1738,89 @@ function getModelConfigWithKnowledge(stageNum, projectData, stageData = '') {
     return getModelConfigWithSourcePacket(stageNum, buildSourceGenerationPacket(projectData, stageNum, stageData));
 }
 
+async function prepareGenerationProjectContext(req, res, {
+    projectId = req.body?.projectId,
+    invalidProjectMessage = 'Missing or invalid projectId',
+    notFoundMessage = 'Project not found',
+    notFoundLog = '',
+    validate = null
+} = {}) {
+    if (!isValidProjectId(projectId)) {
+        res.status(400).json({ error: invalidProjectMessage });
+        return null;
+    }
+
+    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    let projectData;
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        projectData = JSON.parse(content);
+    } catch (err) {
+        if (notFoundLog) console.error(notFoundLog);
+        res.status(404).json({ error: notFoundMessage });
+        return null;
+    }
+
+    if (validate) {
+        const validationError = validate(projectData);
+        if (validationError) {
+            res.status(400).json({ error: validationError });
+            return null;
+        }
+    }
+
+    return { projectId, filePath, projectData, data: projectData.data || {} };
+}
+
+async function finalizeGeneratedStageArtifact({
+    projectId,
+    filePath,
+    projectData,
+    stage,
+    stageKey,
+    result,
+    before,
+    operation = 'generation',
+    note = '',
+    revisionReceipt = null,
+    changed = true,
+    sourcePacket = null,
+    usage = null,
+    sourceReason = operation,
+    sourceData = result,
+    beforeSave = null
+} = {}) {
+    const snapshotEntries = recordArtifactMutation(projectData, {
+        projectId,
+        stage,
+        before,
+        after: result,
+        operation,
+        note: note || '',
+        revisionReceipt
+    });
+
+    projectData.data = projectData.data || {};
+    projectData.data[stageKey] = result;
+    if (beforeSave) await beforeSave(projectData);
+
+    if (operation === 'revision') {
+        if (changed) stampRevised(projectData, stageKey);
+    } else {
+        stampGenerated(projectData, stageKey);
+    }
+
+    if (sourcePacket) {
+        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(sourceData, null, 2), sourceReason);
+    }
+
+    await writeJSONQueued(filePath, projectData);
+    trackUsage(projectId, usage);
+    return {
+        snapshotIds: snapshotEntries.map(entry => entry.id)
+    };
+}
+
 function summarizeSourceForClient(source) {
     return {
         id: source.id,
@@ -3831,23 +3914,15 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const { projectId, currentBeats, notes } = req.body;
         const uploadedFile = req.file;
 
-        if (!isValidProjectId(projectId)) {
-            return res.status(400).json({ error: "Missing or invalid projectId" });
-        }
-
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
-
+        const context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            validate: (project) => project.data?.stage1_pitch?.pitch
+                ? null
+                : 'Project has no finalized Stage 1 Pitch'
+        });
+        if (!context) return;
+        const { filePath, projectData } = context;
         const stage1 = projectData.data?.stage1_pitch?.pitch;
-        if (!stage1) {
-            return res.status(400).json({ error: "Project has no finalized Stage 1 Pitch" });
-        }
 
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
         const activeProtectedBeatEntries = stage2ProtectedBeatEntriesForRequest(projectData, req.body?.protectedBeats);
@@ -4026,26 +4101,21 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         const { projectId, currentCharacters, notes, tierOverrides } = req.body;
         const uploadedFile = req.file;
 
-        if (!isValidProjectId(projectId)) {
-            return res.status(400).json({ error: "Missing or invalid projectId" });
-        }
-
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            console.error('generate-characters: failed to load project');
-            return res.status(404).json({ error: "Project not found" });
-        }
-
+        const context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            notFoundLog: 'generate-characters: failed to load project',
+            validate: (project) => {
+                const pitchData = project.data?.stage1_pitch?.pitch;
+                const beatsData = project.data?.stage2_outline?.outline;
+                return (!pitchData || !beatsData)
+                    ? 'Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters'
+                    : null;
+            }
+        });
+        if (!context) return;
+        const { filePath, projectData } = context;
         const pitchData = projectData.data?.stage1_pitch?.pitch;
         const beatsData = projectData.data?.stage2_outline?.outline;
-
-        if (!pitchData || !beatsData) {
-            return res.status(400).json({ error: "Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters" });
-        }
 
         const parsedChars = currentCharacters ? safeParse(currentCharacters, null) : null;
         const parsedTierOverrides = tierOverrides ? safeParse(tierOverrides, null) : null;
@@ -4082,30 +4152,25 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 3 characters');
         const changed = !notesWithUpload || revisionTransaction.changed;
-        const snapshotEntries = recordArtifactMutation(projectData, {
+        const operation = notesWithUpload ? 'revision' : 'generation';
+        const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
+            filePath,
+            projectData,
             stage: 3,
+            stageKey: 'stage3_characters',
+            result: characterData,
             before: { characters: beforeCharactersForRevision },
-            after: characterData,
-            operation: notesWithUpload ? 'revision' : 'generation',
+            operation,
             note: notesWithUpload || '',
-            revisionReceipt: revisionTransaction?.receipt || null
+            revisionReceipt: revisionTransaction?.receipt || null,
+            changed,
+            sourcePacket,
+            usage,
+            sourceReason: operation
         });
 
-        // Save to Stage 3
-        projectData.data = projectData.data || {};
-        projectData.data.stage3_characters = characterData;
-        if (notesWithUpload) {
-            if (changed) stampRevised(projectData, 'stage3_characters');
-        } else {
-            stampGenerated(projectData, 'stage3_characters');
-        }
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(characterData, null, 2), notesWithUpload ? 'revision' : 'generation');
-
-        await writeJSONQueued(filePath, projectData);
-        trackUsage(projectId, usage);
-
-        res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
+        res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
         const detail = publicErrorDetail(error);
@@ -4117,26 +4182,22 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     const { projectId, currentBeats, notes } = req.body || {};
     const uploadedFile = req.file;
 
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
-    }
-
-    const filePath = path.join(DATA_DIR, `${projectId}.json`);
-    let projectData;
-    try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        projectData = JSON.parse(content);
-    } catch (err) {
-        return res.status(404).json({ error: "Project not found" });
-    }
-
+    const context = await prepareGenerationProjectContext(req, res, {
+        projectId,
+        validate: (project) => {
+            const pitchData = project.data?.stage1_pitch?.pitch;
+            const beatsData = project.data?.stage2_outline?.outline;
+            const charsData = project.data?.stage3_characters?.characters;
+            return (!pitchData || !beatsData || !charsData)
+                ? 'Project requires Stages 1-3 to generate Beats'
+                : null;
+        }
+    });
+    if (!context) return;
+    const { filePath, projectData } = context;
     const pitchData = projectData.data?.stage1_pitch?.pitch;
     const beatsData = projectData.data?.stage2_outline?.outline;
     const charsData = projectData.data?.stage3_characters?.characters;
-
-    if (!pitchData || !beatsData || !charsData) {
-        return res.status(400).json({ error: "Project requires Stages 1-3 to generate Beats" });
-    }
 
     const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
     const isFullStage4Generation = !parsedCurrentBeats;
@@ -4184,32 +4245,30 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 4 beats');
         const changed = isFullStage4Generation || revisionTransaction?.changed === true;
-        const snapshotEntries = recordArtifactMutation(projectData, {
+        const operation = notesWithUpload ? 'revision' : 'generation';
+        const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
+            filePath,
+            projectData,
             stage: 4,
+            stageKey: 'stage4_beats',
+            result: beatsResult,
             before: beforeStage4ForRevision,
-            after: beatsResult,
-            operation: notesWithUpload ? 'revision' : 'generation',
+            operation,
             note: notesWithUpload || '',
-            revisionReceipt: revisionTransaction?.receipt || null
+            revisionReceipt: revisionTransaction?.receipt || null,
+            changed,
+            sourcePacket,
+            usage,
+            sourceReason: operation,
+            beforeSave: (projectData) => {
+                if (isFullStage4Generation && projectData.data.conversations?.stage4) {
+                    delete projectData.data.conversations.stage4;
+                }
+            }
         });
 
-        projectData.data = projectData.data || {};
-        projectData.data.stage4_beats = beatsResult;
-        if (isFullStage4Generation && projectData.data.conversations?.stage4) {
-            delete projectData.data.conversations.stage4;
-        }
-        if (notesWithUpload) {
-            if (changed) stampRevised(projectData, 'stage4_beats');
-        } else {
-            stampGenerated(projectData, 'stage4_beats');
-        }
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(beatsResult, null, 2), notesWithUpload ? 'revision' : 'generation');
-
-        await writeJSONQueued(filePath, projectData);
-        trackUsage(projectId, usage);
-
-        send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 4 Beats Gen Error:', error.message);
         const detail = publicErrorDetail(error);
@@ -4223,18 +4282,19 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId } = req.body || {};
     const uploadedFile = req.file;
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
-    }
-
-    const filePath = path.join(DATA_DIR, `${projectId}.json`);
-    let projectData;
-    try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        projectData = JSON.parse(content);
-    } catch (err) {
-        return res.status(404).json({ error: "Project not found" });
-    }
+    const context = await prepareGenerationProjectContext(req, res, {
+        projectId,
+        validate: (project) => {
+            const pitchData = project.data?.stage1_pitch?.pitch;
+            const charactersData = project.data?.stage3_characters?.characters;
+            const beatsData = project.data?.stage4_beats?.hybrid_beat_sheet;
+            return (!pitchData || !charactersData || !beatsData)
+                ? 'Project requires Stages 1, 3, and 4 to generate Treatment'
+                : null;
+        }
+    });
+    if (!context) return;
+    const { filePath, projectData } = context;
 
     const pitchData = projectData.data?.stage1_pitch?.pitch;
     const charactersData = projectData.data?.stage3_characters?.characters;
@@ -4246,10 +4306,6 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         ? Object.fromEntries(Object.entries(parsedTreatment).filter(([key]) => key !== 'notes'))
         : parsedTreatment;
     const beforeStage5ForRevision = comparableCurrentTreatment || projectData.data?.stage5_treatment || {};
-
-    if (!pitchData || !charactersData || !beatsData) {
-        return res.status(400).json({ error: "Project requires Stages 1, 3, and 4 to generate Treatment" });
-    }
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -4291,29 +4347,25 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 5 treatment');
         const changed = !notesWithUpload || revisionTransaction.changed;
-        const snapshotEntries = recordArtifactMutation(projectData, {
+        const operation = notesWithUpload ? 'revision' : 'generation';
+        const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
+            filePath,
+            projectData,
             stage: 5,
+            stageKey: 'stage5_treatment',
+            result: treatmentResult,
             before: beforeStage5ForRevision,
-            after: treatmentResult,
-            operation: notesWithUpload ? 'revision' : 'generation',
+            operation,
             note: notesWithUpload || '',
-            revisionReceipt: revisionTransaction?.receipt || null
+            revisionReceipt: revisionTransaction?.receipt || null,
+            changed,
+            sourcePacket,
+            usage: usageList,
+            sourceReason: operation
         });
 
-        projectData.data = projectData.data || {};
-        projectData.data.stage5_treatment = treatmentResult;
-        if (notesWithUpload) {
-            if (changed) stampRevised(projectData, 'stage5_treatment');
-        } else {
-            stampGenerated(projectData, 'stage5_treatment');
-        }
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(treatmentResult, null, 2), notesWithUpload ? 'revision' : 'generation');
-
-        await writeJSONQueued(filePath, projectData);
-        trackUsage(projectId, usageList);
-
-        send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
@@ -4326,28 +4378,26 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 
 app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res) => {
     const { projectId, notes } = req.body;
-    if (!isValidProjectId(projectId)) {
-        return res.status(400).json({ error: "Missing or invalid projectId" });
-    }
     const generationNotes = typeof notes === 'string' ? notes.trim() : '';
 
-    const filePath = path.join(DATA_DIR, `${projectId}.json`);
-    let projectData;
-    try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        projectData = JSON.parse(content);
-    } catch (err) {
-        return res.status(404).json({ error: "Project not found" });
-    }
-
+    const context = await prepareGenerationProjectContext(req, res, {
+        projectId,
+        validate: (project) => {
+            const pitch = project.data?.stage1_pitch?.pitch;
+            const characters = project.data?.stage3_characters?.characters;
+            const beats = project.data?.stage4_beats?.hybrid_beat_sheet;
+            const treatment = project.data?.stage5_treatment;
+            return (!pitch || !characters || !beats || !treatment)
+                ? 'Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint'
+                : null;
+        }
+    });
+    if (!context) return;
+    const { filePath, projectData } = context;
     const pitch = projectData.data?.stage1_pitch?.pitch;
     const characters = projectData.data?.stage3_characters?.characters;
     const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
     const treatment = projectData.data?.stage5_treatment;
-
-    if (!pitch || !characters || !beats || !treatment) {
-        return res.status(400).json({ error: "Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint" });
-    }
 
     // SSE setup
     res.setHeader('Content-Type', 'text/event-stream');
@@ -4381,23 +4431,22 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
             getModelConfig(6),
             generationNotes
         );
-        const snapshotEntries = recordArtifactMutation(projectData, {
+        const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
+            filePath,
+            projectData,
             stage: 6,
+            stageKey: 'stage6_scenes',
+            result: allSequences,
             before: projectData.data?.stage6_scenes || [],
-            after: allSequences,
             operation: 'generation',
-            note: generationNotes
+            note: generationNotes,
+            sourcePacket,
+            usage: usageList,
+            sourceReason: 'generation'
         });
 
-        projectData.data = projectData.data || {};
-        projectData.data.stage6_scenes = allSequences;
-        stampGenerated(projectData, 'stage6_scenes');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(allSequences, null, 2), 'generation');
-        await writeJSONQueued(filePath, projectData);
-        trackUsage(projectId, usageList);
-
-        send({ type: 'complete', result: allSequences, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
+        send({ type: 'complete', result: allSequences, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 6 Scene Gen Error:', error.message);
         const detail = publicErrorDetail(error);
