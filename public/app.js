@@ -1468,12 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (btnStage1Revise) btnStage1Revise.classList.add('hidden');
             if (btnStage1Edit) btnStage1Edit.classList.remove('hidden');
-            if (btnStage1Approve) {
-                btnStage1Approve.style.display = '';
-                btnStage1Approve.textContent = 'Approved ✓';
-                btnStage1Approve.classList.add('approve-btn-green');
-                btnStage1Approve.disabled = true;
-            }
+            setApproveButtonState(btnStage1Approve, 'approved', { display: '' });
         } else {
             // Clean up any pending auto-reset listeners
             allFields.forEach(f => {
@@ -1487,13 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage1Revise.disabled = false;
             }
             if (btnStage1Edit) btnStage1Edit.classList.add('hidden');
-            if (btnStage1Approve) {
-                btnStage1Approve.style.display = '';
-                btnStage1Approve.classList.remove('hidden');
-                btnStage1Approve.textContent = 'Approve';
-                btnStage1Approve.classList.remove('approve-btn-green');
-                btnStage1Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage1Approve, 'ready', { display: '', hidden: false });
         }
     }
 
@@ -1550,10 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnStage1Revise.disabled = false;
                 }, 1500);
 
-                if (btnStage1Approve) {
-                    btnStage1Approve.textContent = 'Approve';
-                    btnStage1Approve.classList.remove('approve-btn-green');
-                }
+                setApproveButtonState(btnStage1Approve, 'ready');
             } catch (err) {
                 console.error("Failed to manual save:", err);
                 alert("An error occurred while saving your manual changes.");
@@ -1609,10 +1595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (stage1PdfUpload) stage1PdfUpload.value = '';
                 if (stage1FileNameDisplay) stage1FileNameDisplay.textContent = '';
 
-                if (btnStage1Approve) {
-                    btnStage1Approve.textContent = 'Approve';
-                    btnStage1Approve.classList.remove('approve-btn-green');
-                }
+                setApproveButtonState(btnStage1Approve, 'ready');
             } else {
                 alert("Unexpected response format from server.");
             }
@@ -1655,9 +1638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Save to the active project DB route
         try {
             if (!activeProjectId) throw new Error("No active project ID.");
-            btnStage1Approve.textContent = 'Saving...';
-            btnStage1Approve.disabled = true;
-            btnStage1Approve.classList.remove('approve-btn-green');
+            setApproveButtonState(btnStage1Approve, 'saving');
 
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
@@ -1680,9 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
             alert("An error occurred while saving to the database.");
-            btnStage1Approve.textContent = 'Approve';
-            btnStage1Approve.classList.remove('approve-btn-green');
-            btnStage1Approve.disabled = false;
+            setApproveButtonState(btnStage1Approve, 'ready');
         }
         });
     }
@@ -2858,9 +2837,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function markStage3Dirty() {
         if (btnStage3Approve) {
-            btnStage3Approve.textContent = 'Approve';
-            btnStage3Approve.classList.remove('approve-btn-green');
-            btnStage3Approve.disabled = false;
+            setApproveButtonState(btnStage3Approve, 'ready');
         }
     }
 
@@ -3430,9 +3407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         if (btnStage3Approve) {
-            btnStage3Approve.textContent = 'Approve';
-            btnStage3Approve.classList.remove('approve-btn-green');
-            btnStage3Approve.classList.add('hidden');
+            setApproveButtonState(btnStage3Approve, 'ready', { hidden: true });
         }
 
         loadingStateCharacters.classList.remove('hidden');
@@ -3471,12 +3446,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage3Revise.textContent = 'Submit';
                 btnStage3Revise.disabled = false;
             }
-            if (btnStage3Approve) {
-                btnStage3Approve.classList.remove('hidden');
-                btnStage3Approve.textContent = 'Approve';
-                btnStage3Approve.classList.remove('approve-btn-green');
-                btnStage3Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage3Approve, 'ready', { hidden: false });
         } catch (err) {
             console.error(err);
             alert("Error generating characters: " + err.message);
@@ -3494,12 +3464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage3Revise.textContent = 'Submit';
                 btnStage3Revise.disabled = false;
             }
-            if (btnStage3Approve) {
-                btnStage3Approve.classList.remove('hidden');
-                btnStage3Approve.textContent = 'Approve';
-                btnStage3Approve.classList.remove('approve-btn-green');
-                btnStage3Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage3Approve, 'ready', { hidden: false });
         });
     }
 
@@ -3579,10 +3544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projectDetails = await projectRes.json();
                 updateStageNav(projectDetails.data);
 
-                if (btnStage3Approve) {
-                    btnStage3Approve.textContent = 'Approve';
-                    btnStage3Approve.classList.remove('approve-btn-green');
-                }
+                setApproveButtonState(btnStage3Approve, 'ready');
             } catch (err) {
                 console.error(err);
                 alert("Error revising characters.");
@@ -3822,9 +3784,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const existingHistory = (window.currentProjectData?.versionHistory) || [];
             const isReApproval = existingHistory.filter(v => v.stage === 3).length > 0;
 
-            btnStage3Approve.textContent = 'Saving...';
-            btnStage3Approve.disabled = true;
-            btnStage3Approve.classList.remove('approve-btn-green');
+            setApproveButtonState(btnStage3Approve, 'saving');
 
             const stage3Snapshot = stage3PayloadFromCharacters(currentCharacters);
             const versionHistory3 = captureVersionSnapshot(3, 'stage3_characters', 'Characters', stage3Snapshot);
@@ -3848,9 +3808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await offerStageMemoryCuration(3);
                 updateStageNav(updatedProject.data);
 
-                btnStage3Approve.textContent = 'Approved ✓';
-                btnStage3Approve.classList.add('approve-btn-green');
-                btnStage3Approve.disabled = true;
+                setApproveButtonState(btnStage3Approve, 'approved');
 
                 // Toggle back to edit mode
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
@@ -3867,8 +3825,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error(err);
                 alert("Error saving approved characters.");
-                btnStage3Approve.textContent = originalText;
-                btnStage3Approve.disabled = false;
+                setApproveButtonState(btnStage3Approve, 'ready', { text: originalText });
             }
         });
     }
@@ -4743,10 +4700,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ta.style.cssText = 'width: 100%; background: transparent; border: none; resize: none; overflow: hidden; color: #d1d5db; font-family: inherit; font-size: 0.9rem; line-height: 1.6; padding: 4px 0; min-height: 24px;';
                     ta.addEventListener('input', () => {
                         autoResize(ta);
-                        if (btnStage4Approve) {
-                            btnStage4Approve.textContent = 'Approve';
-                            btnStage4Approve.classList.remove('approve-btn-green');
-                        }
+                        setApproveButtonState(btnStage4Approve, 'ready');
                     });
                     ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
                     ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
@@ -4789,9 +4743,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
         if (btnStage4Approve) {
             btnStage4Approve.classList.remove('hidden');
-            btnStage4Approve.textContent = 'Approve';
-            btnStage4Approve.classList.remove('approve-btn-green');
-            btnStage4Approve.disabled = false;
+            setApproveButtonState(btnStage4Approve, 'ready');
         }
         if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
 
@@ -4848,9 +4800,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         if (btnStage4Approve) {
-            btnStage4Approve.textContent = 'Approve';
-            btnStage4Approve.classList.remove('approve-btn-green');
-            btnStage4Approve.classList.add('hidden');
+            setApproveButtonState(btnStage4Approve, 'ready', { hidden: true });
         }
 
         if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
@@ -4942,12 +4892,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
             if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
-            if (btnStage4Approve) {
-                btnStage4Approve.classList.remove('hidden');
-                btnStage4Approve.textContent = 'Approve';
-                btnStage4Approve.classList.remove('approve-btn-green');
-                btnStage4Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage4Approve, 'ready', { hidden: false });
         }
     }
 
@@ -4988,10 +4933,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         btnStage4Revise.disabled = false;
                     }, 1500);
 
-                    if (btnStage4Approve) {
-                        btnStage4Approve.textContent = 'Approve';
-                        btnStage4Approve.classList.remove('approve-btn-green');
-                    }
+                    setApproveButtonState(btnStage4Approve, 'ready');
                 } catch (err) {
                     console.error('Failed to manual save beats:', err);
                     alert('An error occurred while saving.');
@@ -5050,10 +4992,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (stage4Notes) stage4Notes.value = '';
                             if (stage4PdfUpload) stage4PdfUpload.value = '';
                             if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
-                            if (btnStage4Approve) {
-                                btnStage4Approve.textContent = 'Approve';
-                                btnStage4Approve.classList.remove('approve-btn-green');
-                            }
+                            setApproveButtonState(btnStage4Approve, 'ready');
                             await handleSourceGenerationResult(4, event);
                         } else if (event.type === 'error') {
                             throw new Error(event.message);
@@ -5082,9 +5021,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const existingHistory = (window.currentProjectData?.versionHistory) || [];
             const isReApproval = existingHistory.filter(v => v.stage === 4).length > 0;
 
-            btnStage4Approve.textContent = 'Saving...';
-            btnStage4Approve.disabled = true;
-            btnStage4Approve.classList.remove('approve-btn-green');
+            setApproveButtonState(btnStage4Approve, 'saving');
 
             const versionHistory4 = captureVersionSnapshot(4, 'stage4_beats', 'Beats', currentS4Beats);
 
@@ -5103,9 +5040,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await offerStageMemoryCuration(4);
                 updateStageNav(updatedProject.data);
 
-                btnStage4Approve.textContent = 'Approved ✓';
-                btnStage4Approve.classList.add('approve-btn-green');
-                btnStage4Approve.disabled = true;
+                setApproveButtonState(btnStage4Approve, 'approved');
 
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
@@ -5122,8 +5057,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error(err);
                 alert('Error saving approved treatment.');
-                btnStage4Approve.textContent = originalText;
-                btnStage4Approve.disabled = false;
+                setApproveButtonState(btnStage4Approve, 'ready', { text: originalText });
             }
         });
     }
@@ -5193,10 +5127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Add input listeners for user edits
                 if (!ta.dataset.listenerAdded) {
                     ta.addEventListener('input', () => {
-                        if (btnStage5Approve) {
-                            btnStage5Approve.textContent = 'Approve';
-                            btnStage5Approve.classList.remove('approve-btn-green');
-                        }
+                        setApproveButtonState(btnStage5Approve, 'ready');
                     });
                     ta.addEventListener('focus', () => {
                         ta.style.background = '#374151'; // Slightly lighter on focus (gray-700)
@@ -5225,9 +5156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         if (btnStage5Approve) {
-            btnStage5Approve.textContent = 'Approve';
-            btnStage5Approve.classList.remove('approve-btn-green');
-            btnStage5Approve.classList.add('hidden');
+            setApproveButtonState(btnStage5Approve, 'ready', { hidden: true });
         }
 
         // Clear Stage 5 content
@@ -5282,12 +5211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // stale locked state left over from project hydration.
                         if (btnStage5Edit) btnStage5Edit.classList.add('hidden');
                         if (btnStage5Revise) btnStage5Revise.classList.remove('hidden');
-                        if (btnStage5Approve) {
-                            btnStage5Approve.classList.remove('hidden');
-                            btnStage5Approve.textContent = 'Approve';
-                            btnStage5Approve.classList.remove('approve-btn-green');
-                            btnStage5Approve.disabled = false;
-                        }
+                        setApproveButtonState(btnStage5Approve, 'ready', { hidden: false });
                         // Fetch updated project for nav status
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
@@ -5329,12 +5253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStage5Edit) {
         btnStage5Edit.addEventListener('click', () => {
             if (btnStage5Revise) btnStage5Revise.classList.remove('hidden');
-            if (btnStage5Approve) {
-                btnStage5Approve.classList.remove('hidden');
-                btnStage5Approve.textContent = 'Approve';
-                btnStage5Approve.classList.remove('approve-btn-green');
-                btnStage5Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage5Approve, 'ready', { hidden: false });
             btnStage5Edit.classList.add('hidden');
         });
     }
@@ -5368,10 +5287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         btnStage5Revise.disabled = false;
                     }, 1500);
 
-                    if (btnStage5Approve) {
-                        btnStage5Approve.textContent = 'Approve';
-                        btnStage5Approve.classList.remove('approve-btn-green');
-                    }
+                    setApproveButtonState(btnStage5Approve, 'ready');
                 } catch (err) {
                     console.error('Failed to manual save stage 5:', err);
                     btnStage5Revise.textContent = originalText;
@@ -5451,9 +5367,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const stage6HasData = !!(window.currentProjectData?.stage6_scenes?.length);
             const isReApproval = stage6HasData;
 
-            btnStage5Approve.textContent = 'Saving...';
-            btnStage5Approve.disabled = true;
-            btnStage5Approve.classList.remove('approve-btn-green');
+            setApproveButtonState(btnStage5Approve, 'saving');
 
             const versionHistory5 = captureVersionSnapshot(5, 'stage5_treatment', 'Treatment', currentData);
 
@@ -5472,8 +5386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await offerStageMemoryCuration(5);
                 updateStageNav(updatedProject.data);
 
-                btnStage5Approve.textContent = 'Approved ✓';
-                btnStage5Approve.classList.add('approve-btn-green');
+                setApproveButtonState(btnStage5Approve, 'approved');
 
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
@@ -5489,8 +5402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error(err);
-                btnStage5Approve.textContent = originalText;
-                btnStage5Approve.disabled = false;
+                setApproveButtonState(btnStage5Approve, 'ready', { text: originalText });
             }
         });
     }
@@ -8519,7 +8431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     completeEvent = event;
                     renderTreatment(event.result);
                     await handleSourceGenerationResult(4, event, { chat: stageChatWindows[4] });
-                    if (btnStage4Approve) { btnStage4Approve.textContent = 'Approve'; btnStage4Approve.classList.remove('approve-btn-green'); }
+                    setApproveButtonState(btnStage4Approve, 'ready');
                 } else if (event.type === 'error') throw new Error(event.message);
             });
             if (!completeEvent) throw new Error('Beat revision finished without a completion event.');
@@ -8556,7 +8468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     completeEvent = event;
                     renderTreatmentStage5(event.result);
                     await handleSourceGenerationResult(5, event, { chat: stageChatWindows[5] });
-                    if (btnStage5Approve) { btnStage5Approve.textContent = 'Approve'; btnStage5Approve.classList.remove('approve-btn-green'); }
+                    setApproveButtonState(btnStage5Approve, 'ready');
                 } else if (event.type === 'error') throw new Error(event.message);
             });
             if (!completeEvent) throw new Error('Treatment revision finished without a completion event.');

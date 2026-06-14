@@ -160,9 +160,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
    routes/styles.js, routes/export.js, routes/projects.js. Helpers to utils/.
 3. Frontend: extract approve-button state helper (~30 duplicated sites), shared approve-handler factory.
 
-### Codex continuation notes — 2026-06-13 (Phase 4 first pass)
-- Added `setApproveButtonState()` in `public/app.js` and migrated low-risk approve-state call sites around project hydration/restores, Stage 2, source-audit revisions, and Stage 2/3 chat resets.
-- Remaining Phase 4 frontend cleanup: continue converting the older Stage 1/3/4/5/6/7/10 approval handlers and then extract a shared approve-handler factory once the state helper usage is broad enough.
+### Codex continuation notes — 2026-06-13 (Phase 4 frontend pass)
+- Added `setApproveButtonState()` in `public/app.js` and migrated low-risk approve-state call sites around project hydration/restores, Stage 1, Stage 2, Stage 3-5, source-audit revisions, and Stage 2-5 chat resets.
+- Remaining Phase 4 frontend cleanup: continue converting Stage 6/8 and the custom Stage 7/9/10 approval flows, then extract a shared approve-handler factory once the state helper usage is broad enough.
 
 ## Phase 5 — Data safety & reliability (hand-off-able, well-specified)
 1. **RMW race**: in `updateProjectJSON()` (server.js:120-130), move the read inside
