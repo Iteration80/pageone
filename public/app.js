@@ -2108,6 +2108,76 @@ document.addEventListener('DOMContentLoaded', () => {
         return history;
     }
 
+    function createStageApproveHandler(config) {
+        return async () => {
+            const {
+                stageId,
+                button,
+                beforeGuard,
+                getContext,
+                getSnapshot,
+                stageKey,
+                stageName,
+                buildData,
+                getStampRevisedStage,
+                refreshProjectAfterCuration = false,
+                updateCurrentProject = false,
+                errorLog = `Stage ${stageId} approval failed:`,
+                errorMessage = 'An error occurred while saving.',
+                onApproved
+            } = config;
+            const approveButton = typeof button === 'function' ? button() : button;
+            if (!activeProjectId) return;
+            if (beforeGuard) await beforeGuard();
+            if (!(await runApprovalSourceGuard(stageId, approveButton))) return;
+
+            const originalText = approveButton?.textContent;
+            setApproveButtonState(approveButton, 'saving');
+
+            try {
+                const context = getContext ? await getContext() : {};
+                const snapshot = await getSnapshot();
+                const versionHistory = captureVersionSnapshot(stageId, stageKey, stageName, snapshot);
+                const data = buildData
+                    ? buildData({ snapshot, versionHistory, context })
+                    : { [stageKey]: snapshot, versionHistory };
+                const putBody = { data };
+                const stampRevisedStage = getStampRevisedStage
+                    ? getStampRevisedStage({ snapshot, versionHistory, context })
+                    : null;
+                if (stampRevisedStage) putBody.stampRevisedStage = stampRevisedStage === true ? stageKey : stampRevisedStage;
+
+                const response = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(putBody)
+                });
+                if (!response.ok) throw new Error('Failed to save project');
+
+                let updatedProject = await response.json();
+                await offerStageMemoryCuration(stageId);
+
+                if (refreshProjectAfterCuration) {
+                    const projectResponse = await fetch(`/api/projects/${activeProjectId}`);
+                    if (!projectResponse.ok) throw new Error('Project saved, but refresh failed.');
+                    updatedProject = await projectResponse.json();
+                }
+
+                if (updateCurrentProject && updatedProject?.data) window.currentProjectData = updatedProject.data;
+                if (updatedProject?.data) updateStageNav(updatedProject.data);
+                setApproveButtonState(approveButton, 'approved');
+
+                if (onApproved) {
+                    await onApproved({ snapshot, versionHistory, context, updatedProject, button: approveButton });
+                }
+            } catch (error) {
+                console.error(errorLog, error);
+                if (errorMessage) alert(errorMessage);
+                setApproveButtonState(approveButton, 'ready', { text: originalText });
+            }
+        };
+    }
+
     function renderVersionHistory() {
         const container = document.getElementById('version-history-list');
         if (!container) return;
@@ -2532,59 +2602,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveOutlineEdits(triggerBtn) {
-        if (!activeProjectId) return;
-        if (!(await runApprovalSourceGuard(2, triggerBtn))) return;
+        return createStageApproveHandler({
+            stageId: 2,
+            button: triggerBtn,
+            stageKey: 'stage2_outline',
+            stageName: 'Outline',
+            getContext: () => ({
+                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 2).length > 0
+            }),
+            getSnapshot: () => stage2PayloadFromOutline(scrapeOutline()),
+            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage2_outline' : null,
+            updateCurrentProject: true,
+            errorLog: 'Failed to save outline:',
+            errorMessage: 'Error saving outline.',
+            onApproved: ({ context }) => {
+                toggleStage2EditMode(true);
 
-        const updatedOutline = scrapeOutline();
-        const originalText = triggerBtn.textContent;
-
-        const existingHistory = (window.currentProjectData?.versionHistory) || [];
-        const isReApproval = existingHistory.filter(v => v.stage === 2).length > 0;
-
-        setApproveButtonState(triggerBtn, 'saving');
-
-        const stage2Snapshot = stage2PayloadFromOutline(updatedOutline);
-        const versionHistory2 = captureVersionSnapshot(2, 'stage2_outline', 'Outline', stage2Snapshot);
-
-        try {
-            const putBody = {
-                data: {
-                    stage2_outline: stage2Snapshot,
-                    versionHistory: versionHistory2
+                if (context.isReApproval) {
+                    showGenericRegenModal('Outline', 'Stage 3 Characters',
+                        () => { switchStage(3); autoGenerateCharacters(); },
+                        () => { switchStage(3); }
+                    );
+                } else {
+                    switchStage(3);
+                    autoGenerateCharacters();
                 }
-            };
-            if (isReApproval) putBody.stampRevisedStage = 'stage2_outline';
-
-            const res = await fetch(`/api/projects/${activeProjectId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(putBody)
-            });
-            const updatedProject = await res.json();
-            await offerStageMemoryCuration(2);
-
-            if (updatedProject?.data) window.currentProjectData = updatedProject.data;
-            updateStageNav(updatedProject.data);
-
-            setApproveButtonState(triggerBtn, 'approved');
-
-            toggleStage2EditMode(true);
-
-            if (isReApproval) {
-                showGenericRegenModal('Outline', 'Stage 3 Characters',
-                    () => { switchStage(3); autoGenerateCharacters(); },
-                    () => { switchStage(3); }
-                );
-            } else {
-                switchStage(3);
-                autoGenerateCharacters();
             }
-        } catch (err) {
-            console.error("Failed to save outline:", err);
-            alert("Error saving outline.");
-            triggerBtn.textContent = originalText;
-            triggerBtn.disabled = false;
-        }
+        })();
     }
 
     function toggleStage2EditMode(isApproved) {
@@ -3771,48 +3815,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnStage3Approve) {
-        btnStage3Approve.addEventListener('click', async () => {
-            if (!activeProjectId) return;
-            if (!(await runApprovalSourceGuard(3, btnStage3Approve))) return;
-
-            const currentCharacters = scrapeCharacters();
-            const originalText = btnStage3Approve.textContent;
-
-            // Detect re-approval: check if Stage 3 already has a version in history
-            const existingHistory = (window.currentProjectData?.versionHistory) || [];
-            const isReApproval = existingHistory.filter(v => v.stage === 3).length > 0;
-
-            setApproveButtonState(btnStage3Approve, 'saving');
-
-            const stage3Snapshot = stage3PayloadFromCharacters(currentCharacters);
-            const versionHistory3 = captureVersionSnapshot(3, 'stage3_characters', 'Characters', stage3Snapshot);
-
-            try {
-                const putBody = {
-                    data: {
-                        stage3_characters: stage3Snapshot,
-                        versionHistory: versionHistory3
-                    }
-                };
-                // On re-approval, stamp downstream stages as stale
-                if (isReApproval) putBody.stampRevisedStage = 'stage3_characters';
-
-                const res = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(putBody)
-                });
-                const updatedProject = await res.json();
-                await offerStageMemoryCuration(3);
-                updateStageNav(updatedProject.data);
-
-                setApproveButtonState(btnStage3Approve, 'approved');
-
+        btnStage3Approve.addEventListener('click', createStageApproveHandler({
+            stageId: 3,
+            button: btnStage3Approve,
+            stageKey: 'stage3_characters',
+            stageName: 'Characters',
+            getContext: () => ({
+                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 3).length > 0
+            }),
+            getSnapshot: () => stage3PayloadFromCharacters(scrapeCharacters()),
+            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage3_characters' : null,
+            errorLog: 'Stage 3 approval failed:',
+            errorMessage: 'Error saving approved characters.',
+            onApproved: ({ context }) => {
                 // Toggle back to edit mode
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                 if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
 
-                if (isReApproval) {
+                if (context.isReApproval) {
                     // Show options modal instead of auto-advancing
                     showStage3RegenModal();
                 } else {
@@ -3820,12 +3840,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     switchStage(4);
                     autoGenerateTreatment();
                 }
-            } catch (err) {
-                console.error(err);
-                alert("Error saving approved characters.");
-                setApproveButtonState(btnStage3Approve, 'ready', { text: originalText });
             }
-        });
+        }));
     }
 
     // Utility for safely rendering HTML
@@ -5009,41 +5025,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stage 4 Approve button
     if (btnStage4Approve) {
-        btnStage4Approve.addEventListener('click', async () => {
-            if (!activeProjectId) return;
-            if (!(await runApprovalSourceGuard(4, btnStage4Approve))) return;
-
-            const currentS4Beats = scrapeTreatment();
-            const originalText = btnStage4Approve.textContent;
-
-            const existingHistory = (window.currentProjectData?.versionHistory) || [];
-            const isReApproval = existingHistory.filter(v => v.stage === 4).length > 0;
-
-            setApproveButtonState(btnStage4Approve, 'saving');
-
-            const versionHistory4 = captureVersionSnapshot(4, 'stage4_beats', 'Beats', currentS4Beats);
-
-            try {
-                const putBody = {
-                    data: { stage4_beats: currentS4Beats, versionHistory: versionHistory4 }
-                };
-                if (isReApproval) putBody.stampRevisedStage = 'stage4_beats';
-
-                const res = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(putBody)
-                });
-                const updatedProject = await res.json();
-                await offerStageMemoryCuration(4);
-                updateStageNav(updatedProject.data);
-
-                setApproveButtonState(btnStage4Approve, 'approved');
-
+        btnStage4Approve.addEventListener('click', createStageApproveHandler({
+            stageId: 4,
+            button: btnStage4Approve,
+            stageKey: 'stage4_beats',
+            stageName: 'Beats',
+            getContext: () => ({
+                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 4).length > 0
+            }),
+            getSnapshot: () => scrapeTreatment(),
+            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage4_beats' : null,
+            errorLog: 'Stage 4 approval failed:',
+            errorMessage: 'Error saving approved treatment.',
+            onApproved: ({ context }) => {
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
 
-                if (isReApproval) {
+                if (context.isReApproval) {
                     showGenericRegenModal('Beats', 'Stage 5 Treatment',
                         () => { switchStage(5); autoGenerateTreatmentStage5(); },
                         () => { switchStage(5); }
@@ -5052,12 +5050,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     switchStage(5);
                     autoGenerateTreatmentStage5();
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Error saving approved treatment.');
-                setApproveButtonState(btnStage4Approve, 'ready', { text: originalText });
             }
-        });
+        }));
     }
 
     // --- Stage 5: Treatment Functions ---
@@ -5356,40 +5350,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnStage5Approve) {
-        btnStage5Approve.addEventListener('click', async () => {
-            if (!activeProjectId) return;
-            if (!(await runApprovalSourceGuard(5, btnStage5Approve))) return;
-            const currentData = scrapeTreatmentStage5();
-            const originalText = btnStage5Approve.textContent;
-
-            const stage6HasData = !!(window.currentProjectData?.stage6_scenes?.length);
-            const isReApproval = stage6HasData;
-
-            setApproveButtonState(btnStage5Approve, 'saving');
-
-            const versionHistory5 = captureVersionSnapshot(5, 'stage5_treatment', 'Treatment', currentData);
-
-            try {
-                const putBody = {
-                    data: { stage5_treatment: currentData, versionHistory: versionHistory5 }
-                };
-                if (isReApproval) putBody.stampRevisedStage = 'stage5_treatment';
-
-                const res = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(putBody)
-                });
-                const updatedProject = await res.json();
-                await offerStageMemoryCuration(5);
-                updateStageNav(updatedProject.data);
-
-                setApproveButtonState(btnStage5Approve, 'approved');
-
+        btnStage5Approve.addEventListener('click', createStageApproveHandler({
+            stageId: 5,
+            button: btnStage5Approve,
+            stageKey: 'stage5_treatment',
+            stageName: 'Treatment',
+            getContext: () => ({
+                isReApproval: !!(window.currentProjectData?.stage6_scenes?.length)
+            }),
+            getSnapshot: () => scrapeTreatmentStage5(),
+            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage5_treatment' : null,
+            errorLog: 'Stage 5 approval failed:',
+            errorMessage: null,
+            onApproved: ({ context }) => {
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
 
-                if (isReApproval) {
+                if (context.isReApproval) {
                     showGenericRegenModal('Treatment', 'Stage 6 Scenes',
                         () => { switchStage(6); generateStage6(); },
                         () => { switchStage(6); }
@@ -5398,11 +5375,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     switchStage(6);
                     generateStage6();
                 }
-            } catch (err) {
-                console.error(err);
-                setApproveButtonState(btnStage5Approve, 'ready', { text: originalText });
             }
-        });
+        }));
     }
 
     // --- Stage 6 Logic: Scene Blueprint ---
@@ -5892,40 +5866,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnStage6Approve) {
-        btnStage6Approve.addEventListener('click', async () => {
-            if (!activeProjectId) return;
-            if (!(await runApprovalSourceGuard(6, btnStage6Approve))) return;
-            const currentBlueprint = scrapeStage6();
-            const originalText = btnStage6Approve.textContent;
-
-            const existingHistory = (window.currentProjectData?.versionHistory) || [];
-            const isReApproval = existingHistory.filter(v => v.stage === 6).length > 0;
-
-            setApproveButtonState(btnStage6Approve, 'saving');
-
-            const versionHistory6 = captureVersionSnapshot(6, 'stage6_scenes', 'Scenes', currentBlueprint);
-
-            try {
-                const putBody = {
-                    data: { stage6_scenes: currentBlueprint, versionHistory: versionHistory6 }
-                };
-                if (isReApproval) putBody.stampRevisedStage = 'stage6_scenes';
-
-                const response = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(putBody)
-                });
-
-                if (!response.ok) throw new Error('Failed to save project');
-
-                setApproveButtonState(btnStage6Approve, 'approved');
-                await offerStageMemoryCuration(6);
-
-                const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                const projData = await projRes.json();
-                updateStageNav(projData.data);
-
+        btnStage6Approve.addEventListener('click', createStageApproveHandler({
+            stageId: 6,
+            button: btnStage6Approve,
+            stageKey: 'stage6_scenes',
+            stageName: 'Scenes',
+            getContext: () => ({
+                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 6).length > 0
+            }),
+            getSnapshot: () => scrapeStage6(),
+            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage6_scenes' : null,
+            refreshProjectAfterCuration: true,
+            errorLog: 'Stage 6 approval failed:',
+            errorMessage: 'An error occurred while saving the approved blueprint.',
+            onApproved: ({ context }) => {
                 if (btnStage6Submit) btnStage6Submit.classList.add('hidden');
                 if (btnStage6Revise) btnStage6Revise.classList.remove('hidden');
 
@@ -5934,7 +5888,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage6NavItem.classList.add('completed');
                 }
 
-                if (isReApproval) {
+                if (context.isReApproval) {
                     // Stage 7 (Style) sits between 6 and 8 — offer regen of Stage 8 only if it exists
                     const hasStage8 = !!(window.currentProjectData?.stage8_draft);
                     if (hasStage8) {
@@ -5948,13 +5902,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     switchStage(7);
                 }
-
-            } catch (error) {
-                console.error('Stage 6 approval failed:', error);
-                alert('An error occurred while saving the approved blueprint.');
-                setApproveButtonState(btnStage6Approve, 'ready', { text: originalText });
             }
-        });
+        }));
     }
 
     // --- Stage 8 Logic: Draft ---
@@ -6229,43 +6178,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnStage8Approve) {
-        btnStage8Approve.addEventListener('click', async () => {
-            if (!activeProjectId) return;
-            stage8FlushEditor(); // Save any pending manual edits
-            if (!(await runApprovalSourceGuard(8, btnStage8Approve))) return;
-
-            const originalText = btnStage8Approve.textContent;
-            setApproveButtonState(btnStage8Approve, 'saving');
-
-            const versionHistory7 = captureVersionSnapshot(8, 'stage7_approved', 'Draft', true);
-
-            try {
-                const response = await fetch(`/api/projects/${activeProjectId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: { stage7_approved: true, stage8_coverage: null, versionHistory: versionHistory7 } })
-                });
-
-                if (!response.ok) throw new Error('Failed to save project');
-
-                const updatedProject = await response.json();
-                await offerStageMemoryCuration(8);
-                updateStageNav(updatedProject.data);
-
-                setApproveButtonState(btnStage8Approve, 'approved');
-
+        btnStage8Approve.addEventListener('click', createStageApproveHandler({
+            stageId: 8,
+            button: btnStage8Approve,
+            beforeGuard: () => stage8FlushEditor(), // Save any pending manual edits
+            stageKey: 'stage7_approved',
+            stageName: 'Draft',
+            getSnapshot: () => true,
+            buildData: ({ versionHistory }) => ({
+                stage7_approved: true,
+                stage8_coverage: null,
+                versionHistory
+            }),
+            errorLog: 'Stage 8 approval failed:',
+            errorMessage: 'An error occurred while saving.',
+            onApproved: () => {
                 // Clear stale coverage so Stage 9 re-generates
                 if (window.currentProjectData) delete window.currentProjectData.stage8_coverage;
 
                 // Advance to Stage 9
                 switchStage(9);
-
-            } catch (error) {
-                console.error('Stage 8 approval failed:', error);
-                alert('An error occurred while saving.');
-                setApproveButtonState(btnStage8Approve, 'ready', { text: originalText });
             }
-        });
+        }));
     }
 
     document.querySelectorAll('.feedback-panel').forEach(panel => {

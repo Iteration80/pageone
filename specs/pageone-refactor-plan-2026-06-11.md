@@ -163,6 +163,7 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 ### Codex continuation notes — 2026-06-13 (Phase 4 frontend pass)
 - Added `setApproveButtonState()` in `public/app.js` and migrated low-risk approve-state call sites around project hydration/restores, Stage 1, Stage 2, Stage 3-5, source-audit revisions, and Stage 2-5 chat resets.
 - Stage 6/8 and the custom Stage 7/9/10 approval flows now use the shared state helper too; the next frontend cleanup is extracting a shared approve-handler factory from the now-normalized stage approve handlers.
+- Added `createStageApproveHandler()` and migrated Stage 2-6 plus Stage 8 approval saves onto the shared guard/snapshot/version/PUT/curation/state flow; Stage 7 style and Stage 10 rewrite approval remain custom flows.
 
 ## Phase 5 — Data safety & reliability (hand-off-able, well-specified)
 1. **RMW race**: in `updateProjectJSON()` (server.js:120-130), move the read inside
