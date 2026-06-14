@@ -586,6 +586,7 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /function consumeOutlineGenerationResponse/);
     assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
     assert.match(appJs, /function isLikelyStreamTransportError/);
+    assert.match(appJs, /function setApproveButtonState/);
     assert.match(appJs, /function currentStage2ProtectedBeats/);
     assert.match(appJs, /function stage2PayloadFromOutline/);
     assert.match(appJs, /stage2-protected-toggle/);
