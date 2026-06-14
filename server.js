@@ -1788,7 +1788,8 @@ async function finalizeGeneratedStageArtifact({
     usage = null,
     sourceReason = operation,
     sourceData = result,
-    beforeSave = null
+    beforeSave = null,
+    afterSave = null
 } = {}) {
     const snapshotEntries = recordArtifactMutation(projectData, {
         projectId,
@@ -1815,6 +1816,7 @@ async function finalizeGeneratedStageArtifact({
     }
 
     await writeJSONQueued(filePath, projectData);
+    if (afterSave) await afterSave({ filePath, projectData, result });
     trackUsage(projectId, usage);
     return {
         snapshotIds: snapshotEntries.map(entry => entry.id)
@@ -3963,33 +3965,34 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                 };
                 deterministicRevision.receipt.changed = deterministicRevision.changed;
                 const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
-                const snapshotEntries = recordArtifactMutation(projectData, {
+                const { snapshotIds } = await finalizeGeneratedStageArtifact({
                     projectId,
+                    filePath,
+                    projectData,
                     stage: 2,
+                    stageKey: 'stage2_outline',
+                    result: outlineData,
                     before: { outline: beforeOutlineForChangeCheck },
-                    after: outlineData,
                     operation: 'revision',
                     note: notesWithUpload,
-                    revisionReceipt: deterministicRevision.receipt
+                    revisionReceipt: deterministicRevision.receipt,
+                    changed: true,
+                    afterSave: async ({ filePath }) => {
+                        const savedContent = await fs.readFile(filePath, 'utf-8');
+                        const savedProjectData = JSON.parse(savedContent);
+                        const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
+                        if (savedOutlineHash !== afterOutlineHash) {
+                            throw new Error('Stage 2 deterministic outline save verification failed: saved project JSON does not match revised outline.');
+                        }
+                    }
                 });
-
-                projectData.data = projectData.data || {};
-                projectData.data.stage2_outline = outlineData;
-                stampRevised(projectData, 'stage2_outline');
-                await writeJSONQueued(filePath, projectData);
-                const savedContent = await fs.readFile(filePath, 'utf-8');
-                const savedProjectData = JSON.parse(savedContent);
-                const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
-                if (savedOutlineHash !== afterOutlineHash) {
-                    throw new Error('Stage 2 deterministic outline save verification failed: saved project JSON does not match revised outline.');
-                }
 
                 const payload = {
                     result: outlineData,
                     changed: deterministicRevision.changed || deterministicRevision.receipt.verified,
                     saveVerified: true,
                     revisionReceipt: deterministicRevision.receipt,
-                    snapshotIds: snapshotEntries.map(entry => entry.id),
+                    snapshotIds,
                     deterministicRevision: true
                 };
                 if (streaming) {
@@ -4038,41 +4041,38 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             : null;
         assertRevisionTransactionVerified(revisionTransaction, 'Stage 2 outline');
         const changed = !notesWithUpload || revisionTransaction.changed;
-        const snapshotEntries = recordArtifactMutation(projectData, {
+        const operation = notesWithUpload ? 'revision' : 'generation';
+        const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
+            filePath,
+            projectData,
             stage: 2,
+            stageKey: 'stage2_outline',
+            result: outlineData,
             before: { outline: beforeOutlineForChangeCheck },
-            after: outlineData,
-            operation: notesWithUpload ? 'revision' : 'generation',
+            operation,
             note: notesWithUpload || '',
-            revisionReceipt: revisionTransaction?.receipt || null
+            revisionReceipt: revisionTransaction?.receipt || null,
+            changed,
+            sourcePacket,
+            usage,
+            sourceReason: operation,
+            afterSave: async ({ filePath }) => {
+                const savedContent = await fs.readFile(filePath, 'utf-8');
+                const savedProjectData = JSON.parse(savedContent);
+                const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
+                if (savedOutlineHash !== afterOutlineHash) {
+                    throw new Error('Stage 2 outline save verification failed: saved project JSON does not match generated outline.');
+                }
+            }
         });
-
-        // Save to Stage 2
-        projectData.data = projectData.data || {};
-        projectData.data.stage2_outline = outlineData;
-        if (notesWithUpload) {
-            if (changed) stampRevised(projectData, 'stage2_outline');
-        } else {
-            stampGenerated(projectData, 'stage2_outline');
-        }
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(outlineData, null, 2), notesWithUpload ? 'revision' : 'generation');
-
-        await writeJSONQueued(filePath, projectData);
-        const savedContent = await fs.readFile(filePath, 'utf-8');
-        const savedProjectData = JSON.parse(savedContent);
-        const savedOutlineHash = sourcePlanDataHash(JSON.stringify(savedProjectData.data?.stage2_outline?.outline || {}));
-        if (savedOutlineHash !== afterOutlineHash) {
-            throw new Error('Stage 2 outline save verification failed: saved project JSON does not match generated outline.');
-        }
-        trackUsage(projectId, usage);
 
         const payload = {
             result: outlineData,
             changed,
             saveVerified: true,
             revisionReceipt: revisionTransaction?.receipt,
-            snapshotIds: snapshotEntries.map(entry => entry.id),
+            snapshotIds,
             checklistVerified: revisionChecklist.length > 0,
             ...sourceResponseExtras(sourcePacket)
         };
