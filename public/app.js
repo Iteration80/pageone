@@ -1062,10 +1062,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const btnExportPitch = document.getElementById('btnDownloadPitch');
             const hasStage1Data = !!(projectDetails.data && projectDetails.data.stage1_pitch);
             if (btnStage1Approve) {
-                btnStage1Approve.textContent = 'Approve →';
-                btnStage1Approve.classList.remove('approve-btn-green');
-                btnStage1Approve.disabled = !hasStage1Data;
-                btnStage1Approve.style.display = hasStage1Data ? '' : 'none';
+                setApproveButtonState(btnStage1Approve, 'ready', {
+                    text: 'Approve →',
+                    disabled: !hasStage1Data,
+                    display: hasStage1Data ? '' : 'none'
+                });
             }
             if (btnExportPitch) {
                 btnExportPitch.disabled = !hasStage1Data;
@@ -1192,10 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hydrate Stage 6 Scenes if exists
                 if (projectDetails.data.stage6_scenes) {
                     renderStage6(projectDetails.data.stage6_scenes);
-                    if (btnStage6Approve) {
-                        btnStage6Approve.textContent = 'Approve';
-                        btnStage6Approve.classList.remove('approve-btn-green');
-                    }
+                    setApproveButtonState(btnStage6Approve, 'ready');
 
                     if (stage6Notes && projectDetails.data.stage6_scenes.notes) {
                         stage6Notes.value = projectDetails.data.stage6_scenes.notes;
@@ -5504,22 +5502,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.querySelectorAll('textarea').forEach(ta => {
                     ta.addEventListener('input', () => {
                         autoResize(ta);
-                        if (btnStage6Approve) {
-                            btnStage6Approve.textContent = 'Approve';
-                            btnStage6Approve.classList.remove('approve-btn-green');
-                            btnStage6Approve.disabled = false;
-                        }
+                        setApproveButtonState(btnStage6Approve, 'ready');
                     });
                     // Initial resize
                     setTimeout(() => autoResize(ta), 0);
                 });
                 card.querySelectorAll('input[type="text"]').forEach(input => {
                     input.addEventListener('input', () => {
-                        if (btnStage6Approve) {
-                            btnStage6Approve.textContent = 'Approve';
-                            btnStage6Approve.classList.remove('approve-btn-green');
-                            btnStage6Approve.disabled = false;
-                        }
+                        setApproveButtonState(btnStage6Approve, 'ready');
                     });
                 });
 
@@ -5581,12 +5571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stage6Workshop) {
             stage6Workshop.classList.remove('hidden');
             // Ensure correct button states in renderStage6
-            if (btnStage6Approve) {
-                btnStage6Approve.textContent = 'Approve';
-                btnStage6Approve.classList.remove('approve-btn-green');
-                btnStage6Approve.classList.remove('hidden');
-                btnStage6Approve.disabled = false;
-            }
+            setApproveButtonState(btnStage6Approve, 'ready', { hidden: false });
             if (btnStage6Submit) {
                 btnStage6Submit.textContent = 'Submit';
                 btnStage6Submit.classList.remove('hidden');
@@ -5725,11 +5710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
         const { notes = '', isRegenerate = false, throwOnError = false } = options || {};
 
-        if (btnStage6Approve) {
-            btnStage6Approve.textContent = 'Approve';
-            btnStage6Approve.classList.remove('approve-btn-green');
-            btnStage6Approve.classList.add('hidden');
-        }
+        setApproveButtonState(btnStage6Approve, 'ready', { hidden: true });
         if (btnStage6Regenerate) btnStage6Regenerate.disabled = true;
 
         // Clear old content and show loading state
@@ -5920,8 +5901,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const existingHistory = (window.currentProjectData?.versionHistory) || [];
             const isReApproval = existingHistory.filter(v => v.stage === 6).length > 0;
 
-            btnStage6Approve.disabled = true;
-            btnStage6Approve.textContent = 'Saving...';
+            setApproveButtonState(btnStage6Approve, 'saving');
 
             const versionHistory6 = captureVersionSnapshot(6, 'stage6_scenes', 'Scenes', currentBlueprint);
 
@@ -5939,8 +5919,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) throw new Error('Failed to save project');
 
-                btnStage6Approve.textContent = 'Approved ✓';
-                btnStage6Approve.classList.add('approve-btn-green');
+                setApproveButtonState(btnStage6Approve, 'approved');
                 await offerStageMemoryCuration(6);
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
@@ -5973,8 +5952,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Stage 6 approval failed:', error);
                 alert('An error occurred while saving the approved blueprint.');
-                btnStage6Approve.textContent = originalText;
-                btnStage6Approve.disabled = false;
+                setApproveButtonState(btnStage6Approve, 'ready', { text: originalText });
             }
         });
     }
@@ -6257,8 +6235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!(await runApprovalSourceGuard(8, btnStage8Approve))) return;
 
             const originalText = btnStage8Approve.textContent;
-            btnStage8Approve.disabled = true;
-            btnStage8Approve.textContent = 'Saving...';
+            setApproveButtonState(btnStage8Approve, 'saving');
 
             const versionHistory7 = captureVersionSnapshot(8, 'stage7_approved', 'Draft', true);
 
@@ -6275,8 +6252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await offerStageMemoryCuration(8);
                 updateStageNav(updatedProject.data);
 
-                btnStage8Approve.textContent = 'Approved ✓';
-                btnStage8Approve.classList.add('approve-btn-green');
+                setApproveButtonState(btnStage8Approve, 'approved');
 
                 // Clear stale coverage so Stage 9 re-generates
                 if (window.currentProjectData) delete window.currentProjectData.stage8_coverage;
@@ -6287,8 +6263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Stage 8 approval failed:', error);
                 alert('An error occurred while saving.');
-                btnStage8Approve.textContent = originalText;
-                btnStage8Approve.disabled = false;
+                setApproveButtonState(btnStage8Approve, 'ready', { text: originalText });
             }
         });
     }
@@ -6570,6 +6545,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Failed to save your edits. Please try again.');
                     return;
                 }
+                const originalText = btnApprove.textContent;
+                setApproveButtonState(btnApprove, 'saving', { text: 'Starting...' });
                 try {
                     const response = await fetch(`/api/projects/${activeProjectId}`, {
                         method: 'PUT',
@@ -6579,24 +6556,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!response.ok) throw new Error('Failed to save');
                     const updated = await response.json();
                     updateStageNav(updated.data);
-                    btnApprove.textContent = 'Rewrite Started ✓';
-                    btnApprove.classList.add('approve-btn-green');
-                    btnApprove.disabled = true;
+                    setApproveButtonState(btnApprove, 'approved', { text: 'Rewrite Started ✓' });
                     // Always restart Stage 10 from P1 when entering from Begin Rewrite
                     window.stage10ResetOnInit = true;
                     switchStage(10);
                 } catch (err) {
                     console.error('Stage 9 approval failed:', err);
                     alert('An error occurred. Please try again.');
+                    setApproveButtonState(btnApprove, 'ready', { text: originalText });
                 }
             };
         }
 
         // Restore approved state if already approved
         if (btnApprove && window.currentProjectData?.stage8_approved) {
-            btnApprove.textContent = 'Rewrite Started ✓';
-            btnApprove.classList.add('approve-btn-green');
-            btnApprove.disabled = true;
+            setApproveButtonState(btnApprove, 'approved', { text: 'Rewrite Started ✓' });
         }
 
         // Wire up Download Coverage button
@@ -8695,7 +8669,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stage7ShowTrainedPanel(false);
             styleCard?.classList.add('hidden');
             document.getElementById('stage7-no-style')?.classList.remove('hidden');
-            if (btnApprove) btnApprove.disabled = true;
+            setApproveButtonState(btnApprove, 'ready', { text: 'Approve →', disabled: true });
 
             // If scenes exist and chat is empty, fire proactive 3-writer suggestion
             const hasScenes = data.stage6_scenes &&
@@ -8786,11 +8760,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stage7-no-style')?.classList.add('hidden');
         document.getElementById('stage7-loading')?.classList.add('hidden');
         if (btnApprove) {
-            btnApprove.disabled = false;
             // If already approved, show green state
             if (window.currentProjectData?.stage7_style) {
-                btnApprove.textContent = 'Approved ✓';
-                btnApprove.classList.add('approve-btn-green');
+                setApproveButtonState(btnApprove, 'approved');
+            } else {
+                setApproveButtonState(btnApprove, 'ready', { text: 'Approve →' });
             }
         }
     }
@@ -8981,6 +8955,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!stage7CurrentStyle?.slug || !activeProjectId) return;
         const btnApprove = document.getElementById('btnStage7Approve');
         if (!(await runApprovalSourceGuard(7, btnApprove))) return;
+        const originalText = btnApprove?.textContent || 'Approve →';
+        setApproveButtonState(btnApprove, 'saving');
 
         try {
             const res = await fetch(`/api/projects/${activeProjectId}`, {
@@ -8994,14 +8970,11 @@ document.addEventListener('DOMContentLoaded', () => {
             await offerStageMemoryCuration(7);
             updateStageNav(updated.data);
 
-            if (btnApprove) {
-                btnApprove.textContent = 'Approved ✓';
-                btnApprove.classList.add('approve-btn-green');
-                btnApprove.disabled = true;
-            }
+            setApproveButtonState(btnApprove, 'approved');
         } catch (err) {
             console.error('Approve error:', err);
             alert('Failed to approve style: ' + err.message);
+            setApproveButtonState(btnApprove, 'ready', { text: originalText });
         }
     }
 
@@ -9011,11 +8984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stage7-style-card')?.classList.add('hidden');
         document.getElementById('stage7-no-style')?.classList.remove('hidden');
         const btnApprove = document.getElementById('btnStage7Approve');
-        if (btnApprove) {
-            btnApprove.disabled = true;
-            btnApprove.textContent = 'Approve →';
-            btnApprove.classList.remove('approve-btn-green');
-        }
+        setApproveButtonState(btnApprove, 'ready', { text: 'Approve →', disabled: true });
         stage7CurrentStyle = null;
         if (window.currentProjectData) {
             window.currentProjectData.stage7_style = null;
@@ -9417,11 +9386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setStage10ApproveConfirmed() {
         const btn = document.getElementById('btnStage10Approve');
-        if (btn) {
-            btn.textContent = 'Approved ✓';
-            btn.classList.add('approve-btn-green');
-            btn.disabled = true;
-        }
+        setApproveButtonState(btn, 'approved');
     }
 
     if (btnLoopbackExport) {
@@ -10165,9 +10130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetStage10ApproveBtn() {
         const btn = document.getElementById('btnStage10Approve');
         if (btn && (btn.textContent.includes('Approved') || btn.disabled)) {
-            btn.textContent = 'Approve';
-            btn.classList.remove('approve-btn-green');
-            btn.disabled = false;
+            setApproveButtonState(btn, 'ready');
         }
     }
 
