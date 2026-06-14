@@ -6,19 +6,71 @@ const {
     parseStructuralPatchOps
 } = require('./revision_patch');
 
-const OUTLINE_DEFAULT_BEATS = [{
-    label: 'Dapple Rising - The Anchor',
-    description: "Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle. Dapple has hijacked the Mobile Processing Core, chained Furdlegurr to it, and is using the bear's pure, recently-betrayed bond with Elliot as the perfect anchor to drag the Breach into reality. Every retired figment in Seattle is being pulled toward him. Protocol Erasure is counting down. Rebecca: 'We go now. No more agency.' Elliot, fierce: 'I'm coming. He came for me even after I told him not to.'"
-}, {
-    label: 'Aftermath - A New Order',
-    description: "Quist's old order is broken. Rebecca declines the badge but agrees to consult on Dapple containment. Dave, Robotobob, Blounder, Terry, Moog, Big Doll, Scott, and Molly each get their humane aftermath."
-}, {
-    label: 'Closing Image - The Photo on the Wall',
-    description: "Rebecca's kitchen holds the framed photo of young Becky and Dapple. Elliot sets breakfast for three with Furdlegurr visible to both, and visitor passes for Dapple and Scott sit on the fridge."
-}];
+function normalizeProtectedBeatEntry(entry = '') {
+    if (typeof entry === 'string') {
+        const label = entry.trim();
+        return label ? { label, description: '', sequenceHint: '', final: false } : null;
+    }
+    if (!entry || typeof entry !== 'object') return null;
+    const label = String(entry.label || entry.beat_label || entry.beat || '').trim();
+    if (!label) return null;
+    return {
+        label,
+        description: String(entry.description || entry.body || '').trim(),
+        sequenceHint: String(entry.sequenceHint || entry.sequence_hint || entry.sequence || '').trim(),
+        final: Boolean(entry.final || entry.is_final || entry.final_beat || entry.protect_final_position)
+    };
+}
 
-function defaultBeatFor(label = '') {
-    return OUTLINE_DEFAULT_BEATS.find(beat => labelsEqual(beat.label, label)) || null;
+function normalizeProtectedBeats(input = []) {
+    let value = input;
+    if (typeof value === 'string') {
+        try {
+            value = JSON.parse(value);
+        } catch {
+            value = value.split(/\r?\n|,/).map(label => label.trim()).filter(Boolean);
+        }
+    }
+    const entries = Array.isArray(value)
+        ? value
+        : Array.isArray(value?.protected_beats)
+            ? value.protected_beats
+            : [];
+    const result = [];
+    for (const entry of entries) {
+        const normalized = normalizeProtectedBeatEntry(entry);
+        if (!normalized || result.some(existing => labelsEqual(existing.label, normalized.label))) continue;
+        result.push(normalized);
+    }
+    return result;
+}
+
+function protectedBeatFor(label = '', protectedBeats = []) {
+    return normalizeProtectedBeats(protectedBeats).find(beat => labelsEqual(beat.label, label)) || null;
+}
+
+function existingBeatFor(outline = {}, label = '') {
+    const row = flattenOutlineBeats(outline).find(item => labelsEqual(item.label, label));
+    if (!row) return null;
+    return {
+        label: row.label,
+        description: String(row.beat?.description || '').trim(),
+        sequenceHint: String(row.sequence?.sequence_number_and_title || '').trim(),
+        final: row.actKey === 'act_3' && row.sequence === finalOutlineSequence(outline)
+    };
+}
+
+function fallbackBeatFor(label = '', outline = {}, protectedBeats = []) {
+    const protectedBeat = protectedBeatFor(label, protectedBeats);
+    const existingBeat = existingBeatFor(outline, label);
+    if (!protectedBeat && !existingBeat) return null;
+    return {
+        ...(existingBeat || {}),
+        ...(protectedBeat || {}),
+        description: protectedBeat?.description || existingBeat?.description || '',
+        sequenceHint: protectedBeat?.sequenceHint || existingBeat?.sequenceHint || '',
+        final: Boolean(protectedBeat?.final || existingBeat?.final)
+    };
 }
 
 function dedupeOperations(operations = []) {
@@ -32,7 +84,8 @@ function dedupeOperations(operations = []) {
             normalizePatchLabel(op.anchorLabel || ''),
             op.sequenceHint || '',
             op.ordinal ?? '',
-            op.finalOnly ? 'final' : ''
+            op.finalOnly ? 'final' : '',
+            op.finalLast ? 'last' : ''
         ].join('|');
         if (seen.has(key)) continue;
         seen.add(key);
@@ -46,6 +99,7 @@ function ensureOperationScore(op = {}) {
     if (op.anchorLabel) score += 20;
     if (op.sequenceHint) score += 8;
     if (op.final) score += 6;
+    if (op.finalLast) score += 7;
     if (op.newBody) score += Math.min(10, Math.floor(String(op.newBody).length / 40));
     return score;
 }
@@ -61,7 +115,8 @@ function mergeEnsureOperation(existing = {}, incoming = {}) {
         newBody: preferred.newBody || fallback.newBody || '',
         anchorLabel: preferred.anchorLabel || fallback.anchorLabel || '',
         sequenceHint: preferred.sequenceHint || fallback.sequenceHint || '',
-        final: Boolean(preferred.final || fallback.final)
+        final: Boolean(preferred.final || fallback.final),
+        finalLast: Boolean(preferred.finalLast || fallback.finalLast)
     };
 }
 
@@ -87,16 +142,7 @@ function consolidateEnsureOperations(operations = []) {
 
 function normalizeOutlineOperations(operations = []) {
     const replaceOps = operations.filter(op => op.type === 'replace_beat');
-    const adjusted = operations.map(op => {
-        if (op.type === 'ensure_beat_present'
-            && !op.anchorLabel
-            && labelsEqual(op.newLabel || '', 'Dapple Rising - The Anchor')) {
-            const quistReplace = replaceOps.find(replace => labelsEqual(replace.newLabel || '', "Quist's Betrayal & The Bonded Key"));
-            if (quistReplace?.newLabel) return { ...op, anchorLabel: quistReplace.newLabel };
-        }
-        return op;
-    });
-    const filtered = adjusted.filter(op => {
+    const filtered = operations.filter(op => {
         if (op.type === 'delete_beat') {
             const coveredByReplace = replaceOps.some(replace => (
                 labelsEqual(replace.oldLabel || '', op.oldLabel || '')
@@ -173,11 +219,15 @@ function flattenOutlineBeats(outline = {}) {
 function outlineSequenceScore(sequence = {}, hint = '') {
     const title = String(sequence?.sequence_number_and_title || '');
     const compact = normalizePatchLabel(`${title} ${hint}`);
+    const normalizedTitle = normalizePatchLabel(title);
+    const normalizedHint = normalizePatchLabel(hint);
     let score = 0;
+    const hintSequenceId = String(hint || '').match(/\bsequence\s*([a-h])\b/i)?.[1]?.toLowerCase();
+    if (hintSequenceId && new RegExp(`\\bsequence\\s*${hintSequenceId}\\b`, 'i').test(title)) score += 14;
+    if (normalizedHint && normalizedTitle && (normalizedTitle.includes(normalizedHint) || normalizedHint.includes(normalizedTitle))) score += 10;
     if (/sequence\s*h|world that remembers|resolution|final/i.test(title)) score += 8;
     if (/sequence\s*e|breach starts|counting down/i.test(title)) score += 6;
     if (/\bfinal\b|\bending\b|\bclosing\b|\baftermath\b/.test(compact)) score += 4;
-    if (/\bdapple\b|\banchor\b|\bquist\b/.test(compact)) score += 3;
     return score;
 }
 
@@ -189,7 +239,7 @@ function finalOutlineSequence(outline = {}) {
 }
 
 function bestSequenceForOperation(outline = {}, op = {}) {
-    if (/Aftermath - A New Order|Closing Image - The Photo on the Wall/i.test(op.newLabel || op.oldLabel || '')) {
+    if (op.final || op.finalLast) {
         return finalOutlineSequence(outline);
     }
     let best = null;
@@ -241,26 +291,34 @@ function removeEquivalentBeat(sequence = {}, label = '') {
     return before - sequence.beats.length;
 }
 
-function buildBeat(label = '', description = '') {
-    const fallback = defaultBeatFor(label);
+function buildBeat(label = '', description = '', options = {}) {
+    const fallback = fallbackBeatFor(label, options.outline || {}, options.protectedBeats || []);
     return {
         beat_label: label || fallback?.label || 'Inserted Beat',
         description: description || fallback?.description || ''
     };
 }
 
-function insertBeat(sequence = {}, beat = {}, { anchorLabel = '', final = false } = {}) {
+function insertBeat(sequence = {}, beat = {}, { anchorLabel = '', final = false, protectedBeats = [] } = {}) {
     if (!sequence) return false;
     if (!Array.isArray(sequence.beats)) sequence.beats = [];
     removeEquivalentBeat(sequence, beat.beat_label);
-    if (final || /closing image|photo on the wall/i.test(beat.beat_label)) {
-        sequence.beats.push(beat);
-        return true;
+
+    const protectedOrder = normalizeProtectedBeats(protectedBeats);
+    const protectedIndex = protectedOrder.findIndex(item => labelsEqual(item.label, beat.beat_label));
+    if (protectedIndex >= 0) {
+        const nextProtectedIndex = sequence.beats.findIndex(existing => {
+            const index = protectedOrder.findIndex(item => labelsEqual(item.label, beatLabel(existing)));
+            return index > protectedIndex;
+        });
+        if (nextProtectedIndex >= 0) {
+            sequence.beats.splice(nextProtectedIndex, 0, beat);
+            return true;
+        }
     }
-    if (/Aftermath - A New Order/i.test(beat.beat_label)) {
-        const closingIndex = sequence.beats.findIndex(existing => /closing image|photo on the wall|kitchen closing/i.test(beatLabel(existing)));
-        if (closingIndex >= 0) sequence.beats.splice(closingIndex, 0, beat);
-        else sequence.beats.push(beat);
+
+    if (final) {
+        sequence.beats.push(beat);
         return true;
     }
     if (anchorLabel) {
@@ -274,19 +332,69 @@ function insertBeat(sequence = {}, beat = {}, { anchorLabel = '', final = false 
     return true;
 }
 
-function buildStage2OutlinePlan(outline = {}, notes = '') {
+function labelHasFinalPlacementInstruction(notes = '', label = '') {
+    if (!label) return false;
+    const text = String(notes || '');
+    const labelPattern = `(?:\\[\\s*${escapeRegExp(label)}\\s*\\]|${escapeRegExp(label)})`;
+    return new RegExp(`\\b(final|ending|closing)\\s+(?:ending\\s+)?beats?\\b[\\s\\S]{0,260}?${labelPattern}`, 'i').test(text)
+        || new RegExp(`${labelPattern}[\\s\\S]{0,220}?\\b(?:as\\s+)?(?:the\\s+)?(?:final|ending|closing)\\s+(?:ending\\s+)?beats?\\b`, 'i').test(text)
+        || new RegExp(`\\bafter\\s+\\[[^\\]]+\\][\\s\\S]{0,260}?${labelPattern}[\\s\\S]{0,180}?\\bfinal\\b`, 'i').test(text);
+}
+
+function labelHasFinalLastInstruction(notes = '', label = '') {
+    if (!label) return false;
+    const text = String(notes || '');
+    const labelPattern = `(?:\\[\\s*${escapeRegExp(label)}\\s*\\]|${escapeRegExp(label)})`;
+    return new RegExp(`\\bfinal\\s+beat\\s+(?:should|must|needs\\s+to)?\\s*(?:be|remain)?\\s*${labelPattern}`, 'i').test(text)
+        || new RegExp(`${labelPattern}[\\s\\S]{0,120}?\\b(?:is|as|remain|stays?|should\\s+be)\\s+(?:the\\s+)?final\\s+beat\\b`, 'i').test(text);
+}
+
+function labelHasDeleteOrDoNotAddInstruction(notes = '', label = '') {
+    if (!label) return false;
+    const text = String(notes || '');
+    const labelPattern = `(?:\\[\\s*${escapeRegExp(label)}\\s*\\]|${escapeRegExp(label)})`;
+    return new RegExp(`\\b(?:delete|remove|cut|omit|drop|strip)\\s+(?:a\\s+separate\\s+|the\\s+)?${labelPattern}(?=\\W|$)`, 'i').test(text)
+        || new RegExp(`\\b(?:do\\s+not|don't)\\s+(?:add|insert|include|restore|bring\\s+back)\\s+(?:a\\s+separate\\s+|the\\s+)?${labelPattern}(?=\\W|$)`, 'i').test(text);
+}
+
+function addDeleteOperationsForMentionedOutlineLabels(operations = [], outline = {}, notes = '') {
+    const seenLabels = new Set();
+    for (const row of flattenOutlineBeats(outline)) {
+        const label = row.label || '';
+        const key = normalizePatchLabel(label);
+        if (!label || seenLabels.has(key)) continue;
+        seenLabels.add(key);
+        if (!labelHasDeleteOrDoNotAddInstruction(notes, label)) continue;
+        if (operations.some(op => op.type === 'delete_beat' && labelsEqual(op.oldLabel || '', label))) continue;
+        operations.push({ type: 'delete_beat', oldLabel: label });
+    }
+}
+
+function inferOrderedListAnchor(notes = '', label = '') {
+    const blocks = bracketedBlocks(notes);
+    const index = blocks.findIndex(block => labelsEqual(block.label, label));
+    if (index <= 0) return '';
+    const previous = blocks[index - 1];
+    const context = String(notes || '').slice(Math.max(0, previous.index - 220), blocks[index].index);
+    if (!/\b(exact\s+order|in\s+order|these\s+(?:two|three|four|final\s+)?beats?|following\s+beats?)\b/i.test(context)) return '';
+    return previous.label || '';
+}
+
+function buildStage2OutlinePlan(outline = {}, notes = '', options = {}) {
     const operations = [];
     const text = String(notes || '');
     const parsedOps = parseStructuralPatchOps(text);
+    const protectedBeats = normalizeProtectedBeats(options.protectedBeats || []);
 
     for (const op of parsedOps) {
         if (op.type === 'replace') {
             if (isNegatedAddInstruction(text, op.newLabel) || isNegatedDeleteInstruction(text, op.oldLabel)) continue;
+            const fallback = fallbackBeatFor(op.newLabel, outline, protectedBeats);
             operations.push({
                 type: 'replace_beat',
                 oldLabel: op.oldLabel,
                 newLabel: op.newLabel,
-                newBody: op.newBody || bracketedBodyFor(text, op.newLabel) || defaultBeatFor(op.newLabel)?.description || '',
+                newBody: op.newBody || bracketedBodyFor(text, op.newLabel) || fallback?.description || '',
                 anchorLabel: op.anchorLabel || inferContextualAnchorForOldLabel(text, op.oldLabel) || '',
                 ordinal: op.ordinal
             });
@@ -301,16 +409,20 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
             });
         } else if (op.type === 'insert') {
             if (isNegatedAddInstruction(text, op.newLabel) || /^[.,;:)]/.test(String(op.newBody || '').trim())) continue;
+            const fallback = fallbackBeatFor(op.newLabel, outline, protectedBeats);
             operations.push({
                 type: 'ensure_beat_present',
                 newLabel: op.newLabel,
-                newBody: op.newBody || bracketedBodyFor(text, op.newLabel) || defaultBeatFor(op.newLabel)?.description || '',
-                anchorLabel: op.anchorLabel || ''
+                newBody: op.newBody || bracketedBodyFor(text, op.newLabel) || fallback?.description || '',
+                anchorLabel: op.anchorLabel || (labelHasFinalPlacementInstruction(text, op.newLabel) ? '' : inferOrderedListAnchor(text, op.newLabel)),
+                sequenceHint: fallback?.sequenceHint || '',
+                final: Boolean(fallback?.final || labelHasFinalPlacementInstruction(text, op.newLabel)),
+                finalLast: labelHasFinalLastInstruction(text, op.newLabel)
             });
         }
     }
 
-    for (const beat of OUTLINE_DEFAULT_BEATS) {
+    for (const beat of protectedBeats) {
         if (!exactLabelMention(text, beat.label)) continue;
         if (!isNegatedDeleteInstruction(text, beat.label)
             && /\b(delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?\[/i.test(text)
@@ -323,16 +435,15 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
                 type: 'ensure_beat_present',
                 newLabel: beat.label,
                 newBody: bracketedBodyFor(text, beat.label) || beat.description,
-                sequenceHint: /Dapple Rising/i.test(beat.label) ? 'Sequence E' : 'Sequence H',
-                final: /Closing Image/i.test(beat.label)
+                anchorLabel: labelHasFinalPlacementInstruction(text, beat.label) ? '' : inferOrderedListAnchor(text, beat.label),
+                sequenceHint: beat.sequenceHint,
+                final: Boolean(beat.final || labelHasFinalPlacementInstruction(text, beat.label)),
+                finalLast: labelHasFinalLastInstruction(text, beat.label)
             });
         }
     }
 
-    if (/\b(do not add|delete|remove|cut|omit|drop|strip)\s+(?:the\s+)?\[?\s*Resolution - A New Accord\s*\]?/i.test(text)
-        || /\bResolution - A New Accord\b/i.test(text) && /\b(do not add|delete|remove|cut|omit|drop|strip)\b/i.test(text)) {
-        operations.push({ type: 'delete_beat', oldLabel: 'Resolution - A New Accord' });
-    }
+    addDeleteOperationsForMentionedOutlineLabels(operations, outline, text);
 
     const normalizedOperations = normalizeOutlineOperations(operations);
     return {
@@ -345,7 +456,7 @@ function buildStage2OutlinePlan(outline = {}, notes = '') {
     };
 }
 
-function applyStage2Operation(outline = {}, op = {}) {
+function applyStage2Operation(outline = {}, op = {}, options = {}) {
     const sequence = bestSequenceForOperation(outline, op);
     if (!sequence) return { status: 'unmet', reason: 'No matching sequence found.' };
     if (!Array.isArray(sequence.beats)) sequence.beats = [];
@@ -366,7 +477,7 @@ function applyStage2Operation(outline = {}, op = {}) {
     }
 
     if (op.type === 'replace_beat') {
-        const beat = buildBeat(op.newLabel, op.newBody);
+        const beat = buildBeat(op.newLabel, op.newBody, { ...options, outline });
         let index = -1;
         if (op.anchorLabel) index = beatIndexAfterAnchor(sequence.beats, op.oldLabel, op.anchorLabel);
         if (index < 0) index = nthBeatIndex(sequence.beats, op.oldLabel, op.ordinal);
@@ -374,16 +485,16 @@ function applyStage2Operation(outline = {}, op = {}) {
             sequence.beats[index] = beat;
             return { status: 'applied', changed: true };
         }
-        if (op.anchorLabel && insertBeat(sequence, beat, { anchorLabel: op.anchorLabel })) {
+        if (op.anchorLabel && insertBeat(sequence, beat, { anchorLabel: op.anchorLabel, protectedBeats: options.protectedBeats })) {
             return { status: 'applied', changed: true };
         }
         return { status: 'unmet', changed: false, reason: `Could not replace ${op.oldLabel || 'target beat'} with ${op.newLabel}.` };
     }
 
     if (op.type === 'ensure_beat_present') {
-        const beat = buildBeat(op.newLabel, op.newBody);
+        const beat = buildBeat(op.newLabel, op.newBody, { ...options, outline });
         const previous = JSON.stringify(sequence.beats || []);
-        insertBeat(sequence, beat, { anchorLabel: op.anchorLabel, final: op.final });
+        insertBeat(sequence, beat, { anchorLabel: op.anchorLabel, final: op.final || op.finalLast, protectedBeats: options.protectedBeats });
         return { status: 'applied', changed: previous !== JSON.stringify(sequence.beats || []) };
     }
 
@@ -412,10 +523,11 @@ function verifyStage2Operation(outline = {}, op = {}) {
     if (op.type === 'ensure_beat_present') {
         const labelRows = rows.filter(row => labelsEqual(row.label, op.newLabel));
         if (!labelRows.length) return false;
-        if (/Closing Image - The Photo on the Wall/i.test(op.newLabel)) {
+        if (op.finalLast) {
             const sequence = finalOutlineSequence(outline);
             return Boolean(sequence?.beats?.length && labelsEqual(beatLabel(sequence.beats[sequence.beats.length - 1]), op.newLabel));
         }
+        if (op.final) return labelRows.some(row => row.sequence === finalOutlineSequence(outline));
         return true;
     }
     return false;
@@ -466,18 +578,22 @@ const STAGE_REVISION_ADAPTERS = {
     }
 };
 
-function applyStageRevisionPlan({ stageId, artifact, notes }) {
+function applyStageRevisionPlan({ stageId, artifact, notes, protectedBeats }) {
     const normalizedStageId = normalizeStageId(stageId);
     const adapter = STAGE_REVISION_ADAPTERS[normalizedStageId];
     if (!adapter) return null;
+    const activeProtectedBeats = normalizeProtectedBeats(
+        protectedBeats !== undefined ? protectedBeats : artifact?.protected_beats
+    );
+    const options = { protectedBeats: activeProtectedBeats };
     const stageArtifact = unwrapStageArtifact(normalizedStageId, artifact || {});
     const before = cloneValue(stageArtifact || {}) || {};
     const after = cloneValue(stageArtifact || {}) || {};
-    const plan = adapter.buildPlan(after, notes);
+    const plan = adapter.buildPlan(after, notes, options);
     if (!plan.canApplyDirectly || !plan.operations.length) return null;
 
-    const application = plan.operations.map(op => adapter.applyOperation(after, op));
-    const receipt = adapter.receiptForPlan(plan, after, application);
+    const application = plan.operations.map(op => adapter.applyOperation(after, op, options));
+    const receipt = adapter.receiptForPlan(plan, after, application, options);
     const changed = JSON.stringify(before) !== JSON.stringify(after);
 
     return {
@@ -494,6 +610,6 @@ function applyStageRevisionPlan({ stageId, artifact, notes }) {
 module.exports = {
     applyStageRevisionPlan,
     buildStage2OutlinePlan,
-    OUTLINE_DEFAULT_BEATS,
+    normalizeProtectedBeats,
     STAGE_REVISION_ADAPTERS
 };

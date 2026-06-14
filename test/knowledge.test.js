@@ -572,9 +572,13 @@ test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
 test('Stage 2 outline generation supports streamed assistant revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const stageRevisionKernel = fs.readFileSync(require.resolve('../utils/stage_revision_kernel.js'), 'utf8');
     assert.match(serverJs, /app\.post\('\/api\/generate-outline'/);
     assert.match(serverJs, /require\('\.\/utils\/stage_revision_kernel'\)/);
     assert.match(serverJs, /applyStageRevisionPlan\(\{[\s\S]*stageId: 'stage2_outline'/);
+    assert.match(serverJs, /stage2ProtectedBeatEntriesForRequest/);
+    assert.match(serverJs, /protectedBeats: activeProtectedBeatEntries/);
+    assert.match(serverJs, /protected_beats: activeProtectedBeats/);
     assert.match(serverJs, /Stage 2 deterministic outline revision failed verification/);
     assert.match(serverJs, /text\/event-stream/);
     assert.match(serverJs, /: keep-alive\\n\\n/);
@@ -582,6 +586,11 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /function consumeOutlineGenerationResponse/);
     assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
     assert.match(appJs, /function isLikelyStreamTransportError/);
+    assert.match(appJs, /function currentStage2ProtectedBeats/);
+    assert.match(appJs, /function stage2PayloadFromOutline/);
+    assert.match(appJs, /stage2-protected-toggle/);
+    assert.match(appJs, /formData\.append\('protectedBeats', JSON\.stringify\(currentStage2ProtectedBeats\(\)\)\)/);
+    assert.match(appJs, /protected_beats: currentStage2ProtectedBeats\(\)/);
     assert.match(appJs, /readSSEStream\(response/);
     assert.match(appJs, /serverStreamError/);
     assert.match(appJs, /recoveredFromInterruptedStream/);
@@ -604,6 +613,11 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /Stage 2 outline save verification failed/);
     assert.match(serverJs, /saveVerified: true/);
     assert.match(appJs, /changed: !revisionReceiptFailed\(data\)[\s\S]*revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
+    assert.match(stageRevisionKernel, /function normalizeProtectedBeats/);
+    assert.doesNotMatch(stageRevisionKernel, /OUTLINE_DEFAULT_BEATS/);
+    assert.doesNotMatch(stageRevisionKernel, /Dapple Rising - The Anchor/);
+    assert.doesNotMatch(stageRevisionKernel, /Aftermath - A New Order/);
+    assert.doesNotMatch(stageRevisionKernel, /Closing Image - The Photo on the Wall/);
 });
 
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {

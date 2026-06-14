@@ -46,6 +46,24 @@ const BASE_KNOWLEDGE_PACKET = `### Compact Memory Snapshot
 ### Relevant Source Documents
 Graphic Novel.pdf: Mara refuses to leave June behind.`;
 
+const DAPPLE_STAGE2_PROTECTED_BEATS = [
+    {
+        label: 'Dapple Rising - The Anchor',
+        description: "Through the diner window: a yellow-gold pillar of light erupts over downtown Seattle. Dapple has hijacked the Mobile Processing Core, chained Furdlegurr to it, and is using the bear's pure, recently-betrayed bond with Elliot as the perfect anchor to drag the Breach into reality.",
+        sequenceHint: 'Sequence E'
+    },
+    {
+        label: 'Aftermath - A New Order',
+        description: "Quist's old order is broken. Rebecca declines the badge but agrees to consult on Dapple containment.",
+        sequenceHint: 'Sequence H'
+    },
+    {
+        label: 'Closing Image - The Photo on the Wall',
+        description: "Rebecca's kitchen holds the framed photo of young Becky and Dapple.",
+        sequenceHint: 'Sequence H'
+    }
+];
+
 test('artifact snapshots preserve WIP, exported, and approved restore points', () => {
     const project = { id: '1234567890123', data: {} };
     const entries = recordStageMutationSnapshots(project, {
@@ -1011,7 +1029,12 @@ Replace that deleted duplicate with [Dapple Rising - The Anchor].
 Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.
 Do not add Resolution - A New Accord.`;
 
-    const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact: outline, notes });
+    const revision = applyStageRevisionPlan({
+        stageId: 'stage2_outline',
+        artifact: outline,
+        notes,
+        protectedBeats: DAPPLE_STAGE2_PROTECTED_BEATS
+    });
 
     assert.equal(revision.receipt.verified, true);
     assert.equal(revision.receipt.planner, 'stage_revision_kernel');
@@ -1084,7 +1107,12 @@ Do not add a separate [Resolution - A New Accord]. The final beat should be [Clo
 
 Do not delete [Quist's Betrayal & The Bonded Key]. Do not delete [Aftermath - A New Order]. Do not delete [Closing Image - The Photo on the Wall]. The only deletion needed in the middle is the duplicate second [Aftermath - A Quiet Reckoning].`;
 
-    const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact: outline, notes });
+    const revision = applyStageRevisionPlan({
+        stageId: 'stage2_outline',
+        artifact: outline,
+        notes,
+        protectedBeats: DAPPLE_STAGE2_PROTECTED_BEATS
+    });
 
     assert.equal(revision.receipt.verified, true);
     assert.deepEqual(revision.receipt.operations.map(op => [op.type, op.oldLabel || op.newLabel, op.anchorLabel]), [
@@ -1279,6 +1307,7 @@ test('Stage 2 deterministic revision kernel unwraps saved outline artifacts', ()
 Replace that deleted duplicate with [Dapple Rising - The Anchor].
 Preserve [Aftermath - A New Order] and [Closing Image - The Photo on the Wall] as the final ending beats.`;
 
+    artifact.protected_beats = DAPPLE_STAGE2_PROTECTED_BEATS;
     const revision = applyStageRevisionPlan({ stageId: 'stage2_outline', artifact, notes });
 
     assert.equal(revision.receipt.verified, true);

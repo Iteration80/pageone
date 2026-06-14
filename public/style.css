@@ -1079,10 +1079,45 @@ textarea.synopsis-input {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+.beat-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
 .beat-card h4 {
     margin: 0;
     font-size: 1rem;
     color: var(--text-primary);
+    line-height: 1.35;
+}
+
+.stage2-protected-toggle {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.62);
+    color: #94a3b8;
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.stage2-protected-toggle:hover {
+    border-color: rgba(96, 165, 250, 0.42);
+    color: #bfdbfe;
+    background: rgba(37, 99, 235, 0.12);
+}
+
+.stage2-protected-toggle.is-active {
+    border-color: rgba(34, 197, 94, 0.38);
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.12);
 }
 
 .beat-description {

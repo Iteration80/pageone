@@ -2290,14 +2290,78 @@ document.addEventListener('DOMContentLoaded', () => {
             recoveredFromInterruptedStream: true
         };
         await handleSourceGenerationResult(2, recoveredEvent, { chat });
-        renderOutline(recovered.outline);
         if (window.currentProjectData) window.currentProjectData.stage2_outline = recovered;
+        renderOutline(recovered.outline);
         return recoveredEvent;
     }
 
     function isLikelyStreamTransportError(err) {
         const message = String(err?.message || err || '');
         return /\b(network error|failed to fetch|load failed|fetch failed|terminated|abort|connection|stream)\b/i.test(message);
+    }
+
+    function normalizeStage2ProtectedBeatLabels(value = []) {
+        let entries = value;
+        if (typeof entries === 'string') {
+            try {
+                entries = JSON.parse(entries);
+            } catch {
+                entries = entries.split(/\r?\n|,/).map(label => label.trim()).filter(Boolean);
+            }
+        }
+        if (!Array.isArray(entries)) entries = [];
+        const seen = new Set();
+        const labels = [];
+        for (const entry of entries) {
+            const label = typeof entry === 'string'
+                ? entry.trim()
+                : String(entry?.label || entry?.beat_label || entry?.beat || '').trim();
+            if (!label) continue;
+            const key = label.toLowerCase().replace(/['"‘’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            labels.push(label);
+        }
+        return labels;
+    }
+
+    function stage2ProtectedBeatsFromDom() {
+        return Array.from(document.querySelectorAll('.stage2-protected-toggle.is-active'))
+            .map(button => button.dataset.label || '')
+            .filter(Boolean);
+    }
+
+    function currentStage2ProtectedBeats() {
+        const domLabels = stage2ProtectedBeatsFromDom();
+        if (domLabels.length) return normalizeStage2ProtectedBeatLabels(domLabels);
+        return normalizeStage2ProtectedBeatLabels(window.currentProjectData?.stage2_outline?.protected_beats || []);
+    }
+
+    function setCurrentStage2ProtectedBeats(labels = []) {
+        const protected_beats = normalizeStage2ProtectedBeatLabels(labels);
+        if (window.currentProjectData) {
+            window.currentProjectData.stage2_outline = {
+                ...(window.currentProjectData.stage2_outline || {}),
+                protected_beats
+            };
+        }
+        return protected_beats;
+    }
+
+    function stage2PayloadFromOutline(outline = {}) {
+        return {
+            ...(window.currentProjectData?.stage2_outline || {}),
+            outline,
+            protected_beats: currentStage2ProtectedBeats()
+        };
+    }
+
+    function markStage2Changed() {
+        if (btnStage2Approve) {
+            btnStage2Approve.textContent = 'Approve';
+            btnStage2Approve.classList.remove('approve-btn-green');
+            btnStage2Approve.disabled = false;
+        }
     }
 
     async function consumeOutlineGenerationResponse(response, { chat = null, fallback = 'Outline request failed', previousOutline = null } = {}) {
@@ -2331,15 +2395,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Outline stream ended before the server sent a completion event. If Railway was deploying or restarting, wait for the deploy to finish and try again.');
             }
             await handleSourceGenerationResult(2, completeEvent, { chat });
-            renderOutline(completeEvent.result.outline);
             if (window.currentProjectData) window.currentProjectData.stage2_outline = completeEvent.result;
+            renderOutline(completeEvent.result.outline);
             return completeEvent;
         }
 
         const data = await response.json();
         await handleSourceGenerationResult(2, data, { chat });
-        renderOutline(data.result.outline);
         if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
+        renderOutline(data.result.outline);
         return data;
     }
 
@@ -2366,7 +2430,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/generate-outline', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-                body: JSON.stringify({ projectId: activeProjectId, stream: true })
+                body: JSON.stringify({
+                    projectId: activeProjectId,
+                    stream: true,
+                    protectedBeats: currentStage2ProtectedBeats()
+                })
             });
             await consumeOutlineGenerationResponse(res, { fallback: 'Failed to generate outline', previousOutline });
         } catch (err) {
@@ -2381,6 +2449,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const act1Container = document.getElementById('act1Container');
         const act2Container = document.getElementById('act2Container');
         const act3Container = document.getElementById('act3Container');
+        const protectedBeats = new Set(normalizeStage2ProtectedBeatLabels(
+            window.currentProjectData?.stage2_outline?.protected_beats || []
+        ).map(label => label.toLowerCase().replace(/['"‘’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()));
 
         act1Container.innerHTML = '';
         act2Container.innerHTML = '';
@@ -2399,19 +2470,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 seq.beats.forEach(beat => {
                     const card = document.createElement('div');
                     card.className = 'beat-card';
+                    const label = beat.beat_label || '';
+                    const protectedKey = label.toLowerCase().replace(/['"‘’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+                    const isProtected = protectedBeats.has(protectedKey);
                     card.innerHTML = `
-                        <h4>${escapeHtml(beat.beat_label)}</h4>
+                        <div class="beat-card-header">
+                            <h4>${escapeHtml(label)}</h4>
+                            <button type="button" class="stage2-protected-toggle ${isProtected ? 'is-active' : ''}" title="Protect beat" aria-label="Protect beat" aria-pressed="${isProtected ? 'true' : 'false'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                            </button>
+                        </div>
                         <textarea class="beat-description w-full bg-transparent border-none resize-none overflow-hidden text-gray-300">${escapeHtml(beat.description)}</textarea>
                     `;
+
+                    const protectedToggle = card.querySelector('.stage2-protected-toggle');
+                    protectedToggle.dataset.label = label;
+                    protectedToggle.addEventListener('click', () => {
+                        const labels = new Set(currentStage2ProtectedBeats());
+                        if (protectedToggle.classList.contains('is-active')) {
+                            labels.delete(label);
+                        } else {
+                            labels.add(label);
+                        }
+                        const nextLabels = setCurrentStage2ProtectedBeats(Array.from(labels));
+                        const active = nextLabels.some(item => item === label);
+                        protectedToggle.classList.toggle('is-active', active);
+                        protectedToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+                        markStage2Changed();
+                    });
 
                     const ta = card.querySelector('textarea');
                     ta.addEventListener('input', () => {
                         autoResize(ta);
-                        if (btnStage2Approve) {
-                            btnStage2Approve.textContent = 'Approve';
-                            btnStage2Approve.classList.remove('approve-btn-green');
-                            btnStage2Approve.disabled = false;
-                        }
+                        markStage2Changed();
                     });
                     requestAnimationFrame(() => autoResize(ta));
 
@@ -2488,7 +2579,7 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerBtn.disabled = true;
         triggerBtn.classList.remove('approve-btn-green');
 
-        const stage2Snapshot = { outline: updatedOutline };
+        const stage2Snapshot = stage2PayloadFromOutline(updatedOutline);
         const versionHistory2 = captureVersionSnapshot(2, 'stage2_outline', 'Outline', stage2Snapshot);
 
         try {
@@ -2508,6 +2599,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const updatedProject = await res.json();
             await offerStageMemoryCuration(2);
 
+            if (updatedProject?.data) window.currentProjectData = updatedProject.data;
             updateStageNav(updatedProject.data);
 
             triggerBtn.textContent = 'Approved ✓';
@@ -2581,15 +2673,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStage2Revise.textContent = 'Saving...';
                 btnStage2Revise.disabled = true;
 
-                await fetch(`/api/projects/${activeProjectId}`, {
+                const saveRes = await fetch(`/api/projects/${activeProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: {
-                            stage2_outline: { outline: currentBeats }
+                            stage2_outline: stage2PayloadFromOutline(currentBeats)
                         }
                     })
                 });
+                const updatedProject = await saveRes.json().catch(() => null);
+                if (updatedProject?.data) window.currentProjectData = updatedProject.data;
 
                 btnStage2Revise.textContent = 'Saved!';
                 setTimeout(() => {
@@ -2620,6 +2714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
             formData.append('stream', 'true');
+            formData.append('protectedBeats', JSON.stringify(currentStage2ProtectedBeats()));
             if (stage2PdfUpload && stage2PdfUpload.files[0]) {
                 formData.append('pdfFile', stage2PdfUpload.files[0]);
             }
@@ -8359,6 +8454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('currentBeats', JSON.stringify(currentBeats));
             formData.append('notes', notes);
             formData.append('stream', 'true');
+            formData.append('protectedBeats', JSON.stringify(currentStage2ProtectedBeats()));
             let res;
             try {
                 res = await fetch('/api/generate-outline', {

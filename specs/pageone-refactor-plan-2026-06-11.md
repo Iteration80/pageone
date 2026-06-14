@@ -146,7 +146,12 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - `/api/generate-characters` accepts/persists `tierOverrides`; the browser writes override maps when tiers are toggled, saved, approved, or sent through chat revisions.
 - The Stage 3 agent prompt no longer embeds the I.M.A.G.I.N.E. character tier lists; project-specific tier guidance is generated only from project JSON overrides.
 - The one-off I.M.A.G.I.N.E. migration utility now exists at `scripts/seed-stage3-tier-overrides.js` (`npm run migrate:stage3-tiers -- --write` to persist; dry-run by default).
-- Remaining Phase 3 tier work: run the migration when ready to mutate saved project JSON, then continue with protected-beat de-hardcoding.
+
+### Codex continuation notes — 2026-06-13 (Phase 3 protected beats)
+- `utils/stage_revision_kernel.js` no longer embeds Dapple/ending beat labels or default descriptions; deterministic protected-beat behavior now comes from `protectedBeats` / `data.stage2_outline.protected_beats`.
+- `/api/generate-outline` accepts `protectedBeats`, passes them into `applyStageRevisionPlan`, and persists `protected_beats` alongside the Stage 2 outline.
+- Stage 2 beat cards expose a shield toggle; manual saves, revisions, chat revisions, and regeneration preserve/send the label list.
+- Remaining Phase 3 cleanup: run the Stage 3 tier migration when ready to mutate saved project JSON; consider a Stage 2 protected-beat seed/migration for existing projects if desired before broad production use.
 
 ## Phase 4 — Structural cleanup (hand-off-able; do AFTER Phase 2 deletes code)
 1. Extract shared generation-endpoint factory for stages 2–6 (~70% duplicated scaffolding:

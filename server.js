@@ -61,6 +61,14 @@ function safeParse(str, fallback = null) {
     try { return JSON.parse(str); } catch { return fallback; }
 }
 
+function stage2ProtectedBeatEntriesForRequest(projectData = {}, rawProtectedBeats) {
+    const hasRequestValue = rawProtectedBeats !== undefined;
+    const source = hasRequestValue
+        ? safeParse(rawProtectedBeats, [])
+        : projectData.data?.stage2_outline?.protected_beats || [];
+    return normalizeProtectedBeats(source);
+}
+
 function publicErrorDetail(error, maxChars = 900) {
     const message = String(error?.message || '').trim();
     if (!message) return '';
@@ -281,7 +289,7 @@ const {
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('./utils/revision_transaction');
-const { applyStageRevisionPlan } = require('./utils/stage_revision_kernel');
+const { applyStageRevisionPlan, normalizeProtectedBeats } = require('./utils/stage_revision_kernel');
 const {
     appendArtifactSnapshot,
     changedStageKeysFromUpdate,
@@ -3842,6 +3850,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         }
 
         const parsedBeats = currentBeats ? (safeParse(currentBeats, null)) : null;
+        const activeProtectedBeatEntries = stage2ProtectedBeatEntriesForRequest(projectData, req.body?.protectedBeats);
+        const activeProtectedBeats = activeProtectedBeatEntries.map(beat => beat.label);
         const beforeOutlineForChangeCheck = parsedBeats || projectData.data?.stage2_outline?.outline || {};
         const beforeOutlineHash = sourcePlanDataHash(JSON.stringify(beforeOutlineForChangeCheck));
         startStream();
@@ -3854,7 +3864,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             const deterministicRevision = applyStageRevisionPlan({
                 stageId: 'stage2_outline',
                 artifact: beforeOutlineForChangeCheck,
-                notes: notesWithUpload
+                notes: notesWithUpload,
+                protectedBeats: activeProtectedBeatEntries
             });
             if (deterministicRevision?.plan?.canApplyDirectly && !deterministicRevision?.receipt?.verified) {
                 const failures = deterministicRevision.receipt?.failures || [];
@@ -3872,7 +3883,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                     genre: existingStage2.genre || stage1.genre || '',
                     logline: existingStage2.logline || stage1.logline || '',
                     ...existingStage2,
-                    outline: deterministicRevision.after
+                    outline: deterministicRevision.after,
+                    protected_beats: activeProtectedBeats
                 };
                 deterministicRevision.receipt.changed = deterministicRevision.changed;
                 const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
@@ -3918,6 +3930,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
         const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
+        outlineData.protected_beats = activeProtectedBeats;
         const revisionChecklist = notesWithUpload ? buildOutlineRevisionChecklist(notesWithUpload) : [];
         const explicitSequenceReplacement = notesWithUpload ? extractExplicitOutlineSequenceReplacement(notesWithUpload) : null;
         if (explicitSequenceReplacement) {
