@@ -175,6 +175,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 4. Typed error classes + correct HTTP codes (400/404/429/500) instead of blanket 500s.
 5. Streaming endpoints: handle `res.on('close')` to stop work on client disconnect.
 
+### Codex continuation notes — 2026-06-14 (Phase 5 RMW pass)
+- `updateProjectJSON()` already performs its read inside `withProjectWriteLock()`; `persistStageConversation()` now uses it so assistant chat history merges into the latest project JSON instead of writing a stale request snapshot.
+- Stage 10 init cleanup of `characterChangeContext` now uses `updateProjectJSON()` as well. Remaining stale-write audit candidates are larger artifact/source save paths and should be handled in focused endpoint-specific passes.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

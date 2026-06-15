@@ -1661,10 +1661,25 @@ function buildMemoryRecallResponse(projectData, { stageId, stageName = '', userM
 }
 
 async function persistStageConversation(filePath, projectData, stageKey, messages, assistantMessage) {
-    const convos = projectData.data.conversations || {};
-    const updated = [...messages, { role: 'assistant', content: assistantMessage }];
     const MAX_HISTORY = 100;
-    convos[stageKey] = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
+    const updated = [...messages, { role: 'assistant', content: assistantMessage }];
+    const nextHistory = updated.length > MAX_HISTORY ? updated.slice(-MAX_HISTORY) : updated;
+    const projectId = projectIdFromPath(filePath);
+
+    if (projectId) {
+        await updateProjectJSON(projectId, (freshProject) => {
+            freshProject.data = freshProject.data || {};
+            const convos = freshProject.data.conversations || {};
+            convos[stageKey] = nextHistory;
+            freshProject.data.conversations = convos;
+            return freshProject;
+        });
+        return;
+    }
+
+    projectData.data = projectData.data || {};
+    const convos = projectData.data.conversations || {};
+    convos[stageKey] = nextHistory;
     projectData.data.conversations = convos;
     await writeJSONQueued(filePath, projectData);
 }
@@ -5010,7 +5025,10 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
 The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Specific changes:
 ${projectData.data.characterChangeContext}`;
                 delete projectData.data.characterChangeContext;
-                await writeJSONQueued(filePath, projectData);
+                await updateProjectJSON(projectId, (freshProject) => {
+                    if (freshProject.data) delete freshProject.data.characterChangeContext;
+                    return freshProject;
+                });
             }
 
             const deterministicStage4EventList = !isInit && Number(stageId) === 4
