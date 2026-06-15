@@ -327,24 +327,92 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stage 8 Elements
     const stage8View = document.getElementById('stage-8-view');
     const draftEditorMount = document.getElementById('draft-editor-mount');
+    const stage8AutosaveBanner = document.getElementById('stage8-autosave-banner');
+    const stage8AutosaveMessage = document.getElementById('stage8-autosave-message');
+    const btnStage8RetrySave = document.getElementById('btnStage8RetrySave');
     let stage8Editor = null;
     let stage8SaveTimer = null;
+    let stage8SaveInFlight = null;
+    let stage8LastSaveError = null;
 
-    function stage8FlushEditor() {
-        if (!stage8Editor || !stage8Editor.isDirty()) return;
+    function clearStage8AutosaveError() {
+        stage8LastSaveError = null;
+        stage8AutosaveBanner?.classList.add('hidden');
+        if (btnStage8RetrySave) {
+            btnStage8RetrySave.disabled = false;
+            btnStage8RetrySave.textContent = 'Retry save';
+        }
+    }
+
+    function showStage8AutosaveError(error) {
+        stage8LastSaveError = error;
+        if (stage8AutosaveMessage) {
+            const detail = error?.message ? ` ${error.message}` : '';
+            stage8AutosaveMessage.textContent = `Draft auto-save failed. Your latest edits are still on screen.${detail}`;
+        }
+        stage8AutosaveBanner?.classList.remove('hidden');
+        if (btnStage8RetrySave) {
+            btnStage8RetrySave.disabled = false;
+            btnStage8RetrySave.textContent = 'Retry save';
+        }
+    }
+
+    async function stage8FlushEditor({ requireSaved = false } = {}) {
+        clearTimeout(stage8SaveTimer);
+        if (!stage8Editor || (!stage8Editor.isDirty() && !stage8LastSaveError)) return true;
         const scenes = getFlatScenes();
         const scene = scenes.find(s => s.scene_number === currentDraftSceneNumber);
-        if (!scene) return;
+        if (!scene) return true;
         const newText = stage8Editor.toFountain();
         scene.draft_text = newText;
-        stage8Editor.markClean();
-        // Persist to server (fire and forget)
-        if (activeProjectId && window.currentProjectData?.stage6_scenes) {
-            fetch(`/api/projects/${activeProjectId}`, {
+
+        if (!activeProjectId || !window.currentProjectData?.stage6_scenes) {
+            stage8Editor.markClean();
+            clearStage8AutosaveError();
+            return true;
+        }
+
+        if (stage8SaveInFlight) {
+            if (requireSaved) return stage8SaveInFlight;
+            try {
+                await stage8SaveInFlight;
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        stage8SaveInFlight = (async () => {
+            const response = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: { stage6_scenes: window.currentProjectData.stage6_scenes } })
-            }).catch(err => console.error('Stage 8 auto-save failed:', err));
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: `Server error ${response.status}` }));
+                throw new Error(error.error || `Server error ${response.status}`);
+            }
+            if (stage8Editor?.toFountain() === newText) {
+                stage8Editor.markClean();
+            } else {
+                stage8SaveTimer = setTimeout(() => {
+                    stage8FlushEditor().catch(() => {});
+                }, 1000);
+            }
+            clearStage8AutosaveError();
+            return true;
+        })();
+
+        try {
+            await stage8SaveInFlight;
+            return true;
+        } catch (err) {
+            console.error('Stage 8 auto-save failed:', err);
+            showStage8AutosaveError(err);
+            if (requireSaved) throw err;
+            return false;
+        } finally {
+            stage8SaveInFlight = null;
         }
     }
 
@@ -355,12 +423,27 @@ document.addEventListener('DOMContentLoaded', () => {
             stage8Editor = new FountainEditor(draftEditorMount, {
                 onDirty: () => {
                     clearTimeout(stage8SaveTimer);
-                    stage8SaveTimer = setTimeout(stage8FlushEditor, 2000);
+                    stage8SaveTimer = setTimeout(() => {
+                        stage8FlushEditor().catch(() => {});
+                    }, 2000);
                 },
                 externalToolbarSlot: toolbarSlot
             });
         }
         stage8Editor.loadFountain(fountainText);
+        clearStage8AutosaveError();
+    }
+
+    if (btnStage8RetrySave) {
+        btnStage8RetrySave.addEventListener('click', async () => {
+            btnStage8RetrySave.disabled = true;
+            btnStage8RetrySave.textContent = 'Retrying...';
+            try {
+                await stage8FlushEditor({ requireSaved: true });
+            } catch {
+                // stage8FlushEditor already surfaced the save failure in the banner.
+            }
+        });
     }
 
     function stage8ShowPlaceholder(html) {
@@ -6085,7 +6168,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnNextScene) {
         btnNextScene.addEventListener('click', async () => {
             // Flush any manual edits before locking
-            stage8FlushEditor();
+            try {
+                await stage8FlushEditor({ requireSaved: true });
+            } catch {
+                return;
+            }
             // Mark the current scene as locked and persist before advancing
             const scenes = getFlatScenes();
             const currentSceneData = scenes.find(s => s.scene_number === currentDraftSceneNumber);
@@ -6181,7 +6268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage8Approve.addEventListener('click', createStageApproveHandler({
             stageId: 8,
             button: btnStage8Approve,
-            beforeGuard: () => stage8FlushEditor(), // Save any pending manual edits
+            beforeGuard: () => stage8FlushEditor({ requireSaved: true }), // Save any pending manual edits
             stageKey: 'stage7_approved',
             stageName: 'Draft',
             getSnapshot: () => true,
@@ -6191,7 +6278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 versionHistory
             }),
             errorLog: 'Stage 8 approval failed:',
-            errorMessage: 'An error occurred while saving.',
+            errorMessage: 'Draft auto-save failed. Retry the save before approving.',
             onApproved: () => {
                 // Clear stale coverage so Stage 9 re-generates
                 if (window.currentProjectData) delete window.currentProjectData.stage8_coverage;
@@ -6403,8 +6490,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Expose selectDraftScene on window from inside the closure so it has access
     // to currentDraftSceneNumber and initStage8 (both defined in this scope).
-    window.selectDraftScene = function(sceneNumber) {
-        stage8FlushEditor();
+    window.selectDraftScene = async function(sceneNumber) {
+        try {
+            await stage8FlushEditor({ requireSaved: true });
+        } catch {
+            return;
+        }
         hideContinuityFeedback();
         currentDraftSceneNumber = sceneNumber;
         initStage8();
@@ -7391,7 +7482,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? { slug: stage7CurrentStyle.slug, content: stage7CurrentStyle.content || stage7CurrentStyle.directive || '' }
                         : { slug: window.currentProjectData?.stage7_style || null, content: '' };
                 case 8:
-                    stage8FlushEditor();
+                    stage8FlushEditor().catch(() => {});
                     return getFlatScenes().map(scene => ({
                         scene_number: scene.scene_number,
                         slugline: scene.slugline || scene.scene_heading || '',

@@ -179,6 +179,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - `updateProjectJSON()` already performs its read inside `withProjectWriteLock()`; `persistStageConversation()` now uses it so assistant chat history merges into the latest project JSON instead of writing a stale request snapshot.
 - Stage 10 init cleanup of `characterChangeContext` now uses `updateProjectJSON()` as well. Remaining stale-write audit candidates are larger artifact/source save paths and should be handled in focused endpoint-specific passes.
 
+### Codex continuation notes — 2026-06-15 (Phase 5 Stage 8 auto-save)
+- Stage 8 draft auto-save is now awaitable, leaves dirty edits dirty until the server save succeeds, shows a retry banner on failure, and blocks scene switching / Stage 8 approval while the save is unresolved.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

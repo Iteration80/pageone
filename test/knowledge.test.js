@@ -960,6 +960,21 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(stage6RevisionAgent, /Do not silently skip checklist items/);
 });
 
+test('frontend Stage 8 auto-save failures are visible and block navigation', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+
+    assert.match(indexHtml, /id="stage8-autosave-banner"/);
+    assert.match(indexHtml, /id="btnStage8RetrySave"/);
+    assert.match(appJs, /async function stage8FlushEditor\(\{ requireSaved = false \} = \{\}\)/);
+    assert.match(appJs, /function showStage8AutosaveError/);
+    assert.match(appJs, /btnStage8RetrySave\.addEventListener\('click', async \(\) =>/);
+    assert.match(appJs, /await stage8FlushEditor\(\{ requireSaved: true \}\);[\s\S]*Mark the current scene as locked/);
+    assert.match(appJs, /beforeGuard: \(\) => stage8FlushEditor\(\{ requireSaved: true \}\)/);
+    assert.match(appJs, /window\.selectDraftScene = async function/);
+    assert.doesNotMatch(appJs, /Stage 8 auto-save failed:', err\)\)/);
+});
+
 test('recordSourcePlanUsage caches used plan and exposes stale state', () => {
     const project = {
         data: {
