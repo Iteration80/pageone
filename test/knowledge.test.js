@@ -450,6 +450,41 @@ test('frontend restores Stage 10 rewrite chat from persisted stage9 conversation
     assert.match(appJs, /stage10CurrentScene !== null && !isMemoryRecallPrompt\(text\)/);
 });
 
+test('frontend persists edited Stage 10 pending rewrites before scene changes or approval', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+
+    assert.match(indexHtml, /id="stage10-pending-save-banner"/);
+    assert.match(indexHtml, /id="btnStage10RetryPendingSave"/);
+    assert.match(appJs, /fetch\('\/api\/save-stage10-pending'/);
+    assert.match(appJs, /stage10PendingSavedText\s*=\s*\{\s*\.\.\.stage10Pending\s*\}/);
+    assert.match(appJs, /async function stage10FlushEditPanel\(\{ requireSaved = false \} = \{\}\)/);
+    assert.match(appJs, /window\.stage10SelectSceneBtn = async function\(n\)/);
+    assert.match(appJs, /await stage10SelectScene\(pendingKeys\[0\], \{ skipFlush: true \}\)/);
+    assert.match(appJs, /await stage10FlushEditPanel\(\{ requireSaved: true \}\)/);
+    assert.match(appJs, /stage10SetPending\(stage10CurrentScene, data\.proposed_text, \{ serverSaved: true \}\)/);
+    assert.match(appJs, /stage10QueuePendingSave\(stage10CurrentScene\)/);
+    assert.doesNotMatch(appJs, /function stage10FlushEditPanel\(\) \{/);
+});
+
+test('server persists Stage 10 pending rewrites through atomic project updates', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const singleSceneRoute = serverJs.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
+    const feedbackRoute = serverJs.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
+    const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
+    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?\/\/ --- Stage 7/)?.[0] || '';
+
+    assert.match(serverJs, /function persistStage10PendingRewrite/);
+    assert.match(serverJs, /app\.post\('\/api\/save-stage10-pending'/);
+    assert.match(singleSceneRoute, /await updateProjectJSON\(projectId, \(freshProject\) =>/);
+    assert.match(singleSceneRoute, /persistStage10PendingRewrite\(freshProject/);
+    assert.match(feedbackRoute, /persistStage10PendingRewrite\(freshProject/);
+    assert.match(approveRoute, /await updateProjectJSON\(projectId, \(projectData\) =>/);
+    assert.match(finalizeRoute, /await updateProjectJSON\(projectId, \(projectData\) =>/);
+    assert.doesNotMatch(approveRoute, /await writeJSONQueued/);
+    assert.doesNotMatch(finalizeRoute, /await writeJSONQueued/);
+});
+
 test('frontend keeps project memory usage under the hood instead of posting chat cards', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const match = appJs.match(/function noteSourceMemoryUsed\(chat, memory\) \{([\s\S]*?)\n    \}/);

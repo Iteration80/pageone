@@ -9464,6 +9464,136 @@ document.addEventListener('DOMContentLoaded', () => {
     let stage10ApprovedScenes = {}; // { scene_number: true } changed in a prior approved pass
     let stage10Chat = null;      // ChatWindow instance
     let stage10ExecutingPlan = false; // guard against double-click on Execute Plan
+    let stage10PendingSavedText = {}; // last pending text confirmed by the server
+    let stage10PendingSaveTimers = {};
+    let stage10PendingSaveInFlight = {};
+    let stage10PendingSaveErrors = {};
+
+    function stage10PendingKey(sceneNumber) {
+        return String(sceneNumber);
+    }
+
+    function stage10SetPending(sceneNumber, text, { serverSaved = false } = {}) {
+        const key = stage10PendingKey(sceneNumber);
+        stage10Pending[key] = text;
+        if (serverSaved) {
+            stage10PendingSavedText[key] = text;
+            if (window.currentProjectData?.stage9_rewrites) {
+                window.currentProjectData.stage9_rewrites.pending = {
+                    ...(window.currentProjectData.stage9_rewrites.pending || {}),
+                    [key]: text
+                };
+            }
+            delete stage10PendingSaveErrors[key];
+        }
+    }
+
+    function stage10ClearPendingSaveState() {
+        Object.values(stage10PendingSaveTimers).forEach(timer => clearTimeout(timer));
+        stage10PendingSavedText = {};
+        stage10PendingSaveTimers = {};
+        stage10PendingSaveErrors = {};
+        clearStage10PendingSaveError();
+    }
+
+    function clearStage10PendingSaveError(sceneNumber = stage10CurrentScene) {
+        if (sceneNumber !== null && sceneNumber !== undefined) {
+            delete stage10PendingSaveErrors[stage10PendingKey(sceneNumber)];
+        }
+        if (Object.keys(stage10PendingSaveErrors).length > 0) return;
+        document.getElementById('stage10-pending-save-banner')?.classList.add('hidden');
+        const retryBtn = document.getElementById('btnStage10RetryPendingSave');
+        if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Retry save';
+        }
+    }
+
+    function showStage10PendingSaveError(error, sceneNumber = stage10CurrentScene) {
+        const key = stage10PendingKey(sceneNumber);
+        stage10PendingSaveErrors[key] = error;
+        const message = document.getElementById('stage10-pending-save-message');
+        if (message) {
+            const detail = error?.message ? ` ${error.message}` : '';
+            message.textContent = `Pending rewrite auto-save failed for scene ${sceneNumber}. Your latest edits are still on screen.${detail}`;
+        }
+        document.getElementById('stage10-pending-save-banner')?.classList.remove('hidden');
+        const retryBtn = document.getElementById('btnStage10RetryPendingSave');
+        if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Retry save';
+        }
+    }
+
+    function stage10QueuePendingSave(sceneNumber) {
+        const key = stage10PendingKey(sceneNumber);
+        clearTimeout(stage10PendingSaveTimers[key]);
+        stage10PendingSaveTimers[key] = setTimeout(() => {
+            stage10SavePendingScene(sceneNumber).catch(() => {});
+        }, 1500);
+    }
+
+    async function stage10SavePendingScene(sceneNumber, { requireSaved = false } = {}) {
+        if (sceneNumber === null || sceneNumber === undefined) return true;
+        const key = stage10PendingKey(sceneNumber);
+        const pendingText = stage10Pending[key];
+        clearTimeout(stage10PendingSaveTimers[key]);
+        delete stage10PendingSaveTimers[key];
+        if (pendingText === undefined) return true;
+        if (stage10PendingSavedText[key] === pendingText && !stage10PendingSaveErrors[key]) return true;
+
+        if (!activeProjectId) {
+            stage10PendingSavedText[key] = pendingText;
+            clearStage10PendingSaveError(sceneNumber);
+            return true;
+        }
+
+        if (stage10PendingSaveInFlight[key]) {
+            if (requireSaved) return stage10PendingSaveInFlight[key];
+            try {
+                await stage10PendingSaveInFlight[key];
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        stage10PendingSaveInFlight[key] = (async () => {
+            const response = await fetch('/api/save-stage10-pending', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, sceneNumber, proposedText: pendingText })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: `Server error ${response.status}` }));
+                throw new Error(error.error || `Server error ${response.status}`);
+            }
+            stage10PendingSavedText[key] = pendingText;
+            if (window.currentProjectData?.stage9_rewrites) {
+                window.currentProjectData.stage9_rewrites.pending = {
+                    ...(window.currentProjectData.stage9_rewrites.pending || {}),
+                    [key]: pendingText
+                };
+            }
+            if (stage10Pending[key] !== pendingText) {
+                stage10QueuePendingSave(sceneNumber);
+            }
+            clearStage10PendingSaveError(sceneNumber);
+            return true;
+        })();
+
+        try {
+            await stage10PendingSaveInFlight[key];
+            return true;
+        } catch (err) {
+            console.error('Stage 10 pending save failed:', err);
+            showStage10PendingSaveError(err, sceneNumber);
+            if (requireSaved) throw err;
+            return false;
+        } finally {
+            delete stage10PendingSaveInFlight[key];
+        }
+    }
 
     function stage10RenderPlanCard(plan) {
         const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -9563,7 +9693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 await handleSourceGenerationResult(10, data, { chat: stage10Chat, refreshKnowledge: false });
                 if (data.modified) {
-                    stage10Pending[data.scene_number] = data.proposed_text;
+                    stage10SetPending(data.scene_number, data.proposed_text, { serverSaved: true });
                     renderStage10SceneList();
                 }
             }
@@ -9575,7 +9705,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const modCount = Object.keys(stage10Pending).length;
             const firstModified = Object.keys(stage10Pending).map(Number)[0];
-            if (firstModified) stage10SelectScene(firstModified);
+            if (firstModified) await stage10SelectScene(firstModified, { skipFlush: true });
             renderStage10SceneList();
 
             if (stage10Chat) stage10Chat.append('ai', `Rewrites applied to ${modCount} scene(s). Review the diffs above — use the scene list on the right to jump between changed scenes.\n\nWhen you're happy with the changes, approve to move on to the next priority.`, {
@@ -9595,9 +9725,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function stage10ApproveAndContinue() {
-        stage10FlushEditPanel();
-        const newIdx = stage10State.priority_idx + 1;
         try {
+            await stage10FlushEditPanel({ requireSaved: true });
+            const newIdx = stage10State.priority_idx + 1;
             await fetch('/api/approve-rewrite-priority', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -9606,10 +9736,12 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.assign(stage10State.working, stage10Pending);
             Object.keys(stage10Pending).forEach(n => { stage10ApprovedScenes[parseInt(n)] = true; });
             stage10Pending = {};
+            stage10ClearPendingSaveState();
             stage10State.priority_idx = newIdx;
             window.stage10CurrentPlan = null;
             if (window.currentProjectData?.stage9_rewrites) {
                 window.currentProjectData.stage9_rewrites.priority_idx = newIdx;
+                window.currentProjectData.stage9_rewrites.pending = {};
             }
             stage10DeselectScene();
 
@@ -9716,6 +9848,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             // Restore any pending rewrites that were saved to disk (survives page refresh)
             stage10Pending = data.stage9_rewrites.pending || {};
+            stage10PendingSavedText = { ...stage10Pending };
+            stage10PendingSaveErrors = {};
             stage10ApprovedScenes = {};
 
             loading?.classList.add('hidden');
@@ -9728,7 +9862,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // If pending rewrites were restored from disk, select the first one
             const pendingKeys = Object.keys(stage10Pending).map(Number);
             if (pendingKeys.length > 0) {
-                stage10SelectScene(pendingKeys[0]);
+                await stage10SelectScene(pendingKeys[0], { skipFlush: true });
                 renderStage10SceneList();
             }
 
@@ -9761,9 +9895,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         noteSavedSource(stage10Chat, data.savedSource);
                         noteSourceMemoryUsed(stage10Chat, data.sourceMemory);
                         await handleSourceGenerationResult(10, data, { chat: stage10Chat });
-                        stage10Pending[stage10CurrentScene] = data.proposed_text;
+                        stage10SetPending(stage10CurrentScene, data.proposed_text, { serverSaved: true });
                         resetStage10ApproveBtn();
-                        stage10SelectScene(stage10CurrentScene);
+                        await stage10SelectScene(stage10CurrentScene, { skipFlush: true });
                         renderStage10SceneList();
                         stage10Chat.append('ai', `Scene ${stage10CurrentScene} updated. Review the diff on the right.`);
                     } else {
@@ -9836,9 +9970,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!res.ok) throw new Error((await res.json()).error || `Server error ${res.status}`);
                     const data = await res.json();
                     await handleSourceGenerationResult(10, data, { chat: stage10Chat });
-                    stage10Pending[stage10CurrentScene] = data.proposed_text;
+                    stage10SetPending(stage10CurrentScene, data.proposed_text, { serverSaved: true });
                     resetStage10ApproveBtn();
-                    stage10SelectScene(stage10CurrentScene);
+                    await stage10SelectScene(stage10CurrentScene, { skipFlush: true });
                     renderStage10SceneList();
                     await logKnowledgeDecision(
                         'source_audit_fixes_applied',
@@ -9944,17 +10078,28 @@ document.addEventListener('DOMContentLoaded', () => {
         renderStage10SceneList();
     }
 
-    window.stage10SelectSceneBtn = function(n) {
+    window.stage10SelectSceneBtn = async function(n) {
         if (n === stage10CurrentScene) {
+            try {
+                await stage10FlushEditPanel({ requireSaved: true });
+            } catch {
+                return;
+            }
             stage10DeselectScene();
         } else {
-            stage10SelectScene(n);
+            await stage10SelectScene(n);
         }
     };
 
-    function stage10SelectScene(n) {
+    async function stage10SelectScene(n, { skipFlush = false } = {}) {
         // Flush any current editor/textarea edit into pending
-        stage10FlushEditPanel();
+        if (!skipFlush) {
+            try {
+                await stage10FlushEditPanel({ requireSaved: true });
+            } catch {
+                return false;
+            }
+        }
         stage10CurrentScene = n;
 
         const origText     = stage10State.working[n] || '';
@@ -9986,7 +10131,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 externalToolbarSlot: s10ToolbarSlot,
                 onDirty: () => {
                     if (stage10CurrentScene !== null) {
-                        stage10Pending[stage10CurrentScene] = stage10Editor.toFountain();
+                        stage10SetPending(stage10CurrentScene, stage10Editor.toFountain());
+                        stage10QueuePendingSave(stage10CurrentScene);
                         resetStage10ApproveBtn();
                         renderStage10SceneList();
                         // Update left panel diff
@@ -10008,15 +10154,18 @@ document.addEventListener('DOMContentLoaded', () => {
         stage10UpdateToggleButtons();
 
         renderStage10SceneList();
+        return true;
     }
 
-    function stage10FlushEditPanel() {
-        if (stage10CurrentScene === null) return;
+    async function stage10FlushEditPanel({ requireSaved = false } = {}) {
+        if (stage10CurrentScene === null) return true;
         // Only flush editor text to pending if this scene already has pending changes
         // (prevents overwriting original text with editor-normalized version)
         if (stage10ViewMode === 'formatted' && stage10Editor && stage10Pending[stage10CurrentScene] !== undefined) {
-            stage10Pending[stage10CurrentScene] = stage10Editor.toFountain();
+            stage10SetPending(stage10CurrentScene, stage10Editor.toFountain());
         }
+        if (stage10Pending[stage10CurrentScene] === undefined) return true;
+        return stage10SavePendingScene(stage10CurrentScene, { requireSaved });
     }
 
     function stage10UpdateToggleButtons() {
@@ -10030,8 +10179,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function stage10WireButtons() {
         // ── Toggle: Preview | Edit ────────────────────────────────────────────
-        function stage10SwitchView(mode) {
-            stage10FlushEditPanel(); // flush current mode first
+        async function stage10SwitchView(mode) {
+            try {
+                await stage10FlushEditPanel({ requireSaved: true }); // flush current mode first
+            } catch {
+                return;
+            }
             stage10ViewMode = mode;
 
             const editorMount = document.getElementById('stage10-editor-mount');
@@ -10073,12 +10226,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btnF = document.getElementById('btnToggleFormatted');
         const btnP = document.getElementById('btnTogglePreview');
-        if (btnF) btnF.onclick = () => stage10SwitchView('formatted');
-        if (btnP) btnP.onclick = () => stage10SwitchView('preview');
+        if (btnF) btnF.onclick = () => stage10SwitchView('formatted').catch(err => console.error('Stage 10 view switch failed:', err));
+        if (btnP) btnP.onclick = () => stage10SwitchView('preview').catch(err => console.error('Stage 10 view switch failed:', err));
+
+        const retryPendingSave = document.getElementById('btnStage10RetryPendingSave');
+        if (retryPendingSave) {
+            retryPendingSave.onclick = async () => {
+                const targetScene = Number(Object.keys(stage10PendingSaveErrors)[0] || stage10CurrentScene || Object.keys(stage10Pending)[0]);
+                if (!targetScene) return;
+                retryPendingSave.disabled = true;
+                retryPendingSave.textContent = 'Saving...';
+                try {
+                    await stage10FlushEditPanel({ requireSaved: true });
+                    await stage10SavePendingScene(targetScene, { requireSaved: true });
+                } catch {
+                    // stage10SavePendingScene already surfaced the error.
+                } finally {
+                    retryPendingSave.disabled = false;
+                    retryPendingSave.textContent = 'Retry save';
+                }
+            };
+        }
 
         // ── Finalize Rewrite ──────────────────────────────────────────────────
         async function finalizeStage10() {
-            stage10FlushEditPanel();
+            await stage10FlushEditPanel({ requireSaved: true });
             const approvalBtn = document.getElementById('btnStage10Approve') || btnFinalize;
             if (!(await runApprovalSourceGuard(10, approvalBtn))) return;
             if (Object.keys(stage10Pending).length > 0) {
@@ -10089,6 +10261,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 Object.assign(stage10State.working, stage10Pending);
                 stage10Pending = {};
+                stage10ClearPendingSaveState();
             }
             await fetch('/api/finalize-stage10', {
                 method: 'POST',

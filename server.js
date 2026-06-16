@@ -4868,6 +4868,41 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
 
 // --- Stage 10: Rewrite Routes --- //
 
+function ensureStage10RewriteState(projectData) {
+    projectData.data = projectData.data || {};
+    const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
+    stage9.working = stage9.working || {};
+    stage9.pending = stage9.pending || {};
+    projectData.data.stage9_rewrites = stage9;
+    return stage9;
+}
+
+function persistStage10PendingRewrite(projectData, {
+    projectId,
+    sceneNum,
+    proposedText,
+    note = `Pending rewrite for scene ${sceneNum}`,
+    sourcePacket = null,
+    sourceText = proposedText,
+    sourceReason = 'single_scene_rewrite'
+} = {}) {
+    const stage9 = ensureStage10RewriteState(projectData);
+    const beforeRewrite = JSON.parse(JSON.stringify(stage9));
+    stage9.pending[sceneNum] = proposedText;
+    const snapshotEntries = recordArtifactMutation(projectData, {
+        projectId,
+        stage: 10,
+        before: beforeRewrite,
+        after: stage9,
+        operation: 'revision',
+        note
+    });
+    if (sourcePacket) {
+        recordSourceGenerationUsage(projectData, sourcePacket, sourceText, sourceReason);
+    }
+    return snapshotEntries;
+}
+
 // Initialize stage9_rewrites from Stage 8 humanized text
 app.post('/api/init-stage9', requireAuth, async (req, res) => {
     try {
@@ -5378,24 +5413,20 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         const deletionPattern = /\b(delete|remove|omit|cut|eliminate)\b.*\b(scene|entirely|completely)\b/i;
         if (plannedChange && deletionPattern.test(plannedChange)) {
             console.log(`Stage 10: deleting scene ${sceneNum} (per plan)`);
-            // Persist deletion to disk immediately
-            projectData.data = projectData.data || {};
-            const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
-            const beforeRewrite = JSON.parse(JSON.stringify(stage9));
-            stage9.pending = stage9.pending || {};
-            stage9.pending[sceneNum] = '';
-            projectData.data.stage9_rewrites = stage9;
-            const snapshotEntries = recordArtifactMutation(projectData, {
-                projectId,
-                stage: 10,
-                before: beforeRewrite,
-                after: stage9,
-                operation: 'revision',
-                note: `Pending delete for scene ${sceneNum}`
-            });
             const deletionPacket = buildSourceGenerationPacket(projectData, 10, `${priorityTask}\n${plannedChange || ''}\n${sceneText}`, { userMessage: priorityTask });
-            recordSourceGenerationUsage(projectData, deletionPacket, '', 'single_scene_delete');
-            await writeJSONQueued(filePath, projectData);
+            let snapshotEntries = [];
+            await updateProjectJSON(projectId, (freshProject) => {
+                snapshotEntries = persistStage10PendingRewrite(freshProject, {
+                    projectId,
+                    sceneNum,
+                    proposedText: '',
+                    note: `Pending delete for scene ${sceneNum}`,
+                    sourcePacket: deletionPacket,
+                    sourceText: '',
+                    sourceReason: 'single_scene_delete'
+                });
+                return freshProject;
+            });
             return res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: '', modified: true, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(deletionPacket) });
         }
 
@@ -5434,25 +5465,25 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         const modified = proposed.trim() !== sceneText.trim();
         let snapshotEntries = [];
 
-        // Persist pending rewrite to disk immediately so it survives page refresh
         if (modified) {
-            projectData.data = projectData.data || {};
-            const stage9 = projectData.data.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
-            const beforeRewrite = JSON.parse(JSON.stringify(stage9));
-            stage9.pending = stage9.pending || {};
-            stage9.pending[sceneNum] = proposed;
-            projectData.data.stage9_rewrites = stage9;
-            snapshotEntries = recordArtifactMutation(projectData, {
-                projectId,
-                stage: 10,
-                before: beforeRewrite,
-                after: stage9,
-                operation: 'revision',
-                note: `Pending rewrite for scene ${sceneNum}`
+            await updateProjectJSON(projectId, (freshProject) => {
+                snapshotEntries = persistStage10PendingRewrite(freshProject, {
+                    projectId,
+                    sceneNum,
+                    proposedText: proposed,
+                    note: `Pending rewrite for scene ${sceneNum}`,
+                    sourcePacket,
+                    sourceText: proposed,
+                    sourceReason: 'single_scene_rewrite'
+                });
+                return freshProject;
+            });
+        } else {
+            await updateProjectJSON(projectId, (freshProject) => {
+                recordSourceGenerationUsage(freshProject, sourcePacket, proposed, 'single_scene_rewrite');
+                return freshProject;
             });
         }
-        recordSourceGenerationUsage(projectData, sourcePacket, proposed, 'single_scene_rewrite');
-        await writeJSONQueued(filePath, projectData);
 
         trackUsage(projectId, usage);
         res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
@@ -5462,37 +5493,65 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
     }
 });
 
+app.post('/api/save-stage10-pending', requireAuth, async (req, res) => {
+    try {
+        const { projectId, sceneNumber, proposedText } = req.body;
+        const sceneNum = parseInt(sceneNumber, 10);
+        if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || typeof proposedText !== 'string') {
+            return res.status(400).json({ error: 'Missing or invalid projectId, sceneNumber, or proposedText' });
+        }
+
+        let snapshotEntries = [];
+        const updatedProject = await updateProjectJSON(projectId, (freshProject) => {
+            const stage9 = ensureStage10RewriteState(freshProject);
+            if (stage9.pending?.[sceneNum] === proposedText) return freshProject;
+            snapshotEntries = persistStage10PendingRewrite(freshProject, {
+                projectId,
+                sceneNum,
+                proposedText,
+                note: `Manual pending rewrite edit for scene ${sceneNum}`,
+                sourcePacket: null
+            });
+            return freshProject;
+        });
+
+        res.json({ success: true, stage9_rewrites: updatedProject.data.stage9_rewrites, snapshotIds: snapshotEntries.map(entry => entry.id) });
+    } catch (error) {
+        console.error('save-stage10-pending error:', error.message);
+        res.status(500).json({ error: 'Failed to save pending rewrite' });
+    }
+});
+
 // Save approved pending changes and advance priority index
 app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
     try {
         const { projectId, pendingScenes, newPriorityIdx } = req.body;
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
-
-        const stage9 = projectData.data?.stage9_rewrites || { working: {}, priority_idx: 0, approved: false };
-        const beforeRewrite = JSON.parse(JSON.stringify(stage9));
-        if (pendingScenes) {
-            for (const [sceneNum, text] of Object.entries(pendingScenes)) {
-                stage9.working[sceneNum] = text;
+        let snapshotEntries = [];
+        const updatedProject = await updateProjectJSON(projectId, (projectData) => {
+            const stage9 = ensureStage10RewriteState(projectData);
+            const beforeRewrite = JSON.parse(JSON.stringify(stage9));
+            if (pendingScenes && typeof pendingScenes === 'object') {
+                for (const [sceneNum, text] of Object.entries(pendingScenes)) {
+                    if (typeof text === 'string') stage9.working[sceneNum] = text;
+                }
             }
-        }
-        stage9.pending = {};  // Clear pending — now merged into working
-        stage9.priority_idx = newPriorityIdx;
-        const snapshotEntries = recordArtifactMutation(projectData, {
-            projectId,
-            stage: 10,
-            before: beforeRewrite,
-            after: stage9,
-            operation: 'revision',
-            note: 'Approve rewrite priority'
+            stage9.pending = {};  // Clear pending — now merged into working
+            if (newPriorityIdx !== undefined) stage9.priority_idx = newPriorityIdx;
+            snapshotEntries = recordArtifactMutation(projectData, {
+                projectId,
+                stage: 10,
+                before: beforeRewrite,
+                after: stage9,
+                operation: 'revision',
+                note: 'Approve rewrite priority'
+            });
+            projectData.data.stage9_rewrites = stage9;
+            return projectData;
         });
-        projectData.data.stage9_rewrites = stage9;
-        await writeJSONQueued(filePath, projectData);
 
-        res.json({ stage9_rewrites: stage9, snapshotIds: snapshotEntries.map(entry => entry.id) });
+        res.json({ stage9_rewrites: updatedProject.data.stage9_rewrites, snapshotIds: snapshotEntries.map(entry => entry.id) });
     } catch (error) {
         console.error('approve-rewrite-priority error:', error.message);
         res.status(500).json({ error: 'Failed to approve rewrite priority' });
@@ -5537,10 +5596,25 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
             enrichedFeedback,
             getModelConfigWithSourcePacket(10, sourcePacket),
         );
-        recordSourceGenerationUsage(projectData, sourcePacket, proposed_text, 'rewrite_feedback');
-        await writeJSONQueued(filePath, projectData);
+        let snapshotEntries = [];
+        await updateProjectJSON(projectId, (freshProject) => {
+            if (Number.isFinite(sceneNum) && sceneNum > 0) {
+                snapshotEntries = persistStage10PendingRewrite(freshProject, {
+                    projectId,
+                    sceneNum,
+                    proposedText: proposed_text,
+                    note: `Pending feedback rewrite for scene ${sceneNum}`,
+                    sourcePacket,
+                    sourceText: proposed_text,
+                    sourceReason: 'rewrite_feedback'
+                });
+            } else {
+                recordSourceGenerationUsage(freshProject, sourcePacket, proposed_text, 'rewrite_feedback');
+            }
+            return freshProject;
+        });
         trackUsage(projectId, usage);
-        res.json({ proposed_text, ...(savedSource && { savedSource }), ...sourceResponseExtras(sourcePacket) });
+        res.json({ proposed_text, snapshotIds: snapshotEntries.map(entry => entry.id), ...(savedSource && { savedSource }), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
         res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
@@ -5553,23 +5627,21 @@ app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
         const { projectId } = req.body;
         if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
-
-        if (projectData.data?.stage9_rewrites) {
-            const beforeRewrite = JSON.parse(JSON.stringify(projectData.data.stage9_rewrites));
-            projectData.data.stage9_rewrites.approved = true;
-            recordArtifactMutation(projectData, {
-                projectId,
-                stage: 10,
-                before: beforeRewrite,
-                after: projectData.data.stage9_rewrites,
-                operation: 'approval',
-                note: 'Finalize Stage 10'
-            });
-        }
-        await writeJSONQueued(filePath, projectData);
+        await updateProjectJSON(projectId, (projectData) => {
+            if (projectData.data?.stage9_rewrites) {
+                const beforeRewrite = JSON.parse(JSON.stringify(projectData.data.stage9_rewrites));
+                projectData.data.stage9_rewrites.approved = true;
+                recordArtifactMutation(projectData, {
+                    projectId,
+                    stage: 10,
+                    before: beforeRewrite,
+                    after: projectData.data.stage9_rewrites,
+                    operation: 'approval',
+                    note: 'Finalize Stage 10'
+                });
+            }
+            return projectData;
+        });
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
