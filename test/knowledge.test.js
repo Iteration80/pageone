@@ -590,10 +590,13 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
 
 test('Claude client streams long Opus requests used by Stage 3 characters', () => {
     const aiClient = fs.readFileSync(require.resolve('../agents/ai-client.js'), 'utf8');
-    assert.match(aiClient, /client\.messages\.stream\(request\)/);
+    assert.match(aiClient, /client\.messages\.stream\(request, requestOptions\)/);
     assert.match(aiClient, /stream\.finalMessage\(\)/);
     assert.match(aiClient, /maxTokens >= 32000/);
     assert.match(aiClient, /model === 'claude-opus-4-7'/);
+    assert.match(aiClient, /abortSignal/);
+    assert.match(aiClient, /CLIENT_DISCONNECTED/);
+    assert.match(aiClient, /client\.messages\.create\(request, requestOptions\)/);
 });
 
 test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
@@ -640,7 +643,7 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
     assert.match(serverJs, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
-    assert.ok(serverJs.indexOf('applyStageRevisionPlan({') < serverJs.indexOf('agent2Outline(stage1'));
+    assert.ok(serverJs.indexOf('applyStageRevisionPlan({') < serverJs.indexOf('agent2Outline('));
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 2 outline'\)/);
     assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage: 2/);
@@ -654,6 +657,35 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.doesNotMatch(stageRevisionKernel, /Dapple Rising - The Anchor/);
     assert.doesNotMatch(stageRevisionKernel, /Aftermath - A New Order/);
     assert.doesNotMatch(stageRevisionKernel, /Closing Image - The Photo on the Wall/);
+});
+
+test('streaming generation routes abort model work and skip saves after disconnect', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+
+    assert.match(serverJs, /function createClientAbortTracker/);
+    assert.match(serverJs, /res\.on\('close', abort\)/);
+    assert.match(serverJs, /controller\.abort\(error\)/);
+    assert.match(serverJs, /function withAbortSignal/);
+    assert.match(serverJs, /abortSignal: signal/);
+
+    for (const label of [
+        'Stage 2 outline stream',
+        'Stage 4 beats stream',
+        'Stage 5 treatment stream',
+        'Stage 6 scene generation stream',
+        'Stage 6 revision stream'
+    ]) {
+        assert.match(serverJs, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(2, sourcePacket\), abortTracker\?\.signal\)/);
+    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(4, sourcePacket\), abortTracker\.signal\)/);
+    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(5, sourcePacket\), abortTracker\.signal\)/);
+    assert.match(serverJs, /withAbortSignal\(getModelConfig\(6\), abortTracker\.signal\)/);
+    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(6, sourcePacket\), abortTracker\?\.signal\)/);
+    assert.match(serverJs, /abortTracker\?\.throwIfAborted\(\)/);
+    assert.match(serverJs, /abortTracker\.throwIfAborted\(\)/);
+    assert.match(serverJs, /isClientAbortError\(error\)/);
 });
 
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {

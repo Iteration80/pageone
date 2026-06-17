@@ -78,6 +78,59 @@ function publicErrorDetail(error, maxChars = 900) {
         .slice(0, maxChars);
 }
 
+function isClientAbortError(error) {
+    return error?.code === 'CLIENT_DISCONNECTED' || error?.name === 'AbortError';
+}
+
+function throwIfClientAborted(signal) {
+    if (!signal?.aborted) return;
+    const error = new Error('Client disconnected');
+    error.code = 'CLIENT_DISCONNECTED';
+    throw error;
+}
+
+function createClientAbortTracker(res, label = 'streaming request') {
+    const controller = new AbortController();
+    let completed = false;
+    const abort = () => {
+        if (completed || res.writableEnded || controller.signal.aborted) return;
+        const error = new Error('Client disconnected');
+        error.code = 'CLIENT_DISCONNECTED';
+        controller.abort(error);
+        console.warn(`${label}: client disconnected; aborting in-flight work.`);
+    };
+    res.on('close', abort);
+    return {
+        signal: controller.signal,
+        markComplete() {
+            completed = true;
+            res.off?.('close', abort);
+        },
+        throwIfAborted() {
+            throwIfClientAborted(controller.signal);
+        }
+    };
+}
+
+function withAbortSignal(modelConfig = {}, signal = null) {
+    if (!signal) return modelConfig;
+    const baseGenerateContent = modelConfig.generateContentFn || generateContent;
+    return {
+        ...modelConfig,
+        abortSignal: signal,
+        generateContentFn: async (request = {}) => {
+            throwIfClientAborted(signal);
+            return baseGenerateContent({
+                ...request,
+                config: {
+                    ...(request.config || {}),
+                    abortSignal: signal
+                }
+            });
+        }
+    };
+}
+
 /**
  * Atomic file write — writes to a temp file in the same directory, then renames.
  * Prevents corruption from concurrent writes or interrupted I/O.
@@ -3905,9 +3958,10 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         /\btext\/event-stream\b/i.test(req.headers.accept || '');
     let streaming = false;
     let heartbeat = null;
+    const abortTracker = wantsStream ? createClientAbortTracker(res, 'Stage 2 outline stream') : null;
 
     const send = (data) => {
-        if (streaming && !res.destroyed && !res.writableEnded) {
+        if (streaming && !abortTracker?.signal.aborted && !res.destroyed && !res.writableEnded) {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
         }
     };
@@ -3920,7 +3974,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders?.();
         heartbeat = setInterval(() => {
-            if (!res.destroyed && !res.writableEnded) {
+            if (!abortTracker?.signal.aborted && !res.destroyed && !res.writableEnded) {
                 res.write(': keep-alive\n\n');
             }
         }, 15000);
@@ -3969,6 +4023,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                 throw new Error(`Stage 2 deterministic outline revision failed verification${failureList ? `: ${failureList}` : ''}`);
             }
             if (deterministicRevision?.receipt?.verified && deterministicRevision.plan?.canApplyDirectly) {
+                abortTracker?.throwIfAborted();
                 const existingStage2 = projectData.data?.stage2_outline || {};
                 const outlineData = {
                     title: existingStage2.title || stage1.title || projectData.title || 'Untitled',
@@ -4022,7 +4077,14 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         console.log("Generating Stage 2 Outline...");
         const stage2KnowledgeSeed = `${JSON.stringify(stage1, null, 2)}\n${parsedBeats ? JSON.stringify(parsedBeats, null, 2) : ''}\n${notesWithUpload}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 2, stage2KnowledgeSeed, { userMessage: notesWithUpload });
-        const { result: outlineData, usage } = await agent2Outline(stage1, parsedBeats, notesWithUpload, uploadContext.agentFile, getModelConfigWithSourcePacket(2, sourcePacket));
+        const { result: outlineData, usage } = await agent2Outline(
+            stage1,
+            parsedBeats,
+            notesWithUpload,
+            uploadContext.agentFile,
+            withAbortSignal(getModelConfigWithSourcePacket(2, sourcePacket), abortTracker?.signal)
+        );
+        abortTracker?.throwIfAborted();
         outlineData.protected_beats = activeProtectedBeats;
         const revisionChecklist = notesWithUpload ? buildOutlineRevisionChecklist(notesWithUpload) : [];
         const explicitSequenceReplacement = notesWithUpload ? extractExplicitOutlineSequenceReplacement(notesWithUpload) : null;
@@ -4097,6 +4159,10 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             res.json(payload);
         }
     } catch (error) {
+        if (isClientAbortError(error)) {
+            console.warn('Stage 2 outline stream stopped after client disconnect.');
+            return;
+        }
         console.error('Outline Gen Error:', error);
         const detail = publicErrorDetail(error);
         const message = detail ? `Failed to generate outline: ${detail}` : "Failed to generate outline";
@@ -4107,7 +4173,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
         }
     } finally {
         if (heartbeat) clearInterval(heartbeat);
-        if (streaming && !res.writableEnded) res.end();
+        abortTracker?.markComplete();
+        if (streaming && !res.destroyed && !res.writableEnded) res.end();
     }
 });
 
@@ -4224,9 +4291,10 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
+    const abortTracker = createClientAbortTracker(res, 'Stage 4 beats stream');
 
     const send = (data) => {
-        if (!res.destroyed && !res.writableEnded) {
+        if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
             res.flush?.();
         }
@@ -4245,8 +4313,9 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         const { result: beatsResult, usage } = await agent4Beats(
             pitchData, beatsData, charsData, parsedCurrentBeats, notesWithUpload, uploadContext.agentFile,
             (label) => send({ type: 'progress', label }),
-            getModelConfigWithSourcePacket(4, sourcePacket)
+            withAbortSignal(getModelConfigWithSourcePacket(4, sourcePacket), abortTracker.signal)
         );
+        abortTracker.throwIfAborted();
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
         const revisionTransaction = notesWithUpload && !isFullStage4Generation
@@ -4285,12 +4354,17 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 
         send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
+        if (isClientAbortError(error)) {
+            console.warn('Stage 4 beats stream stopped after client disconnect.');
+            return;
+        }
         console.error('Stage 4 Beats Gen Error:', error.message);
         const detail = publicErrorDetail(error);
         send({ type: 'error', message: detail ? `Failed to generate beats: ${detail}` : 'Failed to generate beats' });
     } finally {
         clearInterval(heartbeat);
-        res.end();
+        abortTracker.markComplete();
+        if (!res.destroyed && !res.writableEnded) res.end();
     }
 });
 
@@ -4328,9 +4402,10 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
+    const abortTracker = createClientAbortTracker(res, 'Stage 5 treatment stream');
 
     const send = (data) => {
-        if (!res.destroyed && !res.writableEnded) {
+        if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
             res.flush?.();
         }
@@ -4349,8 +4424,9 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
         const { result: treatmentResult, usageList } = await agent5Treatment(
             pitchData, charactersData, beatsData, parsedTreatment, notesWithUpload,
             (step, total, label) => send({ type: 'progress', step, total, label }),
-            getModelConfigWithSourcePacket(5, sourcePacket)
+            withAbortSignal(getModelConfigWithSourcePacket(5, sourcePacket), abortTracker.signal)
         );
+        abortTracker.throwIfAborted();
         const revisionTransaction = notesWithUpload
             ? createRevisionTransaction({
                 stageId: 'stage5_treatment',
@@ -4382,12 +4458,17 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
 
         send({ type: 'complete', result: treatmentResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
+        if (isClientAbortError(error)) {
+            console.warn('Stage 5 treatment stream stopped after client disconnect.');
+            return;
+        }
         console.error('Stage 5 Treatment Gen Error:', error.message, error.stack);
         const detail = error?.message ? `: ${String(error.message).slice(0, 240)}` : '';
         send({ type: 'error', message: `Failed to generate treatment${detail}` });
     } finally {
         clearInterval(heartbeat);
-        res.end();
+        abortTracker.markComplete();
+        if (!res.destroyed && !res.writableEnded) res.end();
     }
 });
 
@@ -4419,10 +4500,15 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
+    const abortTracker = createClientAbortTracker(res, 'Stage 6 scene generation stream');
 
-    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const send = (data) => {
+        if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        }
+    };
     const heartbeat = setInterval(() => {
-        if (!res.destroyed && !res.writableEnded) {
+        if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
             res.write(': keep-alive\n\n');
         }
     }, 15000);
@@ -4443,9 +4529,10 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
             pitch, characters, beats, treatment,
             (current, total) => send({ type: 'progress', current, total }),
             combinedSourceBlock,
-            getModelConfig(6),
+            withAbortSignal(getModelConfig(6), abortTracker.signal),
             generationNotes
         );
+        abortTracker.throwIfAborted();
         const { snapshotIds } = await finalizeGeneratedStageArtifact({
             projectId,
             filePath,
@@ -4463,20 +4550,26 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
 
         send({ type: 'complete', result: allSequences, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
+        if (isClientAbortError(error)) {
+            console.warn('Stage 6 scene generation stream stopped after client disconnect.');
+            return;
+        }
         console.error('Stage 6 Scene Gen Error:', error.message);
         const detail = publicErrorDetail(error);
         send({ type: 'error', message: detail ? `Failed to generate scene blueprint: ${detail}` : 'Failed to generate scene blueprint' });
     } finally {
         clearInterval(heartbeat);
-        res.end();
+        abortTracker.markComplete();
+        if (!res.destroyed && !res.writableEnded) res.end();
     }
 });
 
 app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
     let heartbeat = null;
     let streaming = false;
+    let abortTracker = null;
     const send = (data) => {
-        if (streaming && !res.destroyed && !res.writableEnded) {
+        if (streaming && !abortTracker?.signal.aborted && !res.destroyed && !res.writableEnded) {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
         }
     };
@@ -4502,12 +4595,13 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
 
         if (streaming) {
+            abortTracker = createClientAbortTracker(res, 'Stage 6 revision stream');
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
             res.flushHeaders();
             heartbeat = setInterval(() => {
-                if (!res.destroyed && !res.writableEnded) {
+                if (!abortTracker?.signal.aborted && !res.destroyed && !res.writableEnded) {
                     res.write(': keep-alive\n\n');
                 }
             }, 15000);
@@ -4518,7 +4612,12 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         console.log("Revising Stage 6 Scene Blueprint...");
         const stage6RevisionSeed = `${JSON.stringify(currentBlueprint, null, 2)}\n${feedback}`;
         const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6RevisionSeed, { userMessage: feedback });
-        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(currentBlueprint, feedback, getModelConfigWithSourcePacket(6, sourcePacket));
+        const { result: updatedBlueprint, usage } = await reviseStage6Scenes(
+            currentBlueprint,
+            feedback,
+            withAbortSignal(getModelConfigWithSourcePacket(6, sourcePacket), abortTracker?.signal)
+        );
+        abortTracker?.throwIfAborted();
         const revisionTransaction = createRevisionTransaction({
             stageId: 'stage6_scenes',
             before: currentBlueprint || [],
@@ -4557,6 +4656,10 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
             res.json(payload);
         }
     } catch (error) {
+        if (isClientAbortError(error)) {
+            console.warn('Stage 6 revision stream stopped after client disconnect.');
+            return;
+        }
         console.error('Stage 6 Revision Error:', error.message);
         const errorMessage = error.code === 'NO_BLUEPRINT_CHANGES'
             ? error.message
@@ -4568,7 +4671,8 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
         }
     } finally {
         if (heartbeat) clearInterval(heartbeat);
-        if (streaming && !res.writableEnded) res.end();
+        abortTracker?.markComplete();
+        if (streaming && !res.destroyed && !res.writableEnded) res.end();
     }
 });
 

@@ -186,6 +186,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Stage 10 pending rewrites now rehydrate with an explicit saved-text cache, selected-scene feedback persists its proposed text to `stage9_rewrites.pending`, manual edits to pending rewrites auto-save through `/api/save-stage10-pending`, and scene switching / priority approval / finalization wait for unresolved pending saves.
 - Stage 10 pending, priority approval, and finalization writes now use `updateProjectJSON()` so long-running rewrite work merges into the latest project JSON instead of writing a stale request snapshot.
 
+### Codex continuation notes — 2026-06-17 (Phase 5 streaming disconnects)
+- Stage 2/4/5/6 streaming generation and Stage 6 streaming revision now attach a close-aware abort tracker; if the browser disconnects, in-flight model calls receive an abort signal and the route stops before writing late results to project JSON.
+- `agents/ai-client.js` now passes abort signals through Gemini and Anthropic calls, including long Claude streamed requests, and normalizes SDK aborts as `CLIENT_DISCONNECTED` so agent retry loops do not retry intentional client disconnects.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

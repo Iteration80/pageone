@@ -17,9 +17,24 @@ function detectProvider(model) {
     return 'gemini';
 }
 
+function normalizeAbortError(error, signal) {
+    if (!signal?.aborted && error?.name !== 'AbortError' && error?.code !== 'ABORT_ERR') return;
+    const abortError = new Error('Client disconnected');
+    abortError.code = 'CLIENT_DISCONNECTED';
+    abortError.cause = error;
+    throw abortError;
+}
+
+function throwIfAborted(signal) {
+    if (!signal?.aborted) return;
+    normalizeAbortError(signal.reason || new Error('Client disconnected'), signal);
+}
+
 // ─── Gemini path ─────────────────────────────────────────────────────────────
 
 async function callGemini({ model, geminiApiKey, contents, config = {}, schema }) {
+    const signal = config?.abortSignal;
+    throwIfAborted(signal);
     const ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { timeout: 300_000 } });
     const callConfig = { ...config };
 
@@ -28,7 +43,13 @@ async function callGemini({ model, geminiApiKey, contents, config = {}, schema }
         callConfig.responseSchema = schema;
     }
 
-    const response = await ai.models.generateContent({ model, contents, config: callConfig });
+    let response;
+    try {
+        response = await ai.models.generateContent({ model, contents, config: callConfig });
+    } catch (error) {
+        normalizeAbortError(error, signal);
+        throw error;
+    }
     const rawText = response.text;
     const usage = {
         model,
@@ -133,6 +154,8 @@ function extractJsonFromText(text, schema) {
 const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7'];
 
 async function callClaude({ model, anthropicApiKey, contents, config = {}, schema }) {
+    const signal = config?.abortSignal;
+    throwIfAborted(signal);
     const client = new Anthropic({ apiKey: anthropicApiKey });
     const messages = normalizeContentsForClaude(contents);
     const system = buildClaudeSystemPrompt(config?.systemInstruction, schema);
@@ -165,15 +188,21 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     // Some long Claude calls, especially Opus with large max_tokens, must use
     // streaming even when the caller only needs a final accumulated response.
     const shouldStream = maxTokens >= 32000 || model === 'claude-opus-4-7';
-    if (shouldStream) {
-        const stream = client.messages.stream(request);
-        const message = await stream.finalMessage();
-        return normalizeClaudeMessage(message);
-    }
+    const requestOptions = signal ? { signal } : undefined;
+    try {
+        if (shouldStream) {
+            const stream = client.messages.stream(request, requestOptions);
+            const message = await stream.finalMessage();
+            return normalizeClaudeMessage(message);
+        }
 
-    // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
-    const response = await client.messages.create(request);
-    return normalizeClaudeMessage(response);
+        // Note: thinkingConfig and tools (e.g. googleSearch) are Gemini-only — silently dropped here
+        const response = await client.messages.create(request, requestOptions);
+        return normalizeClaudeMessage(response);
+    } catch (error) {
+        normalizeAbortError(error, signal);
+        throw error;
+    }
 }
 
 // ─── Chat with tools ──────────────────────────────────────────────────────────
@@ -193,8 +222,9 @@ const {
  *
  * @returns {{ text: string, toolCalls: [{id,name,input}], usage: {model,inputTokens,outputTokens}, stopReason: string|null }}
  */
-async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, messages, tools = [], temperature = 0.7, maxTokens = 4000 }) {
+async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, messages, tools = [], temperature = 0.7, maxTokens = 4000, abortSignal = null }) {
     const provider = detectProvider(model);
+    throwIfAborted(abortSignal);
 
     if (provider === 'anthropic') {
         const client = new Anthropic({ apiKey: anthropicApiKey });
@@ -206,7 +236,13 @@ async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, mes
             messages: toAnthropicMessages(messages),
             ...(tools.length ? { tools: toAnthropicTools(tools) } : {})
         };
-        const response = await client.messages.create(request);
+        let response;
+        try {
+            response = await client.messages.create(request, abortSignal ? { signal: abortSignal } : undefined);
+        } catch (error) {
+            normalizeAbortError(error, abortSignal);
+            throw error;
+        }
         const parsed = parseAnthropicResponse(response);
         return {
             ...parsed,
@@ -219,16 +255,23 @@ async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, mes
     }
 
     const ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { timeout: 300_000 } });
-    const response = await ai.models.generateContent({
-        model,
-        contents: toGeminiContents(messages),
-        config: {
-            ...(system ? { systemInstruction: system } : {}),
-            temperature,
-            maxOutputTokens: maxTokens,
-            ...(tools.length ? { tools: toGeminiTools(tools) } : {})
-        }
-    });
+    let response;
+    try {
+        response = await ai.models.generateContent({
+            model,
+            contents: toGeminiContents(messages),
+            config: {
+                ...(system ? { systemInstruction: system } : {}),
+                temperature,
+                maxOutputTokens: maxTokens,
+                ...(abortSignal ? { abortSignal } : {}),
+                ...(tools.length ? { tools: toGeminiTools(tools) } : {})
+            }
+        });
+    } catch (error) {
+        normalizeAbortError(error, abortSignal);
+        throw error;
+    }
     const parsed = parseGeminiResponse(response);
     return {
         ...parsed,
