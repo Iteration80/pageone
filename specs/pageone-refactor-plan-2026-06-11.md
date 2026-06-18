@@ -194,6 +194,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Added typed API errors (`BadRequestError`, `NotFoundError`, `RateLimitError`) plus a shared JSON responder that exposes intentional 4xx messages and keeps unexpected 5xx details behind fallback text.
 - Migrated rate limit responses, project CRUD/import routes, project knowledge load, and project source upload/asset/delete/update routes onto the shared responder; source helper failures now throw typed 400/404 errors instead of hand-setting `statusCode`.
 
+### Codex continuation notes — 2026-06-18 (Phase 5 typed API errors, style/export pass)
+- Migrated Stage 7 style generation, preview, selection, trained-style creation, and style CRUD routes onto typed 400/404 errors plus the shared API responder.
+- Export helpers and DOCX/PDF export routes now use `readProjectJSONById()` and typed `BadRequestError` failures for missing stage data, unknown export stages, and empty screenplay exports while preserving binary responses on success.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

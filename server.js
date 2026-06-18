@@ -5828,10 +5828,9 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         // Load project context if projectId provided (optional for Landing Page creation)
         let projectData = null, filePath = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
-            filePath = path.join(DATA_DIR, `${projectId}.json`);
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
+            assertValidProjectId(projectId, 'Invalid projectId');
+            filePath = getProjectFilePath(projectId);
+            projectData = await readProjectJSONById(projectId, { invalidMessage: 'Invalid projectId' });
         }
 
         // Build scene summaries for context
@@ -5892,7 +5891,7 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
         res.json({ slug, content: styleContent, meta, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-stage7-style error:', error.message);
-        res.status(500).json({ error: 'Failed to generate style' });
+        sendApiError(res, error, 'Failed to generate style');
     }
 });
 
@@ -5900,11 +5899,10 @@ app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sam
 app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, styleSlug, sceneIndex = 0 } = req.body;
-        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
+        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) throw new BadRequestError('Missing or invalid projectId or styleSlug');
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         // Load style file — try new naming first, fall back to legacy
         let styleContent;
@@ -5914,7 +5912,7 @@ app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) =>
             try {
                 styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
             } catch {
-                return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+                throw new NotFoundError(`Style "${styleSlug}" not found`);
             }
         }
 
@@ -5925,7 +5923,7 @@ app.post('/api/preview-style-scene', requireAuth, aiLimiter, async (req, res) =>
         }
         allScenes.sort((a, b) => a.scene_number - b.scene_number);
         const scene = allScenes[sceneIndex] || allScenes[0];
-        if (!scene) return res.status(400).json({ error: 'No scenes found in project' });
+        if (!scene) throw new BadRequestError('No scenes found in project');
 
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const projectContext = {
@@ -5972,7 +5970,7 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         res.json({ sceneNumber: scene.scene_number, previewText: response.text, ...sourceResponseExtras(previewPacket) });
     } catch (error) {
         console.error('preview-style-scene error:', error.message);
-        res.status(500).json({ error: 'Failed to preview style scene' });
+        sendApiError(res, error, 'Failed to preview style scene');
     }
 });
 
@@ -6023,7 +6021,7 @@ app.get('/api/styles', requireAuth, async (req, res) => {
         res.json({ styles });
     } catch (error) {
         console.error('list styles error:', error.message);
-        res.status(500).json({ error: 'Failed to list styles' });
+        sendApiError(res, error, 'Failed to list styles');
     }
 });
 
@@ -6031,7 +6029,7 @@ app.get('/api/styles', requireAuth, async (req, res) => {
 app.post('/api/select-style', requireAuth, async (req, res) => {
     try {
         const { projectId, styleSlug } = req.body;
-        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) return res.status(400).json({ error: 'Missing or invalid projectId or styleSlug' });
+        if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) throw new BadRequestError('Missing or invalid projectId or styleSlug');
 
         // Verify style exists — try new naming first, fall back to legacy
         let styleContent = null;
@@ -6041,13 +6039,12 @@ app.post('/api/select-style', requireAuth, async (req, res) => {
             try {
                 styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
             } catch {
-                return res.status(404).json({ error: `Style "${styleSlug}" not found` });
+                throw new NotFoundError(`Style "${styleSlug}" not found`);
             }
         }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         projectData.data = projectData.data || {};
         projectData.data.stage7_style = styleSlug;
@@ -6058,7 +6055,7 @@ app.post('/api/select-style', requireAuth, async (req, res) => {
         res.json({ slug: styleSlug, content: styleContent, meta });
     } catch (error) {
         console.error('select-style error:', error.message);
-        res.status(500).json({ error: 'Failed to select style' });
+        sendApiError(res, error, 'Failed to select style');
     }
 });
 
@@ -6081,18 +6078,15 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
             }
         }
 
-        if (screenplayTexts.length === 0) {
-            return res.status(400).json({ error: 'At least one screenplay file is required for trained style generation' });
-        }
+        if (screenplayTexts.length === 0) throw new BadRequestError('At least one screenplay file is required for trained style generation');
 
         let projectData = null;
         let filePath = null;
         let sourcePacket = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
-            filePath = path.join(DATA_DIR, `${projectId}.json`);
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
+            assertValidProjectId(projectId, 'Invalid projectId');
+            filePath = getProjectFilePath(projectId);
+            projectData = await readProjectJSONById(projectId, { invalidMessage: 'Invalid projectId' });
             const styleKnowledgeSeed = `${styleName || ''}\n${screenplayTitles.join('\n')}\n${conversationHistory.map(m => m.content).join('\n')}`;
             sourcePacket = buildSourceGenerationPacket(projectData, 7, styleKnowledgeSeed, { userMessage: styleName || 'Generate trained style.' });
         }
@@ -6127,7 +6121,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
         res.json({ slug, content: directive, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('generate-trained-style error:', error.message);
-        res.status(500).json({ error: 'Failed to generate trained style' });
+        sendApiError(res, error, 'Failed to generate trained style');
     }
 });
 
@@ -6135,7 +6129,7 @@ app.post('/api/generate-trained-style', requireAuth, strictLimiter, upload.array
 app.get('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
-        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
+        if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
         let directive = null, reference = null;
 
         // Try new naming first, fall back to legacy
@@ -6145,7 +6139,7 @@ app.get('/api/styles/:slug', requireAuth, async (req, res) => {
             try {
                 directive = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
             } catch {
-                return res.status(404).json({ error: `Style "${slug}" not found` });
+                throw new NotFoundError(`Style "${slug}" not found`);
             }
         }
 
@@ -6160,7 +6154,7 @@ app.get('/api/styles/:slug', requireAuth, async (req, res) => {
         res.json({ slug, directive, reference, meta, body, tier });
     } catch (error) {
         console.error('get-style error:', error.message);
-        res.status(500).json({ error: 'Failed to load style' });
+        sendApiError(res, error, 'Failed to load style');
     }
 });
 
@@ -6169,8 +6163,8 @@ app.put('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
         const { content } = req.body;
-        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
-        if (!content) return res.status(400).json({ error: 'Missing content' });
+        if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
+        if (!content) throw new BadRequestError('Missing content');
 
         // Verify the file exists first
         let filePath;
@@ -6182,7 +6176,7 @@ app.put('/api/styles/:slug', requireAuth, async (req, res) => {
                 filePath = path.join(STYLES_DIR, `${slug}.md`);
                 await fs.access(filePath);
             } catch {
-                return res.status(404).json({ error: `Style "${slug}" not found` });
+                throw new NotFoundError(`Style "${slug}" not found`);
             }
         }
 
@@ -6191,7 +6185,7 @@ app.put('/api/styles/:slug', requireAuth, async (req, res) => {
         res.json({ slug, meta });
     } catch (error) {
         console.error('update-style error:', error.message);
-        res.status(500).json({ error: 'Failed to update style' });
+        sendApiError(res, error, 'Failed to update style');
     }
 });
 
@@ -6199,7 +6193,7 @@ app.put('/api/styles/:slug', requireAuth, async (req, res) => {
 app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
     try {
         const { slug } = req.params;
-        if (!isValidSlug(slug)) return res.status(400).json({ error: 'Invalid slug' });
+        if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
         let deleted = false;
 
         // Delete all possible files for this slug
@@ -6210,11 +6204,11 @@ app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
             } catch { /* file doesn't exist, that's fine */ }
         }
 
-        if (!deleted) return res.status(404).json({ error: 'Style not found' });
+        if (!deleted) throw new NotFoundError('Style not found');
         res.json({ deleted: true, slug });
     } catch (error) {
         console.error('delete-style error:', error.message);
-        res.status(500).json({ error: 'Failed to delete style' });
+        sendApiError(res, error, 'Failed to delete style');
     }
 });
 
@@ -6987,17 +6981,16 @@ app.delete('/api/projects/:id', requireAuth, async (req, res) => {
 // ─── Export Endpoints ─────────────────────────────────────────────────────────
 
 async function loadProjectData(projectId) {
-    if (!isValidProjectId(projectId)) throw Object.assign(new Error('Invalid project ID'), { status: 400 });
-    const filePath = path.join(DATA_DIR, `${projectId}.json`);
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content);
+    return readProjectJSONById(projectId, {
+        invalidMessage: 'Invalid project ID',
+        notFoundMessage: 'Project not found'
+    });
 }
 
 // GET /api/export/docx/:projectId?stage=outline|characters|treatment|draft|coverage
 app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
         const stage = req.query.stage || 'coverage';
         const project = await loadProjectData(projectId);
         const data = project.data || {};
@@ -7008,41 +7001,41 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
 
         if (stage === 'pitch') {
             const pitch = data.stage1_pitch?.pitch;
-            if (!pitch) return res.status(400).json({ error: 'No pitch data found' });
+            if (!pitch) throw new BadRequestError('No pitch data found');
             buf = await generatePitchDocx(pitch);
             filename = `${safeName}_pitch.docx`;
 
         } else if (stage === 'coverage') {
-            if (!data.stage8_coverage) return res.status(400).json({ error: 'No coverage data found' });
+            if (!data.stage8_coverage) throw new BadRequestError('No coverage data found');
             buf = await generateCoverageDocx(data.stage8_coverage);
             filename = `${safeName}_coverage.docx`;
 
         } else if (stage === 'outline') {
             const outline = data.stage2_outline?.outline;
-            if (!outline) return res.status(400).json({ error: 'No outline data found' });
+            if (!outline) throw new BadRequestError('No outline data found');
             buf = await generateOutlineDocx(outline, title);
             filename = `${safeName}_outline.docx`;
 
         } else if (stage === 'characters') {
             const chars = data.stage3_characters?.characters;
-            if (!chars || !chars.length) return res.status(400).json({ error: 'No character data found' });
+            if (!chars || !chars.length) throw new BadRequestError('No character data found');
             buf = await generateCharactersDocx(chars, title);
             filename = `${safeName}_characters.docx`;
 
         } else if (stage === 'treatment') {
-            if (!data.stage5_treatment) return res.status(400).json({ error: 'No treatment data found' });
+            if (!data.stage5_treatment) throw new BadRequestError('No treatment data found');
             buf = await generateTreatmentDocx(data.stage5_treatment, title);
             filename = `${safeName}_treatment.docx`;
 
         } else if (stage === 'beats') {
             const beats = data.stage4_beats || data.stage4_treatment;
-            if (!beats?.hybrid_beat_sheet) return res.status(400).json({ error: 'No beat sheet data found' });
+            if (!beats?.hybrid_beat_sheet) throw new BadRequestError('No beat sheet data found');
             buf = await generateBeatsDocx(beats, title);
             filename = `${safeName}_beats.docx`;
 
         } else if (stage === 'scenes') {
             const seqs = data.stage6_scenes;
-            if (!seqs || !seqs.length) return res.status(400).json({ error: 'No scene blueprint data found' });
+            if (!seqs || !seqs.length) throw new BadRequestError('No scene blueprint data found');
             const sequences = Array.isArray(seqs) ? seqs : (seqs.sequences || []);
             buf = await generateScenesDocx(sequences, title);
             filename = `${safeName}_scene_blueprint.docx`;
@@ -7050,20 +7043,20 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
         } else if (stage === 'draft') {
             const scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);
             const drafted = scenes.filter(s => s.draft_text || s.humanized_draft_text);
-            if (!drafted.length) return res.status(400).json({ error: 'No drafted scenes found' });
+            if (!drafted.length) throw new BadRequestError('No drafted scenes found');
             buf = await generateDraftDocx(drafted, title);
             filename = `${safeName}_draft.docx`;
 
         } else if (stage === 'rewrite') {
             const working = data.stage9_rewrites?.working;
-            if (!working) return res.status(400).json({ error: 'No rewrite data found' });
+            if (!working) throw new BadRequestError('No rewrite data found');
             // Convert working object to scene-like array for draft export
             const fakescenes = Object.entries(working).map(([, txt]) => ({ humanized_draft_text: txt }));
             buf = await generateDraftDocx(fakescenes, title);
             filename = `${safeName}_rewrite.docx`;
 
         } else {
-            return res.status(400).json({ error: `Unknown stage: ${stage}` });
+            throw new BadRequestError(`Unknown stage: ${stage}`);
         }
 
         const exportStage = exportStageNumber(stage);
@@ -7077,7 +7070,7 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
         res.send(buf);
     } catch (err) {
         console.error('DOCX export error:', err);
-        res.status(500).json({ error: 'Export failed' });
+        sendApiError(res, err, 'Export failed');
     }
 });
 
@@ -7085,7 +7078,6 @@ app.get('/api/export/docx/:projectId', requireAuth, async (req, res) => {
 app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
         const stage = req.query.stage || 'draft';
         const project = await loadProjectData(projectId);
         const data = project.data || {};
@@ -7095,7 +7087,7 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
         let scenes;
         if (stage === 'rewrite') {
             const working = data.stage9_rewrites?.working;
-            if (!working) return res.status(400).json({ error: 'No rewrite data found' });
+            if (!working) throw new BadRequestError('No rewrite data found');
             scenes = Object.entries(working)
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .filter(([, txt]) => txt && txt.trim() !== '[SCENE DELETED]')
@@ -7105,7 +7097,7 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
             scenes = scenes.filter(s => s.draft_text || s.humanized_draft_text);
         }
 
-        if (!scenes.length) return res.status(400).json({ error: 'No scenes to export' });
+        if (!scenes.length) throw new BadRequestError('No scenes to export');
 
         const buf = await generateScreenplayPdf(scenes, title);
         const filename = `${safeName}_${stage}.pdf`;
@@ -7120,7 +7112,7 @@ app.get('/api/export/pdf/:projectId', requireAuth, async (req, res) => {
         res.send(buf);
     } catch (err) {
         console.error('PDF export error:', err);
-        res.status(500).json({ error: 'Export failed' });
+        sendApiError(res, err, 'Export failed');
     }
 });
 

@@ -764,6 +764,30 @@ test('project and source routes use typed API error responder for 400 404 and 42
     assert.doesNotMatch(sourceHelpers, /statusCode\s*=/);
 });
 
+test('style and export routes use typed API error responder for expected failures', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const styleRoutes = serverJs.match(/\/\/ --- Stage 7: Style Routes --- \/\/[\s\S]*?\/\/ --- Settings Routes --- \/\//)?.[0] || '';
+    const exportRoutes = serverJs.match(/\/\/ ─── Export Endpoints[\s\S]*?app\.use\('\/api'/)?.[0] || '';
+
+    assert.match(styleRoutes, /throw new BadRequestError\('Missing or invalid projectId or styleSlug'\)/);
+    assert.match(styleRoutes, /throw new BadRequestError\('At least one screenplay file is required for trained style generation'\)/);
+    assert.match(styleRoutes, /throw new NotFoundError\(`Style "\$\{styleSlug\}" not found`\)/);
+    assert.match(styleRoutes, /throw new NotFoundError\(`Style "\$\{slug\}" not found`\)/);
+    assert.match(styleRoutes, /throw new NotFoundError\('Style not found'\)/);
+    assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to generate style'\)/);
+    assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to preview style scene'\)/);
+    assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to select style'\)/);
+    assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to delete style'\)/);
+    assert.doesNotMatch(styleRoutes, /res\.status\((400|404|500)\)/);
+
+    assert.match(exportRoutes, /async function loadProjectData\(projectId\) \{[\s\S]*readProjectJSONById\(projectId, \{/);
+    assert.match(exportRoutes, /throw new BadRequestError\('No rewrite data found'\)/);
+    assert.match(exportRoutes, /throw new BadRequestError\(`Unknown stage: \$\{stage\}`\)/);
+    assert.match(exportRoutes, /sendApiError\(res, err, 'Export failed'\)/);
+    assert.doesNotMatch(exportRoutes, /Object\.assign\(new Error\('Invalid project ID'\)/);
+    assert.doesNotMatch(exportRoutes, /res\.status\((400|500)\)/);
+});
+
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
