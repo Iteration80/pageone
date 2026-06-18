@@ -69,6 +69,34 @@ function stage2ProtectedBeatEntriesForRequest(projectData = {}, rawProtectedBeat
     return normalizeProtectedBeats(source);
 }
 
+class ApiError extends Error {
+    constructor(statusCode, message, { code = '', expose = statusCode < 500 } = {}) {
+        super(message);
+        this.name = this.constructor.name;
+        this.statusCode = statusCode;
+        this.code = code;
+        this.expose = expose;
+    }
+}
+
+class BadRequestError extends ApiError {
+    constructor(message = 'Bad request', options = {}) {
+        super(400, message, { code: 'BAD_REQUEST', ...options });
+    }
+}
+
+class NotFoundError extends ApiError {
+    constructor(message = 'Not found', options = {}) {
+        super(404, message, { code: 'NOT_FOUND', ...options });
+    }
+}
+
+class RateLimitError extends ApiError {
+    constructor(message = 'Too many requests', options = {}) {
+        super(429, message, { code: 'RATE_LIMITED', ...options });
+    }
+}
+
 function publicErrorDetail(error, maxChars = 900) {
     const message = String(error?.message || '').trim();
     if (!message) return '';
@@ -76,6 +104,54 @@ function publicErrorDetail(error, maxChars = 900) {
         .replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]')
         .replace(/AIza[0-9A-Za-z_-]+/g, '[redacted]')
         .slice(0, maxChars);
+}
+
+function statusCodeForError(error) {
+    const explicit = Number(error?.statusCode || error?.status);
+    if (Number.isInteger(explicit) && explicit >= 400 && explicit <= 599) return explicit;
+    if (error?.code === 'ENOENT') return 404;
+    return 500;
+}
+
+function sendApiError(res, error, fallbackMessage = 'Request failed') {
+    const statusCode = statusCodeForError(error);
+    const hasExplicitStatus = Number.isInteger(Number(error?.statusCode || error?.status));
+    const expose = error instanceof ApiError ? error.expose : (hasExplicitStatus && statusCode < 500);
+    const message = expose && error?.message ? error.message : fallbackMessage;
+    const body = { error: message };
+    if (error instanceof ApiError && error.code) body.code = error.code;
+    return res.status(statusCode).json(body);
+}
+
+function assertValidProjectId(id, message = 'Invalid project ID') {
+    if (!isValidProjectId(id)) throw new BadRequestError(message);
+}
+
+function assertValidSourceId(sourceId, message = 'Invalid source ID') {
+    if (!/^src_[a-zA-Z0-9_]+$/.test(String(sourceId || ''))) throw new BadRequestError(message);
+}
+
+async function assertProjectExists(id, message = 'Project not found') {
+    try {
+        await fs.access(getProjectFilePath(id));
+    } catch (error) {
+        if (error.code === 'ENOENT') throw new NotFoundError(message);
+        throw error;
+    }
+}
+
+async function readProjectJSONById(id, {
+    invalidMessage = 'Invalid project ID',
+    notFoundMessage = 'Project not found'
+} = {}) {
+    assertValidProjectId(id, invalidMessage);
+    try {
+        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
+        return JSON.parse(content);
+    } catch (error) {
+        if (error.code === 'ENOENT') throw new NotFoundError(notFoundMessage);
+        throw error;
+    }
 }
 
 function isClientAbortError(error) {
@@ -1957,17 +2033,13 @@ async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceI
     const knowledge = ensureProjectKnowledge(projectData);
     const source = knowledge.source_registry.find(item => item.id === sourceId);
     if (!source) {
-        const err = new Error('Source not found');
-        err.statusCode = 404;
-        throw err;
+        throw new NotFoundError('Source not found');
     }
 
     if (assetKind === 'original') {
         const filePath = resolveStoredSourceAssetPath(projectId, sourceId, source.originalFile);
         if (!filePath) {
-            const err = new Error('Original source file is not available.');
-            err.statusCode = 404;
-            throw err;
+            throw new NotFoundError('Original source file is not available.');
         }
         const buffer = await fs.readFile(filePath);
         return {
@@ -2002,9 +2074,7 @@ async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceI
     if (assetKind === 'text' || assetKind === 'extracted') {
         const text = sourceTextFromRegistry(source);
         if (!text) {
-            const err = new Error('No readable text is available for this source.');
-            err.statusCode = 404;
-            throw err;
+            throw new NotFoundError('No readable text is available for this source.');
         }
         return {
             source: summarizeSourceForClient(source),
@@ -2016,9 +2086,7 @@ async function readKnowledgeSourceAssetForClient(projectData, projectId, sourceI
         };
     }
 
-    const err = new Error('Unknown source asset type.');
-    err.statusCode = 400;
-    throw err;
+    throw new BadRequestError('Unknown source asset type.');
 }
 
 function contentDispositionFilename(name, fallback = 'source') {
@@ -2239,9 +2307,7 @@ function updateKnowledgeSourceMetadata(projectData, sourceId, { type, tags } = {
     const knowledge = ensureProjectKnowledge(projectData);
     const source = knowledge.source_registry.find(item => item.id === sourceId);
     if (!source) {
-        const err = new Error('Source not found');
-        err.statusCode = 404;
-        throw err;
+        throw new NotFoundError('Source not found');
     }
 
     const cleanType = SOURCE_TYPE_OPTIONS.has(type) ? type : (source.type || 'source_material');
@@ -2267,9 +2333,7 @@ function removeKnowledgeSource(projectData, sourceId, { now = new Date().toISOSt
     const knowledge = ensureProjectKnowledge(projectData);
     const source = knowledge.source_registry.find(item => item.id === sourceId);
     if (!source) {
-        const err = new Error('Source not found');
-        err.statusCode = 404;
-        throw err;
+        throw new NotFoundError('Source not found');
     }
 
     const invalidatedReason = `Source ${source.name || sourceId} was removed from project knowledge.`;
@@ -3842,14 +3906,14 @@ const aiLimiter = rateLimit({
     max: 30,                   // max 30 AI calls per IP per minute
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many requests — slow down and try again.' },
+    handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
 });
 const strictLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many requests — slow down and try again.' },
+    handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
 });
 
 // Middleware
@@ -6224,7 +6288,7 @@ app.get('/api/projects', requireAuth, async (req, res) => {
         res.json({ projects });
     } catch (error) {
         console.error("Error reading projects:", error);
-        res.status(500).json({ error: "Failed to load projects" });
+        sendApiError(res, error, 'Failed to load projects');
     }
 });
 
@@ -6232,20 +6296,10 @@ app.get('/api/projects', requireAuth, async (req, res) => {
 app.get('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
-        const filePath = path.join(DATA_DIR, `${id}.json`);
-
-        try {
-            await fs.access(filePath);
-        } catch {
-            return res.status(404).json({ error: "Project not found" });
-        }
-
-        const content = await fs.readFile(filePath, 'utf-8');
-        res.json(JSON.parse(content));
+        res.json(await readProjectJSONById(id));
     } catch (error) {
         console.error("Error reading project:", error);
-        res.status(500).json({ error: "Failed to load project details" });
+        sendApiError(res, error, 'Failed to load project details');
     }
 });
 
@@ -6265,7 +6319,7 @@ app.post('/api/projects', requireAuth, async (req, res) => {
         res.status(201).json(newProject);
     } catch (error) {
         console.error("Error creating project:", error);
-        res.status(500).json({ error: "Failed to create project" });
+        sendApiError(res, error, 'Failed to create project');
     }
 });
 
@@ -6274,7 +6328,7 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
     try {
         const { parseFountain, parseFdx, parsePdfScript, buildStage6FromScenes } = require('./utils/script-import');
         const file = req.file;
-        if (!file) return res.status(400).json({ error: 'No file uploaded' });
+        if (!file) throw new BadRequestError('No file uploaded');
 
         const ext = (file.originalname || '').split('.').pop().toLowerCase();
         const userTitle = req.body.title?.trim() || '';
@@ -6289,11 +6343,11 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
         } else if (ext === 'pdf') {
             parsed = await parsePdfScript(file.buffer, getModelConfig(1));
         } else {
-            return res.status(400).json({ error: `Unsupported file type: .${ext}. Use .fountain, .fdx, or .pdf` });
+            throw new BadRequestError(`Unsupported file type: .${ext}. Use .fountain, .fdx, or .pdf`);
         }
 
         if (!parsed.scenes || parsed.scenes.length === 0) {
-            return res.status(400).json({ error: 'No scenes found in the uploaded file' });
+            throw new BadRequestError('No scenes found in the uploaded file');
         }
 
         const title = userTitle || parsed.title || 'Imported Script';
@@ -6319,7 +6373,7 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
         res.status(201).json({ projectId: id, title, sceneCount: parsed.scenes.length, sequenceCount: stage6Scenes.length });
     } catch (error) {
         console.error('Import script error:', error);
-        res.status(500).json({ error: 'Failed to import script' });
+        sendApiError(res, error, 'Failed to import script');
     }
 });
 
@@ -6327,14 +6381,9 @@ app.post('/api/import-script', requireAuth, upload.single('scriptFile'), async (
 app.put('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
         const updates = req.body;
-
-        try {
-            await fs.access(getProjectFilePath(id));
-        } catch {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        await assertProjectExists(id);
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             // Ensure nested .data is merged properly rather than completely overwritten
@@ -6379,30 +6428,28 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
         res.json(updatedProject);
     } catch (error) {
         console.error("Error updating project:", error);
-        res.status(500).json({ error: "Failed to update project" });
+        sendApiError(res, error, 'Failed to update project');
     }
 });
 
 app.get('/api/projects/:id/knowledge', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
-
-        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(id);
         const knowledge = ensureProjectKnowledge(projectData);
         res.json({ knowledge: knowledgePayloadForClient(knowledge, projectData) });
     } catch (error) {
         console.error('knowledge load error:', error.message);
-        res.status(500).json({ error: 'Failed to load project knowledge' });
+        sendApiError(res, error, 'Failed to load project knowledge');
     }
 });
 
 app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sourceFile'), async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
-        if (!req.file) return res.status(400).json({ error: 'No source file uploaded' });
+        assertValidProjectId(id);
+        if (!req.file) throw new BadRequestError('No source file uploaded');
+        await assertProjectExists(id);
 
         const attachment = {
             name: req.file.originalname || 'Untitled source',
@@ -6420,9 +6467,7 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
                 projectId: id
             });
             if (!persisted.savedSource) {
-                const err = new Error('No readable text could be extracted from this source file');
-                err.statusCode = 400;
-                throw err;
+                throw new BadRequestError('No readable text could be extracted from this source file');
             }
             uploadResult = persisted.savedSource;
 
@@ -6447,22 +6492,20 @@ app.post('/api/projects/:id/knowledge/sources', requireAuth, upload.single('sour
         });
     } catch (error) {
         console.error('knowledge source upload error:', error.message);
-        res.status(error.statusCode || 500).json({ error: error.statusCode === 400 ? error.message : 'Failed to upload source' });
+        sendApiError(res, error, 'Failed to upload source');
     }
 });
 
 app.get('/api/projects/:id/knowledge/sources/:sourceId/assets/:assetKind', requireAuth, async (req, res) => {
     try {
         const { id, sourceId, assetKind } = req.params;
-        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
-            return res.status(400).json({ error: 'Invalid project ID or source ID' });
-        }
+        assertValidProjectId(id, 'Invalid project ID or source ID');
+        assertValidSourceId(sourceId, 'Invalid project ID or source ID');
         if (!['extracted', 'original', 'text'].includes(assetKind)) {
-            return res.status(400).json({ error: 'Invalid source asset type' });
+            throw new BadRequestError('Invalid source asset type');
         }
 
-        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(id);
         const asset = await readKnowledgeSourceAssetForClient(projectData, id, sourceId, assetKind);
 
         if (asset.buffer) {
@@ -6489,21 +6532,16 @@ app.get('/api/projects/:id/knowledge/sources/:sourceId/assets/:assetKind', requi
         res.send(asset.content || '');
     } catch (error) {
         console.error('knowledge source asset error:', error.message);
-        const statusCode = error.statusCode || (error.code === 'ENOENT' ? 404 : 500);
-        res.status(statusCode).json({
-            error: statusCode === 404
-                ? error.message
-                : (statusCode === 400 ? error.message : 'Failed to load source asset')
-        });
+        sendApiError(res, error, 'Failed to load source asset');
     }
 });
 
 app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
     try {
         const { id, sourceId } = req.params;
-        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
-            return res.status(400).json({ error: 'Invalid project ID or source ID' });
-        }
+        assertValidProjectId(id, 'Invalid project ID or source ID');
+        assertValidSourceId(sourceId, 'Invalid project ID or source ID');
+        await assertProjectExists(id);
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             removeKnowledgeSource(projectData, sourceId);
@@ -6519,20 +6557,20 @@ app.delete('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (
         });
     } catch (error) {
         console.error('knowledge source delete error:', error.message);
-        res.status(error.statusCode || 500).json({ error: error.statusCode === 404 ? 'Source not found' : 'Failed to delete source' });
+        sendApiError(res, error, 'Failed to delete source');
     }
 });
 
 app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (req, res) => {
     try {
         const { id, sourceId } = req.params;
-        if (!isValidProjectId(id) || !/^src_[a-zA-Z0-9_]+$/.test(sourceId)) {
-            return res.status(400).json({ error: 'Invalid project ID or source ID' });
-        }
+        assertValidProjectId(id, 'Invalid project ID or source ID');
+        assertValidSourceId(sourceId, 'Invalid project ID or source ID');
+        await assertProjectExists(id);
 
         const { type, tags } = req.body || {};
         if (type !== undefined && !SOURCE_TYPE_OPTIONS.has(type)) {
-            return res.status(400).json({ error: 'Invalid source type' });
+            throw new BadRequestError('Invalid source type');
         }
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
@@ -6549,7 +6587,7 @@ app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (r
         });
     } catch (error) {
         console.error('knowledge source update error:', error.message);
-        res.status(error.statusCode || 500).json({ error: error.statusCode === 404 ? 'Source not found' : 'Failed to update source' });
+        sendApiError(res, error, 'Failed to update source');
     }
 });
 
@@ -6930,14 +6968,10 @@ ${sourceMaterial}`,
 app.delete('/api/projects/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
         const filePath = path.join(DATA_DIR, `${id}.json`);
 
-        try {
-            await fs.access(filePath);
-        } catch {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        await assertProjectExists(id);
 
         await fs.unlink(filePath);
         await removeProjectSourceAssets(id).catch(error => {
@@ -6946,7 +6980,7 @@ app.delete('/api/projects/:id', requireAuth, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error("Error deleting project:", error);
-        res.status(500).json({ error: "Failed to delete project" });
+        sendApiError(res, error, 'Failed to delete project');
     }
 });
 
@@ -7175,5 +7209,11 @@ module.exports = {
     buildSourceItemInventoryBlock,
     updateKnowledgeSourceMetadata,
     updateKnowledgeReview,
+    ApiError,
+    BadRequestError,
+    NotFoundError,
+    RateLimitError,
+    statusCodeForError,
+    sendApiError,
     startServer
 };

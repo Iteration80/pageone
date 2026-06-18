@@ -190,6 +190,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Stage 2/4/5/6 streaming generation and Stage 6 streaming revision now attach a close-aware abort tracker; if the browser disconnects, in-flight model calls receive an abort signal and the route stops before writing late results to project JSON.
 - `agents/ai-client.js` now passes abort signals through Gemini and Anthropic calls, including long Claude streamed requests, and normalizes SDK aborts as `CLIENT_DISCONNECTED` so agent retry loops do not retry intentional client disconnects.
 
+### Codex continuation notes — 2026-06-17 (Phase 5 typed API errors)
+- Added typed API errors (`BadRequestError`, `NotFoundError`, `RateLimitError`) plus a shared JSON responder that exposes intentional 4xx messages and keeps unexpected 5xx details behind fallback text.
+- Migrated rate limit responses, project CRUD/import routes, project knowledge load, and project source upload/asset/delete/update routes onto the shared responder; source helper failures now throw typed 400/404 errors instead of hand-setting `statusCode`.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

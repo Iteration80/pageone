@@ -42,7 +42,13 @@ const {
     buildScopedPolishPromptBlock,
     extractNumberedSourceItems,
     buildSourceItemInventoryBlock,
-    updateKnowledgeSourceMetadata
+    updateKnowledgeSourceMetadata,
+    ApiError,
+    BadRequestError,
+    NotFoundError,
+    RateLimitError,
+    statusCodeForError,
+    sendApiError
 } = require('../server');
 
 test('ensureProjectKnowledge initializes persistent memory buckets without clobbering notes', () => {
@@ -65,6 +71,51 @@ test('ensureProjectKnowledge initializes persistent memory buckets without clobb
     assert.deepEqual(knowledge.stage_handoffs, {});
     assert.deepEqual(knowledge.stage_source_plans, {});
     assert.deepEqual(knowledge.stage_source_audits, {});
+});
+
+test('typed API errors expose intended 4xx messages and hide generic 5xx details', () => {
+    const badRequest = new BadRequestError('Invalid payload');
+    const notFound = new NotFoundError('Missing thing');
+    const limited = new RateLimitError('Slow down');
+    const generic = new Error('database path /private/project.json exploded');
+    const enoent = Object.assign(new Error('ENOENT: /private/project.json'), { code: 'ENOENT' });
+
+    assert.ok(badRequest instanceof ApiError);
+    assert.equal(statusCodeForError(badRequest), 400);
+    assert.equal(statusCodeForError(notFound), 404);
+    assert.equal(statusCodeForError(limited), 429);
+    assert.equal(statusCodeForError(generic), 500);
+    assert.equal(statusCodeForError(enoent), 404);
+
+    const capture = (error, fallback) => {
+        const seen = {};
+        const res = {
+            status(code) {
+                seen.status = code;
+                return {
+                    json(body) {
+                        seen.body = body;
+                        return body;
+                    }
+                };
+            }
+        };
+        sendApiError(res, error, fallback);
+        return seen;
+    };
+
+    assert.deepEqual(capture(badRequest, 'Fallback'), {
+        status: 400,
+        body: { error: 'Invalid payload', code: 'BAD_REQUEST' }
+    });
+    assert.deepEqual(capture(generic, 'Safe fallback'), {
+        status: 500,
+        body: { error: 'Safe fallback' }
+    });
+    assert.deepEqual(capture(enoent, 'Missing resource'), {
+        status: 404,
+        body: { error: 'Missing resource' }
+    });
 });
 
 test('knowledge context includes accepted divergences and relevant source provenance', () => {
@@ -686,6 +737,31 @@ test('streaming generation routes abort model work and skip saves after disconne
     assert.match(serverJs, /abortTracker\?\.throwIfAborted\(\)/);
     assert.match(serverJs, /abortTracker\.throwIfAborted\(\)/);
     assert.match(serverJs, /isClientAbortError\(error\)/);
+});
+
+test('project and source routes use typed API error responder for 400 404 and 429 cases', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const projectRoutes = serverJs.match(/\/\/ --- Project Management Routes --- \/\/[\s\S]*?\/\/ ─── Export Endpoints/)?.[0] || '';
+    const sourceHelpers = serverJs.match(/async function readKnowledgeSourceAssetForClient[\s\S]*?function contentDispositionFilename/)?.[0] || '';
+
+    assert.match(serverJs, /class ApiError extends Error/);
+    assert.match(serverJs, /class BadRequestError extends ApiError/);
+    assert.match(serverJs, /class NotFoundError extends ApiError/);
+    assert.match(serverJs, /class RateLimitError extends ApiError/);
+    assert.match(serverJs, /handler: \(_req, res\) => sendApiError\(res, new RateLimitError/);
+    assert.match(projectRoutes, /readProjectJSONById\(id\)/);
+    assert.match(projectRoutes, /assertProjectExists\(id\)/);
+    assert.match(projectRoutes, /throw new BadRequestError\('No file uploaded'\)/);
+    assert.match(projectRoutes, /throw new BadRequestError\(`Unsupported file type:/);
+    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to load project details'\)/);
+    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to upload source'\)/);
+    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to load source asset'\)/);
+    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to delete project'\)/);
+    assert.doesNotMatch(projectRoutes, /error\.statusCode/);
+    assert.doesNotMatch(projectRoutes, /err\.statusCode/);
+    assert.match(sourceHelpers, /throw new NotFoundError\('Source not found'\)/);
+    assert.match(sourceHelpers, /throw new BadRequestError\('Unknown source asset type\.'\)/);
+    assert.doesNotMatch(sourceHelpers, /statusCode\s*=/);
 });
 
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {
