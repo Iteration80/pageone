@@ -202,6 +202,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated project memory decision, accepted divergence, stage curation, handoff refresh, diagnostics, compact/review, and source-bible rebuild routes onto typed validation errors and the shared API responder.
 - Memory routes now reuse `readProjectJSONById()` or `assertProjectExists()` instead of hand-reading project files and returning ad hoc 400/500 JSON responses.
 
+### Codex continuation notes — 2026-06-19 (Phase 5 typed API errors, Stage 1 pass)
+- Migrated Stage 1 pitch generation and pitch refinement routes onto `readProjectJSONById()`, typed validation errors, and `sendApiError()` while preserving projectless random pitch generation.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

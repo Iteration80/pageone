@@ -764,6 +764,19 @@ test('project and source routes use typed API error responder for 400 404 and 42
     assert.doesNotMatch(sourceHelpers, /statusCode\s*=/);
 });
 
+test('stage 1 pitch routes use typed API errors and shared project loading', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const stage1Routes = serverJs.match(/\/\/ API route[\s\S]*?app\.post\('\/api\/generate-outline'/)?.[0] || '';
+
+    assert.match(stage1Routes, /readProjectJSONById\(projectId, \{ invalidMessage: 'Invalid projectId' \}\)/);
+    assert.match(stage1Routes, /throw new BadRequestError\("Missing currentPitch or userNote"\)/);
+    assert.match(stage1Routes, /throw new BadRequestError\("Invalid currentPitch JSON"\)/);
+    assert.match(stage1Routes, /sendApiError\(res, error, "Failed to generate pitch"\)/);
+    assert.match(stage1Routes, /sendApiError\(res, error, "Failed to refine pitch"\)/);
+    assert.doesNotMatch(stage1Routes, /fs\.readFile\(getProjectFilePath\(projectId\)/);
+    assert.doesNotMatch(stage1Routes, /res\.status\((400|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';

@@ -3936,9 +3936,7 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
         let uploadContext = null;
 
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
-            const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
-            projectData = JSON.parse(content);
+            projectData = await readProjectJSONById(projectId, { invalidMessage: 'Invalid projectId' });
             uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: prompt || 'Generate pitch options.' });
             const stage1Prompt = appendUploadedSourceBlock(prompt, uploadContext);
             const stage1Seed = `${stage1Prompt || 'Generate pitch options.'}\n${uploadContext?.attachment?.name || ''}`;
@@ -3964,7 +3962,7 @@ app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async
         res.json({ result, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing agent:", error);
-        res.status(500).json({ error: "Failed to generate pitch" });
+        sendApiError(res, error, "Failed to generate pitch");
     }
 });
 
@@ -3974,19 +3972,17 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         const uploadedFile = req.file;
 
         if (!currentPitch || !userNote) {
-            return res.status(400).json({ error: "Missing currentPitch or userNote" });
+            throw new BadRequestError("Missing currentPitch or userNote");
         }
 
         // currentPitch might be a string if sent via FormData
         const parsedPitch = safeParse(currentPitch);
-        if (!parsedPitch) return res.status(400).json({ error: "Invalid currentPitch JSON" });
+        if (!parsedPitch) throw new BadRequestError("Invalid currentPitch JSON");
         let projectData = null;
         let sourcePacket = null;
         let uploadContext = null;
         if (projectId) {
-            if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Invalid projectId' });
-            const content = await fs.readFile(getProjectFilePath(projectId), 'utf-8');
-            projectData = JSON.parse(content);
+            projectData = await readProjectJSONById(projectId, { invalidMessage: 'Invalid projectId' });
             uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 1, userMessage: userNote, forceTextBlock: true });
             const userNoteWithUpload = appendUploadedSourceBlock(userNote, uploadContext);
             const stage1Seed = `${JSON.stringify(parsedPitch, null, 2)}\n${userNoteWithUpload}\n${uploadContext?.attachment?.name || ''}`;
@@ -4012,7 +4008,7 @@ app.post('/api/refine-pitch', requireAuth, aiLimiter, upload.single('pdfFile'), 
         res.json({ result, changed, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error("Error executing refine agent:", error);
-        res.status(500).json({ error: "Failed to refine pitch" });
+        sendApiError(res, error, "Failed to refine pitch");
     }
 });
 
