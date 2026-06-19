@@ -6588,17 +6588,18 @@ app.patch('/api/projects/:id/knowledge/sources/:sourceId', requireAuth, async (r
 app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const { type, stageId, summary, details, audit } = req.body || {};
         const numericStageId = stageId === undefined || stageId === null || stageId === '' ? null : Number(stageId);
         if (numericStageId && !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
+            throw new BadRequestError('Invalid stage ID');
         }
 
         const cleanType = /^[a-z0-9_-]{1,60}$/i.test(type || '') ? type : 'project_knowledge_decision';
         const cleanSummary = compactText(summary || details || summarizeAuditForDecision(audit), 1_000);
-        if (!cleanSummary) return res.status(400).json({ error: 'Decision summary is required' });
+        if (!cleanSummary) throw new BadRequestError('Decision summary is required');
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             const knowledge = ensureProjectKnowledge(projectData);
@@ -6628,19 +6629,20 @@ app.post('/api/projects/:id/knowledge/decision', requireAuth, async (req, res) =
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('knowledge decision log error:', error.message);
-        res.status(500).json({ error: 'Failed to log project knowledge decision' });
+        sendApiError(res, error, 'Failed to log project knowledge decision');
     }
 });
 
 app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const { stageId, summary, audit } = req.body || {};
         const numericStageId = Number(stageId);
         if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
+            throw new BadRequestError('Invalid stage ID');
         }
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
@@ -6652,23 +6654,22 @@ app.post('/api/projects/:id/knowledge/accepted-divergence', requireAuth, async (
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('accepted divergence log error:', error.message);
-        res.status(500).json({ error: 'Failed to save accepted source divergence' });
+        sendApiError(res, error, 'Failed to save accepted source divergence');
     }
 });
 
 app.post('/api/projects/:id/knowledge/propose-stage-curation', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
 
         const { stageId, stageDataOverride } = req.body || {};
         const numericStageId = Number(stageId);
         if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
+            throw new BadRequestError('Invalid stage ID');
         }
 
-        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(id);
         const builtStage = await buildStageDataForAssistant(projectData, numericStageId);
         const stageName = builtStage.stageName;
         const overrideText = stageDataOverrideToText(stageDataOverride);
@@ -6742,19 +6743,20 @@ Rules:
         }
     } catch (error) {
         console.error('stage curation proposal error:', error.message);
-        res.status(500).json({ error: 'Failed to propose project memory updates' });
+        sendApiError(res, error, 'Failed to propose project memory updates');
     }
 });
 
 app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const { stageId, proposal } = req.body || {};
         const numericStageId = Number(stageId);
         if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
+            throw new BadRequestError('Invalid stage ID');
         }
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
@@ -6766,19 +6768,20 @@ app.post('/api/projects/:id/knowledge/apply-stage-curation', requireAuth, async 
         res.json({ ok: true, knowledge: knowledgePayloadForClient(knowledge, updatedProject) });
     } catch (error) {
         console.error('stage curation apply error:', error.message);
-        res.status(500).json({ error: 'Failed to apply project memory updates' });
+        sendApiError(res, error, 'Failed to apply project memory updates');
     }
 });
 
 app.post('/api/projects/:id/knowledge/refresh-stage-handoff', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const { stageId, stageDataOverride } = req.body || {};
         const numericStageId = Number(stageId);
         if (!numericStageId || !STAGE_NAMES[numericStageId]) {
-            return res.status(400).json({ error: 'Invalid stage ID' });
+            throw new BadRequestError('Invalid stage ID');
         }
 
         const updatedProject = await updateProjectJSON(id, async (projectData) => {
@@ -6797,28 +6800,27 @@ app.post('/api/projects/:id/knowledge/refresh-stage-handoff', requireAuth, async
         });
     } catch (error) {
         console.error('stage handoff refresh error:', error.message);
-        res.status(500).json({ error: 'Failed to refresh stage handoff' });
+        sendApiError(res, error, 'Failed to refresh stage handoff');
     }
 });
 
 app.get('/api/projects/:id/knowledge/diagnostics', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(id);
         res.json({ diagnostics: buildKnowledgeDiagnostics(projectData) });
     } catch (error) {
         console.error('knowledge diagnostics error:', error.message);
-        res.status(500).json({ error: 'Failed to inspect project knowledge' });
+        sendApiError(res, error, 'Failed to inspect project knowledge');
     }
 });
 
 app.post('/api/projects/:id/knowledge/compact', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             compactProjectKnowledge(projectData, {
@@ -6835,14 +6837,15 @@ app.post('/api/projects/:id/knowledge/compact', requireAuth, async (req, res) =>
         });
     } catch (error) {
         console.error('knowledge compact error:', error.message);
-        res.status(500).json({ error: 'Failed to compact project memory' });
+        sendApiError(res, error, 'Failed to compact project memory');
     }
 });
 
 app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
+        assertValidProjectId(id);
+        await assertProjectExists(id);
 
         const updatedProject = await updateProjectJSON(id, (projectData) => {
             updateKnowledgeReview(projectData, req.body || {});
@@ -6857,20 +6860,18 @@ app.put('/api/projects/:id/knowledge/review', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('knowledge review update error:', error.message);
-        res.status(500).json({ error: 'Failed to update project memory review' });
+        sendApiError(res, error, 'Failed to update project memory review');
     }
 });
 
 app.post('/api/projects/:id/knowledge/rebuild-source-bible', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { id } = req.params;
-        if (!isValidProjectId(id)) return res.status(400).json({ error: 'Invalid project ID' });
 
-        const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(id);
         const knowledge = ensureProjectKnowledge(projectData);
         if (!knowledge.source_registry.length) {
-            return res.status(400).json({ error: 'No source documents saved yet' });
+            throw new BadRequestError('No source documents saved yet');
         }
 
         const sourceMaterial = buildSourceBiblePrompt(knowledge);
@@ -6954,7 +6955,7 @@ ${sourceMaterial}`,
         });
     } catch (error) {
         console.error('source bible rebuild error:', error.message);
-        res.status(500).json({ error: 'Failed to rebuild source bible' });
+        sendApiError(res, error, 'Failed to rebuild source bible');
     }
 });
 

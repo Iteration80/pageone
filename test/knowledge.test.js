@@ -764,6 +764,23 @@ test('project and source routes use typed API error responder for 400 404 and 42
     assert.doesNotMatch(sourceHelpers, /statusCode\s*=/);
 });
 
+test('project memory routes use typed API errors for validation and shared failures', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
+
+    assert.match(memoryRoutes, /assertValidProjectId\(id\)/);
+    assert.match(memoryRoutes, /await assertProjectExists\(id\)/);
+    assert.match(memoryRoutes, /readProjectJSONById\(id\)/);
+    assert.match(memoryRoutes, /throw new BadRequestError\('Invalid stage ID'\)/);
+    assert.match(memoryRoutes, /throw new BadRequestError\('Decision summary is required'\)/);
+    assert.match(memoryRoutes, /throw new BadRequestError\('No source documents saved yet'\)/);
+    assert.match(memoryRoutes, /sendApiError\(res, error, 'Failed to log project knowledge decision'\)/);
+    assert.match(memoryRoutes, /sendApiError\(res, error, 'Failed to propose project memory updates'\)/);
+    assert.match(memoryRoutes, /sendApiError\(res, error, 'Failed to rebuild source bible'\)/);
+    assert.doesNotMatch(memoryRoutes, /fs\.readFile\(getProjectFilePath\(id\)/);
+    assert.doesNotMatch(memoryRoutes, /res\.status\((400|500)\)/);
+});
+
 test('style and export routes use typed API error responder for expected failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const styleRoutes = serverJs.match(/\/\/ --- Stage 7: Style Routes --- \/\/[\s\S]*?\/\/ --- Settings Routes --- \/\//)?.[0] || '';

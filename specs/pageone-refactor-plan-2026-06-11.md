@@ -198,6 +198,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated Stage 7 style generation, preview, selection, trained-style creation, and style CRUD routes onto typed 400/404 errors plus the shared API responder.
 - Export helpers and DOCX/PDF export routes now use `readProjectJSONById()` and typed `BadRequestError` failures for missing stage data, unknown export stages, and empty screenplay exports while preserving binary responses on success.
 
+### Codex continuation notes — 2026-06-19 (Phase 5 typed API errors, memory route pass)
+- Migrated project memory decision, accepted divergence, stage curation, handoff refresh, diagnostics, compact/review, and source-bible rebuild routes onto typed validation errors and the shared API responder.
+- Memory routes now reuse `readProjectJSONById()` or `assertProjectExists()` instead of hand-reading project files and returning ad hoc 400/500 JSON responses.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.
