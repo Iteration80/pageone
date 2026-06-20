@@ -1887,20 +1887,24 @@ async function prepareGenerationProjectContext(req, res, {
     invalidProjectMessage = 'Missing or invalid projectId',
     notFoundMessage = 'Project not found',
     notFoundLog = '',
-    validate = null
+    validate = null,
+    throwTypedErrors = false
 } = {}) {
     if (!isValidProjectId(projectId)) {
+        if (throwTypedErrors) throw new BadRequestError(invalidProjectMessage);
         res.status(400).json({ error: invalidProjectMessage });
         return null;
     }
 
-    const filePath = path.join(DATA_DIR, `${projectId}.json`);
+    const filePath = getProjectFilePath(projectId);
     let projectData;
     try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        projectData = JSON.parse(content);
+        projectData = throwTypedErrors
+            ? await readProjectJSONById(projectId, { invalidMessage: invalidProjectMessage, notFoundMessage })
+            : JSON.parse(await fs.readFile(filePath, 'utf-8'));
     } catch (err) {
         if (notFoundLog) console.error(notFoundLog);
+        if (throwTypedErrors) throw err;
         res.status(404).json({ error: notFoundMessage });
         return null;
     }
@@ -1908,6 +1912,7 @@ async function prepareGenerationProjectContext(req, res, {
     if (validate) {
         const validationError = validate(projectData);
         if (validationError) {
+            if (throwTypedErrors) throw new BadRequestError(validationError);
             res.status(400).json({ error: validationError });
             return null;
         }
@@ -4252,7 +4257,8 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
                 return (!pitchData || !beatsData)
                     ? 'Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters'
                     : null;
-            }
+            },
+            throwTypedErrors: true
         });
         if (!context) return;
         const { filePath, projectData } = context;
@@ -4315,8 +4321,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
         res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Character Gen Error:', error);
-        const detail = publicErrorDetail(error);
-        res.status(500).json({ error: detail ? `Failed to generate characters: ${detail}` : "Failed to generate characters" });
+        sendApiError(res, error, "Failed to generate characters");
     }
 });
 

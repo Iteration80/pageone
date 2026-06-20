@@ -205,6 +205,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 ### Codex continuation notes — 2026-06-19 (Phase 5 typed API errors, Stage 1 pass)
 - Migrated Stage 1 pitch generation and pitch refinement routes onto `readProjectJSONById()`, typed validation errors, and `sendApiError()` while preserving projectless random pitch generation.
 
+### Codex continuation notes — 2026-06-19 (Phase 5 typed API errors, Stage 3 pass)
+- Added an opt-in typed-error mode to `prepareGenerationProjectContext()` and migrated Stage 3 character generation onto it, preserving the shared generation context path while routing invalid project IDs, missing projects, missing prerequisites, and unexpected failures through typed API errors.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

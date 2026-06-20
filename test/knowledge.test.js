@@ -777,6 +777,23 @@ test('stage 1 pitch routes use typed API errors and shared project loading', () 
     assert.doesNotMatch(stage1Routes, /res\.status\((400|500)\)/);
 });
 
+test('Stage 3 character route uses typed API errors through generation context', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationHelper = serverJs.match(/async function prepareGenerationProjectContext[\s\S]*?async function finalizeGeneratedStageArtifact/)?.[0] || '';
+    const stage3Route = serverJs.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage4-beats'/)?.[0] || '';
+
+    assert.match(generationHelper, /throwTypedErrors = false/);
+    assert.match(generationHelper, /if \(throwTypedErrors\) throw new BadRequestError\(invalidProjectMessage\)/);
+    assert.match(generationHelper, /readProjectJSONById\(projectId, \{ invalidMessage: invalidProjectMessage, notFoundMessage \}\)/);
+    assert.match(generationHelper, /if \(throwTypedErrors\) throw err/);
+    assert.match(generationHelper, /if \(throwTypedErrors\) throw new BadRequestError\(validationError\)/);
+    assert.match(stage3Route, /throwTypedErrors: true/);
+    assert.match(stage3Route, /Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters/);
+    assert.match(stage3Route, /sendApiError\(res, error, "Failed to generate characters"\)/);
+    assert.doesNotMatch(stage3Route, /publicErrorDetail\(error\)/);
+    assert.doesNotMatch(stage3Route, /res\.status\((400|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
