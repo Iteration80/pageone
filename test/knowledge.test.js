@@ -158,11 +158,21 @@ test('knowledge context includes accepted divergences and relevant source proven
     assert.match(sourceBibleSummary(project.data.knowledge), /Project Adaptation Notes/);
 });
 
-test('assistant route returns JSON 404 when the active project file is missing', () => {
+test('assistant route uses typed API errors and shared project loading', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    const assistantRoute = serverSource.match(/app\.post\('\/api\/assistant'[\s\S]*?res\.status\(500\)\.json\(\{ error: detail \? `Assistant request failed:/)?.[0] || '';
+    const assistantRoute = serverSource.match(/app\.post\('\/api\/assistant'[\s\S]*?app\.post\('\/api\/plan-rewrite'/)?.[0] || '';
 
-    assert.match(assistantRoute, /catch\s*\{\s*return res\.status\(404\)\.json\(\{ error: 'Project not found' \}\);/);
+    assert.match(assistantRoute, /isGlobalStyleAssistantStage\(stageId\)/);
+    assert.match(assistantRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId or stageId'\)/);
+    assert.match(assistantRoute, /throw new BadRequestError\('Missing or invalid projectId or stageId'\)/);
+    assert.match(assistantRoute, /throw new BadRequestError\(`Unknown stageId: \$\{stageId\}`\)/);
+    assert.match(assistantRoute, /getProjectFilePath\(projectId\)/);
+    assert.match(assistantRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(assistantRoute, /buildStageDataForAssistant\(projectData, numericStageId, sceneNumber\)/);
+    assert.match(assistantRoute, /sendApiError\(res, error, 'Assistant request failed'\)/);
+    assert.doesNotMatch(assistantRoute, /path\.join\(DATA_DIR, `\$\{projectId\}\.json`\)/);
+    assert.doesNotMatch(assistantRoute, /return res\.status\((400|404)\)/);
+    assert.doesNotMatch(assistantRoute, /res\.status\(500\)\.json/);
 });
 
 test('unknown API routes return JSON 404 diagnostics', () => {

@@ -5166,49 +5166,45 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
             });
         }
 
-        if (!isValidProjectId(projectId) || !stageId) return res.status(400).json({ error: 'Missing or invalid projectId or stageId' });
-
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let content;
-        try {
-            content = await fs.readFile(filePath, 'utf-8');
-        } catch {
-            return res.status(404).json({ error: 'Project not found' });
+        assertValidProjectId(projectId, 'Missing or invalid projectId or stageId');
+        const numericStageId = Number(stageId);
+        if (!numericStageId) {
+            throw new BadRequestError('Missing or invalid projectId or stageId');
         }
-        const projectData = JSON.parse(content);
+        if (!STAGE_NAMES[numericStageId]) {
+            throw new BadRequestError(`Unknown stageId: ${stageId}`);
+        }
+
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const modelConfig = getBrainstormModelConfig(stageId);
+        const modelConfig = getBrainstormModelConfig(numericStageId);
         let savedSource = null;
         let sourceMemory = null;
         let contextBlock = '';
         let historyForTurn = messages;
-        const conversationKey = conversationKeyForAssistantStage(stageId);
+        const conversationKey = conversationKeyForAssistantStage(numericStageId);
 
         // Context is only needed on the first leg of a turn; resumed tool turns
         // carry their full message list in turnState.
         if (!turnState) {
-            let stageName, stageData;
-            try {
-                ({ stageName, stageData } = await buildStageDataForAssistant(projectData, stageId, sceneNumber));
-            } catch {
-                return res.status(400).json({ error: `Unknown stageId: ${stageId}` });
-            }
+            const { stageName, stageData } = await buildStageDataForAssistant(projectData, numericStageId, sceneNumber);
 
             const lastUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
             let attachmentText = '';
             if (attachment) {
-                const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId, userMessage: lastUserMessage, projectId });
+                const persisted = await persistChatAttachmentToKnowledge(projectData, attachment, { stageId: numericStageId, userMessage: lastUserMessage, projectId });
                 attachmentText = persisted.fileText;
                 savedSource = persisted.savedSource;
                 if (savedSource) await writeJSONQueued(filePath, projectData);
             }
 
-            const knowledgeContext = buildKnowledgeContextBlock(projectData, { stageId, userMessage: lastUserMessage, stageName, stageData });
-            sourceMemory = memoryUsageForStage(projectData, stageId, stageData, lastUserMessage);
+            const knowledgeContext = buildKnowledgeContextBlock(projectData, { stageId: numericStageId, userMessage: lastUserMessage, stageName, stageData });
+            sourceMemory = memoryUsageForStage(projectData, numericStageId, stageData, lastUserMessage);
             let stage10InitContext = '';
-            if (isInit && Number(stageId) === 10 && projectData.data?.characterChangeContext) {
+            if (isInit && numericStageId === 10 && projectData.data?.characterChangeContext) {
                 stage10InitContext = `## CHARACTER CHANGE CONTEXT
 The writer just updated character profiles in Stage 3 and chose to send the changes directly to the rewrite stage. Specific changes:
 ${projectData.data.characterChangeContext}`;
@@ -5219,7 +5215,7 @@ ${projectData.data.characterChangeContext}`;
                 });
             }
 
-            const deterministicStage4EventList = !isInit && Number(stageId) === 4
+            const deterministicStage4EventList = !isInit && numericStageId === 4
                 ? buildStage4CurrentEventListResponse(projectData, lastUserMessage)
                 : null;
             if (deterministicStage4EventList) {
@@ -5233,7 +5229,7 @@ ${projectData.data.characterChangeContext}`;
             }
 
             const memoryRecall = !isInit ? buildMemoryRecallResponse(projectData, {
-                stageId,
+                stageId: numericStageId,
                 stageName,
                 userMessage: lastUserMessage,
                 stageData
@@ -5250,7 +5246,7 @@ ${projectData.data.characterChangeContext}`;
 
             const savedConversations = projectData.data?.conversations || {};
             let priorContext = '';
-            const lastPriorStage = Number(stageId) === 10 ? 8 : Number(stageId) - 1;
+            const lastPriorStage = numericStageId === 10 ? 8 : numericStageId - 1;
             for (let s = 1; s <= lastPriorStage; s++) {
                 const prior = savedConversations[`stage${s}`];
                 if (prior?.length) {
@@ -5261,7 +5257,7 @@ ${projectData.data.characterChangeContext}`;
                 }
             }
 
-            contextBlock = `## PROJECT: ${title}\n\n## STAGE ${stageId} — ${stageName}\n${stageData}`;
+            contextBlock = `## PROJECT: ${title}\n\n## STAGE ${numericStageId} — ${stageName}\n${stageData}`;
             if (stage10InitContext) contextBlock += `\n\n---\n\n${stage10InitContext}`;
             if (knowledgeContext) contextBlock += `\n\n---\n\n${knowledgeContext}`;
             if (priorContext) contextBlock += `\n\n---\n\n## PREVIOUS STAGE CONVERSATIONS\n${priorContext}`;
@@ -5269,7 +5265,7 @@ ${projectData.data.characterChangeContext}`;
 
             const contextAdditions = buildToolAssistantContextAdditions({
                 projectData,
-                stageId,
+                stageId: numericStageId,
                 lastUserMessage,
                 attachmentText,
                 isInit
@@ -5279,7 +5275,7 @@ ${projectData.data.characterChangeContext}`;
                 historyForTurn = messages.filter(m => m.role === 'user').slice(-1);
             }
 
-            const stage4ConfirmationBypass = !isInit && Number(stageId) === 4
+            const stage4ConfirmationBypass = !isInit && numericStageId === 4
                 ? buildStage4ConfirmationBypassResponse(messages)
                 : null;
             if (stage4ConfirmationBypass) {
@@ -5292,7 +5288,7 @@ ${projectData.data.characterChangeContext}`;
                     contextBlock,
                     history: historyForTurn,
                     isInit: false,
-                    stageId: Number(stageId)
+                    stageId: numericStageId
                 });
                 neutralMessages.push({
                     role: 'assistant',
@@ -5311,7 +5307,7 @@ ${projectData.data.characterChangeContext}`;
         }
 
         const result = await runAssistantTurn({
-            stageId: Number(stageId),
+            stageId: numericStageId,
             contextBlock,
             history: historyForTurn,
             isInit,
@@ -5343,8 +5339,7 @@ ${projectData.data.characterChangeContext}`;
         });
     } catch (error) {
         console.error('assistant error:', error);
-        const detail = publicErrorDetail(error);
-        res.status(500).json({ error: detail ? `Assistant request failed: ${detail}` : 'Assistant request failed' });
+        sendApiError(res, error, 'Assistant request failed');
     }
 });
 
