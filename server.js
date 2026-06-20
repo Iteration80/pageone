@@ -4945,19 +4945,13 @@ app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
 app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, source } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: "Missing or invalid projectId" });
+        if (!isValidProjectId(projectId)) throw new BadRequestError("Missing or invalid projectId");
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         if (!projectData.data?.stage7_approved) {
-            return res.status(400).json({ error: "Stage 8 Draft must be approved before generating coverage" });
+            throw new BadRequestError("Stage 8 Draft must be approved before generating coverage");
         }
 
         let fullScriptText;
@@ -4974,7 +4968,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         } else {
             const stage6Scenes = projectData.data?.stage6_scenes;
             if (!stage6Scenes) {
-                return res.status(400).json({ error: "No scene blueprint found" });
+                throw new BadRequestError("No scene blueprint found");
             }
 
             // Assemble full script from all scenes in order
@@ -4991,7 +4985,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         }
 
         if (!fullScriptText) {
-            return res.status(400).json({ error: "No draft text found in scenes. Generate scene drafts first." });
+            throw new BadRequestError("No draft text found in scenes. Generate scene drafts first.");
         }
 
         const pitch = projectData.data?.stage1_pitch?.pitch;
@@ -5027,7 +5021,7 @@ app.post('/api/generate-coverage', requireAuth, aiLimiter, async (req, res) => {
         res.json({ result: coverageResult, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('Stage 8 Coverage Error:', error.message);
-        res.status(500).json({ error: "Failed to generate coverage" });
+        sendApiError(res, error, "Failed to generate coverage");
     }
 });
 

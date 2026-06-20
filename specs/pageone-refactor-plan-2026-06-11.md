@@ -219,6 +219,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated Stage 8 draft generation, draft revision, and continuity resolution routes onto typed validation/not-found errors, shared project loading, and `sendApiError()` while preserving existing validation messages.
 - Draft routes now reuse `findProjectScene()` instead of hand-scanning scene arrays in each endpoint.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 9 coverage pass)
+- Migrated Stage 9 coverage generation onto typed validation errors, shared project loading, and `sendApiError()` while preserving existing approval/blueprint/draft validation messages.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

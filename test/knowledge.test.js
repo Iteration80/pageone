@@ -853,6 +853,20 @@ test('Stage 8 draft and continuity routes use typed API errors', () => {
     assert.doesNotMatch(stage8Routes, /res\.status\((400|404|500)\)/);
 });
 
+test('Stage 9 coverage route uses typed API errors', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const coverageRoute = serverJs.match(/app\.post\('\/api\/generate-coverage'[\s\S]*?\/\/ --- Stage 10: Rewrite Routes ---/)?.[0] || '';
+
+    assert.match(coverageRoute, /throw new BadRequestError\("Missing or invalid projectId"\)/);
+    assert.match(coverageRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(coverageRoute, /throw new BadRequestError\("Stage 8 Draft must be approved before generating coverage"\)/);
+    assert.match(coverageRoute, /throw new BadRequestError\("No scene blueprint found"\)/);
+    assert.match(coverageRoute, /throw new BadRequestError\("No draft text found in scenes\. Generate scene drafts first\."\)/);
+    assert.match(coverageRoute, /sendApiError\(res, error, "Failed to generate coverage"\)/);
+    assert.doesNotMatch(coverageRoute, /path\.join\(DATA_DIR, `\$\{projectId\}\.json`\)/);
+    assert.doesNotMatch(coverageRoute, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
