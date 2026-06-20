@@ -215,6 +215,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated Stage 6 scene-blueprint generation pre-stream validation and Stage 6 blueprint revision validation/project loading onto typed API errors and shared project loading.
 - Non-stream Stage 6 revision failures now use `sendApiError()`, including an explicit exposed `NO_BLUEPRINT_CHANGES` API error, while streamed revision/generation failures still report through SSE error packets after headers are flushed.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 8 draft pass)
+- Migrated Stage 8 draft generation, draft revision, and continuity resolution routes onto typed validation/not-found errors, shared project loading, and `sendApiError()` while preserving existing validation messages.
+- Draft routes now reuse `findProjectScene()` instead of hand-scanning scene arrays in each endpoint.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

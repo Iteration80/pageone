@@ -4766,41 +4766,27 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         const { projectId, sceneNumber } = req.body;
         const sceneNum = parseInt(sceneNumber, 10);
         if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000) {
-            return res.status(400).json({ error: "Missing or invalid projectId or sceneNumber" });
+            throw new BadRequestError("Missing or invalid projectId or sceneNumber");
         }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         if (!projectData.data || !projectData.data.stage6_scenes) {
-            return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
+            throw new BadRequestError("Stage 6 Scene Blueprint not found");
         }
         const beforeDraftSnapshot = JSON.parse(JSON.stringify(projectData.data.stage6_scenes || []));
 
-        // Find the scene in the sequences
-        let targetedScene = null;
-        for (const sequence of projectData.data.stage6_scenes) {
-            const scene = sequence.scenes.find(s => s.scene_number === sceneNum);
-            if (scene) {
-                targetedScene = scene;
-                break;
-            }
-        }
+        const targetedScene = findProjectScene(projectData, sceneNum);
 
         if (!targetedScene) {
-            return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
+            throw new NotFoundError(`Scene ${sceneNum} not found in blueprint`);
         }
         const beforeDraftHash = sourcePlanDataHash(targetedScene.humanized_draft_text || targetedScene.draft_text || '');
 
         const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
         if (missingFields.length > 0) {
-            return res.status(400).json({ error: `Scene missing required fields: ${missingFields.join(', ')}` });
+            throw new BadRequestError(`Scene missing required fields: ${missingFields.join(', ')}`);
         }
 
         const projectContext = {
@@ -4850,7 +4836,7 @@ app.post('/api/generate-draft', requireAuth, aiLimiter, async (req, res) => {
         res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Generation Error:', error.message);
-        res.status(500).json({ error: "Failed to generate scene draft" });
+        sendApiError(res, error, "Failed to generate scene draft");
     }
 });
 
@@ -4859,36 +4845,26 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         const { projectId, sceneNumber, feedback } = req.body;
         const sceneNum = parseInt(sceneNumber, 10);
         if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || sceneNum > 10000 || !feedback) {
-            return res.status(400).json({ error: "Missing or invalid projectId, sceneNumber, or feedback" });
+            throw new BadRequestError("Missing or invalid projectId, sceneNumber, or feedback");
         }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         if (!projectData.data?.stage6_scenes) {
-            return res.status(400).json({ error: "Stage 6 Scene Blueprint not found" });
+            throw new BadRequestError("Stage 6 Scene Blueprint not found");
         }
         const beforeDraftSnapshot = JSON.parse(JSON.stringify(projectData.data.stage6_scenes || []));
 
-        let targetedScene = null;
-        for (const sequence of projectData.data.stage6_scenes) {
-            const scene = sequence.scenes.find(s => s.scene_number === sceneNum);
-            if (scene) { targetedScene = scene; break; }
-        }
+        const targetedScene = findProjectScene(projectData, sceneNum);
 
         if (!targetedScene) {
-            return res.status(404).json({ error: `Scene ${sceneNum} not found in blueprint` });
+            throw new NotFoundError(`Scene ${sceneNum} not found in blueprint`);
         }
 
         const missingFields = ['scene_heading', 'narrative_action', 'dramaturgical_function'].filter(f => !targetedScene[f]);
         if (missingFields.length > 0) {
-            return res.status(400).json({ error: `Scene missing required fields: ${missingFields.join(', ')}` });
+            throw new BadRequestError(`Scene missing required fields: ${missingFields.join(', ')}`);
         }
 
         const projectContext = {
@@ -4938,7 +4914,7 @@ app.post('/api/revise-draft', requireAuth, aiLimiter, async (req, res) => {
         res.json(response);
     } catch (error) {
         console.error('Stage 8 Draft Revision Error:', error.message);
-        res.status(500).json({ error: "Failed to revise scene draft" });
+        sendApiError(res, error, "Failed to revise scene draft");
     }
 });
 
@@ -4948,19 +4924,19 @@ app.post('/api/continuity/resolve', requireAuth, async (req, res) => {
     try {
         const { projectId, factId, resolution, newValue } = req.body;
         if (!isValidProjectId(projectId) || !factId || !resolution) {
-            return res.status(400).json({ error: 'Missing projectId, factId, or resolution' });
+            throw new BadRequestError('Missing projectId, factId, or resolution');
         }
         if (!['intentional_change', 'dismiss', 'fix_prompt'].includes(resolution)) {
-            return res.status(400).json({ error: 'Invalid resolution type' });
+            throw new BadRequestError('Invalid resolution type');
         }
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const projectData = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
         resolveError(projectData, factId, resolution, newValue);
         await writeJSONQueued(filePath, projectData);
         res.json({ success: true });
     } catch (error) {
         console.error('Continuity resolve error:', error.message);
-        res.status(500).json({ error: 'Failed to resolve continuity issue' });
+        sendApiError(res, error, 'Failed to resolve continuity issue');
     }
 });
 

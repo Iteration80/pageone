@@ -833,6 +833,26 @@ test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revi
     assert.doesNotMatch(stage6Routes, /res\.status\((400|404|500)\)/);
 });
 
+test('Stage 8 draft and continuity routes use typed API errors', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const stage8Routes = serverJs.match(/app\.post\('\/api\/generate-draft'[\s\S]*?\/\/ --- Stage 9: Coverage ---/)?.[0] || '';
+
+    assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId or sceneNumber"\)/);
+    assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId, sceneNumber, or feedback"\)/);
+    assert.match(stage8Routes, /throw new BadRequestError\("Stage 6 Scene Blueprint not found"\)/);
+    assert.match(stage8Routes, /throw new BadRequestError\(`Scene missing required fields:/);
+    assert.match(stage8Routes, /throw new NotFoundError\(`Scene \$\{sceneNum\} not found in blueprint`\)/);
+    assert.match(stage8Routes, /findProjectScene\(projectData, sceneNum\)/);
+    assert.match(stage8Routes, /readProjectJSONById\(projectId\)/);
+    assert.match(stage8Routes, /throw new BadRequestError\('Missing projectId, factId, or resolution'\)/);
+    assert.match(stage8Routes, /throw new BadRequestError\('Invalid resolution type'\)/);
+    assert.match(stage8Routes, /sendApiError\(res, error, "Failed to generate scene draft"\)/);
+    assert.match(stage8Routes, /sendApiError\(res, error, "Failed to revise scene draft"\)/);
+    assert.match(stage8Routes, /sendApiError\(res, error, 'Failed to resolve continuity issue'\)/);
+    assert.doesNotMatch(stage8Routes, /path\.join\(DATA_DIR, `\$\{projectId\}\.json`\)/);
+    assert.doesNotMatch(stage8Routes, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
