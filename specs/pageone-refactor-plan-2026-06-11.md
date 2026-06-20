@@ -226,6 +226,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated Stage 10 rewrite initialization, pending rewrite save, priority approval, and finalization routes onto typed validation/not-found errors and `sendApiError()`.
 - Stage 10 state mutation routes now check project existence before `updateProjectJSON()` so missing projects return intentional 404s.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 10 rewrite pass)
+- Migrated Stage 10 rewrite planning, priority batch rewrites, single-scene rewrites, and selected-scene feedback rewrites onto typed validation/not-found errors and `sendApiError()`.
+- Stage 10 rewrite routes now use shared project loading, and single-scene rewrites reuse `findProjectScene()` instead of hand-scanning Stage 6 scene arrays.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

@@ -894,6 +894,38 @@ test('Stage 10 state routes use typed API errors', () => {
     assert.doesNotMatch(stateRoutes, /res\.status\((400|404|500)\)/);
 });
 
+test('Stage 10 AI rewrite routes use typed API errors and shared project loading', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const planRoute = serverJs.match(/app\.post\('\/api\/plan-rewrite'[\s\S]*?\/\/ Run the rewrite agent only/)?.[0] || '';
+    const priorityRoute = serverJs.match(/app\.post\('\/api\/rewrite-for-priority'[\s\S]*?\/\/ Rewrite a single scene for/)?.[0] || '';
+    const singleSceneRoute = serverJs.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
+    const feedbackRoute = serverJs.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
+    const rewriteRoutes = `${planRoute}\n${priorityRoute}\n${singleSceneRoute}\n${feedbackRoute}`;
+
+    assert.match(planRoute, /throw new BadRequestError\('Missing or invalid projectId or priorityTask'\)/);
+    assert.match(planRoute, /getProjectFilePath\(projectId\)/);
+    assert.match(planRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(planRoute, /sendApiError\(res, error, 'Failed to generate rewrite plan'\)/);
+
+    assert.match(priorityRoute, /throw new BadRequestError\('Missing or invalid projectId or priorityTask'\)/);
+    assert.match(priorityRoute, /getProjectFilePath\(projectId\)/);
+    assert.match(priorityRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(priorityRoute, /sendApiError\(res, error, 'Failed to rewrite scenes for priority'\)/);
+
+    assert.match(singleSceneRoute, /throw new BadRequestError\('Missing or invalid projectId, sceneNumber, or priorityTask'\)/);
+    assert.match(singleSceneRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(singleSceneRoute, /findProjectScene\(projectData, sceneNum\)/);
+    assert.match(singleSceneRoute, /sendApiError\(res, error, 'Failed to rewrite scene'\)/);
+
+    assert.match(feedbackRoute, /throw new BadRequestError\('Missing required fields'\)/);
+    assert.match(feedbackRoute, /getProjectFilePath\(projectId\)/);
+    assert.match(feedbackRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(feedbackRoute, /sendApiError\(res, error, 'Failed to rewrite scene with feedback'\)/);
+
+    assert.doesNotMatch(rewriteRoutes, /path\.join\(DATA_DIR, `\$\{projectId\}\.json`\)/);
+    assert.doesNotMatch(rewriteRoutes, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';

@@ -5351,11 +5351,12 @@ ${projectData.data.characterChangeContext}`;
 app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, priorityTask, userFeedback, conversationContext } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
+        if (!isValidProjectId(projectId) || !priorityTask) {
+            throw new BadRequestError('Missing or invalid projectId or priorityTask');
+        }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         const working = projectData.data?.stage9_rewrites?.working || {};
         const pitch = projectData.data?.stage1_pitch?.pitch;
@@ -5457,7 +5458,7 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
         res.json({ ...plan, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('plan-rewrite error:', error.message);
-        res.status(500).json({ error: 'Failed to generate rewrite plan' });
+        sendApiError(res, error, 'Failed to generate rewrite plan');
     }
 });
 
@@ -5465,11 +5466,12 @@ app.post('/api/plan-rewrite', requireAuth, aiLimiter, async (req, res) => {
 app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, priorityTask, affectedSceneNumbers } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask) return res.status(400).json({ error: 'Missing or invalid projectId or priorityTask' });
+        if (!isValidProjectId(projectId) || !priorityTask) {
+            throw new BadRequestError('Missing or invalid projectId or priorityTask');
+        }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         const working = projectData.data?.stage9_rewrites?.working || {};
         const pitch = projectData.data?.stage1_pitch?.pitch;
@@ -5528,7 +5530,7 @@ app.post('/api/rewrite-for-priority', requireAuth, aiLimiter, async (req, res) =
         res.json({ scenes, ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-for-priority error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scenes for priority' });
+        sendApiError(res, error, 'Failed to rewrite scenes for priority');
     }
 });
 
@@ -5538,26 +5540,16 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         const { projectId, sceneNumber, priorityTask, plannedChange } = req.body;
         const sceneNum = parseInt(sceneNumber, 10);
         if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || !priorityTask) {
-            return res.status(400).json({ error: 'Missing or invalid projectId, sceneNumber, or priorityTask' });
+            throw new BadRequestError('Missing or invalid projectId, sceneNumber, or priorityTask');
         }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const projectData = await readProjectJSONById(projectId);
 
         const working = projectData.data?.stage9_rewrites?.working || {};
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        // Find scene metadata from stage 6
-        const stage6Scenes = projectData.data?.stage6_scenes || [];
-        let sceneMeta = null;
-        for (const seq of stage6Scenes) {
-            if (seq.scenes) {
-                sceneMeta = seq.scenes.find(s => s.scene_number === sceneNum);
-                if (sceneMeta) break;
-            }
-        }
+        const sceneMeta = findProjectScene(projectData, sceneNum);
 
         const sceneText = working[sceneNum] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
         const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
@@ -5642,7 +5634,7 @@ app.post('/api/rewrite-single-scene', requireAuth, aiLimiter, async (req, res) =
         res.json({ scene_number: sceneNum, original_text: sceneText, proposed_text: proposed, modified, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-single-scene error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scene' });
+        sendApiError(res, error, 'Failed to rewrite scene');
     }
 });
 
@@ -5717,11 +5709,12 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
 app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, sceneNumber, priorityTask, userFeedback, currentText, attachment } = req.body;
-        if (!isValidProjectId(projectId) || !priorityTask || !currentText) return res.status(400).json({ error: 'Missing required fields' });
+        if (!isValidProjectId(projectId) || !priorityTask || !currentText) {
+            throw new BadRequestError('Missing required fields');
+        }
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
@@ -5772,7 +5765,7 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
         res.json({ proposed_text, snapshotIds: snapshotEntries.map(entry => entry.id), ...(savedSource && { savedSource }), ...sourceResponseExtras(sourcePacket) });
     } catch (error) {
         console.error('rewrite-scene-feedback error:', error.message);
-        res.status(500).json({ error: 'Failed to rewrite scene with feedback' });
+        sendApiError(res, error, 'Failed to rewrite scene with feedback');
     }
 });
 
