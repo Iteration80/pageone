@@ -4557,18 +4557,26 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
     const { projectId, notes } = req.body;
     const generationNotes = typeof notes === 'string' ? notes.trim() : '';
 
-    const context = await prepareGenerationProjectContext(req, res, {
-        projectId,
-        validate: (project) => {
-            const pitch = project.data?.stage1_pitch?.pitch;
-            const characters = project.data?.stage3_characters?.characters;
-            const beats = project.data?.stage4_beats?.hybrid_beat_sheet;
-            const treatment = project.data?.stage5_treatment;
-            return (!pitch || !characters || !beats || !treatment)
-                ? 'Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint'
-                : null;
-        }
-    });
+    let context;
+    try {
+        context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            validate: (project) => {
+                const pitch = project.data?.stage1_pitch?.pitch;
+                const characters = project.data?.stage3_characters?.characters;
+                const beats = project.data?.stage4_beats?.hybrid_beat_sheet;
+                const treatment = project.data?.stage5_treatment;
+                return (!pitch || !characters || !beats || !treatment)
+                    ? 'Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint'
+                    : null;
+            },
+            throwTypedErrors: true
+        });
+    } catch (error) {
+        console.error('Stage 6 Scene Context Error:', error.message);
+        sendApiError(res, error, 'Failed to generate scene blueprint');
+        return;
+    }
     if (!context) return;
     const { filePath, projectData } = context;
     const pitch = projectData.data?.stage1_pitch?.pitch;
@@ -4657,22 +4665,16 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
     try {
         const { projectId, feedback, stream } = req.body;
         if (!isValidProjectId(projectId) || !feedback) {
-            return res.status(400).json({ error: "Missing or invalid projectId, or missing feedback" });
+            throw new BadRequestError("Missing or invalid projectId, or missing feedback");
         }
         streaming = stream === true || /\btext\/event-stream\b/i.test(req.headers.accept || '');
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let projectData;
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            projectData = JSON.parse(content);
-        } catch (err) {
-            return res.status(404).json({ error: "Project not found" });
-        }
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         const currentBlueprint = projectData.data?.stage6_scenes;
         if (!currentBlueprint) {
-            return res.status(400).json({ error: "No current Stage 6 blueprint found to revise" });
+            throw new BadRequestError("No current Stage 6 blueprint found to revise");
         }
 
         if (streaming) {
@@ -4742,13 +4744,15 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
             return;
         }
         console.error('Stage 6 Revision Error:', error.message);
-        const errorMessage = error.code === 'NO_BLUEPRINT_CHANGES'
-            ? error.message
-            : "Failed to revise scene blueprint";
+        const isNoChangeError = error.code === 'NO_BLUEPRINT_CHANGES';
+        const errorMessage = isNoChangeError ? error.message : "Failed to revise scene blueprint";
         if (streaming) {
             send({ type: 'error', message: errorMessage });
         } else {
-            res.status(500).json({ error: errorMessage });
+            const apiError = isNoChangeError
+                ? new ApiError(500, error.message, { code: 'NO_BLUEPRINT_CHANGES', expose: true })
+                : error;
+            sendApiError(res, apiError, "Failed to revise scene blueprint");
         }
     } finally {
         if (heartbeat) clearInterval(heartbeat);

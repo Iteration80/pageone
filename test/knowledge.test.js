@@ -813,6 +813,26 @@ test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', ()
     assert.doesNotMatch(stage45Routes, /res\.status\((400|404|500)\)/);
 });
 
+test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revision failures', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const stage6Generate = serverJs.match(/app\.post\('\/api\/generate-stage6-scenes'[\s\S]*?app\.post\('\/api\/revise-stage6'/)?.[0] || '';
+    const stage6Revise = serverJs.match(/app\.post\('\/api\/revise-stage6'[\s\S]*?app\.post\('\/api\/generate-draft'/)?.[0] || '';
+    const stage6Routes = `${stage6Generate}\n${stage6Revise}`;
+
+    assert.match(stage6Generate, /throwTypedErrors: true/);
+    assert.match(stage6Generate, /sendApiError\(res, error, 'Failed to generate scene blueprint'\)/);
+    assert.ok(stage6Generate.indexOf("sendApiError(res, error, 'Failed to generate scene blueprint')") < stage6Generate.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
+    assert.match(stage6Generate, /send\(\{ type: 'error', message: detail \? `Failed to generate scene blueprint:/);
+
+    assert.match(stage6Revise, /throw new BadRequestError\("Missing or invalid projectId, or missing feedback"\)/);
+    assert.match(stage6Revise, /readProjectJSONById\(projectId\)/);
+    assert.match(stage6Revise, /throw new BadRequestError\("No current Stage 6 blueprint found to revise"\)/);
+    assert.match(stage6Revise, /new ApiError\(500, error\.message, \{ code: 'NO_BLUEPRINT_CHANGES', expose: true \}\)/);
+    assert.match(stage6Revise, /sendApiError\(res, apiError, "Failed to revise scene blueprint"\)/);
+    assert.match(stage6Revise, /send\(\{ type: 'error', message: errorMessage \}\)/);
+    assert.doesNotMatch(stage6Routes, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';

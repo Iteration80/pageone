@@ -211,6 +211,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 ### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 4/5 streaming prep pass)
 - Migrated Stage 4 beat generation and Stage 5 treatment pre-stream project/prerequisite validation onto the typed generation context path; validation failures now return shared JSON API errors before SSE headers are flushed, while in-flight model failures still report through SSE error packets.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 6 blueprint pass)
+- Migrated Stage 6 scene-blueprint generation pre-stream validation and Stage 6 blueprint revision validation/project loading onto typed API errors and shared project loading.
+- Non-stream Stage 6 revision failures now use `sendApiError()`, including an explicit exposed `NO_BLUEPRINT_CHANGES` API error, while streamed revision/generation failures still report through SSE error packets after headers are flushed.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.
