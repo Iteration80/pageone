@@ -208,6 +208,9 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 ### Codex continuation notes — 2026-06-19 (Phase 5 typed API errors, Stage 3 pass)
 - Added an opt-in typed-error mode to `prepareGenerationProjectContext()` and migrated Stage 3 character generation onto it, preserving the shared generation context path while routing invalid project IDs, missing projects, missing prerequisites, and unexpected failures through typed API errors.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 4/5 streaming prep pass)
+- Migrated Stage 4 beat generation and Stage 5 treatment pre-stream project/prerequisite validation onto the typed generation context path; validation failures now return shared JSON API errors before SSE headers are flushed, while in-flight model failures still report through SSE error packets.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

@@ -794,6 +794,25 @@ test('Stage 3 character route uses typed API errors through generation context',
     assert.doesNotMatch(stage3Route, /res\.status\((400|500)\)/);
 });
 
+test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const stage4Route = serverJs.match(/app\.post\('\/api\/generate-stage4-beats'[\s\S]*?app\.post\('\/api\/generate-stage5-treatment'/)?.[0] || '';
+    const stage5Route = serverJs.match(/app\.post\('\/api\/generate-stage5-treatment'[\s\S]*?app\.post\('\/api\/generate-stage6-scenes'/)?.[0] || '';
+    const stage45Routes = `${stage4Route}\n${stage5Route}`;
+
+    assert.match(stage4Route, /throwTypedErrors: true/);
+    assert.match(stage4Route, /sendApiError\(res, error, 'Failed to generate beats'\)/);
+    assert.ok(stage4Route.indexOf("sendApiError(res, error, 'Failed to generate beats')") < stage4Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
+    assert.match(stage4Route, /send\(\{ type: 'error', message: detail \? `Failed to generate beats:/);
+
+    assert.match(stage5Route, /throwTypedErrors: true/);
+    assert.match(stage5Route, /sendApiError\(res, error, 'Failed to generate treatment'\)/);
+    assert.ok(stage5Route.indexOf("sendApiError(res, error, 'Failed to generate treatment')") < stage5Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
+    assert.match(stage5Route, /send\(\{ type: 'error', message: `Failed to generate treatment/);
+
+    assert.doesNotMatch(stage45Routes, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';

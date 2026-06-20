@@ -4329,17 +4329,25 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
     const { projectId, currentBeats, notes } = req.body || {};
     const uploadedFile = req.file;
 
-    const context = await prepareGenerationProjectContext(req, res, {
-        projectId,
-        validate: (project) => {
-            const pitchData = project.data?.stage1_pitch?.pitch;
-            const beatsData = project.data?.stage2_outline?.outline;
-            const charsData = project.data?.stage3_characters?.characters;
-            return (!pitchData || !beatsData || !charsData)
-                ? 'Project requires Stages 1-3 to generate Beats'
-                : null;
-        }
-    });
+    let context;
+    try {
+        context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            validate: (project) => {
+                const pitchData = project.data?.stage1_pitch?.pitch;
+                const beatsData = project.data?.stage2_outline?.outline;
+                const charsData = project.data?.stage3_characters?.characters;
+                return (!pitchData || !beatsData || !charsData)
+                    ? 'Project requires Stages 1-3 to generate Beats'
+                    : null;
+            },
+            throwTypedErrors: true
+        });
+    } catch (error) {
+        console.error('Stage 4 Beats Context Error:', error.message);
+        sendApiError(res, error, 'Failed to generate beats');
+        return;
+    }
     if (!context) return;
     const { filePath, projectData } = context;
     const pitchData = projectData.data?.stage1_pitch?.pitch;
@@ -4436,17 +4444,25 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
 app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
     const { projectId } = req.body || {};
     const uploadedFile = req.file;
-    const context = await prepareGenerationProjectContext(req, res, {
-        projectId,
-        validate: (project) => {
-            const pitchData = project.data?.stage1_pitch?.pitch;
-            const charactersData = project.data?.stage3_characters?.characters;
-            const beatsData = project.data?.stage4_beats?.hybrid_beat_sheet;
-            return (!pitchData || !charactersData || !beatsData)
-                ? 'Project requires Stages 1, 3, and 4 to generate Treatment'
-                : null;
-        }
-    });
+    let context;
+    try {
+        context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            validate: (project) => {
+                const pitchData = project.data?.stage1_pitch?.pitch;
+                const charactersData = project.data?.stage3_characters?.characters;
+                const beatsData = project.data?.stage4_beats?.hybrid_beat_sheet;
+                return (!pitchData || !charactersData || !beatsData)
+                    ? 'Project requires Stages 1, 3, and 4 to generate Treatment'
+                    : null;
+            },
+            throwTypedErrors: true
+        });
+    } catch (error) {
+        console.error('Stage 5 Treatment Context Error:', error.message);
+        sendApiError(res, error, 'Failed to generate treatment');
+        return;
+    }
     if (!context) return;
     const { filePath, projectData } = context;
 
