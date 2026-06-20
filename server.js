@@ -5066,16 +5066,10 @@ function persistStage10PendingRewrite(projectData, {
 app.post('/api/init-stage9', requireAuth, async (req, res) => {
     try {
         const { projectId, reset } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        assertValidProjectId(projectId, 'Missing or invalid projectId');
 
-        const filePath = path.join(DATA_DIR, `${projectId}.json`);
-        let content;
-        try {
-            content = await fs.readFile(filePath, 'utf-8');
-        } catch {
-            return res.status(404).json({ error: 'Project not found' });
-        }
-        const projectData = JSON.parse(content);
+        const filePath = getProjectFilePath(projectId);
+        const projectData = await readProjectJSONById(projectId);
 
         // Return existing state if already initialized (unless reset requested)
         if (projectData.data?.stage9_rewrites && !reset) {
@@ -5141,7 +5135,7 @@ app.post('/api/init-stage9', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('init-stage9 error:', error.message);
-        res.status(500).json({ error: 'Failed to initialize rewrite stage' });
+        sendApiError(res, error, 'Failed to initialize rewrite stage');
     }
 });
 
@@ -5657,8 +5651,9 @@ app.post('/api/save-stage10-pending', requireAuth, async (req, res) => {
         const { projectId, sceneNumber, proposedText } = req.body;
         const sceneNum = parseInt(sceneNumber, 10);
         if (!isValidProjectId(projectId) || isNaN(sceneNum) || sceneNum < 1 || typeof proposedText !== 'string') {
-            return res.status(400).json({ error: 'Missing or invalid projectId, sceneNumber, or proposedText' });
+            throw new BadRequestError('Missing or invalid projectId, sceneNumber, or proposedText');
         }
+        await assertProjectExists(projectId);
 
         let snapshotEntries = [];
         const updatedProject = await updateProjectJSON(projectId, (freshProject) => {
@@ -5677,7 +5672,7 @@ app.post('/api/save-stage10-pending', requireAuth, async (req, res) => {
         res.json({ success: true, stage9_rewrites: updatedProject.data.stage9_rewrites, snapshotIds: snapshotEntries.map(entry => entry.id) });
     } catch (error) {
         console.error('save-stage10-pending error:', error.message);
-        res.status(500).json({ error: 'Failed to save pending rewrite' });
+        sendApiError(res, error, 'Failed to save pending rewrite');
     }
 });
 
@@ -5685,7 +5680,8 @@ app.post('/api/save-stage10-pending', requireAuth, async (req, res) => {
 app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
     try {
         const { projectId, pendingScenes, newPriorityIdx } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        assertValidProjectId(projectId, 'Missing or invalid projectId');
+        await assertProjectExists(projectId);
 
         let snapshotEntries = [];
         const updatedProject = await updateProjectJSON(projectId, (projectData) => {
@@ -5713,7 +5709,7 @@ app.post('/api/approve-rewrite-priority', requireAuth, async (req, res) => {
         res.json({ stage9_rewrites: updatedProject.data.stage9_rewrites, snapshotIds: snapshotEntries.map(entry => entry.id) });
     } catch (error) {
         console.error('approve-rewrite-priority error:', error.message);
-        res.status(500).json({ error: 'Failed to approve rewrite priority' });
+        sendApiError(res, error, 'Failed to approve rewrite priority');
     }
 });
 
@@ -5784,7 +5780,8 @@ app.post('/api/rewrite-scene-feedback', requireAuth, aiLimiter, async (req, res)
 app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
     try {
         const { projectId } = req.body;
-        if (!isValidProjectId(projectId)) return res.status(400).json({ error: 'Missing or invalid projectId' });
+        assertValidProjectId(projectId, 'Missing or invalid projectId');
+        await assertProjectExists(projectId);
 
         await updateProjectJSON(projectId, (projectData) => {
             if (projectData.data?.stage9_rewrites) {
@@ -5804,7 +5801,7 @@ app.post('/api/finalize-stage10', requireAuth, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('finalize-stage10 error:', error.message);
-        res.status(500).json({ error: 'Failed to finalize stage 10' });
+        sendApiError(res, error, 'Failed to finalize stage 10');
     }
 });
 

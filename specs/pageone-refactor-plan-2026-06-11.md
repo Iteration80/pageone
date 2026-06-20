@@ -222,6 +222,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 ### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 9 coverage pass)
 - Migrated Stage 9 coverage generation onto typed validation errors, shared project loading, and `sendApiError()` while preserving existing approval/blueprint/draft validation messages.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, Stage 10 state pass)
+- Migrated Stage 10 rewrite initialization, pending rewrite save, priority approval, and finalization routes onto typed validation/not-found errors and `sendApiError()`.
+- Stage 10 state mutation routes now check project existence before `updateProjectJSON()` so missing projects return intentional 404s.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.

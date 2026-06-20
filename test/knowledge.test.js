@@ -867,6 +867,33 @@ test('Stage 9 coverage route uses typed API errors', () => {
     assert.doesNotMatch(coverageRoute, /res\.status\((400|404|500)\)/);
 });
 
+test('Stage 10 state routes use typed API errors', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const initRoute = serverJs.match(/app\.post\('\/api\/init-stage9'[\s\S]*?\/\/ Tool-calling stage assistant\./)?.[0] || '';
+    const saveRoute = serverJs.match(/app\.post\('\/api\/save-stage10-pending'[\s\S]*?\/\/ Save approved pending changes/)?.[0] || '';
+    const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
+    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?\/\/ --- Stage 7: Style Routes ---/)?.[0] || '';
+    const stateRoutes = `${initRoute}\n${saveRoute}\n${approveRoute}\n${finalizeRoute}`;
+
+    assert.match(initRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId'\)/);
+    assert.match(initRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(initRoute, /sendApiError\(res, error, 'Failed to initialize rewrite stage'\)/);
+
+    assert.match(saveRoute, /throw new BadRequestError\('Missing or invalid projectId, sceneNumber, or proposedText'\)/);
+    assert.match(saveRoute, /await assertProjectExists\(projectId\)/);
+    assert.match(saveRoute, /sendApiError\(res, error, 'Failed to save pending rewrite'\)/);
+
+    assert.match(approveRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId'\)/);
+    assert.match(approveRoute, /await assertProjectExists\(projectId\)/);
+    assert.match(approveRoute, /sendApiError\(res, error, 'Failed to approve rewrite priority'\)/);
+
+    assert.match(finalizeRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId'\)/);
+    assert.match(finalizeRoute, /await assertProjectExists\(projectId\)/);
+    assert.match(finalizeRoute, /sendApiError\(res, error, 'Failed to finalize stage 10'\)/);
+
+    assert.doesNotMatch(stateRoutes, /res\.status\((400|404|500)\)/);
+});
+
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
