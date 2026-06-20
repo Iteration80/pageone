@@ -787,20 +787,33 @@ test('stage 1 pitch routes use typed API errors and shared project loading', () 
     assert.doesNotMatch(stage1Routes, /res\.status\((400|500)\)/);
 });
 
-test('Stage 3 character route uses typed API errors through generation context', () => {
+test('Stage 2 outline route uses typed API errors before SSE starts', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const generationHelper = serverJs.match(/async function prepareGenerationProjectContext[\s\S]*?async function finalizeGeneratedStageArtifact/)?.[0] || '';
+    const stage2Route = serverJs.match(/app\.post\('\/api\/generate-outline'[\s\S]*?app\.post\('\/api\/generate-characters'/)?.[0] || '';
+
+    assert.match(generationHelper, /throw new BadRequestError\(invalidProjectMessage\)/);
+    assert.match(generationHelper, /readProjectJSONById\(projectId, \{ invalidMessage: invalidProjectMessage, notFoundMessage \}\)/);
+    assert.match(generationHelper, /throw err/);
+    assert.match(generationHelper, /throw new BadRequestError\(validationError\)/);
+    assert.doesNotMatch(generationHelper, /throwTypedErrors/);
+    assert.doesNotMatch(generationHelper, /res\.status\((400|404)\)/);
+
+    assert.match(stage2Route, /prepareGenerationProjectContext\(req, res, \{[\s\S]*Project has no finalized Stage 1 Pitch/);
+    assert.ok(stage2Route.indexOf('const context = await prepareGenerationProjectContext') < stage2Route.indexOf('startStream()'));
+    assert.match(stage2Route, /sendApiError\(res, error, 'Failed to generate outline'\)/);
+    assert.match(stage2Route, /send\(\{ type: 'error', message \}\)/);
+    assert.doesNotMatch(stage2Route, /res\.status\((400|404|500)\)/);
+});
+
+test('Stage 3 character route uses typed API errors through generation context', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const stage3Route = serverJs.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage4-beats'/)?.[0] || '';
 
-    assert.match(generationHelper, /throwTypedErrors = false/);
-    assert.match(generationHelper, /if \(throwTypedErrors\) throw new BadRequestError\(invalidProjectMessage\)/);
-    assert.match(generationHelper, /readProjectJSONById\(projectId, \{ invalidMessage: invalidProjectMessage, notFoundMessage \}\)/);
-    assert.match(generationHelper, /if \(throwTypedErrors\) throw err/);
-    assert.match(generationHelper, /if \(throwTypedErrors\) throw new BadRequestError\(validationError\)/);
-    assert.match(stage3Route, /throwTypedErrors: true/);
     assert.match(stage3Route, /Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters/);
     assert.match(stage3Route, /sendApiError\(res, error, "Failed to generate characters"\)/);
     assert.doesNotMatch(stage3Route, /publicErrorDetail\(error\)/);
+    assert.doesNotMatch(stage3Route, /throwTypedErrors/);
     assert.doesNotMatch(stage3Route, /res\.status\((400|500)\)/);
 });
 
@@ -810,16 +823,15 @@ test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', ()
     const stage5Route = serverJs.match(/app\.post\('\/api\/generate-stage5-treatment'[\s\S]*?app\.post\('\/api\/generate-stage6-scenes'/)?.[0] || '';
     const stage45Routes = `${stage4Route}\n${stage5Route}`;
 
-    assert.match(stage4Route, /throwTypedErrors: true/);
     assert.match(stage4Route, /sendApiError\(res, error, 'Failed to generate beats'\)/);
     assert.ok(stage4Route.indexOf("sendApiError(res, error, 'Failed to generate beats')") < stage4Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
     assert.match(stage4Route, /send\(\{ type: 'error', message: detail \? `Failed to generate beats:/);
 
-    assert.match(stage5Route, /throwTypedErrors: true/);
     assert.match(stage5Route, /sendApiError\(res, error, 'Failed to generate treatment'\)/);
     assert.ok(stage5Route.indexOf("sendApiError(res, error, 'Failed to generate treatment')") < stage5Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
     assert.match(stage5Route, /send\(\{ type: 'error', message: `Failed to generate treatment/);
 
+    assert.doesNotMatch(stage45Routes, /throwTypedErrors/);
     assert.doesNotMatch(stage45Routes, /res\.status\((400|404|500)\)/);
 });
 
@@ -829,10 +841,10 @@ test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revi
     const stage6Revise = serverJs.match(/app\.post\('\/api\/revise-stage6'[\s\S]*?app\.post\('\/api\/generate-draft'/)?.[0] || '';
     const stage6Routes = `${stage6Generate}\n${stage6Revise}`;
 
-    assert.match(stage6Generate, /throwTypedErrors: true/);
     assert.match(stage6Generate, /sendApiError\(res, error, 'Failed to generate scene blueprint'\)/);
     assert.ok(stage6Generate.indexOf("sendApiError(res, error, 'Failed to generate scene blueprint')") < stage6Generate.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
     assert.match(stage6Generate, /send\(\{ type: 'error', message: detail \? `Failed to generate scene blueprint:/);
+    assert.doesNotMatch(stage6Generate, /throwTypedErrors/);
 
     assert.match(stage6Revise, /throw new BadRequestError\("Missing or invalid projectId, or missing feedback"\)/);
     assert.match(stage6Revise, /readProjectJSONById\(projectId\)/);

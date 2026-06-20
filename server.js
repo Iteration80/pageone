@@ -1887,34 +1887,25 @@ async function prepareGenerationProjectContext(req, res, {
     invalidProjectMessage = 'Missing or invalid projectId',
     notFoundMessage = 'Project not found',
     notFoundLog = '',
-    validate = null,
-    throwTypedErrors = false
+    validate = null
 } = {}) {
     if (!isValidProjectId(projectId)) {
-        if (throwTypedErrors) throw new BadRequestError(invalidProjectMessage);
-        res.status(400).json({ error: invalidProjectMessage });
-        return null;
+        throw new BadRequestError(invalidProjectMessage);
     }
 
     const filePath = getProjectFilePath(projectId);
     let projectData;
     try {
-        projectData = throwTypedErrors
-            ? await readProjectJSONById(projectId, { invalidMessage: invalidProjectMessage, notFoundMessage })
-            : JSON.parse(await fs.readFile(filePath, 'utf-8'));
+        projectData = await readProjectJSONById(projectId, { invalidMessage: invalidProjectMessage, notFoundMessage });
     } catch (err) {
         if (notFoundLog) console.error(notFoundLog);
-        if (throwTypedErrors) throw err;
-        res.status(404).json({ error: notFoundMessage });
-        return null;
+        throw err;
     }
 
     if (validate) {
         const validationError = validate(projectData);
         if (validationError) {
-            if (throwTypedErrors) throw new BadRequestError(validationError);
-            res.status(400).json({ error: validationError });
-            return null;
+            throw new BadRequestError(validationError);
         }
     }
 
@@ -4229,12 +4220,12 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             return;
         }
         console.error('Outline Gen Error:', error);
-        const detail = publicErrorDetail(error);
-        const message = detail ? `Failed to generate outline: ${detail}` : "Failed to generate outline";
         if (streaming) {
+            const detail = publicErrorDetail(error);
+            const message = detail ? `Failed to generate outline: ${detail}` : 'Failed to generate outline';
             send({ type: 'error', message });
         } else {
-            res.status(500).json({ error: message });
+            sendApiError(res, error, 'Failed to generate outline');
         }
     } finally {
         if (heartbeat) clearInterval(heartbeat);
@@ -4257,8 +4248,7 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
                 return (!pitchData || !beatsData)
                     ? 'Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters'
                     : null;
-            },
-            throwTypedErrors: true
+            }
         });
         if (!context) return;
         const { filePath, projectData } = context;
@@ -4340,8 +4330,7 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
                 return (!pitchData || !beatsData || !charsData)
                     ? 'Project requires Stages 1-3 to generate Beats'
                     : null;
-            },
-            throwTypedErrors: true
+            }
         });
     } catch (error) {
         console.error('Stage 4 Beats Context Error:', error.message);
@@ -4455,8 +4444,7 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
                 return (!pitchData || !charactersData || !beatsData)
                     ? 'Project requires Stages 1, 3, and 4 to generate Treatment'
                     : null;
-            },
-            throwTypedErrors: true
+            }
         });
     } catch (error) {
         console.error('Stage 5 Treatment Context Error:', error.message);
@@ -4569,8 +4557,7 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
                 return (!pitch || !characters || !beats || !treatment)
                     ? 'Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint'
                     : null;
-            },
-            throwTypedErrors: true
+            }
         });
     } catch (error) {
         console.error('Stage 6 Scene Context Error:', error.message);
