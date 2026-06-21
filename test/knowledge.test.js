@@ -989,6 +989,18 @@ test('style and export routes use typed API error responder for expected failure
     assert.doesNotMatch(exportRoutes, /res\.status\((400|500)\)/);
 });
 
+test('settings and maintenance routes use typed API error responder for shared failures', () => {
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const settingsRoute = serverJs.match(/app\.post\('\/api\/settings'[\s\S]*?\/\/ --- Project Management Routes --- \/\//)?.[0] || '';
+    const maintenanceRoutes = serverJs.match(/app\.get\('\/api\/maintenance\/legacy-projects\/audit'[\s\S]*?\/\/ GET all projects/)?.[0] || '';
+    const sharedRoutes = `${settingsRoute}\n${maintenanceRoutes}`;
+
+    assert.match(settingsRoute, /sendApiError\(res, err, 'Failed to save settings'\)/);
+    assert.match(maintenanceRoutes, /sendApiError\(res, error, 'Failed to audit legacy projects'\)/);
+    assert.match(maintenanceRoutes, /sendApiError\(res, error, 'Failed to upgrade legacy projects'\)/);
+    assert.doesNotMatch(sharedRoutes, /res\.status\(500\)\.json/);
+});
+
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');

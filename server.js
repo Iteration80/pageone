@@ -6201,7 +6201,7 @@ app.post('/api/settings', requireAuth, async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('Failed to save settings:', err);
-        res.status(500).json({ error: 'Failed to save settings' });
+        sendApiError(res, err, 'Failed to save settings');
     }
 });
 
@@ -6212,7 +6212,7 @@ app.get('/api/maintenance/legacy-projects/audit', requireAuth, async (_req, res)
         res.json(await auditOrUpgradeAllProjectKnowledge({ write: false }));
     } catch (error) {
         console.error('legacy project audit error:', error.message);
-        res.status(500).json({ error: 'Failed to audit legacy projects' });
+        sendApiError(res, error, 'Failed to audit legacy projects');
     }
 });
 
@@ -6221,7 +6221,7 @@ app.post('/api/maintenance/legacy-projects/upgrade', requireAuth, async (_req, r
         res.json(await auditOrUpgradeAllProjectKnowledge({ write: true }));
     } catch (error) {
         console.error('legacy project upgrade error:', error.message);
-        res.status(500).json({ error: 'Failed to upgrade legacy projects' });
+        sendApiError(res, error, 'Failed to upgrade legacy projects');
     }
 });
 

@@ -238,6 +238,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 - Migrated Stage 2 outline pre-stream validation and non-stream failures onto typed API errors and `sendApiError()` while preserving SSE error packets after streaming starts.
 - Simplified `prepareGenerationProjectContext()` so it always throws typed validation/not-found errors instead of optionally writing ad hoc 400/404 responses.
 
+### Codex continuation notes — 2026-06-20 (Phase 5 typed API errors, settings/maintenance pass)
+- Migrated settings save and legacy-project maintenance audit/upgrade failures onto `sendApiError()`.
+- The remaining explicit `res.status(404)` API response is the intentional unknown-route diagnostic; streaming routes still use SSE error packets after headers are flushed.
+
 ## Phase 6 (later, optional) — Frontend state
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.
