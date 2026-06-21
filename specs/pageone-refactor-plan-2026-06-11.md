@@ -246,6 +246,10 @@ See rollout order above: remaining stages, Stage 10, style-chat, agent_2 loop re
 Stop using the DOM as the source of truth: in-memory project state object, render-from-state,
 edit-state-directly; retire the four scrape functions. Large; only worth it if PageOne keeps growing.
 
+### Codex continuation notes — 2026-06-21 (Phase 6 state prep)
+- Added `setCurrentProjectData()` / `ensureCurrentProjectData()` as the central replacement point for full project data refreshes in `public/app.js`.
+- Migrated server-refresh full project assignments through the helper and removed the shadowed duplicate `refreshCurrentProjectData()` declaration; stage-specific direct mutations remain for later render-from-state passes.
+
 ---
 
 ## Verification per phase

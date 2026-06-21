@@ -115,6 +115,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadBuildInfo();
 
+    function setCurrentProjectData(data) {
+        window.currentProjectData = data || {};
+        return window.currentProjectData;
+    }
+
+    function ensureCurrentProjectData() {
+        return window.currentProjectData || setCurrentProjectData({});
+    }
+
     function autoResize(textarea) {
         if (!textarea) return;
         // Lock width to prevent CSS Grid reflow when height collapses
@@ -1135,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/projects/${activeProjectId}`);
             if (!res.ok) throw new Error("Failed to fetch project details");
             const projectDetails = await res.json();
-            window.currentProjectData = projectDetails.data;
+            setCurrentProjectData(projectDetails.data);
 
             resultsContainer.innerHTML = ''; // Start clean
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
@@ -1782,7 +1791,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateStageNav(data) {
-        window.currentProjectData = data;
+        data = setCurrentProjectData(data);
         function toggle(navEl, isDone, num) {
             if (!navEl) return;
             const b = navEl.querySelector('.badge');
@@ -1848,10 +1857,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setProjectKnowledge(knowledge) {
         if (!knowledge) return;
-        if (window.currentProjectData) {
-            window.currentProjectData.knowledge = knowledge;
-            renderStageSourceReadinessBadges(window.currentProjectData);
-        }
+        const data = ensureCurrentProjectData();
+        data.knowledge = knowledge;
+        renderStageSourceReadinessBadges(data);
     }
 
     function renderStageSourceReadinessBadges(data = window.currentProjectData) {
@@ -1868,16 +1876,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         setProjectKnowledge(data.knowledge);
         return data.knowledge;
-    }
-
-    async function refreshCurrentProjectData() {
-        if (!activeProjectId) return null;
-        const res = await fetch(`/api/projects/${activeProjectId}`);
-        if (!res.ok) throw new Error('Failed to refresh project data');
-        const project = await res.json();
-        window.currentProjectData = project.data;
-        updateStageNav(project.data);
-        return project.data;
     }
 
     async function switchToVersionHistory() {
@@ -2094,7 +2092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!response.ok) throw new Error(`Could not save current ${info.stageName} before regenerating.`);
         const updatedProject = await response.json();
         if (updatedProject?.data) {
-            window.currentProjectData = updatedProject.data;
+            setCurrentProjectData(updatedProject.data);
             updateStageNav(updatedProject.data);
         }
     }
@@ -2149,7 +2147,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) throw new Error('Could not clear current coverage report.');
             const updatedProject = await response.json();
-            window.currentProjectData = updatedProject.data;
+            setCurrentProjectData(updatedProject.data);
             updateStageNav(updatedProject.data);
             switchStage(9);
         } catch (error) {
@@ -2246,7 +2244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     updatedProject = await projectResponse.json();
                 }
 
-                if (updateCurrentProject && updatedProject?.data) window.currentProjectData = updatedProject.data;
+                if (updateCurrentProject && updatedProject?.data) setCurrentProjectData(updatedProject.data);
                 if (updatedProject?.data) updateStageNav(updatedProject.data);
                 setApproveButtonState(approveButton, 'approved');
 
@@ -2331,7 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error('Server error');
             const updatedProject = await res.json();
-            window.currentProjectData = updatedProject.data;
+            setCurrentProjectData(updatedProject.data);
             updateStageNav(updatedProject.data);
             rerenderStageAfterRestore(version.stage);
             switchStage(version.stage);
@@ -2767,7 +2765,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
                 const updatedProject = await saveRes.json().catch(() => null);
-                if (updatedProject?.data) window.currentProjectData = updatedProject.data;
+                if (updatedProject?.data) setCurrentProjectData(updatedProject.data);
 
                 btnStage2Revise.textContent = 'Saved!';
                 setTimeout(() => {
@@ -5713,7 +5711,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!response.ok) throw new Error('Failed to save current blueprint before regenerating');
         const updatedProject = await response.json();
-        if (window.currentProjectData) window.currentProjectData = updatedProject.data;
+        if (window.currentProjectData) setCurrentProjectData(updatedProject.data);
         updateStageNav(updatedProject.data);
     }
 
@@ -5833,7 +5831,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projectRes = await fetch(`/api/projects/${activeProjectId}`);
                 if (!projectRes.ok) throw new Error('Scene Blueprint was generated, but the project could not be refreshed.');
                 const project = await projectRes.json();
-                window.currentProjectData = project.data;
+                setCurrentProjectData(project.data);
                 updateStageNav(project.data);
                 if (project.data?.stage6_scenes) {
                     renderStage6(project.data.stage6_scenes);
@@ -6066,7 +6064,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         showContinuityFeedback(revised);
                         await handleSourceGenerationResult(8, revised);
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                        window.currentProjectData = (await projRes.json()).data;
+                        setCurrentProjectData((await projRes.json()).data);
                     } catch (err) {
                         console.error('Continuity re-draft failed:', err);
                         alert(`Re-draft error: ${err.message}`);
@@ -6150,7 +6148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
-                window.currentProjectData = projData.data;
+                setCurrentProjectData(projData.data);
 
                 // Show "Next" button after generation
                 if (btnNextScene) btnNextScene.classList.remove('hidden');
@@ -6188,7 +6186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
-                        window.currentProjectData = projData.data;
+                        setCurrentProjectData(projData.data);
                     } catch (err) {
                         console.error('Failed to persist lock state:', err);
                     }
@@ -6238,7 +6236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Sync local project data
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
-                window.currentProjectData = projData.data;
+                setCurrentProjectData(projData.data);
 
                 // Clear feedback notes
                 if (stage8Notes) {
@@ -6350,7 +6348,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Sync local project data so getFlatScenes() reflects the new draft_text
                     const projRes = await fetch(`/api/projects/${activeProjectId}`);
                     const projData = await projRes.json();
-                    window.currentProjectData = projData.data;
+                    setCurrentProjectData(projData.data);
 
                     renderStage8Sidebar();
                     completed++;
@@ -6531,7 +6529,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const projRes = await fetch(`/api/projects/${activeProjectId}`);
                 const projData = await projRes.json();
-                window.currentProjectData = projData.data;
+                setCurrentProjectData(projData.data);
 
                 const versionHistory8 = captureVersionSnapshot(9, 'stage8_coverage', 'Coverage', data.result);
                 await fetch(`/api/projects/${activeProjectId}`, {
@@ -6819,7 +6817,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!saveRes.ok) throw new Error(`Server returned ${saveRes.status}`);
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
-            window.currentProjectData = projData.data;
+            setCurrentProjectData(projData.data);
         } catch (err) {
             console.error('saveCoveragePriorities failed:', err.message);
             throw err; // Re-throw so the caller can abort
@@ -7854,7 +7852,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/api/projects/${activeProjectId}?_=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`Project refresh failed (${res.status})`);
         const project = await res.json();
-        window.currentProjectData = project.data;
+        setCurrentProjectData(project.data);
         updateStageNav(project.data);
         await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
         return project.data;
@@ -7866,7 +7864,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applySourceRevisionResult(stageId, data = {}) {
         const result = data.result;
-        if (!window.currentProjectData) window.currentProjectData = {};
+        ensureCurrentProjectData();
         if (Number(stageId) === 2 && result?.outline) {
             window.currentProjectData.stage2_outline = result;
             renderOutline(result.outline);
@@ -8991,7 +8989,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error('Approve failed');
             const updated = await res.json();
-            window.currentProjectData = updated.data;
+            setCurrentProjectData(updated.data);
             await offerStageMemoryCuration(7);
             updateStageNav(updated.data);
 
@@ -9066,7 +9064,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!res.ok) throw new Error('Skip failed');
             const updated = await res.json();
-            window.currentProjectData = updated.data;
+            setCurrentProjectData(updated.data);
             updateStageNav(updated.data);
             switchStage(8);
         } catch (err) {
@@ -9095,7 +9093,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stage8LoadEditor(data.result);
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
-            window.currentProjectData = projData.data;
+            setCurrentProjectData(projData.data);
             if (btnNextScene) btnNextScene.classList.remove('hidden');
             return data;
         }
@@ -10271,7 +10269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const projRes = await fetch(`/api/projects/${activeProjectId}`);
             const projData = await projRes.json();
-            window.currentProjectData = projData.data;
+            setCurrentProjectData(projData.data);
 
             // Snapshot Stage 10
             const versionHistory9 = captureVersionSnapshot(10, 'stage9_rewrites', 'Rewrite', projData.data.stage9_rewrites);

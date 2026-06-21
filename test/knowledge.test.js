@@ -1017,6 +1017,20 @@ test('server and frontend preserve working artifact snapshots beyond approvals',
     assert.match(appJs, /CURRENT SAVED ARTIFACT/);
 });
 
+test('frontend centralizes full project state replacement for Phase 6 state cleanup', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const fullReplacementWrites = appJs.match(/window\.currentProjectData\s*=/g) || [];
+    const refreshDeclarations = appJs.match(/async function refreshCurrentProjectData/g) || [];
+
+    assert.match(appJs, /function setCurrentProjectData\(data\) \{/);
+    assert.match(appJs, /function ensureCurrentProjectData\(\) \{/);
+    assert.match(appJs, /function updateStageNav\(data\) \{\s*data = setCurrentProjectData\(data\);/);
+    assert.match(appJs, /setCurrentProjectData\(projectDetails\.data\)/);
+    assert.match(appJs, /setCurrentProjectData\(project\.data\);\s*updateStageNav\(project\.data\);/);
+    assert.equal(fullReplacementWrites.length, 1);
+    assert.equal(refreshDeclarations.length, 1);
+});
+
 test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
