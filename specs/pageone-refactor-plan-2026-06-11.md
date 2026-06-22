@@ -250,6 +250,10 @@ edit-state-directly; retire the four scrape functions. Large; only worth it if P
 - Added `setCurrentProjectData()` / `ensureCurrentProjectData()` as the central replacement point for full project data refreshes in `public/app.js`.
 - Migrated server-refresh full project assignments through the helper and removed the shadowed duplicate `refreshCurrentProjectData()` declaration; stage-specific direct mutations remain for later render-from-state passes.
 
+### Codex continuation notes — 2026-06-22 (Phase 6 Stage 2 state pass)
+- Retired `scrapeOutline()` from `public/app.js`; Stage 2 snapshots, saves, regeneration recovery, source-audit snapshots, and chat revisions now read via `getCurrentStage2Outline()`.
+- `renderOutline()` seeds `currentProjectData.stage2_outline` and updates the in-memory outline on textarea edits, keeping protected-beat handling intact for a later cleanup pass.
+
 ---
 
 ## Verification per phase

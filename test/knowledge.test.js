@@ -686,9 +686,17 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
     assert.match(appJs, /function isLikelyStreamTransportError/);
     assert.match(appJs, /function setApproveButtonState/);
+    assert.match(appJs, /function setCurrentStage2OutlinePayload/);
+    assert.match(appJs, /function getCurrentStage2Outline/);
+    assert.match(appJs, /function updateCurrentStage2BeatDescription/);
     assert.match(appJs, /function currentStage2ProtectedBeats/);
     assert.match(appJs, /function stage2PayloadFromOutline/);
     assert.match(appJs, /stage2-protected-toggle/);
+    assert.match(appJs, /updateCurrentStage2BeatDescription\(actKey, sequenceIndex, beatIndex, ta\.value\)/);
+    assert.match(appJs, /getSnapshot: \(\) => stage2PayloadFromOutline\(getCurrentStage2Outline\(\)\)/);
+    assert.match(appJs, /const currentBeats = getCurrentStage2Outline\(\)/);
+    assert.match(appJs, /return \{ outline: getCurrentStage2Outline\(\) \}/);
+    assert.doesNotMatch(appJs, /scrapeOutline/);
     assert.match(appJs, /formData\.append\('protectedBeats', JSON\.stringify\(currentStage2ProtectedBeats\(\)\)\)/);
     assert.match(appJs, /protected_beats: currentStage2ProtectedBeats\(\)/);
     assert.match(appJs, /readSSEStream\(response/);

@@ -2031,8 +2031,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function stageSnapshotForRegenerate(stageNum) {
         const data = window.currentProjectData || {};
         if (stageNum === 2) {
-            const outline = scrapeOutline();
-            const hasOutline = ['act_1', 'act_2', 'act_3'].some(key => outline?.[key]?.length);
+            const outline = getCurrentStage2Outline();
+            const hasOutline = stage2OutlineHasContent(outline);
             return {
                 stageKey: 'stage2_outline',
                 stageName: 'Outline',
@@ -2394,6 +2394,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Stage 2 Logic ---
+    const STAGE2_ACT_KEYS = ['act_1', 'act_2', 'act_3'];
+
+    function cloneStage2Outline(outline = {}) {
+        const cloneAct = (actKey) => Array.isArray(outline?.[actKey])
+            ? outline[actKey].map(seq => ({
+                ...seq,
+                sequence_number_and_title: seq?.sequence_number_and_title || '',
+                beats: Array.isArray(seq?.beats)
+                    ? seq.beats.map(beat => ({
+                        ...beat,
+                        beat_label: beat?.beat_label || '',
+                        description: beat?.description || ''
+                    }))
+                    : []
+            }))
+            : [];
+        return Object.fromEntries(STAGE2_ACT_KEYS.map(actKey => [actKey, cloneAct(actKey)]));
+    }
+
+    function stage2OutlineHasContent(outline = {}) {
+        return STAGE2_ACT_KEYS.some(key => outline?.[key]?.length);
+    }
+
+    function setCurrentStage2OutlinePayload(payload = {}) {
+        const data = ensureCurrentProjectData();
+        const existing = data.stage2_outline || {};
+        const protectedSource = payload.protected_beats !== undefined
+            ? payload.protected_beats
+            : existing.protected_beats;
+        const next = {
+            ...existing,
+            ...payload,
+            outline: cloneStage2Outline(payload.outline || existing.outline || {}),
+            protected_beats: normalizeStage2ProtectedBeatLabels(protectedSource || [])
+        };
+        data.stage2_outline = next;
+        return next;
+    }
+
+    function getCurrentStage2Outline() {
+        return cloneStage2Outline(window.currentProjectData?.stage2_outline?.outline || {});
+    }
+
+    function updateCurrentStage2BeatDescription(actKey, sequenceIndex, beatIndex, description) {
+        const beat = window.currentProjectData?.stage2_outline?.outline?.[actKey]?.[sequenceIndex]?.beats?.[beatIndex];
+        if (beat) beat.description = description;
+    }
+
     async function recoverOutlineFromInterruptedStream(previousOutline, { chat = null } = {}) {
         if (!previousOutline) return null;
         let refreshed;
@@ -2413,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recoveredFromInterruptedStream: true
         };
         await handleSourceGenerationResult(2, recoveredEvent, { chat });
-        if (window.currentProjectData) window.currentProjectData.stage2_outline = recovered;
+        setCurrentStage2OutlinePayload(recovered);
         renderOutline(recovered.outline);
         return recoveredEvent;
     }
@@ -2462,12 +2510,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setCurrentStage2ProtectedBeats(labels = []) {
         const protected_beats = normalizeStage2ProtectedBeatLabels(labels);
-        if (window.currentProjectData) {
-            window.currentProjectData.stage2_outline = {
-                ...(window.currentProjectData.stage2_outline || {}),
-                protected_beats
-            };
-        }
+        const data = ensureCurrentProjectData();
+        data.stage2_outline = {
+            ...(data.stage2_outline || {}),
+            outline: cloneStage2Outline(data.stage2_outline?.outline || {}),
+            protected_beats
+        };
         return protected_beats;
     }
 
@@ -2514,14 +2562,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Outline stream ended before the server sent a completion event. If Railway was deploying or restarting, wait for the deploy to finish and try again.');
             }
             await handleSourceGenerationResult(2, completeEvent, { chat });
-            if (window.currentProjectData) window.currentProjectData.stage2_outline = completeEvent.result;
+            setCurrentStage2OutlinePayload(completeEvent.result);
             renderOutline(completeEvent.result.outline);
             return completeEvent;
         }
 
         const data = await response.json();
         await handleSourceGenerationResult(2, data, { chat });
-        if (window.currentProjectData) window.currentProjectData.stage2_outline = data.result;
+        setCurrentStage2OutlinePayload(data.result);
         renderOutline(data.result.outline);
         return data;
     }
@@ -2538,7 +2586,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingStateOutline.classList.remove('hidden');
-        const previousOutline = window.currentProjectData?.stage2_outline?.outline || scrapeOutline();
+        const previousOutline = getCurrentStage2Outline();
         document.getElementById('act1Container').innerHTML = '';
         document.getElementById('act2Container').innerHTML = '';
         document.getElementById('act3Container').innerHTML = '';
@@ -2563,19 +2611,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderOutline(outlineData) {
+        const stage2Payload = setCurrentStage2OutlinePayload({ outline: outlineData });
         const act1Container = document.getElementById('act1Container');
         const act2Container = document.getElementById('act2Container');
         const act3Container = document.getElementById('act3Container');
         const protectedBeats = new Set(normalizeStage2ProtectedBeatLabels(
-            window.currentProjectData?.stage2_outline?.protected_beats || []
+            stage2Payload.protected_beats || []
         ).map(label => label.toLowerCase().replace(/['"‘’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()));
 
         act1Container.innerHTML = '';
         act2Container.innerHTML = '';
         act3Container.innerHTML = '';
 
-        const renderSequences = (sequences, container) => {
-            sequences.forEach(seq => {
+        const renderSequences = (actKey, sequences, container) => {
+            sequences.forEach((seq, sequenceIndex) => {
                 const seqBlock = document.createElement('div');
                 seqBlock.className = 'sequence-block';
 
@@ -2584,7 +2633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 header.textContent = seq.sequence_number_and_title;
                 seqBlock.appendChild(header);
 
-                seq.beats.forEach(beat => {
+                seq.beats.forEach((beat, beatIndex) => {
                     const card = document.createElement('div');
                     card.className = 'beat-card';
                     const label = beat.beat_label || '';
@@ -2618,6 +2667,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const ta = card.querySelector('textarea');
                     ta.addEventListener('input', () => {
+                        updateCurrentStage2BeatDescription(actKey, sequenceIndex, beatIndex, ta.value);
                         autoResize(ta);
                         markStage2Changed();
                     });
@@ -2634,9 +2684,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
-        if (outlineData.act_1) renderSequences(outlineData.act_1, act1Container);
-        if (outlineData.act_2) renderSequences(outlineData.act_2, act2Container);
-        if (outlineData.act_3) renderSequences(outlineData.act_3, act3Container);
+        if (stage2Payload.outline.act_1) renderSequences('act_1', stage2Payload.outline.act_1, act1Container);
+        if (stage2Payload.outline.act_2) renderSequences('act_2', stage2Payload.outline.act_2, act2Container);
+        if (stage2Payload.outline.act_3) renderSequences('act_3', stage2Payload.outline.act_3, act3Container);
 
         document.getElementById('outlineContainer').classList.remove('hidden');
         stage2Workshop?.classList.remove('hidden');
@@ -2649,39 +2699,6 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleStage2EditMode(false);
     }
 
-    function scrapeOutline() {
-        const scrapeAct = (containerId) => {
-            const container = document.getElementById(containerId);
-            const sequenceBlocks = container.querySelectorAll('.sequence-block');
-            const sequences = [];
-
-            sequenceBlocks.forEach(block => {
-                const title = block.querySelector('.sequence-header').textContent;
-                const beatCards = block.querySelectorAll('.beat-card');
-                const beats = [];
-
-                beatCards.forEach(card => {
-                    const label = card.querySelector('h4').textContent;
-                    const desc = card.querySelector('textarea').value;
-                    beats.push({ beat_label: label, description: desc });
-                });
-
-                sequences.push({
-                    sequence_number_and_title: title,
-                    beats: beats
-                });
-            });
-
-            return sequences;
-        };
-
-        return {
-            act_1: scrapeAct('act1Container'),
-            act_2: scrapeAct('act2Container'),
-            act_3: scrapeAct('act3Container')
-        };
-    }
-
     async function saveOutlineEdits(triggerBtn) {
         return createStageApproveHandler({
             stageId: 2,
@@ -2691,7 +2708,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getContext: () => ({
                 isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 2).length > 0
             }),
-            getSnapshot: () => stage2PayloadFromOutline(scrapeOutline()),
+            getSnapshot: () => stage2PayloadFromOutline(getCurrentStage2Outline()),
             getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage2_outline' : null,
             updateCurrentProject: true,
             errorLog: 'Failed to save outline:',
@@ -2746,7 +2763,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
         const notes = stage2Notes.value.trim();
 
-        const currentBeats = scrapeOutline();
+        const currentBeats = getCurrentStage2Outline();
         const originalText = btnStage2Revise.textContent;
 
         if (!notes && (!stage2PdfUpload || !stage2PdfUpload.files[0])) {
@@ -7466,7 +7483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return { pitch: finalData, notes: stage1Notes?.value ?? '' };
                 }
                 case 2:
-                    return { outline: scrapeOutline() };
+                    return { outline: getCurrentStage2Outline() };
                 case 3:
                     return { characters: scrapeCharacters() };
                 case 4:
@@ -7866,7 +7883,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = data.result;
         ensureCurrentProjectData();
         if (Number(stageId) === 2 && result?.outline) {
-            window.currentProjectData.stage2_outline = result;
+            setCurrentStage2OutlinePayload(result);
             renderOutline(result.outline);
             setApproveButtonState(btnStage2Approve, 'ready');
         } else if (Number(stageId) === 3 && result?.characters) {
@@ -8334,7 +8351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtnId: 'stage2-chat-send',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
-            const currentBeats = scrapeOutline();
+            const currentBeats = getCurrentStage2Outline();
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
             formData.append('currentBeats', JSON.stringify(currentBeats));
