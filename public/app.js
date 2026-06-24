@@ -2040,7 +2040,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         if (stageNum === 3) {
-            const characters = scrapeCharacters();
+            const characters = getCurrentStage3Characters();
             return {
                 stageKey: 'stage3_characters',
                 stageName: 'Characters',
@@ -2932,23 +2932,72 @@ document.addEventListener('DOMContentLoaded', () => {
         return overrides;
     }
 
+    const STAGE3_TICK_WARNING = 'WARNING TO DOWNSTREAM AGENTS: This tick must be used a maximum of ONCE per sequence, and only during the scene of absolute highest stress within that sequence.';
+
+    function cloneStage3Characters(characters = []) {
+        return Array.isArray(characters) ? JSON.parse(JSON.stringify(characters)) : [];
+    }
+
     function stage3PayloadFromCharacters(characters = []) {
+        const normalizedCharacters = cloneStage3Characters(characters).map(normalizeStage3CharacterForPersistence);
         return {
             ...(window.currentProjectData?.stage3_characters || {}),
-            characters,
-            tier_overrides: stage3TierOverridesFromCharacters(characters)
+            characters: normalizedCharacters,
+            tier_overrides: stage3TierOverridesFromCharacters(normalizedCharacters)
         };
     }
 
-    function setCurrentStage3Payload(payload) {
-        if (!window.currentProjectData) return;
-        window.currentProjectData.stage3_characters = payload?.characters
+    function setCurrentStage3Payload(payload = {}) {
+        const data = ensureCurrentProjectData();
+        const existingPayload = data.stage3_characters || {};
+        const hasCharacters = Array.isArray(payload?.characters);
+        data.stage3_characters = payload && typeof payload === 'object'
             ? {
-                ...(window.currentProjectData.stage3_characters || {}),
+                ...existingPayload,
                 ...payload,
-                tier_overrides: payload.tier_overrides || stage3TierOverridesFromCharacters(payload.characters)
+                characters: hasCharacters ? cloneStage3Characters(payload.characters).map(normalizeStage3CharacterForPersistence) : cloneStage3Characters(existingPayload.characters),
+                tier_overrides: payload.tier_overrides || stage3TierOverridesFromCharacters(payload.characters || existingPayload.characters || [])
             }
             : payload;
+        return data.stage3_characters;
+    }
+
+    function getCurrentStage3Characters() {
+        return cloneStage3Characters(window.currentProjectData?.stage3_characters?.characters || []).map(normalizeStage3CharacterForPersistence);
+    }
+
+    function setStage3CharacterPathValue(character, fieldPath, value) {
+        if (!fieldPath) return;
+        const parts = String(fieldPath).split('.');
+        let target = character;
+        while (parts.length > 1) {
+            const part = parts.shift();
+            if (!target[part] || typeof target[part] !== 'object' || Array.isArray(target[part])) {
+                target[part] = {};
+            }
+            target = target[part];
+        }
+        target[parts[0]] = value;
+    }
+
+    function updateCurrentStage3Character(index, updater) {
+        const characters = cloneStage3Characters(window.currentProjectData?.stage3_characters?.characters || []);
+        const character = characters[index];
+        if (!character) return null;
+        if (typeof updater === 'function') {
+            updater(character);
+        } else if (updater && typeof updater === 'object') {
+            Object.assign(character, updater);
+        }
+        characters[index] = normalizeStage3CharacterForPersistence(character);
+        setCurrentStage3Payload(stage3PayloadFromCharacters(characters));
+        return characters[index];
+    }
+
+    function updateCurrentStage3CharacterField(index, fieldPath, value) {
+        return updateCurrentStage3Character(index, (character) => {
+            setStage3CharacterPathValue(character, fieldPath, value);
+        });
     }
 
     function normalizeFunctionalProfileForEditor(character = {}) {
@@ -3043,13 +3092,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return normalized;
     }
 
+    function normalizeStage3CharacterForPersistence(character = {}) {
+        const normalized = normalizeStage3CharacterForEditor(character);
+        if (normalized.profile_tier === 'Tier 1' && normalized.ticks?.enabled && normalized.ticks.frequency_gate) {
+            const frequencyGate = String(normalized.ticks.frequency_gate || '').trim();
+            normalized.ticks.frequency_gate = frequencyGate.includes('WARNING TO DOWNSTREAM AGENTS')
+                ? frequencyGate
+                : `${frequencyGate} ${STAGE3_TICK_WARNING}`.trim();
+        }
+        return normalized;
+    }
+
     function renderCharacters(characters) {
         if (!charactersContainer) return;
         charactersContainer.innerHTML = '';
         _deepProfileCache = {};
 
         // Sort: Protagonist first, Antagonist second, Supporting last
-        const sorted = [...characters].map(normalizeStage3CharacterForEditor).sort((a, b) => {
+        const sorted = cloneStage3Characters(characters).map(normalizeStage3CharacterForEditor).sort((a, b) => {
             const rank = r => {
                 const role = (r.role || '').toLowerCase();
                 if (role.includes('protagonist')) return 0;
@@ -3058,8 +3118,10 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             return rank(a) - rank(b);
         });
+        const stage3Payload = setCurrentStage3Payload(stage3PayloadFromCharacters(sorted));
+        const renderedCharacters = stage3Payload?.characters || sorted;
 
-        sorted.forEach((char, index) => {
+        renderedCharacters.forEach((char, index) => {
             const role = char.role || '';
             const roleLower = role.toLowerCase();
             const profileTier = normalizeCharacterProfileTier(char.profile_tier, char);
@@ -3293,12 +3355,19 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             // --- Event listeners ---
+            const wireCharacterTextarea = (ta) => {
+                ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
+                ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
+                ta.addEventListener('input', () => {
+                    autoResize(ta);
+                    updateCurrentStage3CharacterField(index, ta.dataset.field, ta.value);
+                    markStage3Dirty();
+                });
+            };
 
             // Hover/focus effect on transparent textareas
             card.querySelectorAll('.char-ta').forEach(ta => {
-                ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
-                ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                ta.addEventListener('input', () => { autoResize(ta); markStage3Dirty(); });
+                wireCharacterTextarea(ta);
             });
 
             // Tag pill click → toggle dropdown
@@ -3320,6 +3389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pill.dataset.value = opt.dataset.value;
                     pill.textContent = opt.dataset.value;
                     wrap.querySelector('.char-tag-dropdown').classList.add('hidden');
+                    updateCurrentStage3CharacterField(index, pill.dataset.field, opt.dataset.value);
                     markStage3Dirty();
                 });
             });
@@ -3333,6 +3403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         pill.dataset.value = input.value.trim();
                         pill.textContent = input.value.trim();
                         wrap.querySelector('.char-tag-dropdown').classList.add('hidden');
+                        updateCurrentStage3CharacterField(index, pill.dataset.field, input.value.trim());
                         input.value = '';
                         markStage3Dirty();
                     }
@@ -3345,6 +3416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', () => {
                     card.querySelectorAll('.char-arc-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    updateCurrentStage3CharacterField(index, 'arc.direction', btn.dataset.value || 'Growth');
                     markStage3Dirty();
                 });
             });
@@ -3355,9 +3427,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.querySelectorAll('.char-tier-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     card.dataset.profileTier = btn.dataset.value || 'Tier 1';
-                    const current = scrapeCharacters();
-                    setCurrentStage3Payload(stage3PayloadFromCharacters(current));
-                    renderCharacters(current);
+                    updateCurrentStage3CharacterField(index, 'profile_tier', btn.dataset.value || 'Tier 1');
+                    renderCharacters(getCurrentStage3Characters());
                     markStage3Dirty();
                 });
             });
@@ -3382,6 +3453,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 addTickBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     ticksSection.dataset.enabled = 'true';
+                    updateCurrentStage3Character(index, (character) => {
+                        character.ticks = { enabled: true, description: '', frequency_gate: '' };
+                    });
                     ticksBody.innerHTML = `
                         ${field('Description', 'ticks.description', '')}
                         ${field('Frequency Gate', 'ticks.frequency_gate', '')}
@@ -3392,22 +3466,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     addTickBtn.remove();
                     // Attach listeners to new textareas
                     ticksBody.querySelectorAll('.char-ta').forEach(ta => {
-                        ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
-                        ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                        ta.addEventListener('input', () => { autoResize(ta); markStage3Dirty(); });
+                        wireCharacterTextarea(ta);
                     });
                     // Attach remove listener
                     ticksBody.querySelector('.char-ticks-remove-btn')?.addEventListener('click', () => {
                         ticksSection.dataset.enabled = 'false';
-                        ticksBody.innerHTML = '<div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>';
-                        ticksBody.style.display = 'none';
-                        ticksArrow.textContent = '▶';
-                        // Re-add the Add Tick button
-                        const newAddBtn = document.createElement('button');
-                        newAddBtn.className = 'char-ticks-add-btn';
-                        newAddBtn.style.cssText = 'font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;';
-                        newAddBtn.textContent = 'Add Tick';
-                        ticksHeader.appendChild(newAddBtn);
+                        updateCurrentStage3Character(index, (character) => {
+                            character.ticks = { enabled: false, description: '', frequency_gate: '' };
+                        });
+                        renderCharacters(getCurrentStage3Characters());
                         markStage3Dirty();
                     });
                     markStage3Dirty();
@@ -3419,14 +3486,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (removeTickBtn) {
                 removeTickBtn.addEventListener('click', () => {
                     ticksSection.dataset.enabled = 'false';
-                    ticksBody.innerHTML = '<div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No ticks for this character</div>';
-                    ticksBody.style.display = 'none';
-                    ticksArrow.textContent = '▶';
-                    const newAddBtn = document.createElement('button');
-                    newAddBtn.className = 'char-ticks-add-btn';
-                    newAddBtn.style.cssText = 'font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;';
-                    newAddBtn.textContent = 'Add Tick';
-                    ticksHeader.appendChild(newAddBtn);
+                    updateCurrentStage3Character(index, (character) => {
+                        character.ticks = { enabled: false, description: '', frequency_gate: '' };
+                    });
+                    renderCharacters(getCurrentStage3Characters());
                     markStage3Dirty();
                 });
             }
@@ -3441,106 +3504,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
         }, 100);
-    }
-
-    function scrapeCharacters() {
-        const charCards = Array.from(document.querySelectorAll('.character-card'));
-        const currentCharacters = [];
-
-        charCards.forEach((card) => {
-            const charName = card.dataset.charName || '';
-            const activeTierBtn = card.querySelector('.char-tier-btn.active');
-            const profileTier = normalizeTierOverrideValue(activeTierBtn?.dataset.value || card.dataset.profileTier || 'Tier 1') || 'Tier 1';
-            const isFullProfile = profileTier === 'Tier 1';
-            const charObj = {
-                name: charName,
-                role: card.dataset.charRole || '',
-                profile_tier: profileTier,
-                brief_summary: '',
-                functional_profile: {
-                    narrative_function: '',
-                    emotional_truth: '',
-                    comic_or_tension_function: '',
-                    pressure_behavior: '',
-                    voice_flavor: ''
-                },
-                cameo_profile: { scene_purpose: '', casting_energy: '', playable_behavior: '', line_style_example: '' },
-                psychological_core: isFullProfile ? { ghost_and_wound: '', the_lie: '', fear: '', desire: '', psychological_need: '', moral_need: '', paradox: '' } : {},
-                voice_and_behavior: isFullProfile ? { voice_tag: '', pressure_tag: '', humor_tag: '', speech_patterns: '', deflection_tactic: '' } : {},
-                arc: isFullProfile ? { core_drive: '', direction: 'Growth' } : {},
-                ticks: { enabled: false, description: '', frequency_gate: '' },
-            };
-
-            // Scrape textareas
-            const inputs = card.querySelectorAll('.char-input');
-            inputs.forEach(input => {
-                const f = input.getAttribute('data-field');
-                const val = input.value;
-                if (f === 'brief_summary') {
-                    charObj.brief_summary = val;
-                } else if (f.startsWith('psychological_core.')) {
-                    charObj.psychological_core[f.split('.')[1]] = val;
-                } else if (f.startsWith('voice_and_behavior.')) {
-                    charObj.voice_and_behavior[f.split('.')[1]] = val;
-                } else if (f.startsWith('functional_profile.')) {
-                    charObj.functional_profile[f.split('.')[1]] = val;
-                } else if (f.startsWith('cameo_profile.')) {
-                    charObj.cameo_profile[f.split('.')[1]] = val;
-                } else if (f.startsWith('ticks.')) {
-                    charObj.ticks[f.split('.')[1]] = val;
-                }
-            });
-
-            // Scrape tag pills
-            card.querySelectorAll('.char-tag-pill').forEach(pill => {
-                const f = pill.getAttribute('data-field');
-                const val = pill.dataset.value || '';
-                if (f.startsWith('voice_and_behavior.')) {
-                    charObj.voice_and_behavior[f.split('.')[1]] = val;
-                } else if (f === 'arc.core_drive') {
-                    charObj.arc.core_drive = val;
-                }
-            });
-
-            // Scrape arc direction toggle
-            const activeArcBtn = card.querySelector('.char-arc-btn.active');
-            if (activeArcBtn) {
-                charObj.arc.direction = activeArcBtn.dataset.value || 'Growth';
-            }
-
-            if (!isFullProfile) {
-                charObj.psychological_core = {};
-                charObj.voice_and_behavior = {};
-                charObj.arc = {};
-                charObj.ticks = { enabled: false, description: '', frequency_gate: '' };
-                if (profileTier === 'Tier 2') {
-                    charObj.cameo_profile = {};
-                } else {
-                    charObj.functional_profile = {};
-                }
-            }
-
-            // Scrape ticks enabled state + re-append downstream warning to frequency_gate
-            const ticksSection = card.querySelector('.char-ticks-section');
-            if (ticksSection) {
-                charObj.ticks.enabled = ticksSection.dataset.enabled === 'true';
-                if (charObj.ticks.enabled && charObj.ticks.frequency_gate) {
-                    const TICK_WARNING = 'WARNING TO DOWNSTREAM AGENTS: This tick must be used a maximum of ONCE per sequence, and only during the scene of absolute highest stress within that sequence.';
-                    if (!charObj.ticks.frequency_gate.includes('WARNING TO DOWNSTREAM AGENTS')) {
-                        charObj.ticks.frequency_gate = charObj.ticks.frequency_gate.trim() + ' ' + TICK_WARNING;
-                    }
-                }
-            }
-
-            // Re-attach _deep_profile from cache
-            if (isFullProfile && _deepProfileCache[charName]) {
-                charObj._deep_profile = _deepProfileCache[charName];
-            }
-
-            currentCharacters.push(charObj);
-        });
-
-        return currentCharacters;
     }
 
     async function autoGenerateCharacters() {
@@ -3612,7 +3575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage3Revise.addEventListener('click', async () => {
             if (!activeProjectId) return;
             const notes = stage3Notes ? stage3Notes.value.trim() : '';
-            const currentCharacters = scrapeCharacters();
+            const currentCharacters = getCurrentStage3Characters();
             const originalText = btnStage3Revise.textContent;
 
             if (!notes && (!stage3PdfUpload || !stage3PdfUpload.files[0])) {
@@ -3921,7 +3884,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getContext: () => ({
                 isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 3).length > 0
             }),
-            getSnapshot: () => stage3PayloadFromCharacters(scrapeCharacters()),
+            getSnapshot: () => stage3PayloadFromCharacters(getCurrentStage3Characters()),
             getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage3_characters' : null,
             errorLog: 'Stage 3 approval failed:',
             errorMessage: 'Error saving approved characters.',
@@ -7485,7 +7448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 2:
                     return { outline: getCurrentStage2Outline() };
                 case 3:
-                    return { characters: scrapeCharacters() };
+                    return { characters: getCurrentStage3Characters() };
                 case 4:
                     return scrapeTreatment();
                 case 5:
@@ -8398,7 +8361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtnId: 'stage3-chat-send',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
-            const currentCharacters = scrapeCharacters();
+            const currentCharacters = getCurrentStage3Characters();
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
             formData.append('currentCharacters', JSON.stringify(currentCharacters));

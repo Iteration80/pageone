@@ -254,6 +254,10 @@ edit-state-directly; retire the four scrape functions. Large; only worth it if P
 - Retired `scrapeOutline()` from `public/app.js`; Stage 2 snapshots, saves, regeneration recovery, source-audit snapshots, and chat revisions now read via `getCurrentStage2Outline()`.
 - `renderOutline()` seeds `currentProjectData.stage2_outline` and updates the in-memory outline on textarea edits, keeping protected-beat handling intact for a later cleanup pass.
 
+### Codex continuation notes — 2026-06-23 (Phase 6 Stage 3 state pass)
+- Retired `scrapeCharacters()` from `public/app.js`; Stage 3 snapshots, approvals, saves/revisions, source-audit snapshots, and chat revisions now read via `getCurrentStage3Characters()`.
+- `renderCharacters()` seeds `currentProjectData.stage3_characters` and updates in-memory character records from editable fields, tag pills, arc controls, profile tiers, and tick toggles while preserving downstream tick-warning persistence.
+
 ---
 
 ## Verification per phase

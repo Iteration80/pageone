@@ -632,7 +632,11 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
 
     assert.match(appJs, /normalizeStage3CharacterForEditor/);
     assert.match(appJs, /currentCharacterTierOverrides/);
-    assert.match(appJs, /tier_overrides: stage3TierOverridesFromCharacters\(characters\)/);
+    assert.match(appJs, /tier_overrides: stage3TierOverridesFromCharacters\(normalizedCharacters\)/);
+    assert.match(appJs, /function getCurrentStage3Characters/);
+    assert.match(appJs, /function updateCurrentStage3CharacterField/);
+    assert.match(appJs, /getSnapshot: \(\) => stage3PayloadFromCharacters\(getCurrentStage3Characters\(\)\)/);
+    assert.doesNotMatch(appJs, /scrapeCharacters/);
     assert.match(appJs, /core\.false_belief/);
     assert.match(appJs, /core\.wound/);
     assert.match(assistantJs, /STAGE 3 CHARACTER BOUNDARY/);
