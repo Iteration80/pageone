@@ -17,9 +17,9 @@ audits (assistant unification; Phases 0/3/5), full test runs, and live end-to-en
 | Phase 1/2 — assistant unification | ✅ Complete | All chat surfaces (stages 1–8, 10, global style creator) route through `/api/assistant` with native tools (`apply_revision` / `generate_style` / `generate_rewrite_plan`). Legacy `/api/brainstorm`, `/api/brainstorm-rewrite`, `/api/style-chat`, the flag contract, the client regex layer, the synthetic marker, `skill_brainstorm.md`, and agent_2's embedded conversation loop are all gone from code. Live test: Stage 2 direct instruction → clean tool call; failed receipt → honest failure report, no retry. Stage 9 correctly has no chat. |
 | Phase 0 — safety rails | ✅ Complete | Build fingerprint in /health + UI footer + Settings + DOCX metadata; `utils/skills_cache.js` memoized with zero bypassing readFileSync; coverage agent uses `parseJsonWithRepair`. |
 | Phase 3 — de-hardcoding | ✅ Code complete, ⚠️ migrations NOT run | Tier lists out of agent_3 (reads `tier_overrides`), Dapple beats out of the kernel (reads `protected_beats`), Stage 2 shield toggle UI, migration script exists. **But 0 of 9 saved projects have `tier_overrides` or `protected_beats` — the seed was never executed.** |
-| Phase 4 — structural cleanup | 🟡 Partial (as Codex stated) | Frontend approve helpers + `createStageApproveHandler` done; shared generation context/finalization helpers started. No `routes/` split; server.js still 7,175 lines. |
+| Phase 4 — structural cleanup | ✅ Complete | Frontend approve helpers + `createStageApproveHandler` done; shared generation context/finalization helpers finished for stages 2–6; `server.js` split into `routes/assistant.js`, `routes/generation.js`, `routes/rewrite.js`, `routes/knowledge.js`, `routes/styles.js`, `routes/projects.js`, and `routes/export.js`. |
 | Phase 5 — reliability | ✅ Complete | RMW read-inside-lock + atomic conversation saves; Stage 8 auto-save is awaitable with retry banner (saves via `PUT /api/projects/:id` — no dedicated endpoint, by design); Stage 10 pending rehydration + `/api/save-stage10-pending`; typed errors near-universal (1 remaining blanket 500-ish site, intentional); close-aware abort trackers on all streaming stages with `CLIENT_DISCONNECTED` normalization through both providers. |
-| Phase 6 — frontend state | 🟡 Partial (as Codex stated) | State adapter + Stage 2 + Stage 3 done (`scrapeOutline`/`scrapeCharacters` retired). `scrapeTreatment` (S4), `scrapeTreatmentStage5` (S5), `scrapeStage6` (S6) remain — 18 call sites. |
+| Phase 6 — frontend state | ✅ Code complete | State adapter + stages 2–6 now use state-first getters instead of DOM scraping; `scrapeOutline`, `scrapeCharacters`, `scrapeTreatment`, `scrapeTreatmentStage5`, and `scrapeStage6` are retired. |
 | Tests | ✅ All green | 15 assistant + 55 prompt-regression + 70 knowledge + 2 review + 3 memory; knowledge suite 130. |
 | Live UI | ✅ Clean | Hub loads, project opens, Stage 5 chat restores 24-message history, settings modal + fingerprint fine, zero console errors. |
 
@@ -30,12 +30,16 @@ didn't flag — they're folded into the roadmap below as R1, R2, R5, and the R6 
 
 ## Remaining work
 
-**Status 2026-07-03 (Claude execution pass):** R1 ✅ local side done — dry-run correctly
-matches 0 local projects; the actual seed is a DEPLOYMENT step (see R1 below). R5 ✅ done
-(commit `b01c185`). R2 ✅ done (commit `bc68be9` — includes a source-guard test so raw
-parses can't creep back). Remaining: **R3, R4 (code — clean Codex handoffs), R6 +
-deployment-side R1 (Carsten).** Full matrix green after each commit (150 + 130 tests);
-server boot-smoked.
+**Status 2026-07-03 (Codex R3/R4 completion pass):** R1 ✅ local side done — dry-run
+correctly matches 0 local projects; the actual seed is a DEPLOYMENT step (see R1 below).
+R5 ✅ done (commit `b01c185`). R2 ✅ done (commit `bc68be9` — includes a source-guard
+test so raw parses can't creep back). R3 ✅ done (commits `d4e35ff`, `36e33b9`,
+`470a2ed`, `61a2f68`, `0a9cd63`, `3d37285`, `d033263`, `437b7a4`). R4 ✅ code done
+(commits `d8c1d6b`, `cb87881`, `dfefa7f`). Remaining: **R6 + deployment-side R1
+(Carsten).** Full matrix green after each commit (latest: 152 + 132 tests); server
+boot-smoked after each commit. Required browser passes for the R3/R4 follow-up were
+blocked in this Codex session because the in-app browser backend exposed no available
+browsers (`agent.browsers.list()` returned `[]`).
 
 ### R1 — Run the data migrations (5 minutes) — ⚠️ DEPLOYMENT-SIDE, not local
 **2026-07-03 finding:** the I.M.A.G.I.N.E./Dapple project does not exist in local
@@ -59,6 +63,9 @@ label, matching the agent_4/agent_9 pattern. Add a regression test that feeds ea
 malformed-but-repairable JSON.
 
 ### R3 — Phase 4 completion: server structure (hand-off-able, 1–2 days)
+✅ Complete in commits `d4e35ff`, `36e33b9`, `470a2ed`, `61a2f68`, `0a9cd63`, `3d37285`,
+`d033263`, `437b7a4`.
+
 Now safe to do — the assistant unification already deleted the code that would have moved.
 1. Finish the generation-endpoint factory for stages 2–6 on top of the existing
    `prepareGenerationProjectContext()` / shared-finalization helpers (Codex started this).
@@ -68,6 +75,9 @@ Now safe to do — the assistant unification already deleted the code that would
    verify with the full test matrix + a boot smoke after each extraction. Commit per module.
 
 ### R4 — Phase 6 completion: retire the last three scrape functions (hand-off-able, ~1 day)
+✅ Code complete in commits `d8c1d6b`, `cb87881`, `dfefa7f`; required browser passes were
+blocked in this session by unavailable in-app browser tooling.
+
 Follow the exact pattern Codex used for Stages 2/3 (render seeds state → edits update state →
 readers use `getCurrentStageN*()`), one stage per commit:
 1. Stage 4: `scrapeTreatment()` → `getCurrentStage4Beats()`
@@ -104,9 +114,8 @@ or those stages will 401 again.
 - Stage 9 has no chat. Correct.
 
 ## Suggested order
-R1 (minutes) → R5 (docs, before the next AI session touches the repo) → R2 → R6 in parallel
-with R3 → R4 last (touches the same app.js regions as nothing else, lowest urgency).
-R2, R3, R4 are clean Codex handoffs; R5 either; R1/R6 are Carsten-side.
+Remaining: deployment-side R1, then R6 live conversational shakedown. R1/R6 are
+Carsten-side.
 
 ## Standing process rule
 One AI session at a time per working tree, commit between sessions — the June 11 closure-scope

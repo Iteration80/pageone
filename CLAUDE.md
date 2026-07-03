@@ -33,7 +33,7 @@ All chat surfaces (stages 1–8, Stage 10 planning chat, and the projectless glo
 - Protected outline beats: `data.stage2_outline.protected_beats`, editable via the Stage 2 shield toggles. The revision kernel (`utils/stage_revision_kernel.js`) contains no project-specific labels anymore.
 
 ### Frontend state
-`public/app.js` is migrating from DOM-scraping to state-first: `setCurrentProjectData()`/`ensureCurrentProjectData()` + `getCurrentStage2Outline()`/`getCurrentStage3Characters()` are the pattern. **Stages 4/5/6 still use `scrapeTreatment()`/`scrapeTreatmentStage5()`/`scrapeStage6()`** — when touching those stages, follow the Stage 2/3 pattern (render seeds state, edits update state, readers use getters). Shared helpers: `setApproveButtonState()`, `createStageApproveHandler()`.
+`public/app.js` now uses the state-first pattern for stages 2–6: render seeds `currentProjectData`, edits update state, and readers use getters (`getCurrentStage2Outline()`, `getCurrentStage3Characters()`, `getCurrentStage4Beats()`, `getCurrentStage5Treatment()`, `getCurrentStage6Blueprint()`) instead of DOM scraping. Shared helpers: `setApproveButtonState()`, `createStageApproveHandler()`.
 
 ## Roadmap / specs
 - `specs/pageone-roadmap-2026-07-03.md` — **current remaining work** (R1–R6) with verification status.
@@ -93,6 +93,9 @@ When active, every `/api/*` request must include `X-Api-Key: <APP_SECRET>`.
 
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-07-03 — R3/R4 completion: route split + state-first stages 4–6
+Finished the generation-endpoint finalization factory for stages 2–6 (`d4e35ff`), split `server.js` into route modules one module per commit (`36e33b9`, `470a2ed`, `61a2f68`, `0a9cd63`, `3d37285`, `d033263`, `437b7a4`), and retired the remaining Stage 4/5/6 DOM scrape functions in favor of state-first getters (`d8c1d6b`, `cb87881`, `dfefa7f`). Full test gate and `/health` smoke passed after each commit; R3/R4 browser passes were blocked in Codex because the in-app browser backend exposed no available browsers.
 
 ### 2026-07-03 — Roadmap verification + docs truth pass
 Codex's implementation of the June refactor plan was independently verified (2 code audits, 275 tests, live UI + tool-turn checks) — see `specs/pageone-roadmap-2026-07-03.md` for the verdict table and remaining work (R1–R6). This CLAUDE.md was rewritten to describe the post-refactor architecture; 18 pre-refactor changelog entries moved to `CHANGELOG-archive.md` with a superseded banner. `getBrainstormModelConfig()` renamed to `getAssistantModelConfig()`.
