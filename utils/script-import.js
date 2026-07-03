@@ -8,6 +8,7 @@
  */
 
 const xmljs = require('xml-js');
+const { parseJsonWithRepair } = require('../agents/json_parse');
 
 // ─── Scene heading detection ────────────────────────────────────────────────
 
@@ -225,7 +226,7 @@ async function parsePdfScript(pdfBuffer, modelConfig = {}) {
         schema
     });
 
-    const result = JSON.parse(response.text);
+    const result = parseJsonWithRepair(response.text, { schema, label: 'PDF screenplay parser response' });
     return { title: result.title || '', scenes: result.scenes || [] };
 }
 

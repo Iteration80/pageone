@@ -629,7 +629,7 @@ test('frontend Stage 7 offers four style paths and trained upload', () => {
 test('Stage 3 character regeneration handles legacy cards and direct rebuild requests', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const agent3Js = fs.readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
     assert.match(appJs, /normalizeStage3CharacterForEditor/);
@@ -647,7 +647,7 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
 
     assert.match(agent3Js, /normalizeLegacyCharacter/);
     assert.match(agent3Js, /function normalizeTierOverrides/);
-    assert.match(serverJs, /tierOverrides: activeTierOverrides/);
+    assert.match(generationRoutes, /tierOverrides: activeTierOverrides/);
     assert.doesNotMatch(agent3Js, /TIER_1_PROJECT_NAMES/);
     assert.doesNotMatch(agent3Js, /Rebecca, Dapple, Dave, Terry, Elliot/);
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
@@ -677,17 +677,18 @@ test('Stage 3 assistant chat stays inside character-profile boundaries', () => {
 test('Stage 2 outline generation supports streamed assistant revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const stageRevisionKernel = fs.readFileSync(require.resolve('../utils/stage_revision_kernel.js'), 'utf8');
-    assert.match(serverJs, /app\.post\('\/api\/generate-outline'/);
+    assert.match(generationRoutes, /app\.post\('\/api\/generate-outline'/);
     assert.match(serverJs, /require\('\.\/utils\/stage_revision_kernel'\)/);
-    assert.match(serverJs, /applyStageRevisionPlan\(\{[\s\S]*stageId: 'stage2_outline'/);
-    assert.match(serverJs, /stage2ProtectedBeatEntriesForRequest/);
-    assert.match(serverJs, /protectedBeats: activeProtectedBeatEntries/);
-    assert.match(serverJs, /protected_beats: activeProtectedBeats/);
-    assert.match(serverJs, /Stage 2 deterministic outline revision failed verification/);
-    assert.match(serverJs, /text\/event-stream/);
-    assert.match(serverJs, /: keep-alive\\n\\n/);
-    assert.match(serverJs, /type: 'complete'/);
+    assert.match(generationRoutes, /applyStageRevisionPlan\(\{[\s\S]*stageId: 'stage2_outline'/);
+    assert.match(generationRoutes, /stage2ProtectedBeatEntriesForRequest/);
+    assert.match(generationRoutes, /protectedBeats: activeProtectedBeatEntries/);
+    assert.match(generationRoutes, /protected_beats: activeProtectedBeats/);
+    assert.match(generationRoutes, /Stage 2 deterministic outline revision failed verification/);
+    assert.match(generationRoutes, /text\/event-stream/);
+    assert.match(generationRoutes, /: keep-alive\\n\\n/);
+    assert.match(generationRoutes, /type: 'complete'/);
     assert.match(appJs, /function consumeOutlineGenerationResponse/);
     assert.match(appJs, /function recoverOutlineFromInterruptedStream/);
     assert.match(appJs, /function isLikelyStreamTransportError/);
@@ -714,19 +715,20 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /Outline stream ended before the server sent a completion event/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
-    assert.match(serverJs, /buildOutlineRevisionChecklist\(notesWithUpload\)/);
-    assert.match(serverJs, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
-    assert.match(serverJs, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
-    assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
-    assert.ok(serverJs.indexOf('applyStageRevisionPlan({') < serverJs.indexOf('agent2Outline('));
-    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
-    assert.match(serverJs, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 2 outline'/);
+    assert.match(generationRoutes, /buildOutlineRevisionChecklist\(notesWithUpload\)/);
+    assert.match(generationRoutes, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
+    assert.match(generationRoutes, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
+    assert.match(generationRoutes, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
+    assert.ok(generationRoutes.indexOf('applyStageRevisionPlan({') < generationRoutes.indexOf('agent2Outline('));
+    assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
+    assert.match(generationRoutes, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 2 outline'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, label\)/);
-    assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage: 2/);
+    assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage,/);
+    assert.match(generationRoutes, /stage: 2,[\s\S]*stageKey: 'stage2_outline'/);
     assert.match(serverJs, /snapshotIds: snapshotEntries\.map\(entry => entry\.id\)/);
-    assert.match(serverJs, /const changed = !notesWithUpload \|\| revisionTransaction\.changed/);
-    assert.match(serverJs, /Stage 2 outline save verification failed/);
-    assert.match(serverJs, /saveVerified: true/);
+    assert.match(generationRoutes, /const changed = !notesWithUpload \|\| revisionTransaction\.changed/);
+    assert.match(generationRoutes, /Stage 2 outline save verification failed/);
+    assert.match(generationRoutes, /saveVerified: true/);
     assert.match(appJs, /changed: !revisionReceiptFailed\(data\)[\s\S]*revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify\(data\.result\?\.outline \|\| \{\}\)/);
     assert.match(stageRevisionKernel, /function normalizeProtectedBeats/);
     assert.doesNotMatch(stageRevisionKernel, /OUTLINE_DEFAULT_BEATS/);
@@ -737,6 +739,7 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
 
 test('streaming generation routes abort model work and skip saves after disconnect', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
 
     assert.match(serverJs, /function createClientAbortTracker/);
     assert.match(serverJs, /res\.on\('close', abort\)/);
@@ -751,17 +754,17 @@ test('streaming generation routes abort model work and skip saves after disconne
         'Stage 6 scene generation stream',
         'Stage 6 revision stream'
     ]) {
-        assert.match(serverJs, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+        assert.match(generationRoutes, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
 
-    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(2, sourcePacket\), abortTracker\?\.signal\)/);
-    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(4, sourcePacket\), abortTracker\.signal\)/);
-    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(5, sourcePacket\), abortTracker\.signal\)/);
-    assert.match(serverJs, /withAbortSignal\(getModelConfig\(6\), abortTracker\.signal\)/);
-    assert.match(serverJs, /withAbortSignal\(getModelConfigWithSourcePacket\(6, sourcePacket\), abortTracker\?\.signal\)/);
-    assert.match(serverJs, /abortTracker\?\.throwIfAborted\(\)/);
-    assert.match(serverJs, /abortTracker\.throwIfAborted\(\)/);
-    assert.match(serverJs, /isClientAbortError\(error\)/);
+    assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(2, sourcePacket\), abortTracker\?\.signal\)/);
+    assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(4, sourcePacket\), abortTracker\.signal\)/);
+    assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(5, sourcePacket\), abortTracker\.signal\)/);
+    assert.match(generationRoutes, /withAbortSignal\(getModelConfig\(6\), abortTracker\.signal\)/);
+    assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(6, sourcePacket\), abortTracker\?\.signal\)/);
+    assert.match(generationRoutes, /abortTracker\?\.throwIfAborted\(\)/);
+    assert.match(generationRoutes, /abortTracker\.throwIfAborted\(\)/);
+    assert.match(generationRoutes, /isClientAbortError\(error\)/);
 });
 
 test('project and source routes use typed API error responder for 400 404 and 429 cases', () => {
@@ -792,8 +795,8 @@ test('project and source routes use typed API error responder for 400 404 and 42
 });
 
 test('stage 1 pitch routes use typed API errors and shared project loading', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage1Routes = serverJs.match(/\/\/ API route[\s\S]*?app\.post\('\/api\/generate-outline'/)?.[0] || '';
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const stage1Routes = generationRoutes.match(/\/\/ API route[\s\S]*?app\.post\('\/api\/generate-outline'/)?.[0] || '';
 
     assert.match(stage1Routes, /readProjectJSONById\(projectId, \{ invalidMessage: 'Invalid projectId' \}\)/);
     assert.match(stage1Routes, /throw new BadRequestError\("Missing currentPitch or userNote"\)/);
@@ -806,8 +809,9 @@ test('stage 1 pitch routes use typed API errors and shared project loading', () 
 
 test('Stage 2 outline route uses typed API errors before SSE starts', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const generationHelper = serverJs.match(/async function prepareGenerationProjectContext[\s\S]*?async function finalizeGeneratedStageArtifact/)?.[0] || '';
-    const stage2Route = serverJs.match(/app\.post\('\/api\/generate-outline'[\s\S]*?app\.post\('\/api\/generate-characters'/)?.[0] || '';
+    const stage2Route = generationRoutes.match(/app\.post\('\/api\/generate-outline'[\s\S]*?app\.post\('\/api\/generate-characters'/)?.[0] || '';
 
     assert.match(generationHelper, /throw new BadRequestError\(invalidProjectMessage\)/);
     assert.match(generationHelper, /readProjectJSONById\(projectId, \{ invalidMessage: invalidProjectMessage, notFoundMessage \}\)/);
@@ -824,8 +828,8 @@ test('Stage 2 outline route uses typed API errors before SSE starts', () => {
 });
 
 test('Stage 3 character route uses typed API errors through generation context', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage3Route = serverJs.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage4-beats'/)?.[0] || '';
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const stage3Route = generationRoutes.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage4-beats'/)?.[0] || '';
 
     assert.match(stage3Route, /Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters/);
     assert.match(stage3Route, /sendApiError\(res, error, "Failed to generate characters"\)/);
@@ -835,9 +839,9 @@ test('Stage 3 character route uses typed API errors through generation context',
 });
 
 test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage4Route = serverJs.match(/app\.post\('\/api\/generate-stage4-beats'[\s\S]*?app\.post\('\/api\/generate-stage5-treatment'/)?.[0] || '';
-    const stage5Route = serverJs.match(/app\.post\('\/api\/generate-stage5-treatment'[\s\S]*?app\.post\('\/api\/generate-stage6-scenes'/)?.[0] || '';
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const stage4Route = generationRoutes.match(/app\.post\('\/api\/generate-stage4-beats'[\s\S]*?app\.post\('\/api\/generate-stage5-treatment'/)?.[0] || '';
+    const stage5Route = generationRoutes.match(/app\.post\('\/api\/generate-stage5-treatment'[\s\S]*?app\.post\('\/api\/generate-stage6-scenes'/)?.[0] || '';
     const stage45Routes = `${stage4Route}\n${stage5Route}`;
 
     assert.match(stage4Route, /sendApiError\(res, error, 'Failed to generate beats'\)/);
@@ -853,9 +857,9 @@ test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', ()
 });
 
 test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revision failures', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage6Generate = serverJs.match(/app\.post\('\/api\/generate-stage6-scenes'[\s\S]*?app\.post\('\/api\/revise-stage6'/)?.[0] || '';
-    const stage6Revise = serverJs.match(/app\.post\('\/api\/revise-stage6'[\s\S]*?app\.post\('\/api\/generate-draft'/)?.[0] || '';
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const stage6Generate = generationRoutes.match(/app\.post\('\/api\/generate-stage6-scenes'[\s\S]*?app\.post\('\/api\/revise-stage6'/)?.[0] || '';
+    const stage6Revise = generationRoutes.match(/app\.post\('\/api\/revise-stage6'[\s\S]*?app\.post\('\/api\/generate-draft'/)?.[0] || '';
     const stage6Routes = `${stage6Generate}\n${stage6Revise}`;
 
     assert.match(stage6Generate, /sendApiError\(res, error, 'Failed to generate scene blueprint'\)/);
@@ -874,8 +878,8 @@ test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revi
 });
 
 test('Stage 8 draft and continuity routes use typed API errors', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage8Routes = serverJs.match(/app\.post\('\/api\/generate-draft'[\s\S]*?\/\/ --- Stage 10: Rewrite Routes ---/)?.[0] || '';
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const stage8Routes = generationRoutes.match(/app\.post\('\/api\/generate-draft'[\s\S]*?module\.exports/)?.[0] || '';
 
     assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId or sceneNumber"\)/);
     assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId, sceneNumber, or feedback"\)/);
@@ -1070,6 +1074,7 @@ test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
 test('Stage 4 chat treats current beat evidence as newer than stale analysis history', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
 
     assert.match(serverJs, /function buildStage4CurrentBeatEvidenceBlock/);
@@ -1080,7 +1085,7 @@ test('Stage 4 chat treats current beat evidence as newer than stale analysis his
     assert.match(serverJs, /CURRENT ARTIFACT ANALYSIS MODE/);
     assert.match(assistantRoute, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
     assert.match(assistantRoute, /persistStageConversation\(filePath, projectData, conversationKey, historyForTurn, result\.message\)/);
-    assert.match(serverJs, /delete projectData\.data\.conversations\.stage4/);
+    assert.match(generationRoutes, /delete projectData\.data\.conversations\.stage4/);
 
     assert.match(appJs, /function resetStageChatForNewArtifact/);
     assert.match(appJs, /Beat sheet regenerated\. Previous Stage 4 chat was cleared/);
@@ -1135,6 +1140,7 @@ test('frontend stage chat re-enables controls after stuck assistant requests', (
 test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
     const response = buildStage4ConfirmationBypassResponse([
         {
@@ -1177,10 +1183,10 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.match(assistantRoute, /name: 'apply_revision'/);
     assert.match(serverJs, /req\.path === '\/app\.js'/);
     assert.match(serverJs, /Cache-Control', 'no-store, max-age=0'/);
-    assert.match(serverJs, /X-Accel-Buffering', 'no'/);
-    assert.match(serverJs, /type: 'heartbeat'/);
-    assert.match(serverJs, /res\.flush\?\.\(\)/);
-    assert.match(serverJs, /Failed to generate beats: \$\{detail\}/);
+    assert.match(generationRoutes, /X-Accel-Buffering', 'no'/);
+    assert.match(generationRoutes, /type: 'heartbeat'/);
+    assert.match(generationRoutes, /res\.flush\?\.\(\)/);
+    assert.match(generationRoutes, /Failed to generate beats: \$\{detail\}/);
 });
 
 test('tool assistant migration covers stages 1 through 8 and 10 with carried guardrails', () => {
@@ -1301,7 +1307,7 @@ test('stage chat source-audit questions are handled by analysis-only tool contex
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     for (const id of ['btnStage2Regenerate', 'btnStage3Regenerate', 'btnStage4Regenerate', 'btnStage5Regenerate', 'btnStage6Regenerate', 'btnStage7RegenerateHeader', 'btnStage9Regenerate']) {
         assert.match(indexHtml, new RegExp(`id="${id}"`));
     }
@@ -1316,15 +1322,16 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(appJs, /shouldRegenerateStage6FromChat/);
     assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
     assert.match(appJs, /alert\(error\.message \|\| 'An error occurred during scene generation\.'\)/);
-    assert.match(serverJs, /Failed to generate scene blueprint: \$\{detail\}/);
-    assert.match(serverJs, /type: 'heartbeat', label: 'Still generating scene blueprint\.\.\.'/);
-    assert.match(serverJs, /X-Accel-Buffering', 'no'/);
-    assert.match(serverJs, /res\.flush\?\.\(\)/);
+    assert.match(generationRoutes, /Failed to generate scene blueprint: \$\{detail\}/);
+    assert.match(generationRoutes, /type: 'heartbeat', label: 'Still generating scene blueprint\.\.\.'/);
+    assert.match(generationRoutes, /X-Accel-Buffering', 'no'/);
+    assert.match(generationRoutes, /res\.flush\?\.\(\)/);
 });
 
 test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const assistantSkill = fs.readFileSync(require.resolve('../skills/skill_assistant_core.md'), 'utf8');
     const stage6RevisionAgent = fs.readFileSync(require.resolve('../agents/agent_6_revise.js'), 'utf8');
     assert.doesNotMatch(appJs, /function isStage6DirectRevisionRequest/);
@@ -1361,20 +1368,20 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(serverJs, /SOURCE LOCATION GROUNDING MODE/);
     assert.match(serverJs, /Do not infer a page number from a scene number/);
     assert.match(serverJs, /Do not call apply_revision for this turn/);
-    assert.match(serverJs, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
-    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
-    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
-    assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage5_treatment'/);
-    assert.match(serverJs, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 6 scene blueprint'/);
+    assert.match(generationRoutes, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
+    assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
+    assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
+    assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage5_treatment'/);
+    assert.match(generationRoutes, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 6 scene blueprint'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, label\)/);
-    assert.match(serverJs, /revisionReceipt: revisionTransaction\?\.receipt/);
-    assert.match(serverJs, /const beforeDraftHash = sourcePlanDataHash/);
+    assert.match(generationRoutes, /revisionReceipt: revisionTransaction\?\.receipt/);
+    assert.match(generationRoutes, /const beforeDraftHash = sourcePlanDataHash/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);
     assert.match(serverJs, /STAGE 6 EXTERNAL FEEDBACK REVIEW MODE/);
     assert.match(serverJs, /Do not call apply_revision for this turn/);
     assert.match(serverJs, /same recommended batch/);
     assert.match(serverJs, /Do not ask the revision engine to apply the whole note dump/);
-    assert.match(serverJs, /stageKey: 'stage6_scenes'/);
+    assert.match(generationRoutes, /stageKey: 'stage6_scenes'/);
     assert.match(stage6RevisionAgent, /function buildRevisionChecklist/);
     assert.match(stage6RevisionAgent, /Treat these as explicit obligations from the feedback/);
     assert.match(stage6RevisionAgent, /Do not silently skip checklist items/);
