@@ -2056,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         if (stageNum === 5) {
-            const treatment = scrapeTreatmentStage5();
+            const treatment = getCurrentStage5Treatment();
             const hasTreatment = treatment && Object.entries(treatment).some(([key, value]) => key !== 'notes' && String(value || '').trim());
             return {
                 stageKey: 'stage5_treatment',
@@ -5153,8 +5153,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return cleaned;
     }
 
+    const STAGE5_TREATMENT_KEYS = ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3'];
+
+    function setCurrentStage5TreatmentPayload(payload = {}) {
+        const data = ensureCurrentProjectData();
+        const existing = data.stage5_treatment || {};
+        const next = { ...existing };
+        STAGE5_TREATMENT_KEYS.forEach(key => {
+            next[key] = cleanTreatmentStage5Value(key, payload[key] ?? existing[key] ?? '')
+                .replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
+        });
+        next.notes = payload.notes ?? existing.notes ?? '';
+        data.stage5_treatment = next;
+        return next;
+    }
+
+    function updateCurrentStage5TreatmentField(key, value) {
+        const data = ensureCurrentProjectData();
+        data.stage5_treatment = data.stage5_treatment || {};
+        data.stage5_treatment[key] = value;
+    }
+
+    function getCurrentStage5Treatment() {
+        const treatment = window.currentProjectData?.stage5_treatment || {};
+        const data = {};
+        STAGE5_TREATMENT_KEYS.forEach(key => {
+            data[key] = String(treatment[key] || '').trim();
+        });
+        data.notes = String(treatment.notes || '').trim();
+        return data;
+    }
+
     function renderTreatmentStage5(data) {
         if (!data) return;
+        const stage5Payload = setCurrentStage5TreatmentPayload(data);
         if (stage5TreatmentContainer) stage5TreatmentContainer.classList.remove('hidden');
         if (stage5Workshop) stage5Workshop.classList.remove('hidden');
         if (stage5Actions) stage5Actions.classList.add('hidden');
@@ -5162,7 +5194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(stage5TAs).forEach(key => {
             if (stage5TAs[key]) {
                 const ta = stage5TAs[key];
-                ta.value = cleanTreatmentStage5Value(key, data[key] || '').replace(/\[SEQUENCE \d+ (?:START|END)\]\n?/gi, '');
+                ta.value = stage5Payload[key] || '';
                 
                 // Fixed-height scrollable cards for treatment text
                 ta.className = "editable-field w-full p-6 rounded-xl bg-[#1f2937] text-gray-300 text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-y overflow-y-auto treatment-stage5-ta";
@@ -5174,6 +5206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Add input listeners for user edits
                 if (!ta.dataset.listenerAdded) {
                     ta.addEventListener('input', () => {
+                        updateCurrentStage5TreatmentField(key, ta.value);
                         setApproveButtonState(btnStage5Approve, 'ready');
                     });
                     ta.addEventListener('focus', () => {
@@ -5186,17 +5219,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-    }
-
-    function scrapeTreatmentStage5() {
-        const data = {};
-        Object.keys(stage5TAs).forEach(key => {
-            if (stage5TAs[key]) {
-                data[key] = stage5TAs[key].value.trim();
-            }
-        });
-        if (stage5Notes) data.notes = stage5Notes.value.trim();
-        return data;
     }
 
     async function autoGenerateTreatmentStage5() {
@@ -5253,7 +5275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadingTextStage5) loadingTextStage5.textContent = `Step ${event.step} of ${event.total}: ${event.label}`;
                     } else if (event.type === 'complete') {
                         renderTreatmentStage5(event.result);
-                        if (window.currentProjectData) window.currentProjectData.stage5_treatment = event.result;
+                        setCurrentStage5TreatmentPayload(event.result);
                         // Reset buttons to fresh "Submit + Approve" state, overriding any
                         // stale locked state left over from project hydration.
                         if (btnStage5Edit) btnStage5Edit.classList.add('hidden');
@@ -5291,6 +5313,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (stage5Notes) {
+        stage5Notes.addEventListener('input', () => {
+            if (window.currentProjectData?.stage5_treatment) {
+                updateCurrentStage5TreatmentField('notes', stage5Notes.value);
+            }
+        });
+    }
+
     if (stage6PdfUpload) {
         stage6PdfUpload.addEventListener('change', (e) => {
             if (stage6FileNameDisplay) stage6FileNameDisplay.textContent = e.target.files[0] ? e.target.files[0].name : '';
@@ -5313,7 +5343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userNote && !selectedPdf) {
                 // Manual Save
                 if (!activeProjectId) return;
-                const currentData = scrapeTreatmentStage5();
+                const currentData = getCurrentStage5Treatment();
                 const originalText = btnStage5Revise.textContent;
 
                 try {
@@ -5349,7 +5379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage5Revise.disabled = true;
 
             try {
-                const currentData = scrapeTreatmentStage5();
+                const currentData = getCurrentStage5Treatment();
                 const formData = new FormData();
                 formData.append('projectId', activeProjectId);
                 formData.append('currentTreatment', JSON.stringify(currentData));
@@ -5384,8 +5414,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnStage5Revise.textContent = event.label;
                         } else if (event.type === 'complete') {
                             renderTreatmentStage5(event.result);
-                            if (window.currentProjectData) window.currentProjectData.stage5_treatment = event.result;
+                            setCurrentStage5TreatmentPayload(event.result);
                             if (stage5Notes) stage5Notes.value = '';
+                            updateCurrentStage5TreatmentField('notes', '');
                             if (stage5PdfUpload) stage5PdfUpload.value = '';
                             if (stage5FileNameDisplay) stage5FileNameDisplay.textContent = '';
                             await handleSourceGenerationResult(5, event);
@@ -5413,7 +5444,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getContext: () => ({
                 isReApproval: !!(window.currentProjectData?.stage6_scenes?.length)
             }),
-            getSnapshot: () => scrapeTreatmentStage5(),
+            getSnapshot: () => getCurrentStage5Treatment(),
             getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage5_treatment' : null,
             errorLog: 'Stage 5 approval failed:',
             errorMessage: null,
@@ -7446,7 +7477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 4:
                     return getCurrentStage4Beats();
                 case 5:
-                    return scrapeTreatmentStage5();
+                    return getCurrentStage5Treatment();
                 case 6:
                     return scrapeStage6();
                 case 7:
@@ -7852,7 +7883,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTreatment(result);
             setApproveButtonState(btnStage4Approve, 'ready');
         } else if (Number(stageId) === 5 && result) {
-            window.currentProjectData.stage5_treatment = result;
+            setCurrentStage5TreatmentPayload(result);
             renderTreatmentStage5(result);
             setApproveButtonState(btnStage5Approve, 'ready');
         } else if (Number(stageId) === 6 && result) {
@@ -8424,7 +8455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtnId: 'stage5-chat-send',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
-            const currentData = scrapeTreatmentStage5();
+            const currentData = getCurrentStage5Treatment();
             const comparableCurrentData = { ...currentData };
             delete comparableCurrentData.notes;
             const formData = new FormData();

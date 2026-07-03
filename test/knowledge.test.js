@@ -1054,6 +1054,8 @@ test('frontend centralizes full project state replacement for Phase 6 state clea
     assert.match(appJs, /setCurrentProjectData\(project\.data\);\s*updateStageNav\(project\.data\);/);
     assert.match(appJs, /function setCurrentStage4BeatsPayload\(payload = \{\}\)/);
     assert.match(appJs, /function getCurrentStage4Beats\(\)/);
+    assert.match(appJs, /function setCurrentStage5TreatmentPayload\(payload = \{\}\)/);
+    assert.match(appJs, /function getCurrentStage5Treatment\(\)/);
     assert.equal(fullReplacementWrites.length, 1);
     assert.equal(refreshDeclarations.length, 1);
 });
@@ -1076,6 +1078,19 @@ test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
     assert.doesNotMatch(appJs, /\bscrapeTreatment\(/);
     assert.doesNotMatch(stage4App, /generating the treatment/);
     assert.doesNotMatch(stage4App, /revising the treatment/);
+});
+
+test('frontend Stage 5 treatment uses state-first data instead of DOM scraping', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const stage5App = appJs.match(/--- Stage 5: Treatment Functions ---[\s\S]*?--- Stage 6 Logic: Scene Blueprint ---/)?.[0] || '';
+
+    assert.match(stage5App, /const STAGE5_TREATMENT_KEYS = \[/);
+    assert.match(stage5App, /setCurrentStage5TreatmentPayload\(data\)/);
+    assert.match(stage5App, /updateCurrentStage5TreatmentField\(key, ta\.value\)/);
+    assert.match(stage5App, /updateCurrentStage5TreatmentField\('notes', stage5Notes\.value\)/);
+    assert.match(appJs, /getSnapshot: \(\) => getCurrentStage5Treatment\(\)/);
+    assert.match(appJs, /const currentData = getCurrentStage5Treatment\(\)/);
+    assert.doesNotMatch(appJs, /\bscrapeTreatmentStage5\(/);
 });
 
 test('Stage 4 chat treats current beat evidence as newer than stale analysis history', () => {
