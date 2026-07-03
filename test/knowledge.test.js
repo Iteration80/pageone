@@ -766,7 +766,7 @@ test('streaming generation routes abort model work and skip saves after disconne
 test('project and source routes use typed API error responder for 400 404 and 429 cases', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const projectRoutes = fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8');
-    const sourceRoutes = serverJs.match(/app\.get\('\/api\/projects\/:id\/knowledge'[\s\S]*?app\.post\('\/api\/projects\/:id\/knowledge\/decision'/)?.[0] || '';
+    const sourceRoutes = fs.readFileSync(require.resolve('../routes/knowledge.js'), 'utf8');
     const projectAndSourceRoutes = `${projectRoutes}\n${sourceRoutes}`;
     const sourceHelpers = serverJs.match(/async function readKnowledgeSourceAssetForClient[\s\S]*?function contentDispositionFilename/)?.[0] || '';
 
@@ -966,8 +966,7 @@ test('Stage 10 AI rewrite routes use typed API errors and shared project loading
 });
 
 test('project memory routes use typed API errors for validation and shared failures', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?registerExportRoutes\(app, \{/)?.[0] || '';
+    const memoryRoutes = fs.readFileSync(require.resolve('../routes/knowledge.js'), 'utf8');
 
     assert.match(memoryRoutes, /assertValidProjectId\(id\)/);
     assert.match(memoryRoutes, /await assertProjectExists\(id\)/);
