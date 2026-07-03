@@ -3,7 +3,11 @@
 const fs = require('fs/promises');
 const path = require('path');
 
-const DEFAULT_DIR = path.join(process.cwd(), 'data', 'projects');
+// Honor DATA_ROOT (Railway volume) the same way server.js does, so the script
+// targets the live project store on deployments without needing --dir.
+const DEFAULT_DIR = process.env.DATA_ROOT
+    ? path.join(path.resolve(process.env.DATA_ROOT), 'projects')
+    : path.join(process.cwd(), 'data', 'projects');
 
 const IMAGINE_TIER_OVERRIDES = {
     Rebecca: 1,
@@ -52,7 +56,7 @@ Usage:
   node scripts/seed-stage3-tier-overrides.js [options]
 
 Options:
-  --dir <path>     Projects directory. Default: data/projects
+  --dir <path>     Projects directory. Default: $DATA_ROOT/projects if DATA_ROOT is set, else data/projects
   --only <id>      Seed one project JSON file by id, without .json, even if its title is missing
   --write          Persist changes. Omitted = dry run
   --overwrite      Replace existing tier_overrides instead of filling missing names
