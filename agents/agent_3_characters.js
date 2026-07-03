@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 const {
     isBroadRevisionIntent,
     mergeSurgicalLabeledItems
@@ -429,7 +430,7 @@ Please apply the note surgically and return the full updated character list in J
             schema: characterSchema
         });
 
-        const parsed = JSON.parse(response.text);
+        const parsed = parseJsonWithRepair(response.text, { label: 'Stage 3 character revision response' });
         return {
             result: normalizeCharacterResult(
                 applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded, tierOverrides: normalizedTierOverrides }),
@@ -498,7 +499,7 @@ ${JSON.stringify(beatsData, null, 2)}`;
         schema: characterSchema
     });
 
-    return { result: normalizeCharacterResult(JSON.parse(response.text), normalizedTierOverrides, rawTierOverrides), usage: response.usage };
+    return { result: normalizeCharacterResult(parseJsonWithRepair(response.text, { label: 'Stage 3 character generation response' }), normalizedTierOverrides, rawTierOverrides), usage: response.usage };
 };
 
 module.exports = { agent3Characters };

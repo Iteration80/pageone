@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 
 const pitchSchema = {
     type: 'object',
@@ -43,9 +44,7 @@ Please apply the note surgically and return the full updated pitch in JSON forma
             schema: pitchSchema
         });
 
-        const rawText = response.text;
-        const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return { result: JSON.parse(cleanedText), usage: response.usage };
+        return { result: parseJsonWithRepair(response.text, { label: 'Stage 1 pitch refinement response' }), usage: response.usage };
     }
 
     const contents = [];
@@ -62,12 +61,7 @@ Please apply the note surgically and return the full updated pitch in JSON forma
     });
 
     // CRITICAL SDK SYNTAX: Extract the text using const rawText = response.text; (no parentheses).
-    const rawText = response.text;
-
-    // Strip any markdown (```json) using regex, and JSON.parse it before returning the clean object
-    const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-
-    return { result: JSON.parse(cleanedText), usage: response.usage };
+    return { result: parseJsonWithRepair(response.text, { label: 'Stage 1 pitch refinement response' }), usage: response.usage };
 };
 
 module.exports = { agent1Refine };

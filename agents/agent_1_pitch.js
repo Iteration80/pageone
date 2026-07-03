@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 
 const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
     const {
@@ -65,10 +66,7 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
     const rawText = response.text;
     const { usage } = response;
 
-    // Strip any markdown (```json) using regex, and JSON.parse it before returning the clean object
-    const cleanedText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-
-    return { result: JSON.parse(cleanedText), usage };
+    return { result: parseJsonWithRepair(rawText, { label: 'Stage 1 pitch generation response' }), usage };
 };
 
 module.exports = { agent1Pitch };

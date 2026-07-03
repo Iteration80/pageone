@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
@@ -416,7 +417,7 @@ FIDELITY RULES:
     };
 
     const parseAndMerge = (response) => {
-        const modifiedSequences = JSON.parse(response.text);
+        const modifiedSequences = parseJsonWithRepair(response.text, { schema: { type: 'array' }, label: 'Stage 6 revision response' });
         if (!Array.isArray(modifiedSequences)) {
             throw new Error('Stage 6 revision response was not an array of modified sequences');
         }

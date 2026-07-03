@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
@@ -328,7 +329,7 @@ Return the complete target section after applying only the relevant notes. Prese
                         schema: sectionSchema
                     });
 
-                    const parsed = JSON.parse(result.text);
+                    const parsed = parseJsonWithRepair(result.text, { label: `Stage 5 ${field.label} revision response` });
                     if (typeof parsed.revised_text !== 'string') {
                         throw new Error(`Revision for ${field.label} did not return revised_text`);
                     }
@@ -381,7 +382,7 @@ Return JSON with ONLY 'title_logline_characters' and 'act_1' populated. Leave ot
         schema: treatmentSchema
     });
     usageList.push(result1.usage);
-    const parsed1 = JSON.parse(result1.text);
+    const parsed1 = parseJsonWithRepair(result1.text, { label: 'Stage 5 treatment step 1 (Act I) response' });
 
     // Step 2: Act IIA (Sequences 3 & 4)
     console.log("  Chain Step 2/4: Writing Act II (Part 1)...");
@@ -404,7 +405,7 @@ Return JSON with ONLY the 'act_2a' field populated. Leave others empty.`;
         schema: treatmentSchema
     });
     usageList.push(result2.usage);
-    const parsed2 = JSON.parse(result2.text);
+    const parsed2 = parseJsonWithRepair(result2.text, { label: 'Stage 5 treatment step 2 (Act IIA) response' });
 
     // Step 3: Act IIB (Sequences 5 & 6)
     console.log("  Chain Step 3/4: Writing Act II (Part 2)...");
@@ -427,7 +428,7 @@ Return JSON with ONLY the 'act_2b' field populated. Leave others empty.`;
         schema: treatmentSchema
     });
     usageList.push(result3.usage);
-    const parsed3 = JSON.parse(result3.text);
+    const parsed3 = parseJsonWithRepair(result3.text, { label: 'Stage 5 treatment step 3 (Act IIB) response' });
 
     // Step 4: Act III (Sequences 7 & 8)
     console.log("  Chain Step 4/4: Writing Act III...");
@@ -450,7 +451,7 @@ Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
         schema: treatmentSchema
     });
     usageList.push(result4.usage);
-    const finalParsed = JSON.parse(result4.text);
+    const finalParsed = parseJsonWithRepair(result4.text, { label: 'Stage 5 treatment step 4 (Act III) response' });
 
     return {
         result: {

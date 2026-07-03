@@ -1,4 +1,5 @@
 const { generateContent } = require('./ai-client');
+const { parseJsonWithRepair } = require('./json_parse');
 const { loadSkill } = require('../utils/skills_cache');
 
 /**
@@ -59,15 +60,10 @@ Return ONLY a JSON object matching the output schema. No markdown, no explanatio
 
         let checkResult;
         try {
-            checkResult = JSON.parse(response.text);
+            checkResult = parseJsonWithRepair(response.text, { label: 'Continuity supervisor response' });
         } catch {
-            const jsonMatch = response.text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                checkResult = JSON.parse(jsonMatch[0]);
-            } else {
-                console.error('Continuity supervisor returned non-JSON:', response.text.slice(0, 200));
-                checkResult = emptyResult(sceneData.scene_number);
-            }
+            console.error('Continuity supervisor returned non-JSON:', response.text.slice(0, 200));
+            checkResult = emptyResult(sceneData.scene_number);
         }
 
         return { result: checkResult, usage: response.usage };
