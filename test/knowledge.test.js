@@ -764,7 +764,7 @@ test('streaming generation routes abort model work and skip saves after disconne
 
 test('project and source routes use typed API error responder for 400 404 and 429 cases', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const projectRoutes = serverJs.match(/\/\/ --- Project Management Routes --- \/\/[\s\S]*?\/\/ ─── Export Endpoints/)?.[0] || '';
+    const projectRoutes = serverJs.match(/\/\/ --- Project Management Routes --- \/\/[\s\S]*?registerExportRoutes\(app, \{/)?.[0] || '';
     const sourceHelpers = serverJs.match(/async function readKnowledgeSourceAssetForClient[\s\S]*?function contentDispositionFilename/)?.[0] || '';
 
     assert.match(serverJs, /class ApiError extends Error/);
@@ -981,8 +981,8 @@ test('project memory routes use typed API errors for validation and shared failu
 
 test('style and export routes use typed API error responder for expected failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const exportRoutes = fs.readFileSync(require.resolve('../routes/export.js'), 'utf8');
     const styleRoutes = serverJs.match(/\/\/ --- Stage 7: Style Routes --- \/\/[\s\S]*?\/\/ --- Settings Routes --- \/\//)?.[0] || '';
-    const exportRoutes = serverJs.match(/\/\/ ─── Export Endpoints[\s\S]*?app\.use\('\/api'/)?.[0] || '';
 
     assert.match(styleRoutes, /throw new BadRequestError\('Missing or invalid projectId or styleSlug'\)/);
     assert.match(styleRoutes, /throw new BadRequestError\('At least one screenplay file is required for trained style generation'\)/);
@@ -1017,10 +1017,12 @@ test('settings and maintenance routes use typed API error responder for shared f
 
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const exportRoutes = fs.readFileSync(require.resolve('../routes/export.js'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     assert.match(serverJs, /require\('\.\/utils\/artifact_snapshots'\)/);
     assert.match(serverJs, /recordStageMutationSnapshots/);
-    assert.match(serverJs, /recordExportSnapshot\(project, projectId, exportStage/);
+    assert.match(serverJs, /registerExportRoutes\(app, \{/);
+    assert.match(exportRoutes, /recordExportSnapshot\(project, projectId, exportStage/);
     assert.match(serverJs, /mergeVersionHistory\(previousData\.versionHistory, updates\.data\.versionHistory\)/);
     assert.match(serverJs, /restoreVersionId/);
     assert.match(appJs, /snapshotType: 'approved'/);
