@@ -159,8 +159,7 @@ test('knowledge context includes accepted divergences and relevant source proven
 });
 
 test('assistant route uses typed API errors and shared project loading', () => {
-    const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    const assistantRoute = serverSource.match(/app\.post\('\/api\/assistant'[\s\S]*?app\.post\('\/api\/plan-rewrite'/)?.[0] || '';
+    const assistantRoute = fs.readFileSync(path.join(__dirname, '..', 'routes', 'assistant.js'), 'utf8');
 
     assert.match(assistantRoute, /isGlobalStyleAssistantStage\(stageId\)/);
     assert.match(assistantRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId or stageId'\)/);
@@ -905,7 +904,7 @@ test('Stage 9 coverage route uses typed API errors', () => {
 
 test('Stage 10 state routes use typed API errors', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const initRoute = serverJs.match(/app\.post\('\/api\/init-stage9'[\s\S]*?\/\/ Tool-calling stage assistant\./)?.[0] || '';
+    const initRoute = serverJs.match(/app\.post\('\/api\/init-stage9'[\s\S]*?registerAssistantRoutes\(app, \{/)?.[0] || '';
     const saveRoute = serverJs.match(/app\.post\('\/api\/save-stage10-pending'[\s\S]*?\/\/ Save approved pending changes/)?.[0] || '';
     const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
     const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?registerStyleRoutes\(app, \{/)?.[0] || '';
@@ -1064,6 +1063,7 @@ test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
 test('Stage 4 chat treats current beat evidence as newer than stale analysis history', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
 
     assert.match(serverJs, /function buildStage4CurrentBeatEvidenceBlock/);
     assert.match(serverJs, /CURRENT STAGE 4 BEAT EVIDENCE/);
@@ -1071,8 +1071,8 @@ test('Stage 4 chat treats current beat evidence as newer than stale analysis his
     assert.match(serverJs, /Do not repeat an earlier assistant claim unless the current evidence supports it/);
     assert.match(serverJs, /function isStage4CurrentArtifactAnalysisRequest/);
     assert.match(serverJs, /CURRENT ARTIFACT ANALYSIS MODE/);
-    assert.match(serverJs, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
-    assert.match(serverJs, /persistStageConversation\(filePath, projectData, conversationKey, historyForTurn, result\.message\)/);
+    assert.match(assistantRoute, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
+    assert.match(assistantRoute, /persistStageConversation\(filePath, projectData, conversationKey, historyForTurn, result\.message\)/);
     assert.match(serverJs, /delete projectData\.data\.conversations\.stage4/);
 
     assert.match(appJs, /function resetStageChatForNewArtifact/);
@@ -1128,6 +1128,7 @@ test('frontend stage chat re-enables controls after stuck assistant requests', (
 test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
     const response = buildStage4ConfirmationBypassResponse([
         {
             role: 'assistant',
@@ -1165,8 +1166,8 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
     assert.doesNotMatch(appJs, /executeRevision && !attachment && isRevisionConfirmation/);
     assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
     assert.match(serverJs, /function findRecentStage4RevisionProposal/);
-    assert.match(serverJs, /buildStage4ConfirmationBypassResponse\(messages\)/);
-    assert.match(serverJs, /name: 'apply_revision'/);
+    assert.match(assistantRoute, /buildStage4ConfirmationBypassResponse\(messages\)/);
+    assert.match(assistantRoute, /name: 'apply_revision'/);
     assert.match(serverJs, /req\.path === '\/app\.js'/);
     assert.match(serverJs, /Cache-Control', 'no-store, max-age=0'/);
     assert.match(serverJs, /X-Accel-Buffering', 'no'/);
@@ -1178,10 +1179,11 @@ test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive
 test('tool assistant migration covers stages 1 through 8 and 10 with carried guardrails', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
     const agent2Js = fs.readFileSync(require.resolve('../agents/agent_2_outline.js'), 'utf8');
 
-    assert.match(serverJs, /app\.post\('\/api\/assistant'/);
+    assert.match(assistantRoute, /app\.post\('\/api\/assistant'/);
     assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm'/);
     assert.doesNotMatch(serverJs, /app\.post\('\/api\/brainstorm-rewrite'/);
     assert.doesNotMatch(agent2Js, /LATEST USER REQUEST/);
@@ -1202,6 +1204,7 @@ test('tool assistant migration covers stages 1 through 8 and 10 with carried gua
 test('global style creator uses the tool assistant instead of legacy style-chat flags', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
     const createStyleBlock = appJs.slice(
         appJs.indexOf('// Conversational path'),
@@ -1209,7 +1212,7 @@ test('global style creator uses the tool assistant instead of legacy style-chat 
     );
 
     assert.match(assistantJs, /style_global/);
-    assert.match(serverJs, /isGlobalStyleAssistantStage\(stageId\)/);
+    assert.match(assistantRoute, /isGlobalStyleAssistantStage\(stageId\)/);
     assert.match(serverJs, /buildGlobalStyleAssistantContext/);
     assert.match(appJs, /stageId: 'style_global'/);
     assert.match(appJs, /triggerStyleGeneration\(thread, brief, \{ quiet: true, deferOpen: true \}\)/);
