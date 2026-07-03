@@ -334,7 +334,7 @@ function getModelConfig(stageNum) {
     };
 }
 
-function getBrainstormModelConfig(stageNum = 1) {
+function getAssistantModelConfig(stageNum = 1) {
     const config = getModelConfig(stageNum);
     const explicitModel = appSettings.brainstormModel || process.env.BRAINSTORM_MODEL;
     if (explicitModel) return { ...config, model: explicitModel };
@@ -5142,7 +5142,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
                 isInit,
                 turnState,
                 toolResults,
-                modelConfig: getBrainstormModelConfig(7)
+                modelConfig: getAssistantModelConfig(7)
             });
             console.log(`Assistant style_global: type=${result.type}${result.toolCalls ? ` tools=${result.toolCalls.map(c => c.name).join(',')}` : ''}`);
             return res.json({
@@ -5167,7 +5167,7 @@ app.post('/api/assistant', requireAuth, aiLimiter, async (req, res) => {
         const pitch = projectData.data?.stage1_pitch?.pitch;
         const title = pitch?.title || projectData.title || 'Untitled';
 
-        const modelConfig = getBrainstormModelConfig(numericStageId);
+        const modelConfig = getAssistantModelConfig(numericStageId);
         let savedSource = null;
         let sourceMemory = null;
         let contextBlock = '';
