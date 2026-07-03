@@ -5467,31 +5467,106 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stage 6 Logic: Scene Blueprint ---
 
+    function cloneStage6Blueprint(data) {
+        if (!data) return [];
+        let sourceSequences = [];
+        if (Array.isArray(data)) {
+            sourceSequences = data;
+        } else if (Array.isArray(data.sequences)) {
+            sourceSequences = data.sequences;
+        } else if (Array.isArray(data.scenes)) {
+            sourceSequences = [{ sequence_title: 'Draft Blueprint', scenes: data.scenes }];
+        }
+
+        const hasRealScenes = sourceSequences.some(seq => Array.isArray(seq?.scenes) && seq.scenes.length > 0);
+        const filteredSequences = hasRealScenes
+            ? sourceSequences.filter(seq => Array.isArray(seq?.scenes) && seq.scenes.length > 0)
+            : sourceSequences;
+
+        let sceneCounter = 1;
+        return filteredSequences.map((seq, index) => {
+            const clonedSeq = JSON.parse(JSON.stringify(seq || {}));
+            clonedSeq.sequence_title = clonedSeq.sequence_title || clonedSeq.title || clonedSeq.name || `SEQUENCE ${index + 1}`;
+            clonedSeq.scenes = Array.isArray(clonedSeq.scenes)
+                ? clonedSeq.scenes.map(scene => ({
+                    ...(scene || {}),
+                    scene_number: sceneCounter++,
+                    scene_heading: scene?.scene_heading || '',
+                    narrative_action: scene?.narrative_action || '',
+                    dramaturgical_function: scene?.dramaturgical_function || '',
+                    estimated_page_count: scene?.estimated_page_count ?? ''
+                }))
+                : [];
+            return clonedSeq;
+        });
+    }
+
+    function setCurrentStage6BlueprintPayload(payload) {
+        const data = ensureCurrentProjectData();
+        const next = cloneStage6Blueprint(payload);
+        data.stage6_scenes = next;
+        return next;
+    }
+
+    function getCurrentStage6Blueprint() {
+        return cloneStage6Blueprint(window.currentProjectData?.stage6_scenes || []).map(seq => ({
+            sequence_title: seq.sequence_title || '',
+            scenes: (seq.scenes || []).map(scene => ({
+                scene_number: Number(scene.scene_number) || 0,
+                scene_heading: scene.scene_heading || '',
+                narrative_action: scene.narrative_action || '',
+                dramaturgical_function: scene.dramaturgical_function || '',
+                estimated_page_count: scene.estimated_page_count ?? ''
+            }))
+        }));
+    }
+
+    function findCurrentStage6Scene(sceneNumber) {
+        const target = Number(sceneNumber);
+        if (!target) return null;
+        const sequences = window.currentProjectData?.stage6_scenes;
+        if (!Array.isArray(sequences)) return null;
+        for (const seq of sequences) {
+            const scene = (seq.scenes || []).find(item => Number(item.scene_number) === target);
+            if (scene) return scene;
+        }
+        return null;
+    }
+
+    function updateCurrentStage6SceneField(sceneNumber, fieldKey, value) {
+        const scene = findCurrentStage6Scene(sceneNumber);
+        if (scene) scene[fieldKey] = value;
+    }
+
+    function renumberCurrentStage6Blueprint() {
+        const sequences = window.currentProjectData?.stage6_scenes;
+        if (!Array.isArray(sequences)) return;
+        let sceneNumber = 1;
+        sequences.forEach(seq => {
+            (seq.scenes || []).forEach(scene => {
+                scene.scene_number = sceneNumber++;
+            });
+        });
+    }
+
+    function moveCurrentStage6Scene(fromSequenceIndex, fromSceneIndex, toSequenceIndex, toSceneIndex) {
+        const sequences = window.currentProjectData?.stage6_scenes;
+        if (!Array.isArray(sequences)) return;
+        const fromSeq = sequences[fromSequenceIndex];
+        const toSeq = sequences[toSequenceIndex];
+        if (!fromSeq?.scenes || !toSeq?.scenes) return;
+        const [scene] = fromSeq.scenes.splice(fromSceneIndex, 1);
+        if (!scene) return;
+        toSeq.scenes.splice(toSceneIndex, 0, scene);
+        renumberCurrentStage6Blueprint();
+    }
+
     function renderStage6(data) {
         const container = document.getElementById('stage6-blueprint-container');
         if (!container) return;
         container.innerHTML = ''; // Wipe clean before drawing
 
-        // Determine data structure — no dummy data; empty state is handled by leaving the container empty
-        let sequences = [];
-        if (!data) {
-            return; // No data — leave container empty
-        } else if (Array.isArray(data)) {
-            sequences = data; // Flat array of sequences
-        } else if (data.sequences && Array.isArray(data.sequences)) {
-            sequences = data.sequences; // Nested sequences
-        } else if (data.scenes && Array.isArray(data.scenes)) {
-            // Flat array of scenes: wrap them so they render in a single block
-            sequences = [{ sequence_title: "Draft Blueprint", scenes: data.scenes }];
-        } else {
-            return; // Unknown shape — leave container empty
-        }
-
-        // Clean up accumulated ghosts: If real scenes exist in the data, strip out any empty placeholder sequences
-        const hasRealScenes = sequences.some(seq => seq.scenes && seq.scenes.length > 0);
-        if (hasRealScenes) {
-            sequences = sequences.filter(seq => seq.scenes && seq.scenes.length > 0);
-        }
+        const sequences = setCurrentStage6BlueprintPayload(data);
 
         if (sequences.length === 0) {
             return; // Nothing to render
@@ -5501,8 +5576,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Helper to update all scene numbers in the DOM
         const updateSceneNumbers = () => {
-            document.querySelectorAll('.scene-card:not(.ghost-card) .scene-number').forEach((span, i) => {
-                span.textContent = `Scene ${i + 1}`;
+            document.querySelectorAll('#stage6-blueprint-container .scene-card:not(.ghost-card)').forEach((card, i) => {
+                const sceneNumber = i + 1;
+                card.dataset.sceneNumber = String(sceneNumber);
+                const label = card.querySelector('.scene-number');
+                if (label) label.textContent = `Scene ${sceneNumber}`;
             });
         };
 
@@ -5531,12 +5609,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const cardsContainer = document.createElement('div');
             cardsContainer.className = 'scene-cards-container';
+            cardsContainer.dataset.sequenceIndex = String(index);
 
             const scenes = seq.scenes || [];
             scenes.forEach((scene) => {
+                const sceneNumber = globalSceneCounter;
                 const card = document.createElement('div');
                 card.className = 'scene-card';
-                card.dataset.sceneNumber = String(Number(scene.scene_number) || globalSceneCounter);
+                card.dataset.sceneNumber = String(sceneNumber);
                 card.innerHTML = `
                     <div class="scene-card-header">
                         <div class="flex items-center">
@@ -5559,18 +5639,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
 
                 // Add resize listeners to textareas
-                card.querySelectorAll('textarea').forEach(ta => {
+                const sceneTextareas = card.querySelectorAll('textarea');
+                sceneTextareas.forEach((ta, textareaIndex) => {
                     ta.addEventListener('input', () => {
+                        updateCurrentStage6SceneField(card.dataset.sceneNumber, textareaIndex === 0 ? 'narrative_action' : 'dramaturgical_function', ta.value);
                         autoResize(ta);
                         setApproveButtonState(btnStage6Approve, 'ready');
                     });
                     // Initial resize
                     setTimeout(() => autoResize(ta), 0);
                 });
-                card.querySelectorAll('input[type="text"]').forEach(input => {
-                    input.addEventListener('input', () => {
-                        setApproveButtonState(btnStage6Approve, 'ready');
-                    });
+                const headingInput = card.querySelector('.scene-heading-input');
+                const pageCountInput = card.querySelector('.page-count-input');
+                headingInput?.addEventListener('input', () => {
+                    updateCurrentStage6SceneField(card.dataset.sceneNumber, 'scene_heading', headingInput.value);
+                    setApproveButtonState(btnStage6Approve, 'ready');
+                });
+                pageCountInput?.addEventListener('input', () => {
+                    updateCurrentStage6SceneField(card.dataset.sceneNumber, 'estimated_page_count', pageCountInput.value);
+                    setApproveButtonState(btnStage6Approve, 'ready');
                 });
 
                 cardsContainer.appendChild(card);
@@ -5621,7 +5708,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     group: 'shared',
                     animation: 150,
                     handle: '.card-grip',
-                    onEnd: updateSceneNumbers
+                    onEnd: (event) => {
+                        const fromSequenceIndex = Number(event.from?.dataset.sequenceIndex);
+                        const toSequenceIndex = Number(event.to?.dataset.sequenceIndex);
+                        const fromSceneIndex = event.oldDraggableIndex ?? event.oldIndex;
+                        const toSceneIndex = event.newDraggableIndex ?? event.newIndex;
+                        if ([fromSequenceIndex, toSequenceIndex, fromSceneIndex, toSceneIndex].every(Number.isInteger)) {
+                            moveCurrentStage6Scene(fromSequenceIndex, fromSceneIndex, toSequenceIndex, toSceneIndex);
+                        }
+                        updateSceneNumbers();
+                        setApproveButtonState(btnStage6Approve, 'ready');
+                    }
                 });
             });
         } else {
@@ -5689,7 +5786,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getStage6SnapshotForHistory() {
         const hasRenderedCards = !!stage6Board?.querySelector('.scene-card:not(.ghost-card)');
-        if (hasRenderedCards) return scrapeStage6();
+        if (hasRenderedCards) return getCurrentStage6Blueprint();
         const savedScenes = window.currentProjectData?.stage6_scenes;
         return Array.isArray(savedScenes) ? JSON.parse(JSON.stringify(savedScenes)) : [];
     }
@@ -5806,7 +5903,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (event.type === 'complete') {
                     stage6GenerationComplete = true;
                     renderStage6(event.result);
-                    if (window.currentProjectData) window.currentProjectData.stage6_scenes = event.result;
                     await handleSourceGenerationResult(6, event);
                 } else if (event.type === 'error') {
                     throw new Error(event.message);
@@ -5911,46 +6007,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function scrapeStage6() {
-        const sequences = [];
-        const stage6Container = document.getElementById('stage6-blueprint-container');
-        
-        // Scope the query exclusively to the Stage 6 container to avoid grabbing hidden Stage 2 blocks
-        const seqBlocks = stage6Container ? stage6Container.querySelectorAll('.sequence-block') : [];
-        
-        seqBlocks.forEach(block => {
-            const title = block.querySelector('.sequence-title')?.textContent || "";
-            const scenes = [];
-            const sceneCards = block.querySelectorAll('.scene-card:not(.ghost-card)');
-            
-            sceneCards.forEach(card => {
-                const sceneNumberText = card.querySelector('.scene-number')?.textContent || "";
-                const sceneNumber = parseInt(sceneNumberText.replace('Scene ', '')) || 0;
-                
-                const heading = card.querySelector('.scene-heading-input')?.value || "";
-                const textareas = card.querySelectorAll('.scene-textarea');
-                const action = textareas[0]?.value || "";
-                const functionText = textareas[1]?.value || "";
-                const pageCount = card.querySelector('.page-count-input')?.value || "";
-                
-                scenes.push({
-                    scene_number: sceneNumber,
-                    scene_heading: heading,
-                    narrative_action: action,
-                    dramaturgical_function: functionText,
-                    estimated_page_count: pageCount
-                });
-            });
-            
-            sequences.push({
-                sequence_title: title,
-                scenes: scenes
-            });
-        });
-        
-        return sequences;
-    }
-
     if (btnStage6Approve) {
         btnStage6Approve.addEventListener('click', createStageApproveHandler({
             stageId: 6,
@@ -5960,7 +6016,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getContext: () => ({
                 isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 6).length > 0
             }),
-            getSnapshot: () => scrapeStage6(),
+            getSnapshot: () => getCurrentStage6Blueprint(),
             getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage6_scenes' : null,
             refreshProjectAfterCuration: true,
             errorLog: 'Stage 6 approval failed:',
@@ -7479,7 +7535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 5:
                     return getCurrentStage5Treatment();
                 case 6:
-                    return scrapeStage6();
+                    return getCurrentStage6Blueprint();
                 case 7:
                     return stage7CurrentStyle
                         ? { slug: stage7CurrentStyle.slug, content: stage7CurrentStyle.content || stage7CurrentStyle.directive || '' }
@@ -7887,7 +7943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTreatmentStage5(result);
             setApproveButtonState(btnStage5Approve, 'ready');
         } else if (Number(stageId) === 6 && result) {
-            window.currentProjectData.stage6_scenes = result;
+            setCurrentStage6BlueprintPayload(result);
             renderStage6(result);
             setApproveButtonState(btnStage6Approve, 'ready');
         } else if (Number(stageId) === 8 && result) {
@@ -8523,7 +8579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function reviseStage6Blueprint(feedback, { onStatus } = {}) {
-        const beforeSnapshot = JSON.parse(JSON.stringify(window.currentProjectData?.stage6_scenes || []));
+        const beforeSnapshot = getCurrentStage6Blueprint();
         const beforeSerialized = JSON.stringify(beforeSnapshot || null);
         const response = await fetch('/api/revise-stage6', {
             method: 'POST',
@@ -8594,7 +8650,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         await handleSourceGenerationResult(6, completeEvent, { chat: stageChatWindows[6] });
         renderStage6(revisedScenes);
-        if (window.currentProjectData) window.currentProjectData.stage6_scenes = revisedScenes;
         highlightStage6ChangedScenes(changedScenes);
         return completeEvent;
     }
