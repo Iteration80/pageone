@@ -533,7 +533,7 @@ test('server persists Stage 10 pending rewrites through atomic project updates',
     const singleSceneRoute = serverJs.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
     const feedbackRoute = serverJs.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
     const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
-    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?\/\/ --- Stage 7/)?.[0] || '';
+    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?registerStyleRoutes\(app, \{/)?.[0] || '';
 
     assert.match(serverJs, /function persistStage10PendingRewrite/);
     assert.match(serverJs, /app\.post\('\/api\/save-stage10-pending'/);
@@ -908,7 +908,7 @@ test('Stage 10 state routes use typed API errors', () => {
     const initRoute = serverJs.match(/app\.post\('\/api\/init-stage9'[\s\S]*?\/\/ Tool-calling stage assistant\./)?.[0] || '';
     const saveRoute = serverJs.match(/app\.post\('\/api\/save-stage10-pending'[\s\S]*?\/\/ Save approved pending changes/)?.[0] || '';
     const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
-    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?\/\/ --- Stage 7: Style Routes ---/)?.[0] || '';
+    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?registerStyleRoutes\(app, \{/)?.[0] || '';
     const stateRoutes = `${initRoute}\n${saveRoute}\n${approveRoute}\n${finalizeRoute}`;
 
     assert.match(initRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId'\)/);
@@ -980,9 +980,8 @@ test('project memory routes use typed API errors for validation and shared failu
 });
 
 test('style and export routes use typed API error responder for expected failures', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    const styleRoutes = fs.readFileSync(require.resolve('../routes/styles.js'), 'utf8');
     const exportRoutes = fs.readFileSync(require.resolve('../routes/export.js'), 'utf8');
-    const styleRoutes = serverJs.match(/\/\/ --- Stage 7: Style Routes --- \/\/[\s\S]*?\/\/ --- Settings Routes --- \/\//)?.[0] || '';
 
     assert.match(styleRoutes, /throw new BadRequestError\('Missing or invalid projectId or styleSlug'\)/);
     assert.match(styleRoutes, /throw new BadRequestError\('At least one screenplay file is required for trained style generation'\)/);
