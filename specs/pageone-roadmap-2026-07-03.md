@@ -30,6 +30,13 @@ didn't flag — they're folded into the roadmap below as R1, R2, R5, and the R6 
 
 ## Remaining work
 
+**Status 2026-07-03 (Claude execution pass):** R1 ✅ local side done — dry-run correctly
+matches 0 local projects; the actual seed is a DEPLOYMENT step (see R1 below). R5 ✅ done
+(commit `b01c185`). R2 ✅ done (commit `bc68be9` — includes a source-guard test so raw
+parses can't creep back). Remaining: **R3, R4 (code — clean Codex handoffs), R6 +
+deployment-side R1 (Carsten).** Full matrix green after each commit (150 + 130 tests);
+server boot-smoked.
+
 ### R1 — Run the data migrations (5 minutes) — ⚠️ DEPLOYMENT-SIDE, not local
 **2026-07-03 finding:** the I.M.A.G.I.N.E./Dapple project does not exist in local
 `data/projects/` (dry-run correctly matches 0 of 9 local projects) — it lives on the deployed
