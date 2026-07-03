@@ -2048,7 +2048,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         if (stageNum === 4) {
-            const beats = scrapeTreatment();
+            const beats = getCurrentStage4Beats();
             return {
                 stageKey: 'stage4_beats',
                 stageName: 'Beats',
@@ -3770,8 +3770,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             switchStage(4);
 
-            const currentBeats = window.currentProjectData?.stage4_beats;
-            if (!currentBeats) { autoGenerateTreatment(); return; }
+            const currentBeats = getCurrentStage4Beats();
+            if (!currentBeats?.hybrid_beat_sheet?.length) { autoGenerateTreatment(); return; }
 
             if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
             if (stage4Workshop) stage4Workshop.classList.add('hidden');
@@ -3804,7 +3804,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
                         } else if (event.type === 'complete') {
                             renderTreatment(event.result);
-                            if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
+                            setCurrentStage4BeatsPayload(event.result);
                             const projRes = await fetch(`/api/projects/${activeProjectId}`);
                             const projData = await projRes.json();
                             updateStageNav(projData.data);
@@ -4724,22 +4724,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function cloneStage4Beats(data = {}) {
+        return {
+            stc_genre_category: data?.stc_genre_category || '',
+            hybrid_beat_sheet: Array.isArray(data?.hybrid_beat_sheet)
+                ? JSON.parse(JSON.stringify(data.hybrid_beat_sheet))
+                : []
+        };
+    }
+
+    function currentStage4StorageKey(data = window.currentProjectData || {}) {
+        return data.stage4_beats ? 'stage4_beats' : (data.stage4_treatment ? 'stage4_treatment' : 'stage4_beats');
+    }
+
+    function setCurrentStage4BeatsPayload(payload = {}) {
+        const data = ensureCurrentProjectData();
+        const key = currentStage4StorageKey(data);
+        data[key] = {
+            ...(data[key] || {}),
+            ...cloneStage4Beats(payload)
+        };
+        return data[key];
+    }
+
+    function getCurrentStage4Beats() {
+        return cloneStage4Beats(window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment || {});
+    }
+
+    function updateCurrentStage4BeatField(sequenceIndex, beatIndex, fieldKey, value) {
+        const key = currentStage4StorageKey();
+        const beat = window.currentProjectData?.[key]?.hybrid_beat_sheet?.[sequenceIndex]?.beats?.[beatIndex];
+        if (beat) beat[fieldKey] = value;
+    }
+
     // Renders the beat sheet data into the UI
     function renderTreatment(treatmentData) {
         if (!treatmentContainer) return;
+        const stage4Payload = setCurrentStage4BeatsPayload(treatmentData || {});
         treatmentContainer.innerHTML = '';
 
         // STC Genre Category label
-        if (treatmentData.stc_genre_category) {
+        if (stage4Payload.stc_genre_category) {
             const genreLabel = document.createElement('div');
             genreLabel.style.cssText = 'background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;';
-            genreLabel.textContent = `STC Genre: ${treatmentData.stc_genre_category}`;
+            genreLabel.textContent = `STC Genre: ${stage4Payload.stc_genre_category}`;
             treatmentContainer.appendChild(genreLabel);
         }
 
-        if (!treatmentData.hybrid_beat_sheet) return;
+        if (!stage4Payload.hybrid_beat_sheet) return;
 
-        treatmentData.hybrid_beat_sheet.forEach(sequence => {
+        stage4Payload.hybrid_beat_sheet.forEach((sequence, sequenceIndex) => {
             // Sequence header
             const seqHeader = document.createElement('h3');
             seqHeader.style.cssText = 'color: #e5e7eb; font-size: 1.1rem; font-weight: 700; margin-top: 16px; border-bottom: 1px solid #374151; padding-bottom: 8px;';
@@ -4750,7 +4784,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!sequence.beats) return;
 
-            sequence.beats.forEach(beat => {
+            sequence.beats.forEach((beat, beatIndex) => {
                 const card = document.createElement('div');
                 card.className = 'treatment-beat-card';
                 card.style.cssText = 'background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-top: 12px;';
@@ -4774,6 +4808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ta.value = f.value || '';
                     ta.style.cssText = 'width: 100%; background: transparent; border: none; resize: none; overflow: hidden; color: #d1d5db; font-family: inherit; font-size: 0.9rem; line-height: 1.6; padding: 4px 0; min-height: 24px;';
                     ta.addEventListener('input', () => {
+                        updateCurrentStage4BeatField(sequenceIndex, beatIndex, f.key, ta.value);
                         autoResize(ta);
                         setApproveButtonState(btnStage4Approve, 'ready');
                     });
@@ -4827,47 +4862,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             treatmentContainer.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
         }, 50);
-    }
-
-    // Scrape beat sheet data from the DOM
-    function scrapeTreatment() {
-        if (!treatmentContainer) return null;
-
-        const genreLabel = treatmentContainer.querySelector('div');
-        const stcGenre = genreLabel ? genreLabel.textContent.replace('STC Genre: ', '') : '';
-
-        const sequenceHeaders = treatmentContainer.querySelectorAll('h3');
-        const beatCards = treatmentContainer.querySelectorAll('.treatment-beat-card');
-
-        // Group cards by their preceding sequence header
-        const sequences = [];
-        let currentSeqIdx = -1;
-
-        treatmentContainer.childNodes.forEach(child => {
-            if (child.tagName === 'H3') {
-                currentSeqIdx++;
-                const text = child.textContent;
-                const numMatch = text.match(/Sequence (\d+):\s*(.*)/);
-                sequences.push({
-                    sequence_number: numMatch ? parseInt(numMatch[1]) : currentSeqIdx + 1,
-                    sequence_title: numMatch ? numMatch[2] : text,
-                    beats: []
-                });
-            } else if (child.classList && child.classList.contains('treatment-beat-card') && currentSeqIdx >= 0) {
-                const beatName = child.querySelector('h4')?.textContent || '';
-                const fieldAreas = child.querySelectorAll('.editable-treatment-field');
-                const beat = { beat_name: beatName };
-                fieldAreas.forEach(ta => {
-                    beat[ta.getAttribute('data-field')] = ta.value;
-                });
-                sequences[currentSeqIdx].beats.push(beat);
-            }
-        });
-
-        return {
-            stc_genre_category: stcGenre,
-            hybrid_beat_sheet: sequences
-        };
     }
 
     // Auto-generate beat sheet from Stages 1-3
@@ -4925,7 +4919,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
                     } else if (event.type === 'complete') {
                         renderTreatment(event.result);
-                        if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
+                        setCurrentStage4BeatsPayload(event.result);
                         const projRes = await fetch(`/api/projects/${activeProjectId}`);
                         const projData = await projRes.json();
                         if (window.currentProjectData) window.currentProjectData.conversations = projData.data?.conversations || {};
@@ -4987,7 +4981,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userNote && !selectedPdf) {
                 // Manual save
                 if (!activeProjectId) return;
-                const currentS4Beats = scrapeTreatment();
+                const currentS4Beats = getCurrentStage4Beats();
                 const originalText = btnStage4Revise.textContent;
 
                 try {
@@ -5024,7 +5018,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnStage4Revise.disabled = true;
 
             try {
-                const currentS4Beats = scrapeTreatment();
+                const currentS4Beats = getCurrentStage4Beats();
                 const formData = new FormData();
                 formData.append('projectId', activeProjectId);
                 formData.append('currentBeats', JSON.stringify(currentS4Beats));
@@ -5063,7 +5057,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnStage4Revise.textContent = event.label;
                         } else if (event.type === 'complete') {
                             renderTreatment(event.result);
-                            if (window.currentProjectData) window.currentProjectData.stage4_beats = event.result;
+                            setCurrentStage4BeatsPayload(event.result);
                             if (stage4Notes) stage4Notes.value = '';
                             if (stage4PdfUpload) stage4PdfUpload.value = '';
                             if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
@@ -5094,7 +5088,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getContext: () => ({
                 isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 4).length > 0
             }),
-            getSnapshot: () => scrapeTreatment(),
+            getSnapshot: () => getCurrentStage4Beats(),
             getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage4_beats' : null,
             errorLog: 'Stage 4 approval failed:',
             errorMessage: 'Error saving approved treatment.',
@@ -7450,7 +7444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 3:
                     return { characters: getCurrentStage3Characters() };
                 case 4:
-                    return scrapeTreatment();
+                    return getCurrentStage4Beats();
                 case 5:
                     return scrapeTreatmentStage5();
                 case 6:
@@ -7854,7 +7848,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCharacters(result.characters);
             setApproveButtonState(btnStage3Approve, 'ready');
         } else if (Number(stageId) === 4 && result) {
-            window.currentProjectData.stage4_beats = result;
+            setCurrentStage4BeatsPayload(result);
             renderTreatment(result);
             setApproveButtonState(btnStage4Approve, 'ready');
         } else if (Number(stageId) === 5 && result) {
@@ -8395,7 +8389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtnId: 'stage4-chat-send',
         executeRevision: async (notes) => {
             if (!activeProjectId) throw new Error('No active project');
-            const currentBeats = scrapeTreatment();
+            const currentBeats = getCurrentStage4Beats();
             const formData = new FormData();
             formData.append('projectId', activeProjectId);
             formData.append('currentBeats', JSON.stringify(currentBeats));

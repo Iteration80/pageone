@@ -1052,6 +1052,8 @@ test('frontend centralizes full project state replacement for Phase 6 state clea
     assert.match(appJs, /function updateStageNav\(data\) \{\s*data = setCurrentProjectData\(data\);/);
     assert.match(appJs, /setCurrentProjectData\(projectDetails\.data\)/);
     assert.match(appJs, /setCurrentProjectData\(project\.data\);\s*updateStageNav\(project\.data\);/);
+    assert.match(appJs, /function setCurrentStage4BeatsPayload\(payload = \{\}\)/);
+    assert.match(appJs, /function getCurrentStage4Beats\(\)/);
     assert.equal(fullReplacementWrites.length, 1);
     assert.equal(refreshDeclarations.length, 1);
 });
@@ -1067,6 +1069,11 @@ test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
     assert.doesNotMatch(stage4Html, />Generate Treatment</);
     assert.match(stage4App, /generating the beat sheet/);
     assert.match(stage4App, /Generate Beats button/);
+    assert.match(stage4App, /setCurrentStage4BeatsPayload\(treatmentData \|\| \{\}\)/);
+    assert.match(stage4App, /updateCurrentStage4BeatField\(sequenceIndex, beatIndex, f\.key, ta\.value\)/);
+    assert.match(appJs, /getSnapshot: \(\) => getCurrentStage4Beats\(\)/);
+    assert.match(appJs, /const currentBeats = getCurrentStage4Beats\(\)/);
+    assert.doesNotMatch(appJs, /\bscrapeTreatment\(/);
     assert.doesNotMatch(stage4App, /generating the treatment/);
     assert.doesNotMatch(stage4App, /revising the treatment/);
 });
