@@ -718,7 +718,8 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(serverJs, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
     assert.ok(serverJs.indexOf('applyStageRevisionPlan({') < serverJs.indexOf('agent2Outline('));
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
-    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 2 outline'\)/);
+    assert.match(serverJs, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 2 outline'/);
+    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, label\)/);
     assert.match(serverJs, /recordArtifactMutation\(projectData, \{[\s\S]*stage: 2/);
     assert.match(serverJs, /snapshotIds: snapshotEntries\.map\(entry => entry\.id\)/);
     assert.match(serverJs, /const changed = !notesWithUpload \|\| revisionTransaction\.changed/);
@@ -859,8 +860,9 @@ test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revi
     assert.doesNotMatch(stage6Generate, /throwTypedErrors/);
 
     assert.match(stage6Revise, /throw new BadRequestError\("Missing or invalid projectId, or missing feedback"\)/);
-    assert.match(stage6Revise, /readProjectJSONById\(projectId\)/);
+    assert.match(stage6Revise, /prepareGenerationProjectContext\(req, res, \{[\s\S]*invalidProjectMessage: "Missing or invalid projectId, or missing feedback"/);
     assert.match(stage6Revise, /throw new BadRequestError\("No current Stage 6 blueprint found to revise"\)/);
+    assert.match(stage6Revise, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 6 scene blueprint'/);
     assert.match(stage6Revise, /new ApiError\(500, error\.message, \{ code: 'NO_BLUEPRINT_CHANGES', expose: true \}\)/);
     assert.match(stage6Revise, /sendApiError\(res, apiError, "Failed to revise scene blueprint"\)/);
     assert.match(stage6Revise, /send\(\{ type: 'error', message: errorMessage \}\)/);
@@ -1352,7 +1354,8 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
     assert.match(serverJs, /createRevisionTransaction\({[\s\S]*stageId: 'stage5_treatment'/);
-    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, 'Stage 6 scene blueprint'\)/);
+    assert.match(serverJs, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 6 scene blueprint'/);
+    assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, label\)/);
     assert.match(serverJs, /revisionReceipt: revisionTransaction\?\.receipt/);
     assert.match(serverJs, /const beforeDraftHash = sourcePlanDataHash/);
     assert.match(serverJs, /function isStage6ExternalFeedbackReviewRequest/);

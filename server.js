@@ -1963,6 +1963,64 @@ async function finalizeGeneratedStageArtifact({
     };
 }
 
+function createVerifiedGenerationRevision({ enabled, label, build }) {
+    if (!enabled) return null;
+    const revisionTransaction = build();
+    assertRevisionTransactionVerified(revisionTransaction, label);
+    return revisionTransaction;
+}
+
+async function finalizeGenerationEndpointArtifact({
+    context,
+    stage,
+    stageKey,
+    result,
+    before,
+    operation = 'generation',
+    note = '',
+    revisionTransaction = null,
+    revisionReceipt = undefined,
+    changed = operation !== 'revision' || revisionTransaction?.changed === true,
+    sourcePacket = null,
+    usage = null,
+    sourceReason = operation,
+    sourceData = result,
+    beforeSave = null,
+    afterSave = null
+} = {}) {
+    const receipt = revisionReceipt !== undefined
+        ? revisionReceipt
+        : (revisionTransaction?.receipt || null);
+    const { snapshotIds } = await finalizeGeneratedStageArtifact({
+        projectId: context.projectId,
+        filePath: context.filePath,
+        projectData: context.projectData,
+        stage,
+        stageKey,
+        result,
+        before,
+        operation,
+        note,
+        revisionReceipt: receipt,
+        changed,
+        sourcePacket,
+        usage,
+        sourceReason,
+        sourceData,
+        beforeSave,
+        afterSave
+    });
+    return { snapshotIds, revisionReceipt: receipt, changed };
+}
+
+function completeGenerationEndpoint({ res, streaming = false, send = null, payload }) {
+    if (streaming && send) {
+        send({ type: 'complete', ...payload });
+        return;
+    }
+    res.json(payload);
+}
+
 function summarizeSourceForClient(source) {
     return {
         id: source.id,
@@ -4091,10 +4149,8 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                 };
                 deterministicRevision.receipt.changed = deterministicRevision.changed;
                 const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
-                const { snapshotIds } = await finalizeGeneratedStageArtifact({
-                    projectId,
-                    filePath,
-                    projectData,
+                const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+                    context,
                     stage: 2,
                     stageKey: 'stage2_outline',
                     result: outlineData,
@@ -4121,11 +4177,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                     snapshotIds,
                     deterministicRevision: true
                 };
-                if (streaming) {
-                    send({ type: 'complete', ...payload });
-                } else {
-                    res.json(payload);
-                }
+                completeGenerationEndpoint({ res, streaming, send, payload });
                 return;
             }
         }
@@ -4162,8 +4214,10 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             throw new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
         }
         const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
-        const revisionTransaction = notesWithUpload
-            ? createRevisionTransaction({
+        const revisionTransaction = createVerifiedGenerationRevision({
+            enabled: !!notesWithUpload,
+            label: 'Stage 2 outline',
+            build: () => createRevisionTransaction({
                 stageId: 'stage2_outline',
                 before: beforeOutlineForChangeCheck,
                 after: outlineData?.outline || {},
@@ -4171,14 +4225,11 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
                 structuralPatch: structuralOutlinePatch,
                 adapter: outlineRevisionAdapter
             })
-            : null;
-        assertRevisionTransactionVerified(revisionTransaction, 'Stage 2 outline');
+        });
         const changed = !notesWithUpload || revisionTransaction.changed;
         const operation = notesWithUpload ? 'revision' : 'generation';
-        const { snapshotIds } = await finalizeGeneratedStageArtifact({
-            projectId,
-            filePath,
-            projectData,
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
             stage: 2,
             stageKey: 'stage2_outline',
             result: outlineData,
@@ -4209,11 +4260,7 @@ app.post('/api/generate-outline', requireAuth, aiLimiter, upload.single('pdfFile
             checklistVerified: revisionChecklist.length > 0,
             ...sourceResponseExtras(sourcePacket)
         };
-        if (streaming) {
-            send({ type: 'complete', ...payload });
-        } else {
-            res.json(payload);
-        }
+        completeGenerationEndpoint({ res, streaming, send, payload });
     } catch (error) {
         if (isClientAbortError(error)) {
             console.warn('Stage 2 outline stream stopped after client disconnect.');
@@ -4279,22 +4326,21 @@ app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfF
             }
         );
         characterData.tier_overrides = activeTierOverrides;
-        const revisionTransaction = notesWithUpload
-            ? createRevisionTransaction({
+        const revisionTransaction = createVerifiedGenerationRevision({
+            enabled: !!notesWithUpload,
+            label: 'Stage 3 characters',
+            build: () => createRevisionTransaction({
                 stageId: 'stage3_characters',
                 before: beforeCharactersForRevision,
                 after: characterData?.characters || [],
                 notes: notesWithUpload,
                 adapter: characterRevisionAdapter
             })
-            : null;
-        assertRevisionTransactionVerified(revisionTransaction, 'Stage 3 characters');
+        });
         const changed = !notesWithUpload || revisionTransaction.changed;
         const operation = notesWithUpload ? 'revision' : 'generation';
-        const { snapshotIds } = await finalizeGeneratedStageArtifact({
-            projectId,
-            filePath,
-            projectData,
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
             stage: 3,
             stageKey: 'stage3_characters',
             result: characterData,
@@ -4380,22 +4426,21 @@ app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pd
         abortTracker.throwIfAborted();
 
         console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
-        const revisionTransaction = notesWithUpload && !isFullStage4Generation
-            ? createRevisionTransaction({
+        const revisionTransaction = createVerifiedGenerationRevision({
+            enabled: !!notesWithUpload && !isFullStage4Generation,
+            label: 'Stage 4 beats',
+            build: () => createRevisionTransaction({
                 stageId: 'stage4_beats',
                 before: beforeStage4ForRevision,
                 after: beatsResult || {},
                 notes: notesWithUpload,
                 adapter: stage4RevisionAdapter
             })
-            : null;
-        assertRevisionTransactionVerified(revisionTransaction, 'Stage 4 beats');
+        });
         const changed = isFullStage4Generation || revisionTransaction?.changed === true;
         const operation = notesWithUpload ? 'revision' : 'generation';
-        const { snapshotIds } = await finalizeGeneratedStageArtifact({
-            projectId,
-            filePath,
-            projectData,
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
             stage: 4,
             stageKey: 'stage4_beats',
             result: beatsResult,
@@ -4496,22 +4541,21 @@ app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single
             withAbortSignal(getModelConfigWithSourcePacket(5, sourcePacket), abortTracker.signal)
         );
         abortTracker.throwIfAborted();
-        const revisionTransaction = notesWithUpload
-            ? createRevisionTransaction({
+        const revisionTransaction = createVerifiedGenerationRevision({
+            enabled: !!notesWithUpload,
+            label: 'Stage 5 treatment',
+            build: () => createRevisionTransaction({
                 stageId: 'stage5_treatment',
                 before: beforeStage5ForRevision,
                 after: treatmentResult || {},
                 notes: notesWithUpload,
                 adapter: treatmentRevisionAdapter
             })
-            : null;
-        assertRevisionTransactionVerified(revisionTransaction, 'Stage 5 treatment');
+        });
         const changed = !notesWithUpload || revisionTransaction.changed;
         const operation = notesWithUpload ? 'revision' : 'generation';
-        const { snapshotIds } = await finalizeGeneratedStageArtifact({
-            projectId,
-            filePath,
-            projectData,
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
             stage: 5,
             stageKey: 'stage5_treatment',
             result: treatmentResult,
@@ -4609,10 +4653,8 @@ app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res)
             generationNotes
         );
         abortTracker.throwIfAborted();
-        const { snapshotIds } = await finalizeGeneratedStageArtifact({
-            projectId,
-            filePath,
-            projectData,
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
             stage: 6,
             stageKey: 'stage6_scenes',
             result: allSequences,
@@ -4651,13 +4693,16 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
     };
     try {
         const { projectId, feedback, stream } = req.body;
-        if (!isValidProjectId(projectId) || !feedback) {
+        if (!feedback) {
             throw new BadRequestError("Missing or invalid projectId, or missing feedback");
         }
         streaming = stream === true || /\btext\/event-stream\b/i.test(req.headers.accept || '');
 
-        const filePath = getProjectFilePath(projectId);
-        const projectData = await readProjectJSONById(projectId);
+        const context = await prepareGenerationProjectContext(req, res, {
+            projectId,
+            invalidProjectMessage: "Missing or invalid projectId, or missing feedback"
+        });
+        const { projectData } = context;
 
         const currentBlueprint = projectData.data?.stage6_scenes;
         if (!currentBlueprint) {
@@ -4688,35 +4733,36 @@ app.post('/api/revise-stage6', requireAuth, aiLimiter, async (req, res) => {
             withAbortSignal(getModelConfigWithSourcePacket(6, sourcePacket), abortTracker?.signal)
         );
         abortTracker?.throwIfAborted();
-        const revisionTransaction = createRevisionTransaction({
-            stageId: 'stage6_scenes',
-            before: currentBlueprint || [],
-            after: updatedBlueprint || [],
-            notes: feedback,
-            adapter: sceneBlueprintRevisionAdapter
+        const revisionTransaction = createVerifiedGenerationRevision({
+            enabled: true,
+            label: 'Stage 6 scene blueprint',
+            build: () => createRevisionTransaction({
+                stageId: 'stage6_scenes',
+                before: currentBlueprint || [],
+                after: updatedBlueprint || [],
+                notes: feedback,
+                adapter: sceneBlueprintRevisionAdapter
+            })
         });
-        assertRevisionTransactionVerified(revisionTransaction, 'Stage 6 scene blueprint');
         const changed = revisionTransaction.changed;
-        const snapshotEntries = recordArtifactMutation(projectData, {
-            projectId,
-            stage: 6,
-            before: currentBlueprint || [],
-            after: updatedBlueprint || [],
-            operation: 'revision',
-            note: feedback,
-            revisionReceipt: revisionTransaction.receipt
-        });
 
         send({ type: 'status', message: changed ? 'Saving revised blueprint...' : 'Revision returned no blueprint changes...' });
-        projectData.data = projectData.data || {};
-        projectData.data.stage6_scenes = updatedBlueprint;
-        if (changed) stampRevised(projectData, 'stage6_scenes');
-        recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(updatedBlueprint, null, 2), 'revision');
+        const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+            context,
+            stage: 6,
+            stageKey: 'stage6_scenes',
+            result: updatedBlueprint,
+            before: currentBlueprint || [],
+            operation: 'revision',
+            note: feedback,
+            revisionTransaction,
+            changed,
+            sourcePacket,
+            usage,
+            sourceReason: 'revision'
+        });
 
-        await writeJSONQueued(filePath, projectData);
-        trackUsage(projectId, usage);
-
-        const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) };
+        const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) };
         if (streaming) {
             // Keep the final SSE packet small. The browser refreshes the saved
             // Stage 6 data after completion, which avoids large blueprint payloads
