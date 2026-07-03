@@ -531,13 +531,14 @@ test('frontend persists edited Stage 10 pending rewrites before scene changes or
 
 test('server persists Stage 10 pending rewrites through atomic project updates', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const singleSceneRoute = serverJs.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
-    const feedbackRoute = serverJs.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
-    const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
-    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?registerStyleRoutes\(app, \{/)?.[0] || '';
+    const rewriteRoutes = fs.readFileSync(require.resolve('../routes/rewrite.js'), 'utf8');
+    const singleSceneRoute = rewriteRoutes.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
+    const feedbackRoute = rewriteRoutes.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
+    const approveRoute = rewriteRoutes.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
+    const finalizeRoute = rewriteRoutes.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?module\.exports/)?.[0] || '';
 
     assert.match(serverJs, /function persistStage10PendingRewrite/);
-    assert.match(serverJs, /app\.post\('\/api\/save-stage10-pending'/);
+    assert.match(rewriteRoutes, /app\.post\('\/api\/save-stage10-pending'/);
     assert.match(singleSceneRoute, /await updateProjectJSON\(projectId, \(freshProject\) =>/);
     assert.match(singleSceneRoute, /persistStage10PendingRewrite\(freshProject/);
     assert.match(feedbackRoute, /persistStage10PendingRewrite\(freshProject/);
@@ -874,7 +875,7 @@ test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revi
 
 test('Stage 8 draft and continuity routes use typed API errors', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const stage8Routes = serverJs.match(/app\.post\('\/api\/generate-draft'[\s\S]*?\/\/ --- Stage 9: Coverage ---/)?.[0] || '';
+    const stage8Routes = serverJs.match(/app\.post\('\/api\/generate-draft'[\s\S]*?\/\/ --- Stage 10: Rewrite Routes ---/)?.[0] || '';
 
     assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId or sceneNumber"\)/);
     assert.match(stage8Routes, /throw new BadRequestError\("Missing or invalid projectId, sceneNumber, or feedback"\)/);
@@ -893,8 +894,8 @@ test('Stage 8 draft and continuity routes use typed API errors', () => {
 });
 
 test('Stage 9 coverage route uses typed API errors', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const coverageRoute = serverJs.match(/app\.post\('\/api\/generate-coverage'[\s\S]*?\/\/ --- Stage 10: Rewrite Routes ---/)?.[0] || '';
+    const rewriteRoutes = fs.readFileSync(require.resolve('../routes/rewrite.js'), 'utf8');
+    const coverageRoute = rewriteRoutes.match(/app\.post\('\/api\/generate-coverage'[\s\S]*?app\.post\('\/api\/init-stage9'/)?.[0] || '';
 
     assert.match(coverageRoute, /throw new BadRequestError\("Missing or invalid projectId"\)/);
     assert.match(coverageRoute, /readProjectJSONById\(projectId\)/);
@@ -907,11 +908,11 @@ test('Stage 9 coverage route uses typed API errors', () => {
 });
 
 test('Stage 10 state routes use typed API errors', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const initRoute = serverJs.match(/app\.post\('\/api\/init-stage9'[\s\S]*?registerAssistantRoutes\(app, \{/)?.[0] || '';
-    const saveRoute = serverJs.match(/app\.post\('\/api\/save-stage10-pending'[\s\S]*?\/\/ Save approved pending changes/)?.[0] || '';
-    const approveRoute = serverJs.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
-    const finalizeRoute = serverJs.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?registerStyleRoutes\(app, \{/)?.[0] || '';
+    const rewriteRoutes = fs.readFileSync(require.resolve('../routes/rewrite.js'), 'utf8');
+    const initRoute = rewriteRoutes.match(/app\.post\('\/api\/init-stage9'[\s\S]*?app\.post\('\/api\/plan-rewrite'/)?.[0] || '';
+    const saveRoute = rewriteRoutes.match(/app\.post\('\/api\/save-stage10-pending'[\s\S]*?\/\/ Save approved pending changes/)?.[0] || '';
+    const approveRoute = rewriteRoutes.match(/app\.post\('\/api\/approve-rewrite-priority'[\s\S]*?\/\/ Rewrite a single scene using/)?.[0] || '';
+    const finalizeRoute = rewriteRoutes.match(/app\.post\('\/api\/finalize-stage10'[\s\S]*?module\.exports/)?.[0] || '';
     const stateRoutes = `${initRoute}\n${saveRoute}\n${approveRoute}\n${finalizeRoute}`;
 
     assert.match(initRoute, /assertValidProjectId\(projectId, 'Missing or invalid projectId'\)/);
@@ -934,16 +935,17 @@ test('Stage 10 state routes use typed API errors', () => {
 });
 
 test('Stage 10 AI rewrite routes use typed API errors and shared project loading', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const planRoute = serverJs.match(/app\.post\('\/api\/plan-rewrite'[\s\S]*?\/\/ Run the rewrite agent only/)?.[0] || '';
-    const priorityRoute = serverJs.match(/app\.post\('\/api\/rewrite-for-priority'[\s\S]*?\/\/ Rewrite a single scene for/)?.[0] || '';
-    const singleSceneRoute = serverJs.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
-    const feedbackRoute = serverJs.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
+    const rewriteRouteSource = fs.readFileSync(require.resolve('../routes/rewrite.js'), 'utf8');
+    const planRoute = rewriteRouteSource.match(/app\.post\('\/api\/plan-rewrite'[\s\S]*?\/\/ Run the rewrite agent only/)?.[0] || '';
+    const priorityRoute = rewriteRouteSource.match(/app\.post\('\/api\/rewrite-for-priority'[\s\S]*?\/\/ Rewrite a single scene for/)?.[0] || '';
+    const singleSceneRoute = rewriteRouteSource.match(/app\.post\('\/api\/rewrite-single-scene'[\s\S]*?app\.post\('\/api\/save-stage10-pending'/)?.[0] || '';
+    const feedbackRoute = rewriteRouteSource.match(/app\.post\('\/api\/rewrite-scene-feedback'[\s\S]*?\/\/ Mark Stage 10 as approved\/finalized/)?.[0] || '';
     const rewriteRoutes = `${planRoute}\n${priorityRoute}\n${singleSceneRoute}\n${feedbackRoute}`;
 
     assert.match(planRoute, /throw new BadRequestError\('Missing or invalid projectId or priorityTask'\)/);
     assert.match(planRoute, /getProjectFilePath\(projectId\)/);
     assert.match(planRoute, /readProjectJSONById\(projectId\)/);
+    assert.match(planRoute, /safeParse\(response\.text, null\)/);
     assert.match(planRoute, /sendApiError\(res, error, 'Failed to generate rewrite plan'\)/);
 
     assert.match(priorityRoute, /throw new BadRequestError\('Missing or invalid projectId or priorityTask'\)/);
@@ -963,6 +965,7 @@ test('Stage 10 AI rewrite routes use typed API errors and shared project loading
 
     assert.doesNotMatch(rewriteRoutes, /path\.join\(DATA_DIR, `\$\{projectId\}\.json`\)/);
     assert.doesNotMatch(rewriteRoutes, /res\.status\((400|404|500)\)/);
+    assert.doesNotMatch(rewriteRouteSource, /JSON\.parse\(response\.text\)/);
 });
 
 test('project memory routes use typed API errors for validation and shared failures', () => {
