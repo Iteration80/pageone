@@ -176,16 +176,18 @@ test('assistant route uses typed API errors and shared project loading', () => {
 
 test('unknown API routes return JSON 404 diagnostics', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const projectRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'projects.js'), 'utf8');
 
     assert.match(serverSource, /app\.use\('\/api', \(req, res\) => \{/);
     assert.match(serverSource, /res\.status\(404\)\.json\(\{ error: `API route not found: \$\{req\.method\} \$\{req\.originalUrl\}` \}\);/);
     assert.match(serverSource, /BUILD_COMMIT,[\s\S]*BUILD_TIMESTAMP,[\s\S]*getBuildInfo[\s\S]*= require\('\.\/utils\/build_info'\)/);
-    assert.match(serverSource, /commit: BUILD_COMMIT/);
-    assert.match(serverSource, /buildTimestamp: BUILD_TIMESTAMP/);
+    assert.match(projectRouteSource, /commit: BUILD_COMMIT/);
+    assert.match(projectRouteSource, /buildTimestamp: BUILD_TIMESTAMP/);
 });
 
 test('build fingerprint is exposed, cached, and stamped into exports', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const projectRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'projects.js'), 'utf8');
     const appSource = fs.readFileSync(path.join(__dirname, '..', 'public/app.js'), 'utf8');
     const indexSource = fs.readFileSync(path.join(__dirname, '..', 'public/index.html'), 'utf8');
     const exportSource = fs.readFileSync(path.join(__dirname, '..', 'agents/export.js'), 'utf8');
@@ -193,7 +195,7 @@ test('build fingerprint is exposed, cached, and stamped into exports', () => {
     const { buildDocxMetadata } = require('../agents/export');
     const { clearSkillCache, loadSkill, normalizeSkillFilename } = require('../utils/skills_cache');
 
-    assert.match(serverSource, /build: getBuildInfo\(\)/);
+    assert.match(projectRouteSource, /build: getBuildInfo\(\)/);
     assert.match(appSource, /nativeFetch\('\/health'\)/);
     assert.match(indexSource, /id="buildFingerprintFooter"/);
     assert.match(indexSource, /id="settings-build-fingerprint"/);
@@ -763,7 +765,9 @@ test('streaming generation routes abort model work and skip saves after disconne
 
 test('project and source routes use typed API error responder for 400 404 and 429 cases', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const projectRoutes = serverJs.match(/\/\/ --- Project Management Routes --- \/\/[\s\S]*?registerExportRoutes\(app, \{/)?.[0] || '';
+    const projectRoutes = fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8');
+    const sourceRoutes = serverJs.match(/app\.get\('\/api\/projects\/:id\/knowledge'[\s\S]*?app\.post\('\/api\/projects\/:id\/knowledge\/decision'/)?.[0] || '';
+    const projectAndSourceRoutes = `${projectRoutes}\n${sourceRoutes}`;
     const sourceHelpers = serverJs.match(/async function readKnowledgeSourceAssetForClient[\s\S]*?function contentDispositionFilename/)?.[0] || '';
 
     assert.match(serverJs, /class ApiError extends Error/);
@@ -776,11 +780,11 @@ test('project and source routes use typed API error responder for 400 404 and 42
     assert.match(projectRoutes, /throw new BadRequestError\('No file uploaded'\)/);
     assert.match(projectRoutes, /throw new BadRequestError\(`Unsupported file type:/);
     assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to load project details'\)/);
-    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to upload source'\)/);
-    assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to load source asset'\)/);
     assert.match(projectRoutes, /sendApiError\(res, error, 'Failed to delete project'\)/);
-    assert.doesNotMatch(projectRoutes, /error\.statusCode/);
-    assert.doesNotMatch(projectRoutes, /err\.statusCode/);
+    assert.match(sourceRoutes, /sendApiError\(res, error, 'Failed to upload source'\)/);
+    assert.match(sourceRoutes, /sendApiError\(res, error, 'Failed to load source asset'\)/);
+    assert.doesNotMatch(projectAndSourceRoutes, /error\.statusCode/);
+    assert.doesNotMatch(projectAndSourceRoutes, /err\.statusCode/);
     assert.match(sourceHelpers, /throw new NotFoundError\('Source not found'\)/);
     assert.match(sourceHelpers, /throw new BadRequestError\('Unknown source asset type\.'\)/);
     assert.doesNotMatch(sourceHelpers, /statusCode\s*=/);
@@ -963,7 +967,7 @@ test('Stage 10 AI rewrite routes use typed API errors and shared project loading
 
 test('project memory routes use typed API errors for validation and shared failures', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?\/\/ DELETE project/)?.[0] || '';
+    const memoryRoutes = serverJs.match(/app\.post\('\/api\/projects\/:id\/knowledge\/decision'[\s\S]*?registerExportRoutes\(app, \{/)?.[0] || '';
 
     assert.match(memoryRoutes, /assertValidProjectId\(id\)/);
     assert.match(memoryRoutes, /await assertProjectExists\(id\)/);
@@ -1002,9 +1006,9 @@ test('style and export routes use typed API error responder for expected failure
 });
 
 test('settings and maintenance routes use typed API error responder for shared failures', () => {
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const settingsRoute = serverJs.match(/app\.post\('\/api\/settings'[\s\S]*?\/\/ --- Project Management Routes --- \/\//)?.[0] || '';
-    const maintenanceRoutes = serverJs.match(/app\.get\('\/api\/maintenance\/legacy-projects\/audit'[\s\S]*?\/\/ GET all projects/)?.[0] || '';
+    const projectRoutes = fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8');
+    const settingsRoute = projectRoutes.match(/app\.post\('\/api\/settings'[\s\S]*?\/\/ --- Project Management Routes --- \/\//)?.[0] || '';
+    const maintenanceRoutes = projectRoutes.match(/app\.get\('\/api\/maintenance\/legacy-projects\/audit'[\s\S]*?\/\/ GET all projects/)?.[0] || '';
     const sharedRoutes = `${settingsRoute}\n${maintenanceRoutes}`;
 
     assert.match(settingsRoute, /sendApiError\(res, err, 'Failed to save settings'\)/);
@@ -1016,13 +1020,14 @@ test('settings and maintenance routes use typed API error responder for shared f
 test('server and frontend preserve working artifact snapshots beyond approvals', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const exportRoutes = fs.readFileSync(require.resolve('../routes/export.js'), 'utf8');
+    const projectRoutes = fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     assert.match(serverJs, /require\('\.\/utils\/artifact_snapshots'\)/);
     assert.match(serverJs, /recordStageMutationSnapshots/);
     assert.match(serverJs, /registerExportRoutes\(app, \{/);
     assert.match(exportRoutes, /recordExportSnapshot\(project, projectId, exportStage/);
-    assert.match(serverJs, /mergeVersionHistory\(previousData\.versionHistory, updates\.data\.versionHistory\)/);
-    assert.match(serverJs, /restoreVersionId/);
+    assert.match(projectRoutes, /mergeVersionHistory\(previousData\.versionHistory, updates\.data\.versionHistory\)/);
+    assert.match(projectRoutes, /restoreVersionId/);
     assert.match(appJs, /snapshotType: 'approved'/);
     assert.match(appJs, /async function refreshCurrentProjectData/);
     assert.match(appJs, /await refreshCurrentProjectData\(\)/);
