@@ -150,8 +150,10 @@ function extractJsonFromText(text, schema) {
     return t.slice(idx);
 }
 
-// Models that have deprecated the temperature parameter
-const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7'];
+// Models that have removed the temperature parameter (sending it → 400).
+// Applies to Opus 4.7+ and the entire Claude 5 family (Fable 5, Sonnet 5).
+// Haiku 4.5 and Opus/Sonnet 4.6 still accept temperature and are intentionally absent.
+const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7', 'claude-opus-4-8', 'claude-fable-5', 'claude-sonnet-5'];
 
 async function callClaude({ model, anthropicApiKey, contents, config = {}, schema }) {
     const signal = config?.abortSignal;
