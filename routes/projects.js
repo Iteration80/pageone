@@ -1,3 +1,6 @@
+const { execFile } = require('child_process');
+const modulePath = require('path');
+
 function registerProjectRoutes(app, deps) {
     const {
         requireAuth,
@@ -87,6 +90,44 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error('legacy project upgrade error:', error.message);
             sendApiError(res, error, 'Failed to upgrade legacy projects');
+        }
+    });
+
+    // --- Stage 3 tier-override migration (roadmap R1) --- //
+    // Runs scripts/seed-stage3-tier-overrides.js against the LIVE project store
+    // (DATA_DIR), so the seed can be executed on deployments without shell access.
+    // GET  /api/maintenance/stage3-tiers/audit  = dry run
+    // POST /api/maintenance/stage3-tiers/seed   = persist
+    function runTierMigration(write) {
+        return new Promise((resolve, reject) => {
+            const scriptPath = modulePath.join(__dirname, '../scripts/seed-stage3-tier-overrides.js');
+            const args = [scriptPath, '--dir', DATA_DIR];
+            if (write) args.push('--write');
+            execFile(process.execPath, args, { timeout: 30_000 }, (error, stdout, stderr) => {
+                if (error) {
+                    error.message = `${error.message}${stderr ? ` — ${String(stderr).trim()}` : ''}`;
+                    return reject(error);
+                }
+                resolve({ ok: true, write, output: String(stdout).trim().split('\n') });
+            });
+        });
+    }
+
+    app.get('/api/maintenance/stage3-tiers/audit', requireAuth, async (_req, res) => {
+        try {
+            res.json(await runTierMigration(false));
+        } catch (error) {
+            console.error('stage3 tier audit error:', error.message);
+            sendApiError(res, error, 'Failed to audit Stage 3 tier overrides');
+        }
+    });
+
+    app.post('/api/maintenance/stage3-tiers/seed', requireAuth, async (_req, res) => {
+        try {
+            res.json(await runTierMigration(true));
+        } catch (error) {
+            console.error('stage3 tier seed error:', error.message);
+            sendApiError(res, error, 'Failed to seed Stage 3 tier overrides');
         }
     });
 
