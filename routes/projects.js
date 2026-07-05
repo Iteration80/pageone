@@ -131,6 +131,54 @@ function registerProjectRoutes(app, deps) {
         }
     });
 
+    // --- Provider key health check --- //
+    // Pings each provider's models endpoint with the server's CONFIGURED key and
+    // reports validity WITHOUT exposing the key. Use after rotating a key on the
+    // deployment to confirm the redeploy picked it up.
+    // GET /api/maintenance/provider-health
+    async function pingProvider(url, headers) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+            const resp = await fetch(url, { headers, signal: controller.signal });
+            if (resp.ok) return { status: 'ok', httpStatus: resp.status };
+            if (resp.status === 401 || resp.status === 403) return { status: 'invalid', httpStatus: resp.status };
+            return { status: 'error', httpStatus: resp.status };
+        } catch (err) {
+            return { status: 'unreachable', detail: err.name === 'AbortError' ? 'timeout' : err.message };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    // Non-secret fingerprint so you can tell an old cached key from a freshly-set one.
+    function keyHint(key) {
+        if (!key) return null;
+        const s = String(key);
+        return `…${s.slice(-4)} (len ${s.length})`;
+    }
+
+    app.get('/api/maintenance/provider-health', requireAuth, async (_req, res) => {
+        try {
+            const { anthropicApiKey, geminiApiKey } = getModelConfig(1);
+            const [anthropic, gemini] = await Promise.all([
+                anthropicApiKey
+                    ? pingProvider('https://api.anthropic.com/v1/models', { 'x-api-key': anthropicApiKey, 'anthropic-version': '2023-06-01' })
+                    : Promise.resolve({ status: 'missing' }),
+                geminiApiKey
+                    ? pingProvider(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiApiKey)}`, {})
+                    : Promise.resolve({ status: 'missing' })
+            ]);
+            res.json({
+                anthropic: { ...anthropic, keyHint: keyHint(anthropicApiKey) },
+                gemini: { ...gemini, keyHint: keyHint(geminiApiKey) }
+            });
+        } catch (error) {
+            console.error('provider health error:', error.message);
+            sendApiError(res, error, 'Failed to check provider health');
+        }
+    });
+
     // GET all projects
     app.get('/api/projects', requireAuth, async (req, res) => {
         try {
