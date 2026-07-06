@@ -16,13 +16,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
     }
 
+    // Which login UI to show, from GET /api/auth-config: 'google' | 'secret' | 'open'.
+    let authMode = 'secret';
+
+    function renderAuthPanels() {
+        const google = document.getElementById('authGoogle');
+        const form = document.getElementById('authForm');
+        if (authMode === 'google') { google?.classList.remove('hidden'); form?.classList.add('hidden'); }
+        else { form?.classList.remove('hidden'); google?.classList.add('hidden'); }
+    }
+
     function showAuthOverlay(message = '') {
+        renderAuthPanels();
         const overlay = document.getElementById('authOverlay');
-        const error = document.getElementById('authError');
-        const input = document.getElementById('authSecretInput');
-        if (error) error.textContent = message;
+        if (authMode === 'google') {
+            const gmsg = document.getElementById('authGoogleMsg');
+            if (gmsg && message) gmsg.textContent = message;
+        } else {
+            const error = document.getElementById('authError');
+            if (error) error.textContent = message;
+            setTimeout(() => document.getElementById('authSecretInput')?.focus(), 0);
+        }
         overlay?.classList.remove('hidden');
-        setTimeout(() => input?.focus(), 0);
     }
 
     function hideAuthOverlay() {
@@ -44,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const response = await nativeFetch(resource, requestOptions);
         if (shouldAuth && response.status === 401) {
-            showAuthOverlay('Invalid or missing access key.');
+            showAuthOverlay(authMode === 'google' ? 'Your session expired. Sign in again.' : 'Invalid or missing access key.');
         }
         return response;
     };
@@ -111,7 +126,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    setupAuthGate();
+    // Decide the login mode up front so the app never flashes the wrong overlay
+    // (or a real UI to a signed-out user). Runs before the app boots.
+    async function initAuthMode() {
+        try {
+            const cfg = await nativeFetch('/api/auth-config').then(r => r.json());
+            authMode = cfg.mode || 'secret';
+        } catch {
+            authMode = 'secret';
+        }
+
+        if (authMode === 'open') { hideAuthOverlay(); return; }
+
+        if (authMode === 'google') {
+            const denied = new URLSearchParams(location.search).get('auth');
+            if (denied) history.replaceState(null, '', location.pathname + location.hash);
+            const me = await nativeFetch('/api/me').catch(() => null);
+            if (me && me.ok) { hideAuthOverlay(); return; }
+            showAuthOverlay(
+                denied === 'denied' ? 'That Google account is not on the access list. Ask the admin to add your email.'
+                : denied === 'error' ? 'Sign-in failed. Please try again.'
+                : 'Sign in to continue.'
+            );
+            return;
+        }
+
+        // secret mode — existing passphrase gate
+        setupAuthGate();
+        const stored = getAuthSecret();
+        let ok = false;
+        if (stored) {
+            try { ok = (await nativeFetch('/api/projects', { headers: { Authorization: `Bearer ${stored}` } })).ok; } catch {}
+        }
+        if (!ok) showAuthOverlay('');
+    }
+
+    async function signOut() {
+        try { await nativeFetch('/auth/logout', { method: 'POST' }); } catch {}
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        location.href = '/';
+    }
+    window.pageoneSignOut = signOut;
 
     loadBuildInfo();
 
@@ -1360,8 +1415,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.hash = '';
     });
 
-    // Initialize the app state based on URL
-    handleHashChange();
+    // Resolve login mode first (sets the correct overlay), then boot the app.
+    initAuthMode().finally(() => handleHashChange());
 
     // --- Main App Logic ---
     pdfUpload.addEventListener('change', (e) => {
@@ -10523,6 +10578,27 @@ async function loadBuildInfo() {
             console.warn('Could not load settings:', e);
         }
         renderBuildInfo(settings.build || currentBuildInfo || {});
+
+        // Account panel — only when signed in via Google.
+        const acctPanel = document.getElementById('settings-account-panel');
+        if (acctPanel) {
+            let email = null;
+            if (authMode === 'google') {
+                try { const me = await nativeFetch('/api/me'); if (me.ok) email = (await me.json()).email; } catch {}
+            }
+            if (email) {
+                acctPanel.classList.remove('hidden');
+                const emailEl = document.getElementById('settings-account-email');
+                if (emailEl) emailEl.textContent = `Signed in as ${email}`;
+                const signOutBtn = document.getElementById('btnSignOut');
+                if (signOutBtn && !signOutBtn.dataset.wired) {
+                    signOutBtn.dataset.wired = '1';
+                    signOutBtn.addEventListener('click', () => window.pageoneSignOut());
+                }
+            } else {
+                acctPanel.classList.add('hidden');
+            }
+        }
 
         const apiKeySection = document.getElementById('settings-api-key-section');
         const managedKeySection = document.getElementById('settings-api-key-managed');

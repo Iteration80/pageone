@@ -435,6 +435,7 @@ const { registerKnowledgeRoutes } = require('./routes/knowledge');
 const { registerProjectRoutes } = require('./routes/projects');
 const { registerRewriteRoutes } = require('./routes/rewrite');
 const { registerStyleRoutes } = require('./routes/styles');
+const { isGoogleAuthEnabled, getSessionEmail, registerAuthRoutes } = require('./utils/auth');
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
@@ -3940,16 +3941,24 @@ app.use((req, res, next) => {
     next();
 });
 
-// ─── Authentication (shared secret) ──────────────────────────────────────────
-// Dormant by default. Activate by setting APP_SECRET in .env.
-// When set, every /api/* request must include:  X-Api-Key: <APP_SECRET>
+// ─── Authentication ───────────────────────────────────────────────────────────
+// Layered, each layer dormant unless configured (see utils/auth.js):
+//   1. Google sign-in — when GOOGLE_CLIENT_ID/SECRET + ALLOWED_EMAILS are set,
+//      a signed session cookie from an allowlisted Google account grants access.
+//   2. Shared secret (break-glass) — when APP_SECRET is set, an X-Api-Key /
+//      Bearer header matching it grants access (admin / CLI / maintenance).
+//   3. Nothing configured — fully open (localhost dev).
 function requireAuth(req, res, next) {
-    if (!APP_SECRET) return next(); // dormant — no secret configured
-    const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
-    if (!header || header !== APP_SECRET) {
-        return res.status(401).json({ error: 'Unauthorized' });
+    if (isGoogleAuthEnabled()) {
+        const email = getSessionEmail(req);
+        if (email) { req.userEmail = email; return next(); }
     }
-    next();
+    if (APP_SECRET) {
+        const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+        if (header && header === APP_SECRET) return next();
+    }
+    if (!isGoogleAuthEnabled() && !APP_SECRET) return next(); // dormant — nothing configured
+    return res.status(401).json({ error: 'Unauthorized' });
 }
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
@@ -3977,6 +3986,10 @@ app.use((req, res, next) => {
 });
 app.use(express.static('public'));
 app.use(express.json({ limit: '20mb' }));
+
+// Auth routes (/auth/google, /api/me, /api/auth-config, /auth/logout) — public,
+// must precede the /api catch-all. Google sign-in stays dormant until configured.
+registerAuthRoutes(app, { APP_SECRET });
 
 registerGenerationRoutes(app, {
     requireAuth,
@@ -4308,8 +4321,12 @@ async function startServer() {
     if (!hasGemini && !hasAnthropic) {
         console.warn('[warn] Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set — AI features will fail on first use.');
     }
-    if (APP_SECRET) {
-        console.log('[auth] APP_SECRET set — API authentication active.');
+    if (isGoogleAuthEnabled()) {
+        console.log(`[auth] Google sign-in active (${(process.env.ALLOWED_EMAILS || '').split(',').filter(Boolean).length} allowlisted email(s))${APP_SECRET ? ' + APP_SECRET break-glass' : ''}.`);
+    } else if (APP_SECRET) {
+        console.log('[auth] APP_SECRET set — shared-secret API authentication active.');
+    } else {
+        console.log('[auth] No auth configured — server is open (localhost dev mode).');
     }
 
     app.listen(PORT, () => {

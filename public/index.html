@@ -13,14 +13,20 @@
 
 <body>
     <div id="authOverlay" class="auth-overlay hidden">
-        <form id="authForm" class="auth-panel">
+        <div class="auth-panel">
             <div class="logo-badge">P1</div>
             <h1>PageOne</h1>
-            <p>Enter the private access key to continue.</p>
-            <input id="authSecretInput" type="password" autocomplete="current-password" placeholder="Access key">
-            <div id="authError" class="auth-error" aria-live="polite"></div>
-            <button id="authSubmitBtn" type="submit" class="primary-btn">Unlock</button>
-        </form>
+            <div id="authGoogle" class="hidden">
+                <p id="authGoogleMsg">Sign in to continue.</p>
+                <a href="/auth/google" id="authGoogleBtn" class="primary-btn" style="display:inline-block;text-decoration:none">Sign in with Google</a>
+            </div>
+            <form id="authForm" class="hidden">
+                <p>Enter the private access key to continue.</p>
+                <input id="authSecretInput" type="password" autocomplete="current-password" placeholder="Access key">
+                <div id="authError" class="auth-error" aria-live="polite"></div>
+                <button id="authSubmitBtn" type="submit" class="primary-btn">Unlock</button>
+            </form>
+        </div>
     </div>
 
     <!-- Projects Hub Overlay -->
@@ -1162,6 +1168,14 @@
                 <div id="settings-stage-models" style="display:flex;flex-direction:column;gap:8px">
                     <!-- Injected by JS -->
                 </div>
+            </section>
+
+            <section id="settings-account-panel" class="settings-build-panel hidden">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Account</h4>
+                <p style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+                    <span id="settings-account-email" style="font-size:0.85rem;color:#d1d5db"></span>
+                    <button id="btnSignOut" class="secondary-btn" type="button" style="padding:4px 12px">Sign out</button>
+                </p>
             </section>
 
             <section class="settings-build-panel">
