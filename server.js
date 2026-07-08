@@ -340,7 +340,7 @@ function getAssistantModelConfig(stageNum = 1) {
     if (explicitModel) return { ...config, model: explicitModel };
     if (config.geminiApiKey) return { ...config, model: 'gemini-3-flash-preview' };
     if (config.anthropicApiKey && (!config.model || String(config.model).startsWith('gemini-'))) {
-        return { ...config, model: 'claude-sonnet-4-6' };
+        return { ...config, model: 'claude-sonnet-5' };
     }
     return config;
 }

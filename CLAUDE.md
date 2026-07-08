@@ -74,15 +74,14 @@ All suites must stay green. After frontend changes, also do a browser pass — t
 
 ## Deployment Notes
 
-### Authentication (`APP_SECRET`)
-API auth is dormant by default — the server runs unauthenticated on localhost. To activate before deploying:
+### Authentication (Google session + `APP_SECRET`)
+API auth is layered and each layer is dormant unless configured:
 
-1. Generate a secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-2. Uncomment and fill in `.env`: `APP_SECRET=your-secret-here`
-3. In `public/app.js`, add the header to all `fetch('/api/...')` calls (a `fetchApi()` wrapper is the right place)
-4. Server confirms activation on startup: `[auth] APP_SECRET set — API authentication active.`
+1. Google sign-in is active only when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ALLOWED_EMAILS` are set. The server issues a signed `pageone_session` cookie after a successful Google OAuth callback, and `ALLOWED_EMAILS` is rechecked on every request.
+2. `APP_SECRET` remains the break-glass/admin credential even when Google auth is primary. API requests can use `X-Api-Key: <APP_SECRET>` or `Authorization: Bearer <APP_SECRET>`.
+3. If neither Google auth nor `APP_SECRET` is configured, local development runs open.
 
-When active, every `/api/*` request must include `X-Api-Key: <APP_SECRET>`.
+Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. Deployed tester builds should keep `APP_SECRET` set even with Google enabled so maintenance scripts and recovery access still work. The public frontend reads `GET /api/auth-config` before booting so it can show either the Google button, the access-key form, or no auth overlay.
 
 ⚠️ The `ANTHROPIC_API_KEY` currently in `.env` is dead (401). All stages run Gemini today; replace or remove that key before selecting any Claude model in Settings.
 
@@ -93,6 +92,9 @@ When active, every `/api/*` request must include `X-Api-Key: <APP_SECRET>`.
 
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-07-08 — Google sign-in live + auth audit prep
+Google OAuth sign-in with an email allowlist now sits in front of the private tester build, with `APP_SECRET` preserved as break-glass access. Added route-level auth coverage for config/me/callback/logout, hardened cookie parsing against malformed percent-encoded values, updated auth deployment docs, and changed the assistant Anthropic fallback from the superseded Sonnet 4.6 model to Sonnet 5.
 
 ### 2026-07-03 — R3/R4 completion: route split + state-first stages 4–6
 Finished the generation-endpoint finalization factory for stages 2–6 (`d4e35ff`), split `server.js` into route modules one module per commit (`36e33b9`, `470a2ed`, `61a2f68`, `0a9cd63`, `3d37285`, `d033263`, `437b7a4`), and retired the remaining Stage 4/5/6 DOM scrape functions in favor of state-first getters (`d8c1d6b`, `cb87881`, `dfefa7f`). Full test gate and `/health` smoke passed after each commit; R3/R4 browser passes were blocked in Codex because the in-app browser backend exposed no available browsers.
