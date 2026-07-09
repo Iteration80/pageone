@@ -576,6 +576,19 @@ test('frontend project knowledge inspector exposes memory trust controls', () =>
     assert.doesNotMatch(appJs, /Source Readiness Note/);
 });
 
+test('frontend hub settings gear can read auth mode from shared scope', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const authModeDeclaration = appJs.indexOf("let authMode = 'secret';");
+    const domReadyStart = appJs.indexOf("document.addEventListener('DOMContentLoaded'");
+
+    assert.ok(authModeDeclaration >= 0, 'authMode should be declared');
+    assert.ok(domReadyStart >= 0, 'DOMContentLoaded closure should exist');
+    assert.ok(authModeDeclaration < domReadyStart, 'authMode must be shared with top-level Settings modal code');
+    assert.equal(appJs.indexOf("let authMode = 'secret';", domReadyStart), -1, 'authMode must not be shadowed inside DOMContentLoaded');
+    assert.match(appJs, /btnOpenSettingsHub'\)\?\.addEventListener\('click', openSettingsModal\)/);
+    assert.match(appJs, /if \(authMode === 'google'\)/);
+});
+
 test('frontend keeps sidebar project controls in one footer row', () => {
     const styleCss = fs.readFileSync(require.resolve('../public/style.css'), 'utf8');
     assert.match(styleCss, /\.sidebar-footer\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);

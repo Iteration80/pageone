@@ -1,5 +1,9 @@
 const nativeFetch = window.fetch.bind(window);
 
+// Which login UI to show, from GET /api/auth-config: 'google' | 'secret' | 'open'.
+// Shared with the top-level Settings modal code below.
+let authMode = 'secret';
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
@@ -15,9 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = typeof resource === 'string' ? resource : resource?.url || '';
         return url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
     }
-
-    // Which login UI to show, from GET /api/auth-config: 'google' | 'secret' | 'open'.
-    let authMode = 'secret';
 
     function renderAuthPanels() {
         const google = document.getElementById('authGoogle');
