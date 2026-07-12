@@ -1483,6 +1483,24 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(generationRoutes, /res\.flush\?\.\(\)/);
 });
 
+test('frontend approval regen prompts require generated output in the next stage', () => {
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    const stage4ApproveBlock = appJs.slice(
+        appJs.indexOf('// Stage 4 Approve button'),
+        appJs.indexOf('// --- Stage 5: Treatment Functions ---')
+    );
+
+    assert.match(appJs, /function stageHasGeneratedOutput/);
+    assert.match(appJs, /\[btnStage5Regenerate, stageHasGeneratedOutput\(data, 5\)\]/);
+    assert.match(appJs, /case 5:\s*\{[\s\S]*const treatment = d\.stage5_treatment \|\| \{};[\s\S]*Object\.entries\(treatment\)\.some\(\(\[key, value\]\) => key !== 'notes' && String\(value \|\| ''\)\.trim\(\)\);/);
+    assert.match(stage4ApproveBlock, /shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 5\)/);
+    assert.match(stage4ApproveBlock, /if \(context\.shouldPromptForNextStage\) \{\s*showGenericRegenModal\('Beats', 'Stage 5 Treatment'/);
+    assert.doesNotMatch(stage4ApproveBlock, /versionHistory/);
+    assert.match(appJs, /stageId: 6,[\s\S]*shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 8\)/);
+    assert.match(appJs, /flatScenes\(\)\.some\(scene => scene\.draft_text \|\| scene\.humanized_draft_text\)/);
+    assert.doesNotMatch(appJs, /stage8_draft/);
+});
+
 test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');

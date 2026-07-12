@@ -1827,23 +1827,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateStageRegenerateButtons(data = window.currentProjectData || {}) {
-        const hasStage6 = !!(data.stage6_scenes && (
-            data.stage6_scenes.sequences?.length > 0
-            || data.stage6_scenes.scenes?.length > 0
-            || data.stage6_scenes.length > 0
-        ));
         const controls = [
-            [btnStage2Regenerate, !!data.stage2_outline],
-            [btnStage3Regenerate, !!data.stage3_characters],
-            [btnStage4Regenerate, !!(data.stage4_beats || data.stage4_treatment)],
-            [btnStage5Regenerate, !!data.stage5_treatment],
-            [btnStage6Regenerate, hasStage6],
-            [btnStage7RegenerateHeader, !!(data.stage7_style || data.stage7_style_skipped)],
-            [btnStage9Regenerate, !!data.stage8_coverage]
+            [btnStage2Regenerate, stageHasGeneratedOutput(data, 2)],
+            [btnStage3Regenerate, stageHasGeneratedOutput(data, 3)],
+            [btnStage4Regenerate, stageHasGeneratedOutput(data, 4)],
+            [btnStage5Regenerate, stageHasGeneratedOutput(data, 5)],
+            [btnStage6Regenerate, stageHasGeneratedOutput(data, 6)],
+            [btnStage7RegenerateHeader, stageHasGeneratedOutput(data, 7)],
+            [btnStage9Regenerate, stageHasGeneratedOutput(data, 9)]
         ];
         controls.forEach(([button, visible]) => {
             button?.classList.toggle('hidden', !visible);
         });
+    }
+
+    function stageHasGeneratedOutput(data = window.currentProjectData || {}, stageNum) {
+        const d = data?.data && !data.stage1_pitch ? data.data : (data || {});
+        const flatScenes = () => {
+            const source = d.stage6_scenes;
+            if (!source) return [];
+            if (Array.isArray(source)) return source.flatMap(seq => Array.isArray(seq?.scenes) ? seq.scenes : []);
+            if (Array.isArray(source.sequences)) return source.sequences.flatMap(seq => Array.isArray(seq?.scenes) ? seq.scenes : []);
+            if (Array.isArray(source.scenes)) return source.scenes;
+            return [];
+        };
+        switch (Number(stageNum)) {
+            case 1:
+                return !!d.stage1_pitch?.pitch;
+            case 2:
+                return !!d.stage2_outline?.outline?.length;
+            case 3:
+                return !!d.stage3_characters?.characters?.length;
+            case 4: {
+                const beats = d.stage4_beats || d.stage4_treatment || {};
+                return !!beats.hybrid_beat_sheet?.length;
+            }
+            case 5: {
+                const treatment = d.stage5_treatment || {};
+                return Object.entries(treatment).some(([key, value]) => key !== 'notes' && String(value || '').trim());
+            }
+            case 6:
+                return !!(d.stage6_scenes && (
+                    d.stage6_scenes.length > 0
+                    || d.stage6_scenes.sequences?.length > 0
+                    || d.stage6_scenes.scenes?.length > 0
+                ));
+            case 7:
+                return !!(d.stage7_style || d.stage7_style_skipped);
+            case 8:
+                return flatScenes().some(scene => scene.draft_text || scene.humanized_draft_text);
+            case 9:
+                return !!d.stage8_coverage && Object.keys(d.stage8_coverage || {}).length > 0;
+            case 10:
+                return !!Object.keys(d.stage9_rewrites?.working || {}).length;
+            default:
+                return false;
+        }
     }
 
     function updateStageNav(data) {
@@ -2786,17 +2825,17 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage2_outline',
             stageName: 'Outline',
             getContext: () => ({
-                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 2).length > 0
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 3)
             }),
             getSnapshot: () => stage2PayloadFromOutline(getCurrentStage2Outline()),
-            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage2_outline' : null,
+            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage2_outline' : null,
             updateCurrentProject: true,
             errorLog: 'Failed to save outline:',
             errorMessage: 'Error saving outline.',
             onApproved: ({ context }) => {
                 toggleStage2EditMode(true);
 
-                if (context.isReApproval) {
+                if (context.shouldPromptForNextStage) {
                     showGenericRegenModal('Outline', 'Stage 3 Characters',
                         () => { switchStage(3); autoGenerateCharacters(); },
                         () => { switchStage(3); }
@@ -4155,10 +4194,10 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage3_characters',
             stageName: 'Characters',
             getContext: () => ({
-                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 3).length > 0
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 4)
             }),
             getSnapshot: () => stage3PayloadFromCharacters(getCurrentStage3Characters()),
-            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage3_characters' : null,
+            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage3_characters' : null,
             errorLog: 'Stage 3 approval failed:',
             errorMessage: 'Error saving approved characters.',
             onApproved: ({ context }) => {
@@ -4166,7 +4205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                 if (btnStage3Revise) btnStage3Revise.classList.add('hidden');
 
-                if (context.isReApproval) {
+                if (context.shouldPromptForNextStage) {
                     // Show options modal instead of auto-advancing
                     showStage3RegenModal();
                 } else {
@@ -5359,17 +5398,17 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage4_beats',
             stageName: 'Beats',
             getContext: () => ({
-                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 4).length > 0
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 5)
             }),
             getSnapshot: () => getCurrentStage4Beats(),
-            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage4_beats' : null,
+            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage4_beats' : null,
             errorLog: 'Stage 4 approval failed:',
             errorMessage: 'Error saving approved treatment.',
             onApproved: ({ context }) => {
                 if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
                 if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
 
-                if (context.isReApproval) {
+                if (context.shouldPromptForNextStage) {
                     showGenericRegenModal('Beats', 'Stage 5 Treatment',
                         () => { switchStage(5); autoGenerateTreatmentStage5(); },
                         () => { switchStage(5); }
@@ -5715,17 +5754,17 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage5_treatment',
             stageName: 'Treatment',
             getContext: () => ({
-                isReApproval: !!(window.currentProjectData?.stage6_scenes?.length)
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 6)
             }),
             getSnapshot: () => getCurrentStage5Treatment(),
-            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage5_treatment' : null,
+            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage5_treatment' : null,
             errorLog: 'Stage 5 approval failed:',
             errorMessage: null,
             onApproved: ({ context }) => {
                 if (btnStage5Edit) btnStage5Edit.classList.remove('hidden');
                 if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
 
-                if (context.isReApproval) {
+                if (context.shouldPromptForNextStage) {
                     showGenericRegenModal('Treatment', 'Stage 6 Scenes',
                         () => { switchStage(6); generateStage6(); },
                         () => { switchStage(6); }
@@ -6287,10 +6326,10 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage6_scenes',
             stageName: 'Scenes',
             getContext: () => ({
-                isReApproval: ((window.currentProjectData?.versionHistory) || []).filter(v => v.stage === 6).length > 0
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 8)
             }),
             getSnapshot: () => getCurrentStage6Blueprint(),
-            getStampRevisedStage: ({ context }) => context.isReApproval ? 'stage6_scenes' : null,
+            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage6_scenes' : null,
             refreshProjectAfterCuration: true,
             errorLog: 'Stage 6 approval failed:',
             errorMessage: 'An error occurred while saving the approved blueprint.',
@@ -6303,17 +6342,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage6NavItem.classList.add('completed');
                 }
 
-                if (context.isReApproval) {
-                    // Stage 7 (Style) sits between 6 and 8 — offer regen of Stage 8 only if it exists
-                    const hasStage8 = !!(window.currentProjectData?.stage8_draft);
-                    if (hasStage8) {
-                        showGenericRegenModal('Scenes', 'Stage 8 Draft',
-                            () => { switchStage(8); initStage8(); },
-                            () => { switchStage(7); }
-                        );
-                    } else {
-                        switchStage(7);
-                    }
+                if (context.shouldPromptForNextStage) {
+                    // Stage 7 (Style) sits between 6 and 8 — offer regen of Stage 8 only if a draft exists.
+                    showGenericRegenModal('Scenes', 'Stage 8 Draft',
+                        () => { switchStage(8); initStage8(); },
+                        () => { switchStage(7); }
+                    );
                 } else {
                     switchStage(7);
                 }
