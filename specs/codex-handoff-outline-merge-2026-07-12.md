@@ -77,3 +77,21 @@ status headers in `specs/pageone-pipeline-audit-2026-07-12.md` and CLAUDE.md
 Do not touch the Stage 3 guardrails (`827838a`), the auth system, or the assistant
 tool contract beyond removing Stage 4's entry. Do not run data migrations on
 deployed projects.
+
+## Completion record — 2026-07-12
+
+Implemented Option A under the retained user-facing name **Outline**.
+
+- Implementation commit: `06d2fd07f9cf6d839aa8dac3636163ea7c5bd652` (`06d2fd0`)
+- Stage 2 Outline now owns the STC fields and SOP mandate.
+- `stage4_beats` is derived deterministically from `stage2_outline` after Stage 2 generation/revision/project saves.
+- The visible Beats stage, generation route, agent, skill file, nav/workspace/chat UI, assistant config, and Stage 4 revision adapter were removed.
+- Visible pipeline is now 1-9 while internal ids/data keys remain backward-compatible.
+
+Verification:
+
+- `node --test 'test/*.test.js'` — pass (`183` tests)
+- `npm run test:knowledge` — pass (`135` tests)
+- `PORT=3467 node server.js` + `curl -s http://127.0.0.1:3467/health` — pass (`{"ok":true,...}`)
+- `node --check public/app.js` — pass
+- Browser pass — blocked in this Codex session because the in-app browser backend list was empty (`[]`).
