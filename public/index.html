@@ -262,13 +262,12 @@
                 <a href="javascript:void(0)" id="nav-stage-1" class="stage-link active"><span class="badge">1</span> Pitch</a>
                 <a href="javascript:void(0)" id="nav-stage-2" class="stage-link disabled"><span class="badge">2</span> Outline</a>
                 <a href="javascript:void(0)" id="nav-stage-3" class="stage-link disabled"><span class="badge">3</span> Characters</a>
-                <a href="javascript:void(0)" id="nav-stage-4" class="stage-link disabled"><span class="badge">4</span> Beats</a>
-                <a href="javascript:void(0)" id="nav-stage-5" class="stage-link disabled"><span class="badge">5</span> Treatment</a>
-                <a href="javascript:void(0)" id="nav-stage-6" class="stage-link disabled"><span class="badge">6</span> Scenes</a>
-                <a href="javascript:void(0)" id="nav-stage-7" class="stage-link disabled"><span class="badge">7</span> Style</a>
-                <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">8</span> Draft</a>
-                <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">9</span> Coverage</a>
-                <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">10</span> Rewrite</a>
+                <a href="javascript:void(0)" id="nav-stage-5" class="stage-link disabled"><span class="badge">4</span> Treatment</a>
+                <a href="javascript:void(0)" id="nav-stage-6" class="stage-link disabled"><span class="badge">5</span> Scene Blueprint</a>
+                <a href="javascript:void(0)" id="nav-stage-7" class="stage-link disabled"><span class="badge">6</span> Style</a>
+                <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">7</span> Draft</a>
+                <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">8</span> Coverage</a>
+                <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">9</span> Rewrite</a>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnReturnHome" class="sidebar-home-btn" title="Return Home">
@@ -481,61 +480,11 @@
             </div>
         </main>
 
-        <!-- Main Workspace (Stage 4) -->
-        <main id="stage-4-view" class="workspace hidden">
-            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                <div>
-                    <h1>Stage 4: Beats</h1>
-                    <p>Expand your story into a granular 15-beat sheet mapped onto 8 sequences.</p>
-                </div>
-                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
-                    <button id="btnDownloadBeats" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Export Beats
-                    </button>
-                    <button id="btnStage4Regenerate" class="secondary-btn stage-regenerate-trigger hidden" type="button" style="font-size:0.8rem;white-space:nowrap">Regenerate</button>
-                    <button id="btn-stage4-approve" class="primary-btn" style="font-size:0.8rem;white-space:nowrap">Approve →</button>
-                </div>
-            </header>
-            <div class="workspace-scrollable">
-                <div id="treatmentActions" class="action-row" style="margin-bottom: 24px;">
-                    <button id="generateTreatmentBtn" class="primary-btn">Generate Beats</button>
-                </div>
-
-                <div id="loadingStateTreatment" class="loading-state hidden">
-                    <div class="spinner"></div>
-                    <span id="loadingTextTreatment">Generating 15-Beat Sheet...</span>
-                </div>
-
-                <div id="treatmentContainer" class="hidden"
-                    style="display: flex; flex-direction: column; gap: 24px; margin-top: 8px;">
-                    <!-- Beat sheet content injected here -->
-                </div>
-            </div>
-
-
-            <!-- Stage 4 Chat Window -->
-            <div id="stage4-hsplit" class="resize-handle-h"></div>
-            <div id="stage4-chat" class="stage-chat">
-                <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
-                <div id="stage4-chat-thread" class="chat-thread"></div>
-                <div class="chat-input-row">
-                    <label for="stage4-chat-attach" class="chat-attach-btn" title="Attach file (pdf, txt, md, fountain, docx, fdx)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        <input type="file" id="stage4-chat-attach" accept=".pdf,.txt,.md,.fountain,.docx,.fdx" class="hidden">
-                    </label>
-                    <textarea id="stage4-chat-input" class="chat-input" placeholder="e.g. Make the midpoint twist more surprising..." rows="1"></textarea>
-                    <button id="stage4-chat-send" class="chat-send-btn">Send</button>
-                </div>
-            </div>
-        </main>
-
-        <!-- Placeholder Workspace (Stage 5) -->
-        <!-- Stage 5: Treatment Workspace -->
+        <!-- Stage 4: Treatment Workspace (internal id: stage 5) -->
         <main id="stage-5-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 5: Treatment</h1>
+                    <h1>Stage 4: Treatment</h1>
                     <p>Develop a full feature film treatment for your story using 4-step chained generation.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -607,9 +556,7 @@
                 </div>
             </div>
 
-            <!-- Sticky Stage 5 Feedback Panel -->
-
-            <!-- Stage 5 Chat Window -->
+            <!-- Stage 4 Chat Window (internal id: stage 5) -->
             <div id="stage5-hsplit" class="resize-handle-h"></div>
             <div id="stage5-chat" class="stage-chat">
                 <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
@@ -625,11 +572,11 @@
             </div>
         </main>
 
-        <!-- Stage 6: Scenes (Scene Blueprint) -->
+        <!-- Stage 5: Scene Blueprint (internal id: stage 6) -->
         <main id="stage-6-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 6: Scene Blueprint</h1>
+                    <h1>Stage 5: Scene Blueprint</h1>
                     <p>Manage and refine individual scenes organized by sequence.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -677,9 +624,9 @@
                 </div>
             </div>
 
-            <!-- Stage 6 Feedback Panel (Sticky) -->
+            <!-- Stage 5 Feedback Panel (Sticky) -->
 
-            <!-- Stage 6 Chat Window -->
+            <!-- Stage 5 Chat Window (internal id: stage 6) -->
             <div id="stage6-hsplit" class="resize-handle-h"></div>
             <div id="stage6-chat" class="stage-chat">
                 <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
@@ -696,11 +643,11 @@
         </main>
 
 
-        <!-- Stage 7: Style -->
+        <!-- Stage 6: Style (internal id: stage 7) -->
         <main id="stage-7-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 7: Style</h1>
+                    <h1>Stage 6: Style</h1>
                     <p>Define the tonal and stylistic direction for your screenplay.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -813,7 +760,7 @@
                 </div>
             </div>
 
-            <!-- Stage 7 Chat Window -->
+            <!-- Stage 6 Chat Window (internal id: stage 7) -->
             <div id="stage7-hsplit" class="resize-handle-h"></div>
             <div id="stage7-chat" class="stage-chat">
                 <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
@@ -826,11 +773,11 @@
 
         </main>
 
-        <!-- Stage 8: Draft -->
+        <!-- Stage 7: Draft (internal id: stage 8) -->
         <main id="stage-8-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 8: Draft</h1>
+                    <h1>Stage 7: Draft</h1>
                     <p>Write the first draft of your screenplay using standard formatting.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -898,9 +845,9 @@
                 </aside>
             </div>
 
-            <!-- Stage 8 Feedback Panel (Sticky) -->
+            <!-- Stage 7 Feedback Panel (Sticky) -->
     
-            <!-- Stage 8 Chat Window -->
+            <!-- Stage 7 Chat Window (internal id: stage 8) -->
             <div id="stage8-hsplit" class="resize-handle-h"></div>
             <div id="stage8-chat" class="stage-chat">
                 <div class="chat-header"><span class="chat-header-label">Assistant</span><button class="chat-collapse-btn" title="Toggle chat">⌄</button></div>
@@ -916,11 +863,11 @@
             </div>
         </main>
 
-        <!-- Stage 9: Coverage -->
+        <!-- Stage 8: Coverage (internal id: stage 9) -->
         <main id="stage-9-view" class="workspace hidden">
             <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                 <div>
-                    <h1>Stage 9: Coverage</h1>
+                    <h1>Stage 8: Coverage</h1>
                     <p id="stage9-header-sub">Script analysis across three independent passes, consolidated into a consensus report with revision priorities.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -949,7 +896,7 @@
 
         </main>
 
-        <!-- Stage 10: Rewrite -->
+        <!-- Stage 9: Rewrite (internal id: stage 10) -->
         <main id="stage-10-view" class="workspace hidden">
 
             <!-- Loading State -->
@@ -967,7 +914,7 @@
                 <div class="border-b border-white/10 bg-gray-950 shrink-0" style="padding: 28px 60px">
                     <div class="workspace-header" style="padding:0;margin:0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
                         <div>
-                            <h1>Stage 10: Rewrite</h1>
+                            <h1>Stage 9: Rewrite</h1>
                             <p>Work with the assistant to address coverage priorities, scene by scene.</p>
                         </div>
                         <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
@@ -1128,13 +1075,13 @@
         </div>
     </div>
 
-    <!-- Stage 10 Loopback Modal -->
+    <!-- Stage 9 Loopback Modal -->
     <div id="stage10-loopback-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Rewrite Complete</h3>
-            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:24px">Your Stage 10 rewrite is finalized. What would you like to do next?</p>
+            <p style="color:#9ca3af;font-size:0.9rem;margin-bottom:24px">Your Stage 9 rewrite is finalized. What would you like to do next?</p>
             <div class="modal-actions" style="flex-direction:column;gap:8px">
-                <button id="btn-loopback-coverage" class="primary-btn" style="width:100%">Run Stage 9 Coverage on New Draft</button>
+                <button id="btn-loopback-coverage" class="primary-btn" style="width:100%">Run Stage 8 Coverage on New Draft</button>
                 <button id="btn-loopback-export" class="secondary-btn" style="width:100%">Export Finished Script</button>
             </div>
         </div>
@@ -1210,29 +1157,29 @@
             </p>
             <div class="modal-actions" style="flex-direction:column;gap:10px">
                 <button id="btn-regen-to-stage10" class="primary-btn" style="width:100%">
-                    Send to Stage 10 Rewrite →
+                    Send to Stage 9 Rewrite →
                 </button>
                 <div style="display:flex;align-items:center;gap:12px;margin:4px 0">
                     <hr style="flex:1;border:none;border-top:1px solid rgba(255,255,255,0.1)">
-                    <span style="color:#6b7280;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">or re-generate beats</span>
+                    <span style="color:#6b7280;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">or re-generate treatment</span>
                     <hr style="flex:1;border:none;border-top:1px solid rgba(255,255,255,0.1)">
                 </div>
                 <div style="display:flex;gap:8px;width:100%">
                     <button id="btn-regen-surgical" class="secondary-btn" style="flex:1">
-                        Surgical
+                        Update Treatment
                     </button>
                     <button id="btn-regen-full" class="secondary-btn" style="flex:1">
-                        Full
+                        Fresh Treatment
                     </button>
                 </div>
                 <p id="regen-surgical-disabled-msg" class="hidden" style="color:#6b7280;font-size:0.75rem;margin:0;text-align:center">
-                    Surgical mode requires existing Stage 4 data.
+                    Treatment generation uses the approved Outline and current Characters.
                 </p>
             </div>
         </div>
     </div>
 
-    <!-- Generic Re-Approval Modal (reused by Stages 2, 4, 5, 6) -->
+    <!-- Generic Re-Approval Modal (reused by generated stages) -->
     <div id="generic-regen-modal" class="modal-overlay hidden">
         <div class="modal-content" style="max-width:480px">
             <h3 id="generic-regen-title">Stage Updated</h3>

@@ -25,6 +25,7 @@ function registerGenerationRoutes(app, deps) {
         recordSourceGenerationUsage,
         trackUsage,
         prepareGenerationProjectContext,
+        deriveStage4BeatsFromStage2Outline,
         finalizeGenerationEndpointArtifact,
         completeGenerationEndpoint,
         createClientAbortTracker,
@@ -36,7 +37,6 @@ function registerGenerationRoutes(app, deps) {
         createRevisionTransaction,
         outlineRevisionAdapter,
         characterRevisionAdapter,
-        stage4RevisionAdapter,
         treatmentRevisionAdapter,
         sceneBlueprintRevisionAdapter,
         buildOutlineRevisionChecklist,
@@ -51,7 +51,6 @@ function registerGenerationRoutes(app, deps) {
         agent1Refine,
         agent2Outline,
         agent3Characters,
-        agent4Beats,
         agent5Treatment,
         generateStage6Scenes,
         reviseStage6Scenes,
@@ -240,6 +239,7 @@ function registerGenerationRoutes(app, deps) {
                     sanitizeOutlineMetaBeats(outlineData);
                     deterministicRevision.receipt.changed = deterministicRevision.changed;
                     const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
+                    let derivedStage4Beats = null;
                     const { snapshotIds } = await finalizeGenerationEndpointArtifact({
                         context,
                         stage: 2,
@@ -250,6 +250,14 @@ function registerGenerationRoutes(app, deps) {
                         note: notesWithUpload,
                         revisionReceipt: deterministicRevision.receipt,
                         changed: true,
+                        afterStageStamp: (projectData) => {
+                            derivedStage4Beats = deriveStage4BeatsFromStage2Outline(projectData, {
+                                projectId,
+                                stage2Outline: outlineData,
+                                operation: 'derivation',
+                                note: 'Derived from Stage 2 outline deterministic revision'
+                            });
+                        },
                         afterSave: async ({ filePath }) => {
                             const savedContent = await fs.readFile(filePath, 'utf-8');
                             const savedProjectData = JSON.parse(savedContent);
@@ -266,6 +274,7 @@ function registerGenerationRoutes(app, deps) {
                         saveVerified: true,
                         revisionReceipt: deterministicRevision.receipt,
                         snapshotIds,
+                        derivedStage4Beats,
                         deterministicRevision: true
                     };
                     completeGenerationEndpoint({ res, streaming, send, payload });
@@ -320,6 +329,7 @@ function registerGenerationRoutes(app, deps) {
             });
             const changed = !notesWithUpload || revisionTransaction.changed;
             const operation = notesWithUpload ? 'revision' : 'generation';
+            let derivedStage4Beats = null;
             const { snapshotIds } = await finalizeGenerationEndpointArtifact({
                 context,
                 stage: 2,
@@ -333,6 +343,14 @@ function registerGenerationRoutes(app, deps) {
                 sourcePacket,
                 usage,
                 sourceReason: operation,
+                afterStageStamp: (projectData) => {
+                    derivedStage4Beats = deriveStage4BeatsFromStage2Outline(projectData, {
+                        projectId,
+                        stage2Outline: outlineData,
+                        operation: 'derivation',
+                        note: `Derived from Stage 2 outline ${operation}`
+                    });
+                },
                 afterSave: async ({ filePath }) => {
                     const savedContent = await fs.readFile(filePath, 'utf-8');
                     const savedProjectData = JSON.parse(savedContent);
@@ -349,6 +367,7 @@ function registerGenerationRoutes(app, deps) {
                 saveVerified: true,
                 revisionReceipt: revisionTransaction?.receipt,
                 snapshotIds,
+                derivedStage4Beats,
                 checklistVerified: revisionChecklist.length > 0,
                 ...sourceResponseExtras(sourcePacket)
             };
@@ -453,120 +472,6 @@ function registerGenerationRoutes(app, deps) {
         }
     });
 
-    app.post('/api/generate-stage4-beats', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
-        const { projectId, currentBeats, notes } = req.body || {};
-        const uploadedFile = req.file;
-
-        let context;
-        try {
-            context = await prepareGenerationProjectContext(req, res, {
-                projectId,
-                validate: (project) => {
-                    const pitchData = project.data?.stage1_pitch?.pitch;
-                    const beatsData = project.data?.stage2_outline?.outline;
-                    const charsData = project.data?.stage3_characters?.characters;
-                    return (!pitchData || !beatsData || !charsData)
-                        ? 'Project requires Stages 1-3 to generate Beats'
-                        : null;
-                }
-            });
-        } catch (error) {
-            console.error('Stage 4 Beats Context Error:', error.message);
-            sendApiError(res, error, 'Failed to generate beats');
-            return;
-        }
-        if (!context) return;
-        const { projectData } = context;
-        const pitchData = projectData.data?.stage1_pitch?.pitch;
-        const beatsData = projectData.data?.stage2_outline?.outline;
-        const charsData = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
-
-        const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
-        const isFullStage4Generation = !parsedCurrentBeats;
-        const beforeStage4ForRevision = parsedCurrentBeats || projectData.data?.stage4_beats || {};
-
-        // SSE setup
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-        res.flushHeaders();
-        const abortTracker = createClientAbortTracker(res, 'Stage 4 beats stream');
-
-        const send = (data) => {
-            if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
-                res.write(`data: ${JSON.stringify(data)}\n\n`);
-                res.flush?.();
-            }
-        };
-        const heartbeat = setInterval(() => {
-            send({ type: 'heartbeat', label: parsedCurrentBeats ? 'Still revising beats...' : 'Still generating beats...' });
-        }, 10000);
-        heartbeat.unref?.();
-
-        try {
-            console.log("Generating Stage 4 Beats...");
-            const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 4, userMessage: notes || '', forceTextBlock: true });
-            const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
-            const stage4KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${JSON.stringify(charsData, null, 2)}\n${parsedCurrentBeats ? JSON.stringify(parsedCurrentBeats, null, 2) : ''}\n${notesWithUpload}`;
-            const sourcePacket = buildSourceGenerationPacket(projectData, 4, stage4KnowledgeSeed, { userMessage: notesWithUpload });
-            const { result: beatsResult, usage } = await agent4Beats(
-                pitchData, beatsData, charsData, parsedCurrentBeats, notesWithUpload, uploadContext.agentFile,
-                (label) => send({ type: 'progress', label }),
-                withAbortSignal(getModelConfigWithSourcePacket(4, sourcePacket), abortTracker.signal)
-            );
-            abortTracker.throwIfAborted();
-
-            console.log("Beats generated successfully. Beat sheet length:", beatsResult.hybrid_beat_sheet?.length || 0);
-            const revisionTransaction = createVerifiedGenerationRevision({
-                enabled: !!notesWithUpload && !isFullStage4Generation,
-                label: 'Stage 4 beats',
-                build: () => createRevisionTransaction({
-                    stageId: 'stage4_beats',
-                    before: beforeStage4ForRevision,
-                    after: beatsResult || {},
-                    notes: notesWithUpload,
-                    adapter: stage4RevisionAdapter
-                })
-            });
-            const changed = isFullStage4Generation || revisionTransaction?.changed === true;
-            const operation = notesWithUpload ? 'revision' : 'generation';
-            const { snapshotIds } = await finalizeGenerationEndpointArtifact({
-                context,
-                stage: 4,
-                stageKey: 'stage4_beats',
-                result: beatsResult,
-                before: beforeStage4ForRevision,
-                operation,
-                note: notesWithUpload || '',
-                revisionReceipt: revisionTransaction?.receipt || null,
-                changed,
-                sourcePacket,
-                usage,
-                sourceReason: operation,
-                beforeSave: (projectData) => {
-                    if (isFullStage4Generation && projectData.data.conversations?.stage4) {
-                        delete projectData.data.conversations.stage4;
-                    }
-                }
-            });
-
-            send({ type: 'complete', result: beatsResult, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
-        } catch (error) {
-            if (isClientAbortError(error)) {
-                console.warn('Stage 4 beats stream stopped after client disconnect.');
-                return;
-            }
-            console.error('Stage 4 Beats Gen Error:', error.message);
-            const detail = publicErrorDetail(error);
-            send({ type: 'error', message: detail ? `Failed to generate beats: ${detail}` : 'Failed to generate beats' });
-        } finally {
-            clearInterval(heartbeat);
-            abortTracker.markComplete();
-            if (!res.destroyed && !res.writableEnded) res.end();
-        }
-    });
-
     app.post('/api/generate-stage5-treatment', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
         const { projectId } = req.body || {};
         const uploadedFile = req.file;
@@ -579,7 +484,7 @@ function registerGenerationRoutes(app, deps) {
                     const charactersData = project.data?.stage3_characters?.characters;
                     const beatsData = project.data?.stage4_beats?.hybrid_beat_sheet;
                     return (!pitchData || !charactersData || !beatsData)
-                        ? 'Project requires Stages 1, 3, and 4 to generate Treatment'
+                        ? 'Project requires Pitch, Outline-derived beat sheet, and Characters to generate Treatment'
                         : null;
                 }
             });
@@ -691,7 +596,7 @@ function registerGenerationRoutes(app, deps) {
                     const beats = project.data?.stage4_beats?.hybrid_beat_sheet;
                     const treatment = project.data?.stage5_treatment;
                     return (!pitch || !characters || !beats || !treatment)
-                        ? 'Project requires Stages 1, 3, 4, and 5 to generate Scene Blueprint'
+                        ? 'Project requires Pitch, Characters, Outline-derived beat sheet, and Treatment to generate Scene Blueprint'
                         : null;
                 }
             });

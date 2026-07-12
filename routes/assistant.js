@@ -18,14 +18,10 @@ function registerAssistantRoutes(app, deps) {
         buildKnowledgeContextBlock,
         memoryUsageForStage,
         updateProjectJSON,
-        buildStage4CurrentEventListResponse,
         persistStageConversation,
         buildMemoryRecallResponse,
         compactText,
         buildToolAssistantContextAdditions,
-        buildStage4ConfirmationBypassResponse,
-        buildStage4ConfirmationRevisionBrief,
-        buildNeutralMessages,
         trackUsage,
         sendApiError
     } = deps;
@@ -106,19 +102,6 @@ ${projectData.data.characterChangeContext}`;
                     });
                 }
 
-                const deterministicStage4EventList = !isInit && numericStageId === 4
-                    ? buildStage4CurrentEventListResponse(projectData, lastUserMessage)
-                    : null;
-                if (deterministicStage4EventList) {
-                    await persistStageConversation(filePath, projectData, conversationKey, messages.filter(m => m.role === 'user').slice(-1), deterministicStage4EventList.message);
-                    return res.json({
-                        type: 'message',
-                        message: deterministicStage4EventList.message,
-                        ...(savedSource && { savedSource }),
-                        ...(sourceMemory && { sourceMemory })
-                    });
-                }
-
                 const memoryRecall = !isInit ? buildMemoryRecallResponse(projectData, {
                     stageId: numericStageId,
                     stageName,
@@ -166,35 +149,6 @@ ${projectData.data.characterChangeContext}`;
                     historyForTurn = messages.filter(m => m.role === 'user').slice(-1);
                 }
 
-                const stage4ConfirmationBypass = !isInit && numericStageId === 4
-                    ? buildStage4ConfirmationBypassResponse(messages)
-                    : null;
-                if (stage4ConfirmationBypass) {
-                    const toolCall = {
-                        id: `server_stage4_confirmation_${Date.now()}`,
-                        name: 'apply_revision',
-                        input: { revision_brief: buildStage4ConfirmationRevisionBrief(messages) }
-                    };
-                    const neutralMessages = buildNeutralMessages({
-                        contextBlock,
-                        history: historyForTurn,
-                        isInit: false,
-                        stageId: numericStageId
-                    });
-                    neutralMessages.push({
-                        role: 'assistant',
-                        text: stage4ConfirmationBypass.message,
-                        toolCalls: [toolCall]
-                    });
-                    return res.json({
-                        type: 'tool_call',
-                        message: stage4ConfirmationBypass.message,
-                        toolCalls: [toolCall],
-                        turnState: JSON.stringify(neutralMessages),
-                        ...(savedSource && { savedSource }),
-                        ...(sourceMemory && { sourceMemory })
-                    });
-                }
             }
 
             const result = await runAssistantTurn({

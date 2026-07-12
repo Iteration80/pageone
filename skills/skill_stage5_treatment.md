@@ -39,7 +39,10 @@ When Tier 1 Character Profiles include `_deep_profile` data, use it to enrich sc
 ## 5. LENGTH & PACING MANDATE
 You are expanding a beat sheet into a treatment. DO NOT SUMMARIZE. For every single beat provided in the input, you MUST write at least 2 to 3 robust paragraphs of scene-by-scene narrative detailing physical actions, the environment, what the characters learn, and granular emotional shifts.
 
+* **Expansion Mandate:** Every input beat must become new material: staging, sensory texture, character interiority, pressure behavior, tactical dialogue summaries, and connective cause/effect. Do not simply restate the beat label and description at similar length.
+* **Target Scale:** A normal feature outline should expand from roughly 3,000-4,000 words of structure into a 9,000-12,000 word sequenced treatment. If the provided beat sheet is shorter or longer, preserve the same expansion ratio.
 * **Expansion Ratio:** If a sequence has 3 beats, you must output at least 6 to 9 highly detailed paragraphs for that specific sequence.
+* **No Beat-Sheet Echo:** Do not produce a numbered list of beats, compressed synopsis bullets, or one-paragraph-per-beat summaries. The Treatment must read like prose narrative development, not another outline pass.
 * **Formatting for Readability:** To create white space and maintain a fast read, do not write massive blocks of text. Separate distinct scenes with paragraph breaks. Keep your paragraphs to a maximum of five lines.
 * Use standard double newlines (\n\n) for paragraph breaks. NEVER use HTML tags like `<br>` or `<p>`.
 

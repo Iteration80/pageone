@@ -1121,7 +1121,7 @@ async function parseOutlineResponse(response, {
             anthropicApiKey,
             contents: [`The text below was intended to be a complete Stage 2 outline JSON object, but it contains JSON syntax errors such as an unterminated string, missing comma, or unescaped quote.
 
-Repair ONLY the JSON syntax. Preserve every available story detail, field name, act, sequence, beat label, and beat description. If a string is cut off, close it cleanly without inventing new plot. Return valid JSON only.
+Repair ONLY the JSON syntax. Preserve every available story detail, field name, act, sequence, beat label, STC beat name, emotional arc, pacing notes, genre variation notes, and beat description. If a string is cut off, close it cleanly without inventing new plot. Return valid JSON only.
 
 MALFORMED JSON:
 ${response.text}`],
@@ -1167,9 +1167,13 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
         type: 'object',
         properties: {
             beat_label: { type: 'string' },
-            description: { type: 'string' }
+            beat_name: { type: 'string' },
+            description: { type: 'string' },
+            emotional_arc: { type: 'string' },
+            pacing_notes: { type: 'string' },
+            genre_variation_notes: { type: 'string' }
         },
-        required: ["beat_label", "description"]
+        required: ["beat_label", "beat_name", "description", "emotional_arc", "pacing_notes"]
     };
 
     const sequenceItemSchema = {
@@ -1190,6 +1194,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
             title: { type: 'string' },
             genre: { type: 'string' },
             logline: { type: 'string' },
+            stc_genre_category: { type: 'string' },
             outline: {
                 type: 'object',
                 properties: {
@@ -1200,7 +1205,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
                 required: ["act_1", "act_2", "act_3"]
             }
         },
-        required: ["title", "genre", "logline", "outline"]
+        required: ["title", "genre", "logline", "stc_genre_category", "outline"]
     };
 
     // Revision Bypass Logic
@@ -1332,9 +1337,9 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
     }
 
     const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-    let contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. You MUST generate the full JSON structure including title, genre, logline, and the 8-sequence outline containing act_1, act_2, and act_3.`;
+    let contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. You MUST generate the full JSON structure including title, genre, logline, stc_genre_category, and the 8-sequence outline containing act_1, act_2, and act_3. Each beat must include beat_label, beat_name, description, emotional_arc, pacing_notes, and genre_variation_notes where useful.`;
     if (notes && hasCurrentOutline) {
-        contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working outline: ${JSON.stringify(currentOutline)}. Please revise the outline specifically based on these User Notes: ${notes}. You MUST generate the full JSON structure including title, genre, logline, and the entirely revised 8-sequence outline containing act_1, act_2, and act_3.`;
+        contentsText = `${sourceBlock}Here is the approved pitch: ${JSON.stringify(pitchData)}. Here is the current working outline: ${JSON.stringify(currentOutline)}. Please revise the outline specifically based on these User Notes: ${notes}. You MUST generate the full JSON structure including title, genre, logline, stc_genre_category, and the entirely revised 8-sequence outline containing act_1, act_2, and act_3. Each beat must include beat_label, beat_name, description, emotional_arc, pacing_notes, and genre_variation_notes where useful.`;
     } else if (notes) {
         contentsText += ` User Notes: ${notes}`;
     }

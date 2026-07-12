@@ -97,7 +97,7 @@ function getRevisedUpstreamStages(projectData, targetStageKey) {
  *   information from earlier stages:
  *
  *   - STAGE 5 (TREATMENT): Treat as the absolute source of truth for narrative content,
- *     character actions, and scene specifics. Where Stage 4 (Beats) conflicts with
+ *     character actions, and scene specifics. Where the derived beat sheet conflicts with
  *     Stage 5, defer to Stage 5.
  */
 function buildSourceAuthorityBlock(projectData, targetStageKey) {
@@ -106,15 +106,15 @@ function buildSourceAuthorityBlock(projectData, targetStageKey) {
 
     const STAGE_LABELS = {
         stage1_pitch: 'Stage 1 (Pitch)',
-        stage2_outline: 'Stage 2 (Sequence Outline)',
+        stage2_outline: 'Stage 2 (Outline)',
         stage3_characters: 'Stage 3 (Characters)',
-        stage4_beats: 'Stage 4 (Beat Sheet)',
-        stage5_treatment: 'Stage 5 (Treatment)',
+        stage4_beats: 'Derived Beat Sheet (stage4_beats key)',
+        stage5_treatment: 'Stage 4 (Treatment)',
     };
 
     const STAGE_CONTEXT = {
-        stage5_treatment: 'for narrative content, character actions, and scene specifics. Where Stage 4 (Beats) conflicts with Stage 5, defer to Stage 5.',
-        stage4_beats: 'for structural beat placement and sequence pacing. Where Stage 3 (Characters) conflicts with Stage 4, defer to Stage 4.',
+        stage5_treatment: 'for narrative content, character actions, and scene specifics. Where the derived beat sheet conflicts with Stage 5, defer to Stage 5.',
+        stage4_beats: 'for structural beat placement and sequence pacing derived from the approved Stage 2 Outline.',
         stage3_characters: 'for tiered character profiles, Tier 1 psychology/voice/arc, Tier 2 narrative function/emotional truth/comic or tension function/pressure behavior/voice flavor, and Tier 3 cameo purpose/casting energy/playable behavior/line style. Any character behavior in earlier stages must be interpreted through this revised profile.',
         stage2_outline: 'for sequence structure and act breaks.',
         stage1_pitch: 'for premise, logline, theme, and title.',

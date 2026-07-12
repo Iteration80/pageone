@@ -279,12 +279,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Navigation and Workspaces
     const navItems = {};
     const workspaces = {};
+    const PIPELINE_STAGE_IDS = [1, 2, 3, 5, 6, 7, 8, 9, 10];
+    const DISPLAY_STAGE_NUMBERS = { 1: 1, 2: 2, 3: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9 };
+    const DISPLAY_STAGE_LABELS = {
+        1: 'Pitch',
+        2: 'Outline',
+        3: 'Characters',
+        5: 'Treatment',
+        6: 'Scene Blueprint',
+        7: 'Style',
+        8: 'Draft',
+        9: 'Coverage',
+        10: 'Rewrite'
+    };
+    const displayStageNumber = stageId => DISPLAY_STAGE_NUMBERS[Number(stageId)] || Number(stageId);
+    const displayStageLabel = stageId => DISPLAY_STAGE_LABELS[Number(stageId)] || `Stage ${stageId}`;
+    const displayStageName = stageId => `Stage ${displayStageNumber(stageId)} ${displayStageLabel(stageId)}`;
     for (let i = 1; i <= 10; i++) {
         // Handle inconsistent ID patterns (nav-stage-X vs nav-stageX)
         navItems[i] = document.getElementById(`nav-stage-${i}`) || document.getElementById(`nav-stage${i}`);
         workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
-    const SOURCE_READINESS_STAGES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10]);
+    const SOURCE_READINESS_STAGES = new Set(PIPELINE_STAGE_IDS.filter(stageId => stageId !== 9));
     const SOURCE_TYPE_OPTIONS = [
         ['source_material', 'Source Material'],
         ['source_reference', 'Source Reference'],
@@ -323,11 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const navStage1 = navItems[1];
     const navStage2 = navItems[2];
     const navStage3 = navItems[3];
-    const navStage4 = navItems[4];
     const stage1Workspace = workspaces[1];
     const stage2Workspace = workspaces[2];
     const stage3Workspace = workspaces[3];
-    const stage4Workspace = workspaces[4];
 
     // Stage 1 Elements
     const generateBtn = document.getElementById('generateBtn');
@@ -340,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage1Notes = document.getElementById('stage1-notes');
     const stage2Notes = document.getElementById('stage2-notes');
     const stage3Notes = document.getElementById('stage3-notes');
-    const stage4Notes = document.getElementById('stage4-notes');
 
     const stage1PdfUpload = document.getElementById('stage1PdfUpload');
     const stage1FileNameDisplay = document.getElementById('stage1FileNameDisplay');
@@ -348,8 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage2FileNameDisplay = document.getElementById('stage2FileNameDisplay');
     const stage3PdfUpload = document.getElementById('stage3PdfUpload');
     const stage3FileNameDisplay = document.getElementById('stage3FileNameDisplay');
-    const stage4PdfUpload = document.getElementById('stage4PdfUpload');
-    const stage4FileNameDisplay = document.getElementById('stage4FileNameDisplay');
 
     // Stage 5 Elements
     const stage5Notes = document.getElementById('stage5Notes');
@@ -525,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Textarea/Notes auto-resize listeners
-    [stage1Notes, stage2Notes, stage3Notes, stage4Notes, stage5Notes, stage6Notes, promptInput].forEach(el => {
+    [stage1Notes, stage2Notes, stage3Notes, stage5Notes, stage6Notes, promptInput].forEach(el => {
 
         if (el) {
             el.addEventListener('input', () => autoResize(el));
@@ -581,18 +592,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (options.hidden !== undefined) button.classList.toggle('hidden', options.hidden);
         if (options.display !== undefined) button.style.display = options.display;
     }
-
-    // Stage 4 Workshop Elements
-    const stage4Workshop = document.getElementById('stage4Workshop');
-    const loadingStateTreatment = document.getElementById('loadingStateTreatment');
-    const loadingTextTreatment = document.getElementById('loadingTextTreatment');
-    const treatmentContainer = document.getElementById('treatmentContainer');
-    const btnStage4Revise = document.getElementById('btn-stage4-revise');
-    const btnStage4Approve = document.getElementById('btn-stage4-approve');
-    const btnStage4Edit = document.getElementById('btn-stage4-edit');
-    const btnStage4Regenerate = document.getElementById('btnStage4Regenerate');
-    const generateTreatmentBtn = document.getElementById('generateTreatmentBtn');
-    const treatmentActions = document.getElementById('treatmentActions');
 
     const cancelRenameBtn = document.getElementById('cancelRenameBtn');
     const saveRenameBtn = document.getElementById('saveRenameBtn');
@@ -1283,8 +1282,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hydrate Stage 3 Characters if exists
                 if (projectDetails.data.stage3_characters && projectDetails.data.stage3_characters.characters) {
                     renderCharacters(projectDetails.data.stage3_characters.characters);
-                    // Only show Approved if next stage (Beats) has data
-                    const stage3WasApproved = !!((projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment) && (projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment).hybrid_beat_sheet);
+                    // Only show Approved if next visible stage (Treatment) has data
+                    const stage3WasApproved = !!projectDetails.data.stage5_treatment;
                     if (stage3WasApproved) setApproveButtonState(btnStage3Approve, 'approved');
                     if (stage3WasApproved && btnStage3Edit) btnStage3Edit.classList.remove('hidden');
                     if (stage3WasApproved && btnStage3Revise) btnStage3Revise.classList.add('hidden');
@@ -1297,26 +1296,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (charactersContainer) charactersContainer.innerHTML = '';
                     if (stage3Workshop) stage3Workshop.classList.add('hidden');
-                }
-
-                // Hydrate Stage 4 Beats if exists
-                if ((projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment) && (projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment).hybrid_beat_sheet) {
-                    const stage4Data = projectDetails.data.stage4_beats || projectDetails.data.stage4_treatment;
-                    renderTreatment(stage4Data);
-                    // Only show Approved if next stage (Treatment) has data
-                    const stage4WasApproved = !!projectDetails.data.stage5_treatment;
-                    if (stage4WasApproved) setApproveButtonState(btnStage4Approve, 'approved');
-                    if (stage4WasApproved && btnStage4Edit) btnStage4Edit.classList.remove('hidden');
-                    if (stage4WasApproved && btnStage4Revise) btnStage4Revise.classList.add('hidden');
-
-                    if (stage4Notes && stage4Data.notes) {
-                        stage4Notes.value = stage4Data.notes;
-                    }
-                    if (stage4Notes) autoResize(stage4Notes);
-                } else {
-                    if (treatmentContainer) treatmentContainer.innerHTML = '';
-                    if (stage4Workshop) stage4Workshop.classList.add('hidden');
-                    if (treatmentActions) treatmentActions.classList.remove('hidden');
                 }
 
                 // Hydrate Stage 5 Treatment if exists
@@ -1355,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Restore persisted chat conversations
                 // Data keys don't change — map old conversation keys to new UI stage numbers
                 const savedConvos = projectDetails.data.conversations || {};
-                const CONVO_TO_CHAT = { stage1: 1, stage2: 2, stage3: 3, stage4: 4, stage5: 5, stage6: 6, stage7: 7, stage8: 8, stage9: 10 };
+                const CONVO_TO_CHAT = { stage1: 1, stage2: 2, stage3: 3, stage5: 5, stage6: 6, stage7: 7, stage8: 8, stage9: 10 };
                 for (const [key, chatIdx] of Object.entries(CONVO_TO_CHAT)) {
                     if (savedConvos[key]?.length && stageChatWindows[chatIdx]) {
                         stageChatWindows[chatIdx].restoreHistory(savedConvos[key]);
@@ -1374,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stage number → data key mapping (must be declared before handleHashChange runs)
     const STAGE_DATA_KEYS = {
         1: 'stage1_pitch', 2: 'stage2_outline', 3: 'stage3_characters',
-        4: 'stage4_beats', 5: 'stage5_treatment', 6: 'stage6_scenes',
+        5: 'stage5_treatment', 6: 'stage6_scenes',
         7: 'stage7_style', 8: 'stage7_approved', 9: 'stage8_coverage', 10: 'stage9_rewrites'
     };
 
@@ -1801,9 +1780,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Navigation UI
             updateStageNav(updatedProject.data);
 
-            // Auto-trigger Stage 2 Beats
+            // Auto-trigger Stage 2 Outline
             switchStage(2);
-            autoGenerateBeats();
+            autoGenerateOutline();
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
             alert("An error occurred while saving to the database.");
@@ -1817,10 +1796,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Find the most recently revised upstream stage (for stale banner message)
     function findRevisedUpstream(stageNum) {
         const d = window.currentProjectData || {};
-        for (let i = stageNum - 1; i >= 1; i--) {
-            const key = STAGE_DATA_KEYS[i];
+        const currentIndex = PIPELINE_STAGE_IDS.indexOf(Number(stageNum));
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            const upstreamStageId = PIPELINE_STAGE_IDS[i];
+            const key = STAGE_DATA_KEYS[upstreamStageId];
             if (key && d[key]?._meta?.manually_revised_at) {
-                return STAGE_LABELS[i];
+                return displayStageLabel(upstreamStageId);
             }
         }
         return null;
@@ -1830,7 +1811,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const controls = [
             [btnStage2Regenerate, stageHasGeneratedOutput(data, 2)],
             [btnStage3Regenerate, stageHasGeneratedOutput(data, 3)],
-            [btnStage4Regenerate, stageHasGeneratedOutput(data, 4)],
             [btnStage5Regenerate, stageHasGeneratedOutput(data, 5)],
             [btnStage6Regenerate, stageHasGeneratedOutput(data, 6)],
             [btnStage7RegenerateHeader, stageHasGeneratedOutput(data, 7)],
@@ -1855,13 +1835,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 1:
                 return !!d.stage1_pitch?.pitch;
             case 2:
-                return !!d.stage2_outline?.outline?.length;
+                return !!d.stage2_outline?.outline;
             case 3:
                 return !!d.stage3_characters?.characters?.length;
-            case 4: {
-                const beats = d.stage4_beats || d.stage4_treatment || {};
-                return !!beats.hybrid_beat_sheet?.length;
-            }
             case 5: {
                 const treatment = d.stage5_treatment || {};
                 return Object.entries(treatment).some(([key, value]) => key !== 'notes' && String(value || '').trim());
@@ -1903,7 +1879,6 @@ document.addEventListener('DOMContentLoaded', () => {
             1: !!data.stage1_pitch,
             2: !!data.stage2_outline,
             3: !!data.stage3_characters,
-            4: !!(data.stage4_beats || data.stage4_treatment),
             5: !!data.stage5_treatment,
             6: !!(data.stage6_scenes && (data.stage6_scenes.sequences?.length > 0 || data.stage6_scenes.scenes?.length > 0 || data.stage6_scenes.length > 0)),
             7: !!(data.stage7_style || data.stage7_style_skipped),
@@ -1912,27 +1887,28 @@ document.addEventListener('DOMContentLoaded', () => {
             10: !!data.stage9_rewrites?.approved
         };
 
-        for (let i = 1; i <= 10; i++) {
-            const isDone = stageStatus[i] || false;
-            toggle(navItems[i], isDone, i);
+        PIPELINE_STAGE_IDS.forEach((stageId, index) => {
+            const isDone = stageStatus[stageId] || false;
+            toggle(navItems[stageId], isDone, displayStageNumber(stageId));
 
-            // Unlock logic: next stage is unlocked if current is done
-            if (i > 1) {
-                const prevDone = stageStatus[i - 1] || false;
+            // Unlock logic: next visible stage is unlocked if previous visible stage is done
+            if (index > 0) {
+                const prevStageId = PIPELINE_STAGE_IDS[index - 1];
+                const prevDone = stageStatus[prevStageId] || false;
                 if (prevDone) {
-                    navItems[i]?.classList.remove('disabled');
+                    navItems[stageId]?.classList.remove('disabled');
                 } else {
-                    navItems[i]?.classList.add('disabled');
+                    navItems[stageId]?.classList.add('disabled');
                 }
             }
 
             // Stale stage indicator
-            const stageKey = STAGE_DATA_KEYS[i];
+            const stageKey = STAGE_DATA_KEYS[stageId];
             const isStale = stageKey && data[stageKey]?._meta?.stale === true;
-            if (navItems[i]) {
-                navItems[i].classList.toggle('stage-stale', !!isStale);
+            if (navItems[stageId]) {
+                navItems[stageId].classList.toggle('stage-stale', !!isStale);
             }
-        }
+        });
         renderStageSourceReadinessBadges(data);
         updateStageRegenerateButtons(data);
     }
@@ -1958,10 +1934,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderStageSourceReadinessBadges(data = window.currentProjectData) {
-        for (let stageId = 1; stageId <= 10; stageId++) {
+        PIPELINE_STAGE_IDS.forEach(stageId => {
             navItems[stageId]?.querySelector('.stage-source-readiness')?.remove();
             workspaces[stageId]?.querySelector(`.source-readiness-header-badge[data-source-stage="${stageId}"]`)?.remove();
-        }
+        });
     }
 
     async function refreshProjectKnowledgeSummary() {
@@ -1974,10 +1950,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function switchToVersionHistory() {
-        for (let i = 1; i <= 10; i++) {
-            navItems[i]?.classList.remove('active');
-            workspaces[i]?.classList.add('hidden');
-        }
+        PIPELINE_STAGE_IDS.forEach(stageId => {
+            navItems[stageId]?.classList.remove('active');
+            workspaces[stageId]?.classList.add('hidden');
+        });
         versionHistoryWorkspace?.classList.remove('hidden');
         btnVersionHistory?.classList.add('active');
         try {
@@ -1989,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage labels for user-facing messages
-    const STAGE_LABELS = { 1: 'Pitch', 2: 'Outline', 3: 'Characters', 4: 'Beats', 5: 'Treatment', 6: 'Scenes', 7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite' };
+    const STAGE_LABELS = DISPLAY_STAGE_LABELS;
 
     function switchStage(stageNum) {
         activeStageNum = Number(stageNum) || activeStageNum;
@@ -1998,10 +1974,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnVersionHistory?.classList.remove('active');
 
         // Deactivate all nav items and hide all workspace views
-        for (let i = 1; i <= 10; i++) {
-            navItems[i]?.classList.remove('active');
-            workspaces[i]?.classList.add('hidden');
-        }
+        PIPELINE_STAGE_IDS.forEach(stageId => {
+            navItems[stageId]?.classList.remove('active');
+            workspaces[stageId]?.classList.add('hidden');
+        });
 
         // Remove any existing stale banners
         document.querySelectorAll('.stale-stage-banner').forEach(el => el.remove());
@@ -2036,10 +2012,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
             }, 50);
-        } else if (stageNum === 4) {
-            setTimeout(() => {
-                document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
-            }, 50);
         } else if (stageNum === 5) {
             setTimeout(() => {
                 document.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
@@ -2062,15 +2034,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // Bind navigation clicks for all 10 stages
-    for (let i = 1; i <= 10; i++) {
+    // Bind navigation clicks for visible stages
+    PIPELINE_STAGE_IDS.forEach(i => {
         navItems[i]?.addEventListener('click', (e) => {
             e.preventDefault();
             if (!navItems[i].classList.contains('disabled')) {
                 switchStage(i);
             }
         });
-    }
+    });
 
     // Version history icon click
     btnVersionHistory?.addEventListener('click', () => {
@@ -2140,14 +2112,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 stageKey: 'stage3_characters',
                 stageName: 'Characters',
                 snapshot: characters?.length ? stage3PayloadFromCharacters(characters) : data.stage3_characters
-            };
-        }
-        if (stageNum === 4) {
-            const beats = getCurrentStage4Beats();
-            return {
-                stageKey: 'stage4_beats',
-                stageName: 'Beats',
-                snapshot: beats?.hybrid_beat_sheet?.length ? beats : (data.stage4_beats || data.stage4_treatment)
             };
         }
         if (stageNum === 5) {
@@ -2257,9 +2221,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    btnStage2Regenerate?.addEventListener('click', () => regenerateGeneratedStage(2, btnStage2Regenerate, autoGenerateBeats));
+    btnStage2Regenerate?.addEventListener('click', () => regenerateGeneratedStage(2, btnStage2Regenerate, autoGenerateOutline));
     btnStage3Regenerate?.addEventListener('click', () => regenerateGeneratedStage(3, btnStage3Regenerate, autoGenerateCharacters));
-    btnStage4Regenerate?.addEventListener('click', () => regenerateGeneratedStage(4, btnStage4Regenerate, autoGenerateTreatment));
     btnStage5Regenerate?.addEventListener('click', () => regenerateGeneratedStage(5, btnStage5Regenerate, autoGenerateTreatmentStage5));
     btnStage9Regenerate?.addEventListener('click', () => regenerateCoverage(btnStage9Regenerate));
 
@@ -2364,7 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const stageNames = { 1:'Pitch', 2:'Outline', 3:'Characters', 4:'Beats', 5:'Treatment', 6:'Scenes', 7:'Style', 8:'Draft', 9:'Coverage', 10:'Rewrite' };
+        const stageNames = { ...DISPLAY_STAGE_LABELS, 4: 'Derived Beat Sheet' };
         const grouped = {};
         history.forEach(v => {
             if (!grouped[v.stage]) grouped[v.stage] = [];
@@ -2375,8 +2338,9 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(stage => {
             const versions = grouped[stage];
             const stageName = stageNames[stage] || `Stage ${stage}`;
+            const stageLabel = Number(stage) === 4 ? 'Derived Beat Sheet' : `Stage ${displayStageNumber(stage)}`;
             html += `<div style="margin-bottom:32px">`;
-            html += `<h3 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;margin-bottom:12px;font-weight:600">Stage ${stage}: ${stageName}</h3>`;
+            html += `<h3 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;margin-bottom:12px;font-weight:600">${stageLabel}: ${stageName}</h3>`;
             html += `<div style="display:flex;flex-direction:column;gap:8px">`;
             // Show newest first
             [...versions].reverse().forEach(v => {
@@ -2462,16 +2426,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (btnStage3Revise) btnStage3Revise.classList.remove('hidden');
                 }
                 break;
-            case 4: {
-                const s4 = data.stage4_beats || data.stage4_treatment;
-                if (s4?.hybrid_beat_sheet) {
-                    renderTreatment(s4);
-                    setApproveButtonState(btnStage4Approve, 'ready');
-                    if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
-                    if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
-                }
-                break;
-            }
             case 5:
                 if (data.stage5_treatment) {
                     renderTreatmentStage5(data.stage5_treatment);
@@ -2693,7 +2647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    async function autoGenerateBeats() {
+    async function autoGenerateOutline() {
         if (!activeProjectId) return;
 
         // Hide the workshop so no old buttons show
@@ -4032,13 +3986,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function showStage3RegenModal() {
         if (!stage3RegenModal) return;
         const d = window.currentProjectData || {};
-        const hasStage4 = !!d.stage4_beats;
+        const hasTreatment = !!d.stage5_treatment;
         const hasStage10 = !!d.stage9_rewrites;
-        // Show/hide Stage 10 button based on whether Stage 10 data exists
+        // Show/hide Rewrite button based on whether Rewrite data exists
         if (btnRegenToStage10) btnRegenToStage10.classList.toggle('hidden', !hasStage10);
-        // Enable/disable surgical button
-        if (btnRegenSurgical) btnRegenSurgical.disabled = !hasStage4;
-        if (regenSurgicalDisabledMsg) regenSurgicalDisabledMsg.classList.toggle('hidden', hasStage4);
+        if (btnRegenSurgical) btnRegenSurgical.disabled = !hasTreatment;
+        if (regenSurgicalDisabledMsg) regenSurgicalDisabledMsg.classList.toggle('hidden', hasTreatment);
         stage3RegenModal.classList.remove('hidden');
     }
 
@@ -4052,11 +4005,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // "Send to Stage 10 Rewrite"
+    // "Send to Rewrite"
     if (btnRegenToStage10) {
         btnRegenToStage10.addEventListener('click', async () => {
             closeStage3RegenModal();
-            // Store character change context for Stage 10 init
+            // Store character change context for Rewrite init
             const changes = getCharacterDiffNotes();
             if (changes.length > 0) {
                 try {
@@ -4071,77 +4024,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // "Re-generate Stage 4 (surgical)"
+    // Re-generate Treatment from updated characters
     if (btnRegenSurgical) {
         btnRegenSurgical.addEventListener('click', async () => {
             closeStage3RegenModal();
-            const changes = getCharacterDiffNotes();
-            const notes = changes.length > 0
-                ? 'Character profile changes (update affected beats while preserving overall structure):\n' + changes.join('\n')
-                : 'Minor character updates — preserve existing beat structure as much as possible.';
-
-            switchStage(4);
-
-            const currentBeats = getCurrentStage4Beats();
-            if (!currentBeats?.hybrid_beat_sheet?.length) { autoGenerateTreatment(); return; }
-
-            if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
-            if (stage4Workshop) stage4Workshop.classList.add('hidden');
-            if (treatmentContainer) { treatmentContainer.innerHTML = ''; treatmentContainer.classList.add('hidden'); }
-            if (treatmentActions) treatmentActions.classList.add('hidden');
-            if (loadingTextTreatment) loadingTextTreatment.textContent = 'Surgically updating beats...';
-
-            try {
-                const formData = new FormData();
-                formData.append('projectId', activeProjectId);
-                formData.append('currentBeats', JSON.stringify(currentBeats));
-                formData.append('notes', notes);
-
-                const response = await fetch('/api/generate-stage4-beats', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        const event = JSON.parse(line.slice(6));
-                        if (event.type === 'progress') {
-                            if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
-                        } else if (event.type === 'complete') {
-                            renderTreatment(event.result);
-                            setCurrentStage4BeatsPayload(event.result);
-                            const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                            const projData = await projRes.json();
-                            updateStageNav(projData.data);
-                            await handleSourceGenerationResult(4, event);
-                        } else if (event.type === 'error') {
-                            throw new Error(event.message);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Error during surgical beat update:', err);
-                alert('Error during surgical beat update. You can retry from Stage 4.');
-                if (treatmentActions) treatmentActions.classList.remove('hidden');
-            } finally {
-                if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
-            }
+            switchStage(5);
+            autoGenerateTreatmentStage5();
         });
     }
 
-    // "Re-generate Stage 4 (full)"
+    // Fresh Treatment
     if (btnRegenFull) {
         btnRegenFull.addEventListener('click', () => {
             closeStage3RegenModal();
-            switchStage(4);
-            autoGenerateTreatment();
+            switchStage(5);
+            autoGenerateTreatmentStage5();
         });
     }
 
@@ -4194,7 +4091,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stageKey: 'stage3_characters',
             stageName: 'Characters',
             getContext: () => ({
-                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 4)
+                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 5)
             }),
             getSnapshot: () => stage3PayloadFromCharacters(getCurrentStage3Characters()),
             getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage3_characters' : null,
@@ -4209,9 +4106,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Show options modal instead of auto-advancing
                     showStage3RegenModal();
                 } else {
-                    // First approval: auto-transition to Stage 4
-                    switchStage(4);
-                    autoGenerateTreatment();
+                    // First approval: auto-transition to Treatment
+                    switchStage(5);
+                    autoGenerateTreatmentStage5();
                 }
             }
         }));
@@ -4327,9 +4224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = data?.data && !data.stage1_pitch ? data.data : (data || {});
         switch (Number(stageId)) {
             case 1: return !!d.stage1_pitch?.pitch;
-            case 2: return !!d.stage2_outline?.outline?.length;
+            case 2: return !!d.stage2_outline?.outline;
             case 3: return !!d.stage3_characters?.characters?.length;
-            case 4: return !!(d.stage4_beats || d.stage4_treatment);
             case 5: return !!d.stage5_treatment;
             case 6: return !!(d.stage6_scenes && (
                 d.stage6_scenes.length > 0
@@ -5021,407 +4917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // =============================================
-    // === Stage 4: Beats Logic ===
-    // =============================================
-
-    // PDF Upload listener for Stage 4
-    if (stage4PdfUpload) {
-        stage4PdfUpload.addEventListener('change', () => {
-            if (stage4PdfUpload.files[0]) {
-                if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = stage4PdfUpload.files[0].name;
-            } else {
-                if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
-            }
-        });
-    }
-
-    function cloneStage4Beats(data = {}) {
-        return {
-            stc_genre_category: data?.stc_genre_category || '',
-            hybrid_beat_sheet: Array.isArray(data?.hybrid_beat_sheet)
-                ? JSON.parse(JSON.stringify(data.hybrid_beat_sheet))
-                : []
-        };
-    }
-
-    function currentStage4StorageKey(data = window.currentProjectData || {}) {
-        return data.stage4_beats ? 'stage4_beats' : (data.stage4_treatment ? 'stage4_treatment' : 'stage4_beats');
-    }
-
-    function setCurrentStage4BeatsPayload(payload = {}) {
-        const data = ensureCurrentProjectData();
-        const key = currentStage4StorageKey(data);
-        data[key] = {
-            ...(data[key] || {}),
-            ...cloneStage4Beats(payload)
-        };
-        return data[key];
-    }
-
-    function getCurrentStage4Beats() {
-        return cloneStage4Beats(window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment || {});
-    }
-
-    function updateCurrentStage4BeatField(sequenceIndex, beatIndex, fieldKey, value) {
-        const key = currentStage4StorageKey();
-        const beat = window.currentProjectData?.[key]?.hybrid_beat_sheet?.[sequenceIndex]?.beats?.[beatIndex];
-        if (beat) beat[fieldKey] = value;
-    }
-
-    // Renders the beat sheet data into the UI
-    function renderTreatment(treatmentData) {
-        if (!treatmentContainer) return;
-        const stage4Payload = setCurrentStage4BeatsPayload(treatmentData || {});
-        treatmentContainer.innerHTML = '';
-
-        // STC Genre Category label
-        if (stage4Payload.stc_genre_category) {
-            const genreLabel = document.createElement('div');
-            genreLabel.style.cssText = 'background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;';
-            genreLabel.textContent = `STC Genre: ${stage4Payload.stc_genre_category}`;
-            treatmentContainer.appendChild(genreLabel);
-        }
-
-        if (!stage4Payload.hybrid_beat_sheet) return;
-
-        stage4Payload.hybrid_beat_sheet.forEach((sequence, sequenceIndex) => {
-            // Sequence header
-            const seqHeader = document.createElement('h3');
-            seqHeader.style.cssText = 'color: #e5e7eb; font-size: 1.1rem; font-weight: 700; margin-top: 16px; border-bottom: 1px solid #374151; padding-bottom: 8px;';
-            // Strip any accidental "Sequence N:" prefix from the title
-            const cleanTitle = (sequence.sequence_title || '').replace(/^Sequence\s*\d+\s*:\s*/i, '');
-            seqHeader.textContent = `Sequence ${sequence.sequence_number}: ${cleanTitle}`;
-            treatmentContainer.appendChild(seqHeader);
-
-            if (!sequence.beats) return;
-
-            sequence.beats.forEach((beat, beatIndex) => {
-                const card = document.createElement('div');
-                card.className = 'treatment-beat-card';
-                card.style.cssText = 'background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-top: 12px;';
-
-                // Beat name header
-                const beatName = document.createElement('h4');
-                beatName.style.cssText = 'color: #93c5fd; font-weight: 700; font-size: 1rem; margin-bottom: 12px;';
-                beatName.textContent = beat.beat_name || '';
-                card.appendChild(beatName);
-
-                const renderField = (parent, f) => {
-                    const label = document.createElement('label');
-                    label.className = 'text-gray-400 block mb-1 text-xs font-semibold tracking-wider uppercase';
-                    label.style.cssText = 'color: #9ca3af; display: block; margin-bottom: 4px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 12px;';
-                    label.textContent = f.label;
-                    parent.appendChild(label);
-
-                    const ta = document.createElement('textarea');
-                    ta.className = 'w-full bg-transparent border-none resize-none overflow-hidden text-gray-300 editable-treatment-field';
-                    ta.setAttribute('data-field', f.key);
-                    ta.value = f.value || '';
-                    ta.style.cssText = 'width: 100%; background: transparent; border: none; resize: none; overflow: hidden; color: #d1d5db; font-family: inherit; font-size: 0.9rem; line-height: 1.6; padding: 4px 0; min-height: 24px;';
-                    ta.addEventListener('input', () => {
-                        updateCurrentStage4BeatField(sequenceIndex, beatIndex, f.key, ta.value);
-                        autoResize(ta);
-                        setApproveButtonState(btnStage4Approve, 'ready');
-                    });
-                    ta.addEventListener('focus', () => { ta.style.background = 'rgba(31,41,55,0.8)'; ta.style.outline = '1px solid #374151'; });
-                    ta.addEventListener('blur', () => { ta.style.background = 'transparent'; ta.style.outline = 'none'; });
-                    parent.appendChild(ta);
-                };
-
-                renderField(card, { label: 'DETAILED ACTION', key: 'detailed_action', value: beat.detailed_action });
-
-                // Toggle button for annotation fields
-                const notesToggle = document.createElement('button');
-                notesToggle.textContent = 'Show Notes ▾';
-                notesToggle.style.cssText = 'font-size:0.75rem; color:#60a5fa; background:none; border:none; cursor:pointer; padding:4px 0; margin-top:8px; display:block;';
-                card.appendChild(notesToggle);
-
-                // Collapsible annotation fields
-                const notesWrap = document.createElement('div');
-                notesWrap.className = 'hidden';
-                [
-                    { label: 'GENRE VARIATION NOTES', key: 'genre_variation_notes', value: beat.genre_variation_notes },
-                    { label: 'EMOTIONAL ARC', key: 'emotional_arc', value: beat.emotional_arc },
-                    { label: 'PACING NOTES', key: 'pacing_notes', value: beat.pacing_notes }
-                ].forEach(f => renderField(notesWrap, f));
-                card.appendChild(notesWrap);
-
-                notesToggle.addEventListener('click', () => {
-                    const hidden = notesWrap.classList.toggle('hidden');
-                    notesToggle.textContent = hidden ? 'Show Notes ▾' : 'Hide Notes ▴';
-                    if (!hidden) notesWrap.querySelectorAll('textarea').forEach(ta => autoResize(ta));
-                });
-
-                treatmentContainer.appendChild(card);
-            });
-        });
-
-        treatmentContainer.classList.remove('hidden');
-        if (treatmentActions) treatmentActions.classList.add('hidden');
-        if (stage4Workshop) stage4Workshop.classList.remove('hidden');
-
-        // Show Submit/Approve, hide Revise
-        if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
-        if (btnStage4Approve) {
-            btnStage4Approve.classList.remove('hidden');
-            setApproveButtonState(btnStage4Approve, 'ready');
-        }
-        if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
-
-        // Auto-resize all beat sheet textareas AFTER container is visible
-        // Use setTimeout to ensure the browser has painted and computed layout
-        setTimeout(() => {
-            treatmentContainer.querySelectorAll('.editable-treatment-field').forEach(ta => autoResize(ta));
-        }, 50);
-    }
-
-    // Auto-generate beat sheet from Stages 1-3
-    async function autoGenerateTreatment() {
-        if (!activeProjectId) return;
-
-        if (btnStage4Approve) {
-            setApproveButtonState(btnStage4Approve, 'ready', { hidden: true });
-        }
-
-        if (loadingStateTreatment) loadingStateTreatment.classList.remove('hidden');
-
-        // Kill the workshop bar during generation
-        if (stage4Workshop) stage4Workshop.classList.add('hidden');
-
-        if (treatmentContainer) {
-            treatmentContainer.innerHTML = '';
-            treatmentContainer.classList.add('hidden');
-        }
-        if (treatmentActions) treatmentActions.classList.add('hidden');
-
-        if (loadingTextTreatment) loadingTextTreatment.textContent = 'Generating 15-Beat Sheet...';
-
-        try {
-            const formData = new FormData();
-            formData.append('projectId', activeProjectId);
-
-            const response = await fetch('/api/generate-stage4-beats', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}`);
-            }
-
-            // Read SSE stream
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const event = JSON.parse(line.slice(6));
-
-                    if (event.type === 'progress') {
-                        if (loadingTextTreatment) loadingTextTreatment.textContent = event.label;
-                    } else if (event.type === 'complete') {
-                        renderTreatment(event.result);
-                        setCurrentStage4BeatsPayload(event.result);
-                        const projRes = await fetch(`/api/projects/${activeProjectId}`);
-                        const projData = await projRes.json();
-                        if (window.currentProjectData) window.currentProjectData.conversations = projData.data?.conversations || {};
-                        updateStageNav(projData.data);
-                        resetStageChatForNewArtifact(4, 'Beat sheet regenerated. Previous Stage 4 chat was cleared because it may refer to an older beat sheet.');
-                        await handleSourceGenerationResult(4, event);
-                    } else if (event.type === 'error') {
-                        throw new Error(event.message);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Error generating beats:', err);
-            alert('An error occurred while generating the beat sheet. You can retry with the Generate Beats button.');
-            if (treatmentActions) treatmentActions.classList.remove('hidden');
-        } finally {
-            if (loadingStateTreatment) loadingStateTreatment.classList.add('hidden');
-        }
-    }
-
-    // Generate Beats button click handler
-    if (generateTreatmentBtn) {
-        generateTreatmentBtn.addEventListener('click', () => {
-            autoGenerateTreatment();
-        });
-    }
-
-    // Toggle Stage 4 Edit Mode
-    function toggleStage4EditMode(locked) {
-        const fields = treatmentContainer ? treatmentContainer.querySelectorAll('.editable-treatment-field') : [];
-        fields.forEach(f => {
-            f.readOnly = locked;
-            f.style.opacity = locked ? '0.85' : '1';
-        });
-
-        if (locked) {
-            if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
-            if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
-        } else {
-            if (btnStage4Edit) btnStage4Edit.classList.add('hidden');
-            if (btnStage4Revise) btnStage4Revise.classList.remove('hidden');
-            setApproveButtonState(btnStage4Approve, 'ready', { hidden: false });
-        }
-    }
-
-    // Stage 4 Edit button
-    if (btnStage4Edit) {
-        btnStage4Edit.addEventListener('click', () => {
-            toggleStage4EditMode(false);
-        });
-    }
-
-    // Stage 4 Revise (Submit) button
-    if (btnStage4Revise) {
-        btnStage4Revise.addEventListener('click', async () => {
-            const userNote = stage4Notes ? stage4Notes.value.trim() : '';
-            const selectedPdf = stage4PdfUpload && stage4PdfUpload.files[0];
-
-            if (!userNote && !selectedPdf) {
-                // Manual save
-                if (!activeProjectId) return;
-                const currentS4Beats = getCurrentStage4Beats();
-                const originalText = btnStage4Revise.textContent;
-
-                try {
-                    btnStage4Revise.textContent = 'Saving...';
-                    btnStage4Revise.disabled = true;
-
-                    await fetch(`/api/projects/${activeProjectId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            data: { stage4_beats: currentS4Beats }
-                        })
-                    });
-
-                    btnStage4Revise.textContent = 'Saved!';
-                    setTimeout(() => {
-                        btnStage4Revise.textContent = originalText;
-                        btnStage4Revise.disabled = false;
-                    }, 1500);
-
-                    setApproveButtonState(btnStage4Approve, 'ready');
-                } catch (err) {
-                    console.error('Failed to manual save beats:', err);
-                    alert('An error occurred while saving.');
-                    btnStage4Revise.textContent = originalText;
-                    btnStage4Revise.disabled = false;
-                }
-                return;
-            }
-
-            // AI Revision
-            const originalText = btnStage4Revise.textContent;
-            btnStage4Revise.textContent = 'Revising...';
-            btnStage4Revise.disabled = true;
-
-            try {
-                const currentS4Beats = getCurrentStage4Beats();
-                const formData = new FormData();
-                formData.append('projectId', activeProjectId);
-                formData.append('currentBeats', JSON.stringify(currentS4Beats));
-                formData.append('notes', userNote);
-                if (selectedPdf) {
-                    formData.append('pdfFile', selectedPdf);
-                }
-
-                const response = await fetch('/api/generate-stage4-beats', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with ${response.status}`);
-                }
-
-                // Read SSE stream
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        const event = JSON.parse(line.slice(6));
-
-                        if (event.type === 'progress') {
-                            btnStage4Revise.textContent = event.label;
-                        } else if (event.type === 'complete') {
-                            renderTreatment(event.result);
-                            setCurrentStage4BeatsPayload(event.result);
-                            if (stage4Notes) stage4Notes.value = '';
-                            if (stage4PdfUpload) stage4PdfUpload.value = '';
-                            if (stage4FileNameDisplay) stage4FileNameDisplay.textContent = '';
-                            setApproveButtonState(btnStage4Approve, 'ready');
-                            await handleSourceGenerationResult(4, event);
-                        } else if (event.type === 'error') {
-                            throw new Error(event.message);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Error revising beats:', err);
-                alert('An error occurred while revising the beat sheet.');
-            } finally {
-                btnStage4Revise.textContent = originalText;
-                btnStage4Revise.disabled = false;
-            }
-        });
-    }
-
-    // Stage 4 Approve button
-    if (btnStage4Approve) {
-        btnStage4Approve.addEventListener('click', createStageApproveHandler({
-            stageId: 4,
-            button: btnStage4Approve,
-            stageKey: 'stage4_beats',
-            stageName: 'Beats',
-            getContext: () => ({
-                shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 5)
-            }),
-            getSnapshot: () => getCurrentStage4Beats(),
-            getStampRevisedStage: ({ context }) => context.shouldPromptForNextStage ? 'stage4_beats' : null,
-            errorLog: 'Stage 4 approval failed:',
-            errorMessage: 'Error saving approved treatment.',
-            onApproved: ({ context }) => {
-                if (btnStage4Edit) btnStage4Edit.classList.remove('hidden');
-                if (btnStage4Revise) btnStage4Revise.classList.add('hidden');
-
-                if (context.shouldPromptForNextStage) {
-                    showGenericRegenModal('Beats', 'Stage 5 Treatment',
-                        () => { switchStage(5); autoGenerateTreatmentStage5(); },
-                        () => { switchStage(5); }
-                    );
-                } else {
-                    switchStage(5);
-                    autoGenerateTreatmentStage5();
-                }
-            }
-        }));
-    }
-
-    // --- Stage 5: Treatment Functions ---
+    // --- Stage 4: Treatment Functions (internal id: stage 5) ---
 
     function stripTreatmentRevisionArtifacts(value) {
         return String(value || '')
@@ -5765,7 +5261,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStage5Revise) btnStage5Revise.classList.add('hidden');
 
                 if (context.shouldPromptForNextStage) {
-                    showGenericRegenModal('Treatment', 'Stage 6 Scenes',
+                    showGenericRegenModal('Treatment', 'Stage 5 Scene Blueprint',
                         () => { switchStage(6); generateStage6(); },
                         () => { switchStage(6); }
                     );
@@ -6150,7 +5646,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!activeProjectId) return;
 
-        const confirmText = 'Create a fresh Scene Blueprint from the approved Pitch, Characters, Beats, and Treatment? The current blueprint will be saved in Version History first.';
+        const confirmText = 'Create a fresh Scene Blueprint from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment? The current blueprint will be saved in Version History first.';
         if (!confirm(confirmText)) return;
 
         const originalText = btnStage6Regenerate?.textContent;
@@ -6324,7 +5820,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stageId: 6,
             button: btnStage6Approve,
             stageKey: 'stage6_scenes',
-            stageName: 'Scenes',
+            stageName: 'Scene Blueprint',
             getContext: () => ({
                 shouldPromptForNextStage: stageHasGeneratedOutput(window.currentProjectData, 8)
             }),
@@ -6344,7 +5840,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (context.shouldPromptForNextStage) {
                     // Stage 7 (Style) sits between 6 and 8 — offer regen of Stage 8 only if a draft exists.
-                    showGenericRegenModal('Scenes', 'Stage 8 Draft',
+                    showGenericRegenModal('Scene Blueprint', 'Stage 7 Draft',
                         () => { switchStage(8); initStage8(); },
                         () => { switchStage(7); }
                     );
@@ -6794,15 +6290,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnDownloadCharacters.addEventListener('click', () => {
             if (!window.currentProjectData?.stage3_characters?.characters?.length) { alert('No characters have been generated yet.'); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=characters`, btnDownloadCharacters);
-        });
-    }
-
-    const btnDownloadBeats = document.getElementById('btnDownloadBeats');
-    if (btnDownloadBeats) {
-        btnDownloadBeats.addEventListener('click', () => {
-            const d = window.currentProjectData?.stage4_beats || window.currentProjectData?.stage4_treatment;
-            if (!d?.hybrid_beat_sheet) { alert('No beats have been generated yet.'); return; }
-            triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=beats`, btnDownloadBeats);
         });
     }
 
@@ -7837,8 +7324,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     return { outline: getCurrentStage2Outline() };
                 case 3:
                     return { characters: getCurrentStage3Characters() };
-                case 4:
-                    return getCurrentStage4Beats();
                 case 5:
                     return getCurrentStage5Treatment();
                 case 6:
@@ -8241,10 +7726,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setCurrentStage3Payload(result);
             renderCharacters(result.characters);
             setApproveButtonState(btnStage3Approve, 'ready');
-        } else if (Number(stageId) === 4 && result) {
-            setCurrentStage4BeatsPayload(result);
-            renderTreatment(result);
-            setApproveButtonState(btnStage4Approve, 'ready');
         } else if (Number(stageId) === 5 && result) {
             setCurrentStage5TreatmentPayload(result);
             renderTreatmentStage5(result);
@@ -8261,7 +7742,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function applySourceAuditRevision(stageId, audit, button) {
-        const supported = [2, 3, 4, 5, 6, 8].includes(Number(stageId));
+        const supported = [2, 3, 5, 6, 8].includes(Number(stageId));
         if (!supported) return null;
 
         const res = await fetch('/api/source-revise-stage', {
@@ -8360,7 +7841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addSourceAuditButton(stageId) {
-        if (![1, 2, 3, 4, 5, 6, 7, 8, 10].includes(stageId)) return;
+        if (![1, 2, 3, 5, 6, 7, 8, 10].includes(stageId)) return;
         const chatEl = document.getElementById(`stage${stageId}-chat`);
         const header = chatEl?.querySelector('.chat-header');
         if (!header || header.querySelector('.source-audit-btn')) return;
@@ -8378,7 +7859,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addSourcePlanButton(stageId) {
-        if (![1, 2, 3, 4, 5, 6, 7, 8, 10].includes(stageId)) return;
+        if (![1, 2, 3, 5, 6, 7, 8, 10].includes(stageId)) return;
         const chatEl = document.getElementById(`stage${stageId}-chat`);
         const header = chatEl?.querySelector('.chat-header');
         if (!header || header.querySelector('.source-plan-btn')) return;
@@ -8770,41 +8251,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 changed: !revisionReceiptFailed(data) && (
                     revisionReceiptChanged(data)
                     || (data.changed !== false && JSON.stringify(currentCharacters) !== JSON.stringify(data.result?.characters || []))
-                )
-            };
-        }
-    });
-
-    // Stage 4
-    stageChatWindows[4] = initStageChat({
-        stageId: 4,
-        threadId: 'stage4-chat-thread',
-        inputId: 'stage4-chat-input',
-        sendBtnId: 'stage4-chat-send',
-        executeRevision: async (notes) => {
-            if (!activeProjectId) throw new Error('No active project');
-            const currentBeats = getCurrentStage4Beats();
-            const formData = new FormData();
-            formData.append('projectId', activeProjectId);
-            formData.append('currentBeats', JSON.stringify(currentBeats));
-            formData.append('notes', notes);
-            const response = await fetch('/api/generate-stage4-beats', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error(`Server error ${response.status}`);
-            let completeEvent = null;
-            await readSSEStream(response, async (event) => {
-                if (event.type === 'complete') {
-                    completeEvent = event;
-                    renderTreatment(event.result);
-                    await handleSourceGenerationResult(4, event, { chat: stageChatWindows[4] });
-                    setApproveButtonState(btnStage4Approve, 'ready');
-                } else if (event.type === 'error') throw new Error(event.message);
-            });
-            if (!completeEvent) throw new Error('Beat revision finished without a completion event.');
-            return {
-                ...completeEvent,
-                changed: !revisionReceiptFailed(completeEvent) && (
-                    revisionReceiptChanged(completeEvent)
-                    || (completeEvent.changed !== false && JSON.stringify(currentBeats) !== JSON.stringify(completeEvent.result || {}))
                 )
             };
         }
@@ -9488,8 +8934,8 @@ document.addEventListener('DOMContentLoaded', () => {
         header.addEventListener('click', () => setCollapsed(!chatEl.classList.contains('collapsed')));
     }
 
-    // ─── STAGE CHAT RESIZERS (Stages 1–6, 8) ──────────────────────────────────
-    for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    // ─── STAGE CHAT RESIZERS (visible pipeline stages with chat panes) ─────────
+    for (const s of [1, 2, 3, 5, 6, 7, 8]) {
         const hsplit = document.getElementById(`stage${s}-hsplit`);
         const chatEl = document.getElementById(`stage${s}-chat`);
         if (!hsplit || !chatEl) continue;
@@ -9599,12 +9045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('\n');
         }
 
-        // Stage 4 — Beats (array of objects with beat_number)
-        if (stage === 4 && Array.isArray(snap)) {
-            return snap.map(b => `Beat ${b.beat_number}: ${b.beat_name || ''}\n  ${b.description || ''}`).join('\n\n');
-        }
-
-        // Stage 5 — Treatment (array of sequences / scenes)
+        // Stage 4 — Treatment (internal id: stage 5)
         if (stage === 5) {
             const seqs = Array.isArray(snap) ? snap : Object.values(snap);
             return seqs.map(seq => {
@@ -10799,9 +10240,9 @@ async function loadBuildInfo() {
         { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ];
 
-    const STAGE_LABELS = [
-        [1, 'Pitch'], [2, 'Outline'], [3, 'Characters'], [4, 'Beats'],
-        [5, 'Treatment'], [6, 'Scenes'], [7, 'Style'], [8, 'Draft'],
+    const STAGE_MODEL_LABELS = [
+        [1, 'Pitch'], [2, 'Outline'], [3, 'Characters'], [5, 'Treatment'],
+        [6, 'Scene Blueprint'], [7, 'Style'], [8, 'Draft'],
         [9, 'Coverage'], [10, 'Rewrite']
     ];
 
@@ -10870,13 +10311,13 @@ async function loadBuildInfo() {
         // Build per-stage model dropdowns
         const container = document.getElementById('settings-stage-models');
         container.innerHTML = '';
-        STAGE_LABELS.forEach(([num, label]) => {
+        STAGE_MODEL_LABELS.forEach(([num, label]) => {
             const currentModel = settings.stageModels?.[`stage${num}`] || 'gemini-3.1-pro-preview';
             const row = document.createElement('div');
             row.style.cssText = 'display:flex;align-items:center;gap:12px';
             const lbl = document.createElement('span');
             lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
-            lbl.textContent = `Stage ${num}: ${label}`;
+            lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
             row.appendChild(lbl);
             row.appendChild(buildModelSelect(num, currentModel));
             container.appendChild(row);
@@ -10898,7 +10339,7 @@ async function loadBuildInfo() {
         const anthropicApiKey = document.getElementById('settings-anthropic-key').value.trim();
 
         const stageModels = {};
-        STAGE_LABELS.forEach(([num]) => {
+        STAGE_MODEL_LABELS.forEach(([num]) => {
             const sel = document.getElementById(`settings-model-stage${num}`);
             if (sel) stageModels[`stage${num}`] = sel.value;
         });

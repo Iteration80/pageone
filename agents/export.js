@@ -956,7 +956,7 @@ async function generatePitchDocx(pitch) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 4: Beat Sheet → .docx
+// Derived Beat Sheet compatibility export → .docx
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function generateBeatsDocx(beatsData, projectTitle) {

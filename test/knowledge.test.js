@@ -36,9 +36,6 @@ const {
     sourceBibleSummary,
     sourceAuditHasActionableItems,
     stageSourceProfile,
-    buildStage4CurrentEventListResponse,
-    stage4CurrentEventListTerm,
-    buildStage4ConfirmationBypassResponse,
     isScopedPolishRequest,
     buildScopedPolishPromptBlock,
     extractNumberedSourceItems,
@@ -228,8 +225,8 @@ test('build fingerprint is exposed, cached, and stamped into exports', () => {
 
 test('compactAuditForKnowledge bounds noisy audit payloads', () => {
     const audit = {
-        stageId: 4,
-        stageName: 'Beats',
+        stageId: 5,
+        stageName: 'Treatment',
         aligned_items: Array.from({ length: 12 }, (_, i) => `aligned ${i}`),
         possible_source_mismatches: ['x'.repeat(900)],
         missing_source_elements: ['missing'],
@@ -240,7 +237,7 @@ test('compactAuditForKnowledge bounds noisy audit payloads', () => {
 
     assert.equal(compact.aligned_items.length, 5);
     assert.ok(compact.possible_source_mismatches[0].length < 650);
-    assert.equal(compact.stageName, 'Beats');
+    assert.equal(compact.stageName, 'Treatment');
 });
 
 test('source audit fix notes include only actionable audit buckets', () => {
@@ -614,7 +611,7 @@ test('frontend keeps sidebar project controls in one footer row', () => {
 test('frontend chat attachment inputs advertise all supported source formats', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const attachmentInputs = [...indexHtml.matchAll(/id="stage(?:[1-8]|10)-chat-attach" accept="([^"]+)"/g)];
-    assert.equal(attachmentInputs.length, 8);
+    assert.equal(attachmentInputs.length, 7);
     for (const [, accept] of attachmentInputs) {
         for (const ext of ['.pdf', '.txt', '.md', '.fountain', '.docx', '.fdx']) {
             assert.ok(accept.includes(ext), `${accept} should include ${ext}`);
@@ -867,7 +864,6 @@ test('streaming generation routes abort model work and skip saves after disconne
 
     for (const label of [
         'Stage 2 outline stream',
-        'Stage 4 beats stream',
         'Stage 5 treatment stream',
         'Stage 6 scene generation stream',
         'Stage 6 revision stream'
@@ -876,10 +872,10 @@ test('streaming generation routes abort model work and skip saves after disconne
     }
 
     assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(2, sourcePacket\), abortTracker\?\.signal\)/);
-    assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(4, sourcePacket\), abortTracker\.signal\)/);
     assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(5, sourcePacket\), abortTracker\.signal\)/);
     assert.match(generationRoutes, /withAbortSignal\(getModelConfig\(6\), abortTracker\.signal\)/);
     assert.match(generationRoutes, /withAbortSignal\(getModelConfigWithSourcePacket\(6, sourcePacket\), abortTracker\?\.signal\)/);
+    assert.doesNotMatch(generationRoutes, /generate-stage4-beats/);
     assert.match(generationRoutes, /abortTracker\?\.throwIfAborted\(\)/);
     assert.match(generationRoutes, /abortTracker\.throwIfAborted\(\)/);
     assert.match(generationRoutes, /isClientAbortError\(error\)/);
@@ -947,31 +943,27 @@ test('Stage 2 outline route uses typed API errors before SSE starts', () => {
 
 test('Stage 3 character route uses typed API errors through generation context', () => {
     const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
-    const stage3Route = generationRoutes.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage4-beats'/)?.[0] || '';
+    const stage3Route = generationRoutes.match(/app\.post\('\/api\/generate-characters'[\s\S]*?app\.post\('\/api\/generate-stage5-treatment'/)?.[0] || '';
 
     assert.match(stage3Route, /Project requires Stage 1 Pitch and Stage 2 Outline to generate Characters/);
     assert.match(stage3Route, /sendApiError\(res, error, "Failed to generate characters"\)/);
     assert.doesNotMatch(stage3Route, /publicErrorDetail\(error\)/);
     assert.doesNotMatch(stage3Route, /throwTypedErrors/);
     assert.doesNotMatch(stage3Route, /res\.status\((400|500)\)/);
+    assert.doesNotMatch(stage3Route, /generate-stage4-beats/);
 });
 
-test('Stage 4 and 5 streaming routes use typed API errors before SSE starts', () => {
+test('Stage 5 treatment streaming route uses typed API errors before SSE starts', () => {
     const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
-    const stage4Route = generationRoutes.match(/app\.post\('\/api\/generate-stage4-beats'[\s\S]*?app\.post\('\/api\/generate-stage5-treatment'/)?.[0] || '';
     const stage5Route = generationRoutes.match(/app\.post\('\/api\/generate-stage5-treatment'[\s\S]*?app\.post\('\/api\/generate-stage6-scenes'/)?.[0] || '';
-    const stage45Routes = `${stage4Route}\n${stage5Route}`;
-
-    assert.match(stage4Route, /sendApiError\(res, error, 'Failed to generate beats'\)/);
-    assert.ok(stage4Route.indexOf("sendApiError(res, error, 'Failed to generate beats')") < stage4Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
-    assert.match(stage4Route, /send\(\{ type: 'error', message: detail \? `Failed to generate beats:/);
 
     assert.match(stage5Route, /sendApiError\(res, error, 'Failed to generate treatment'\)/);
     assert.ok(stage5Route.indexOf("sendApiError(res, error, 'Failed to generate treatment')") < stage5Route.indexOf("res.setHeader('Content-Type', 'text/event-stream')"));
     assert.match(stage5Route, /send\(\{ type: 'error', message: `Failed to generate treatment/);
 
-    assert.doesNotMatch(stage45Routes, /throwTypedErrors/);
-    assert.doesNotMatch(stage45Routes, /res\.status\((400|404|500)\)/);
+    assert.doesNotMatch(generationRoutes, /generate-stage4-beats/);
+    assert.doesNotMatch(stage5Route, /throwTypedErrors/);
+    assert.doesNotMatch(stage5Route, /res\.status\((400|404|500)\)/);
 });
 
 test('Stage 6 blueprint routes use typed API errors before SSE and for JSON revision failures', () => {
@@ -1170,39 +1162,36 @@ test('frontend centralizes full project state replacement for Phase 6 state clea
     assert.match(appJs, /function updateStageNav\(data\) \{\s*data = setCurrentProjectData\(data\);/);
     assert.match(appJs, /setCurrentProjectData\(projectDetails\.data\)/);
     assert.match(appJs, /setCurrentProjectData\(project\.data\);\s*updateStageNav\(project\.data\);/);
-    assert.match(appJs, /function setCurrentStage4BeatsPayload\(payload = \{\}\)/);
-    assert.match(appJs, /function getCurrentStage4Beats\(\)/);
     assert.match(appJs, /function setCurrentStage5TreatmentPayload\(payload = \{\}\)/);
     assert.match(appJs, /function getCurrentStage5Treatment\(\)/);
     assert.match(appJs, /function setCurrentStage6BlueprintPayload\(payload\)/);
     assert.match(appJs, /function getCurrentStage6Blueprint\(\)/);
+    assert.doesNotMatch(appJs, /function setCurrentStage4BeatsPayload/);
+    assert.doesNotMatch(appJs, /function getCurrentStage4Beats/);
     assert.equal(fullReplacementWrites.length, 1);
     assert.equal(refreshDeclarations.length, 1);
 });
 
-test('frontend Stage 4 labels beats separately from Stage 5 treatment', () => {
+test('frontend exposes nine visible stages and hides the derived beat sheet workspace', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
-    const stage4Html = indexHtml.match(/<main id="stage-4-view"[\s\S]*?<main id="stage-5-view"/)?.[0] || '';
-    const stage4App = appJs.match(/=== Stage 4: Beats Logic ===[\s\S]*?--- Stage 5: Treatment Functions ---/)?.[0] || '';
 
-    assert.match(stage4Html, /Stage 4: Beats/);
-    assert.match(stage4Html, />Generate Beats</);
-    assert.doesNotMatch(stage4Html, />Generate Treatment</);
-    assert.match(stage4App, /generating the beat sheet/);
-    assert.match(stage4App, /Generate Beats button/);
-    assert.match(stage4App, /setCurrentStage4BeatsPayload\(treatmentData \|\| \{\}\)/);
-    assert.match(stage4App, /updateCurrentStage4BeatField\(sequenceIndex, beatIndex, f\.key, ta\.value\)/);
-    assert.match(appJs, /getSnapshot: \(\) => getCurrentStage4Beats\(\)/);
-    assert.match(appJs, /const currentBeats = getCurrentStage4Beats\(\)/);
+    assert.doesNotMatch(indexHtml, /nav-stage-4/);
+    assert.doesNotMatch(indexHtml, /stage-4-view/);
+    assert.doesNotMatch(indexHtml, /Stage 4: Beats/);
+    assert.doesNotMatch(indexHtml, />Generate Beats</);
+    assert.match(indexHtml, /id="nav-stage-5"[\s\S]*<span class="badge">4<\/span>[\s\S]*Treatment/);
+    assert.match(indexHtml, /<h1>Stage 4: Treatment<\/h1>/);
+    assert.match(appJs, /const PIPELINE_STAGE_IDS = \[1, 2, 3, 5, 6, 7, 8, 9, 10\]/);
+    assert.match(appJs, /const DISPLAY_STAGE_NUMBERS = \{[\s\S]*5: 4/);
+    assert.doesNotMatch(appJs, /=== Stage 4: Beats Logic ===/);
+    assert.doesNotMatch(appJs, /getCurrentStage4Beats/);
     assert.doesNotMatch(appJs, /\bscrapeTreatment\(/);
-    assert.doesNotMatch(stage4App, /generating the treatment/);
-    assert.doesNotMatch(stage4App, /revising the treatment/);
 });
 
 test('frontend Stage 5 treatment uses state-first data instead of DOM scraping', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
-    const stage5App = appJs.match(/--- Stage 5: Treatment Functions ---[\s\S]*?--- Stage 6 Logic: Scene Blueprint ---/)?.[0] || '';
+    const stage5App = appJs.match(/--- Stage 4: Treatment Functions \(internal id: stage 5\) ---[\s\S]*?--- Stage 6 Logic: Scene Blueprint ---/)?.[0] || '';
 
     assert.match(stage5App, /const STAGE5_TREATMENT_KEYS = \[/);
     assert.match(stage5App, /setCurrentStage5TreatmentPayload\(data\)/);
@@ -1226,59 +1215,20 @@ test('frontend Stage 6 blueprint uses state-first data instead of DOM scraping',
     assert.doesNotMatch(appJs, /\bscrapeStage6\(/);
 });
 
-test('Stage 4 chat treats current beat evidence as newer than stale analysis history', () => {
+test('retired Stage 4 assistant shortcuts and generation route stay removed', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
     const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
 
-    assert.match(serverJs, /function buildStage4CurrentBeatEvidenceBlock/);
-    assert.match(serverJs, /CURRENT STAGE 4 BEAT EVIDENCE/);
-    assert.match(serverJs, /overrides earlier Stage 4 chat messages/);
-    assert.match(serverJs, /Do not repeat an earlier assistant claim unless the current evidence supports it/);
-    assert.match(serverJs, /function isStage4CurrentArtifactAnalysisRequest/);
-    assert.match(serverJs, /CURRENT ARTIFACT ANALYSIS MODE/);
-    assert.match(assistantRoute, /messages\.filter\(m => m\.role === 'user'\)\.slice\(-1\)/);
-    assert.match(assistantRoute, /persistStageConversation\(filePath, projectData, conversationKey, historyForTurn, result\.message\)/);
-    assert.match(generationRoutes, /delete projectData\.data\.conversations\.stage4/);
-
-    assert.match(appJs, /function resetStageChatForNewArtifact/);
-    assert.match(appJs, /Beat sheet regenerated\. Previous Stage 4 chat was cleared/);
-});
-
-test('Stage 4 current event list questions are answered without model analysis', () => {
-    const project = {
-        data: {
-            stage4_beats: {
-                hybrid_beat_sheet: [{
-                    sequence_number: 4,
-                    sequence_title: 'Fairview Dinner',
-                    beats: [{
-                        beat_name: 'Midpoint',
-                        detailed_action: 'Slatern realizes Scott is Dapple at the dinner table.'
-                    }]
-                }, {
-                    sequence_number: 6,
-                    sequence_title: 'Code Wendy',
-                    beats: [{
-                        beat_name: 'All Is Lost',
-                        detailed_action: 'The Kaiju swallows Slatern after Code Wendy escalates beyond control.'
-                    }]
-                }]
-            }
-        }
-    };
-
-    assert.equal(
-        stage4CurrentEventListTerm('List every Kaiju-related event by sequence and beat name from the current beat sheet only.'),
-        'Kaiju'
-    );
-
-    const response = buildStage4CurrentEventListResponse(project, 'List every Kaiju-related event by sequence and beat name from the current beat sheet only.');
-    assert.match(response.message, /current Stage 4 beat sheet only/);
-    assert.match(response.message, /Sequence 6: Code Wendy — All Is Lost/);
-    assert.match(response.message, /Kaiju swallows Slatern/);
-    assert.doesNotMatch(response.message, /Sequence 4/);
+    assert.doesNotMatch(serverJs, /buildStage4CurrentBeatEvidenceBlock/);
+    assert.doesNotMatch(serverJs, /isStage4CurrentArtifactAnalysisRequest/);
+    assert.doesNotMatch(serverJs, /buildStage4CurrentEventListResponse/);
+    assert.doesNotMatch(serverJs, /buildStage4ConfirmationBypassResponse/);
+    assert.doesNotMatch(assistantRoute, /buildStage4ConfirmationBypassResponse/);
+    assert.doesNotMatch(generationRoutes, /generate-stage4-beats/);
+    assert.doesNotMatch(generationRoutes, /delete projectData\.data\.conversations\.stage4/);
+    assert.doesNotMatch(appJs, /Beat sheet regenerated\. Previous Stage 4 chat was cleared/);
 });
 
 test('frontend stage chat re-enables controls after stuck assistant requests', () => {
@@ -1292,59 +1242,7 @@ test('frontend stage chat re-enables controls after stuck assistant requests', (
     assert.match(appJs, /chat\.clear\(\);\s*chat\.setDisabled\(false\);/);
 });
 
-test('Stage 4 revision confirmations bypass brainstorm model and SSE stays alive', () => {
-    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
-    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
-    const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
-    const response = buildStage4ConfirmationBypassResponse([
-        {
-            role: 'assistant',
-            content: "Want me to work that Sequence 5 change into the beat sheet?"
-        },
-        {
-            role: 'user',
-            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
-        }
-    ]);
-    const retryResponse = buildStage4ConfirmationBypassResponse([
-        {
-            role: 'assistant',
-            content: "Want me to work that Sequence 5 change into the beat sheet?"
-        },
-        {
-            role: 'user',
-            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
-        },
-        {
-            role: 'assistant',
-            content: 'Error: Application failed to respond'
-        },
-        {
-            role: 'user',
-            content: "I'm ok with you revising it as long as the change improves the movie's flow and stays faithful to the source spiritually."
-        }
-    ]);
-
-    assert.match(response.message, /Stage 4 revision/);
-    assert.match(retryResponse.message, /Stage 4 revision/);
-    assert.doesNotMatch(appJs, /function isRevisionConfirmation/);
-    assert.doesNotMatch(appJs, /function isRevisionStatusQuestion/);
-    assert.doesNotMatch(appJs, /function findRecentRevisionProposal/);
-    assert.doesNotMatch(appJs, /executeRevision && !attachment && isRevisionConfirmation/);
-    assert.match(serverJs, /function buildStage4ConfirmationBypassResponse/);
-    assert.match(serverJs, /function findRecentStage4RevisionProposal/);
-    assert.match(assistantRoute, /buildStage4ConfirmationBypassResponse\(messages\)/);
-    assert.match(assistantRoute, /name: 'apply_revision'/);
-    assert.match(serverJs, /req\.path === '\/app\.js'/);
-    assert.match(serverJs, /Cache-Control', 'no-store, max-age=0'/);
-    assert.match(generationRoutes, /X-Accel-Buffering', 'no'/);
-    assert.match(generationRoutes, /type: 'heartbeat'/);
-    assert.match(generationRoutes, /res\.flush\?\.\(\)/);
-    assert.match(generationRoutes, /Failed to generate beats: \$\{detail\}/);
-});
-
-test('tool assistant migration covers stages 1 through 8 and 10 with carried guardrails', () => {
+test('tool assistant migration covers visible assistant stages with carried guardrails', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     const assistantRoute = fs.readFileSync(require.resolve('../routes/assistant.js'), 'utf8');
@@ -1359,7 +1257,7 @@ test('tool assistant migration covers stages 1 through 8 and 10 with carried gua
     assert.doesNotMatch(agent2Js, /latestConcreteUserFromRecentContext/);
     assert.match(agent2Js, /function normalizeRevisionBrief/);
     assert.match(serverJs, /buildToolAssistantContextAdditions/);
-    assert.match(serverJs, /buildStage4ConfirmationRevisionBrief/);
+    assert.doesNotMatch(serverJs, /buildStage4ConfirmationRevisionBrief/);
     assert.match(serverJs, /buildMemoryRecallResponse\(projectData/);
     assert.match(assistantJs, /STAGE 8 DRAFT BOUNDARY/);
     assert.match(assistantJs, /name: 'generate_style'/);
@@ -1456,14 +1354,14 @@ test('stage chat source-audit questions are handled by analysis-only tool contex
     assert.match(serverJs, /Source Coverage Matrix/);
     assert.match(serverJs, /EVERY numbered source item/);
     assert.match(serverJs, /Before finalizing, scan the SOURCE ITEM INVENTORY again/);
-    assert.match(serverJs, /stage4CurrentArtifactAnalysis \|\| stage6SourceComparisonAnalysis/);
+    assert.match(serverJs, /latestOnly: stage6SourceComparisonAnalysis \|\| stage6ExternalFeedbackReview \|\| scopedPolishRequest/);
 });
 
 test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
-    for (const id of ['btnStage2Regenerate', 'btnStage3Regenerate', 'btnStage4Regenerate', 'btnStage5Regenerate', 'btnStage6Regenerate', 'btnStage7RegenerateHeader', 'btnStage9Regenerate']) {
+    for (const id of ['btnStage2Regenerate', 'btnStage3Regenerate', 'btnStage5Regenerate', 'btnStage6Regenerate', 'btnStage7RegenerateHeader', 'btnStage9Regenerate']) {
         assert.match(indexHtml, new RegExp(`id="${id}"`));
     }
     assert.match(indexHtml, /Fresh Blueprint/);
@@ -1485,17 +1383,19 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
 
 test('frontend approval regen prompts require generated output in the next stage', () => {
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
-    const stage4ApproveBlock = appJs.slice(
-        appJs.indexOf('// Stage 4 Approve button'),
-        appJs.indexOf('// --- Stage 5: Treatment Functions ---')
+    const stage3ApproveBlock = appJs.slice(
+        appJs.indexOf('btnStage3Approve.addEventListener'),
+        appJs.indexOf('// Utility for safely rendering HTML')
     );
 
     assert.match(appJs, /function stageHasGeneratedOutput/);
     assert.match(appJs, /\[btnStage5Regenerate, stageHasGeneratedOutput\(data, 5\)\]/);
     assert.match(appJs, /case 5:\s*\{[\s\S]*const treatment = d\.stage5_treatment \|\| \{};[\s\S]*Object\.entries\(treatment\)\.some\(\(\[key, value\]\) => key !== 'notes' && String\(value \|\| ''\)\.trim\(\)\);/);
-    assert.match(stage4ApproveBlock, /shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 5\)/);
-    assert.match(stage4ApproveBlock, /if \(context\.shouldPromptForNextStage\) \{\s*showGenericRegenModal\('Beats', 'Stage 5 Treatment'/);
-    assert.doesNotMatch(stage4ApproveBlock, /versionHistory/);
+    assert.match(stage3ApproveBlock, /shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 5\)/);
+    assert.match(stage3ApproveBlock, /showStage3RegenModal\(\)/);
+    assert.match(appJs, /showGenericRegenModal\('Treatment', 'Stage 5 Scene Blueprint'/);
+    assert.match(appJs, /showGenericRegenModal\('Scene Blueprint', 'Stage 7 Draft'/);
+    assert.doesNotMatch(stage3ApproveBlock, /versionHistory/);
     assert.match(appJs, /stageId: 6,[\s\S]*shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 8\)/);
     assert.match(appJs, /flatScenes\(\)\.some\(scene => scene\.draft_text \|\| scene\.humanized_draft_text\)/);
     assert.doesNotMatch(appJs, /stage8_draft/);
@@ -1525,7 +1425,7 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(appJs, /returned no blueprint changes/);
     assert.match(appJs, /changed: data\.changed !== false && JSON\.stringify\(currentPitch\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
-    assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
+    assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
     assert.match(appJs, /return \{ \.\.\.data, changed: true \}/);
     assert.match(appJs, /stage8LoadEditor\(data\.result\)[\s\S]*return data;/);
@@ -1543,7 +1443,6 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(serverJs, /Do not call apply_revision for this turn/);
     assert.match(generationRoutes, /const changed = sourcePlanDataHash\(JSON\.stringify\(parsedPitch\)\) !== sourcePlanDataHash\(JSON\.stringify\(result \|\| \{\}\)\)/);
     assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage3_characters'/);
-    assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage4_beats'/);
     assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage5_treatment'/);
     assert.match(generationRoutes, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 6 scene blueprint'/);
     assert.match(serverJs, /assertRevisionTransactionVerified\(revisionTransaction, label\)/);

@@ -28,7 +28,9 @@ function registerProjectRoutes(app, deps) {
         mergeVersionHistory,
         changedStageKeysFromUpdate,
         stageConfig,
+        deriveStage4BeatsFromStage2Outline,
         recordArtifactMutation,
+        stampGenerated,
         stampRevised,
         removeProjectSourceAssets,
         sendApiError
@@ -320,6 +322,11 @@ function registerProjectRoutes(app, deps) {
                 const nextProject = { ...projectData, ...updates, data: mergedData };
                 delete nextProject.restoreVersionId;
                 delete nextProject.skipSnapshots;
+                const shouldDeriveStage4Beats = Boolean(
+                    updates.data
+                    && Object.prototype.hasOwnProperty.call(updates.data, 'stage2_outline')
+                    && updates.data.stage2_outline?.outline
+                );
 
                 if (updates.data && !Array.isArray(updates.data.versionHistory) && !updates.skipSnapshots) {
                     const operation = updates.restoreVersionId ? 'restore' : 'manual_update';
@@ -341,6 +348,19 @@ function registerProjectRoutes(app, deps) {
                 if (updates.stampRevisedStage) {
                     stampRevised(nextProject, updates.stampRevisedStage);
                     delete nextProject.stampRevisedStage; // Don't persist the flag itself
+                }
+                if (shouldDeriveStage4Beats && updates.stampRevisedStage !== 'stage2_outline') {
+                    stampRevised(nextProject, 'stage2_outline');
+                }
+                if (shouldDeriveStage4Beats) {
+                    deriveStage4BeatsFromStage2Outline(nextProject, {
+                        projectId: id,
+                        stage2Outline: nextProject.data.stage2_outline,
+                        operation: updates.restoreVersionId ? 'restore_derivation' : 'manual_derivation',
+                        note: updates.restoreVersionId
+                            ? `Derived from restored Stage 2 outline (${updates.restoreVersionId})`
+                            : 'Derived from Stage 2 outline project update'
+                    });
                 }
 
                 return nextProject;

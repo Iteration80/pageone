@@ -9,7 +9,6 @@ const {
 } = require('../agents/agent_2_outline');
 const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
 const { agent3Characters } = require('../agents/agent_3_characters');
-const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
 const { generateStage6Scenes } = require('../agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('../agents/agent_6_revise');
@@ -20,7 +19,6 @@ const {
     createRevisionTransaction,
     outlineRevisionAdapter,
     characterRevisionAdapter,
-    stage4RevisionAdapter,
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('../utils/revision_transaction');
@@ -153,21 +151,28 @@ const outlineWithSeparatedMidpointAndSpectacle = {
     }]
 };
 
-function stage4ResponseFixture() {
-    return {
-        stc_genre_category: 'Whydunit',
-        hybrid_beat_sheet: Array.from({ length: 8 }, (_, index) => ({
-            sequence_number: index + 1,
-            sequence_title: `Sequence ${index + 1}`,
-            beats: [{
-                beat_name: index === 3 ? 'Midpoint' : `Beat ${index + 1}`,
-                genre_variation_notes: 'Genre notes.',
-                emotional_arc: 'Emotional arc.',
-                pacing_notes: 'Pacing notes.',
-                detailed_action: 'Mara protects the blue key in the approved sequence.'
-            }]
-        }))
-    };
+function outlineWithStcAnnotations() {
+    const beatNames = [
+        'Opening Image',
+        'Catalyst',
+        'B Story',
+        'Midpoint',
+        'Bad Guys Close In',
+        'All Is Lost',
+        'Break into Three',
+        'Final Image'
+    ];
+    const clone = JSON.parse(JSON.stringify(outlineWithSeparatedMidpointAndSpectacle));
+    ['act_1', 'act_2', 'act_3'].flatMap(key => clone[key]).forEach((sequence, sequenceIndex) => {
+        sequence.beats = (sequence.beats || []).map(beat => ({
+            ...beat,
+            beat_name: beatNames[sequenceIndex] || 'Story Beat',
+            emotional_arc: 'Pressure turns into clearer resolve.',
+            pacing_notes: 'Tight escalation with a clean sequence turn.',
+            genre_variation_notes: 'Thriller pressure stays grounded in the mystery.'
+        }));
+    });
+    return clone;
 }
 
 function treatmentFixture() {
@@ -1519,14 +1524,6 @@ test('revision transactions produce verified receipts across structured stages',
     });
     assert.equal(characterTx.receipt.operations[0].itemType, 'character');
 
-    const stage4Tx = createRevisionTransaction({
-        stageId: 'stage4_beats',
-        before: { hybrid_beat_sheet: [{ sequence_number: 1, beats: [{ beat_name: 'Opening', detailed_action: 'Old.' }] }] },
-        after: { hybrid_beat_sheet: [{ sequence_number: 1, beats: [{ beat_name: 'Opening', detailed_action: 'New.' }] }] },
-        adapter: stage4RevisionAdapter
-    });
-    assert.equal(stage4Tx.receipt.operations[0].itemType, 'stage4_beat');
-
     const treatmentTx = createRevisionTransaction({
         stageId: 'stage5_treatment',
         before: { act_3: 'Old ending.' },
@@ -2055,148 +2052,71 @@ test('Stage 3 tier guidance uses project tier overrides when names appear', asyn
     assert.match(promptText, /Fill only `cameo_profile` with scene_purpose, casting_energy, playable_behavior, and line_style_example/);
 });
 
-test('Stage 4 beat revisions preserve unmentioned beats from the saved sheet', async () => {
-    const currentBeats = stage4ResponseFixture();
-    const damagedModelBeats = stage4ResponseFixture();
-    damagedModelBeats.hybrid_beat_sheet[0].beats[0].detailed_action = 'The opening has been accidentally rewritten.';
-    damagedModelBeats.hybrid_beat_sheet[3].beats[0].detailed_action = 'Mara recognizes June at the flooded arcade midpoint.';
-    const { generateContentFn } = makeRecorder(() => ({
-        text: JSON.stringify(damagedModelBeats),
-        usage: { inputTokens: 1, outputTokens: 1 }
-    }));
-
-    const { result } = await agent4Beats(
-        pitch,
-        outlineWithSeparatedMidpointAndSpectacle,
-        characters,
-        currentBeats,
-        'Only revise [Midpoint] so Mara recognizes June at the flooded arcade.',
-        null,
-        null,
-        { generateContentFn }
-    );
-
-    assert.equal(
-        result.hybrid_beat_sheet[0].beats[0].detailed_action,
-        currentBeats.hybrid_beat_sheet[0].beats[0].detailed_action
-    );
-    assert.match(result.hybrid_beat_sheet[3].beats[0].detailed_action, /recognizes June/);
-});
-
-test('Stage 4 beat generation treats Stage 2 outline sequence placement as binding', async () => {
+test('Stage 2 outline generation owns the merged STC beat annotation contract', async () => {
+    const annotatedOutline = outlineWithStcAnnotations();
     const { calls, generateContentFn } = makeRecorder(() => ({
-        text: JSON.stringify(stage4ResponseFixture()),
+        text: JSON.stringify({
+            title: pitch.title,
+            genre: pitch.genre,
+            logline: pitch.logline,
+            stc_genre_category: 'Whydunit',
+            outline: annotatedOutline
+        }),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    await agent4Beats(pitch, outlineWithSeparatedMidpointAndSpectacle, characters, null, null, null, null, {
+    const { result } = await agent2Outline(pitch, null, '', null, {
         knowledgeContext: BASE_KNOWLEDGE_PACKET,
         generateContentFn
     });
 
     assert.equal(calls.length, 1);
-    assertSourceAwareCall(calls[0], 'Stage 4 Beat Sheet');
     const promptText = collectText(calls[0].contents);
-    assert.match(promptText, /APPROVED STAGE 2 OUTLINE LOCK/);
-    assert.match(promptText, /Stage 4 is an expansion pass/);
-    assert.match(promptText, /Do not move a major event/);
-    assert.match(promptText, /Scott is Dapple/);
-    assert.match(promptText, /Code Wendy triggers the Kaiju transformation/);
-    assert.match(promptText, /same-numbered Stage 2 sequence/);
+    const systemInstruction = calls[0].config.systemInstruction;
+    assert.match(promptText, /stc_genre_category/);
+    assert.match(promptText, /beat_label, beat_name, description, emotional_arc, pacing_notes/);
+    assert.match(systemInstruction, /single structural blueprint/);
+    assert.match(systemInstruction, /Save the Cat/);
+    assert.match(systemInstruction, /roughly 80 words/);
+    assert.deepEqual(calls[0].schema.required, ['title', 'genre', 'logline', 'stc_genre_category', 'outline']);
+    assert.deepEqual(
+        calls[0].schema.properties.outline.properties.act_1.items.properties.beats.items.required,
+        ['beat_label', 'beat_name', 'description', 'emotional_arc', 'pacing_notes']
+    );
+    assert.equal(result.stc_genre_category, 'Whydunit');
+    assert.equal(result.outline.act_2[1].beats[0].beat_name, 'Midpoint');
 });
 
-test('Stage 4 beat revisions include the approved outline lock beside current beats', async () => {
-    const currentBeats = stage4ResponseFixture();
+test('Stage 2 outline revisions keep the merged STC schema in the system contract', async () => {
+    const currentOutline = outlineWithStcAnnotations();
+    const revisedOutline = outlineWithStcAnnotations();
+    revisedOutline.act_2[1].beats[0].description = 'At the Fairview dinner table, Mara recognizes June and pivots into active pursuit.';
     const { calls, generateContentFn } = makeRecorder(() => ({
-        text: JSON.stringify(currentBeats),
+        text: JSON.stringify({
+            title: pitch.title,
+            genre: pitch.genre,
+            logline: pitch.logline,
+            stc_genre_category: 'Whydunit',
+            outline: revisedOutline
+        }),
         usage: { inputTokens: 1, outputTokens: 1 }
     }));
 
-    await agent4Beats(
+    await agent2Outline(
         pitch,
-        outlineWithSeparatedMidpointAndSpectacle,
-        characters,
-        currentBeats,
-        'Restore the Fairview dinner reveal as the Midpoint and keep Code Wendy in Sequence F.',
+        currentOutline,
+        'Only revise [Midpoint Reveal] so Mara recognizes June at the Fairview dinner table.',
         null,
-        null,
-        {
-            knowledgeContext: BASE_KNOWLEDGE_PACKET,
-            generateContentFn
-        }
+        { generateContentFn }
     );
 
     assert.equal(calls.length, 1);
-    assertSourceAwareCall(calls[0], 'Stage 4 Beat Sheet');
     const promptText = collectText(calls[0].contents);
-    assert.match(promptText, /APPROVED STAGE 2 OUTLINE LOCK/);
-    assert.match(promptText, /EXISTING BEATS/);
-    assert.match(promptText, /Fairview dinner table/);
-    assert.match(promptText, /Code Wendy triggers the Kaiju transformation/);
-    assert.match(calls[0].config.systemInstruction, /approved Stage 2 sequence boundaries/);
-    assert.equal(calls[0].config.maxOutputTokens, 32000);
-});
-
-test('Stage 4 beat revisions repair malformed JSON responses', async () => {
-    const currentBeats = stage4ResponseFixture();
-    const repairedBeats = stage4ResponseFixture();
-    const { calls, generateContentFn } = makeRecorder((request, callNumber) => ({
-        text: callNumber === 1
-            ? '{"stc_genre_category":"Whydunit","hybrid_beat_sheet":[{"sequence_number":1,"sequence_title":"Sequence 1","beats":[{"beat_name":"Opening","genre_variation_notes":"Genre notes.","emotional_arc":"Arc.","pacing_notes":"Pacing.","detailed_action":"Mara enters."}]}'
-            : JSON.stringify(repairedBeats),
-        usage: { inputTokens: callNumber, outputTokens: 1 }
-    }));
-
-    const { result, usage } = await agent4Beats(
-        pitch,
-        outlineWithSeparatedMidpointAndSpectacle,
-        characters,
-        currentBeats,
-        'Make the Sequence 7 inside-monster visuals clearer.',
-        null,
-        null,
-        {
-            knowledgeContext: BASE_KNOWLEDGE_PACKET,
-            generateContentFn,
-            retryDelayMs: 0
-        }
-    );
-
-    assert.equal(calls.length, 2);
-    assert.match(collectText(calls[1].contents), /Repair ONLY the JSON syntax/);
-    assert.equal(calls[0].config.maxOutputTokens, 32000);
-    assert.equal(calls[1].config.maxOutputTokens, 32000);
-    assert.equal(result.hybrid_beat_sheet.length, 8);
-    assert.equal(usage.inputTokens, 3);
-});
-
-test('Stage 4 beat generation retries transient model failures', async () => {
-    const { calls, generateContentFn } = makeRecorder((request, callNumber) => {
-        if (callNumber === 1) throw new Error('terminated');
-        return {
-            text: JSON.stringify(stage4ResponseFixture()),
-            usage: { inputTokens: 1, outputTokens: 1 }
-        };
-    });
-
-    const { result } = await agent4Beats(
-        pitch,
-        outlineWithSeparatedMidpointAndSpectacle,
-        characters,
-        null,
-        null,
-        null,
-        null,
-        {
-            knowledgeContext: BASE_KNOWLEDGE_PACKET,
-            generateContentFn,
-            retryDelayMs: 0
-        }
-    );
-
-    assert.equal(calls.length, 2);
-    assert.equal(calls[0].config.maxOutputTokens, 32000);
-    assert.equal(result.hybrid_beat_sheet.length, 8);
+    assert.match(promptText, /ACTIVE REVISION REQUEST/);
+    assert.match(promptText, /EXISTING OUTLINE/);
+    assert.match(calls[0].config.systemInstruction, /there is no later standalone beat-sheet stage/);
+    assert.match(calls[0].config.systemInstruction, /`beat_name`/);
+    assert.match(calls[0].config.systemInstruction, /emotional_arc/);
 });
 
 test('Stage 5 treatment generation carries project memory into each chained prompt', async () => {

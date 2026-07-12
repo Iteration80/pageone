@@ -4,7 +4,7 @@ const STAGE_ARTIFACTS = {
     1: { stage: 1, stageKey: 'stage1_pitch', stageName: 'Pitch' },
     2: { stage: 2, stageKey: 'stage2_outline', stageName: 'Outline' },
     3: { stage: 3, stageKey: 'stage3_characters', stageName: 'Characters' },
-    4: { stage: 4, stageKey: 'stage4_beats', stageName: 'Beats' },
+    4: { stage: 4, stageKey: 'stage4_beats', stageName: 'Derived Beat Sheet' },
     5: { stage: 5, stageKey: 'stage5_treatment', stageName: 'Treatment' },
     6: { stage: 6, stageKey: 'stage6_scenes', stageName: 'Scenes' },
     7: { stage: 7, stageKey: 'stage7_style', stageName: 'Style' },

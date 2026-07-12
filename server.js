@@ -397,7 +397,6 @@ const {
     applyStructuralOutlinePatches
 } = require('./agents/agent_2_outline');
 const { agent3Characters } = require('./agents/agent_3_characters');
-const { agent4Beats } = require('./agents/agent_4_beats');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
@@ -416,7 +415,6 @@ const {
     createRevisionTransaction,
     outlineRevisionAdapter,
     characterRevisionAdapter,
-    stage4RevisionAdapter,
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 } = require('./utils/revision_transaction');
@@ -429,9 +427,10 @@ const {
     stageConfig
 } = require('./utils/artifact_snapshots');
 const { sanitizeOutlineMetaBeats } = require('./utils/outline_sanitizer');
+const { outlineToHybridBeatSheet } = require('./utils/outline_to_beats');
 const { seedStage3TierOverridesForDirectory } = require('./scripts/seed-stage3-tier-overrides');
 const { generateContent } = require('./agents/ai-client');
-const { runAssistantTurn, buildNeutralMessages } = require('./agents/assistant');
+const { runAssistantTurn } = require('./agents/assistant');
 const { registerAssistantRoutes } = require('./routes/assistant');
 const { registerExportRoutes } = require('./routes/export');
 const { registerGenerationRoutes } = require('./routes/generation');
@@ -443,7 +442,7 @@ const { isGoogleAuthEnabled, getSessionEmail, registerAuthRoutes } = require('./
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
-    4: 'Beats', 5: 'Treatment', 6: 'Scene Blueprint',
+    5: 'Treatment', 6: 'Scene Blueprint',
     7: 'Style', 8: 'Draft', 9: 'Coverage', 10: 'Rewrite'
 };
 
@@ -510,18 +509,6 @@ const STAGE_SOURCE_PROFILES = {
             'Ground character identities, relationships, motivations, and limits in saved source material.',
             'Track merged, renamed, or omitted characters as project adaptation choices.',
             'Prefer source-backed contradictions and tensions over generic traits.'
-        ]
-    },
-    4: {
-        label: 'Beats, causality, and set pieces',
-        maxSources: 7,
-        queryTerms: ['beat', 'set piece', 'cause', 'effect', 'reveal', 'choice', 'consequence'],
-        preferredTypes: ['source_reference', 'development_notes'],
-        preferredTags: ['source_reference', 'notes', 'beats'],
-        directives: [
-            'Use source references to preserve cause-and-effect logic between major moments.',
-            'Flag or avoid beats that skip a source-supported motivation or consequence.',
-            'Keep set pieces tied to source-supported stakes unless a divergence has been accepted.'
         ]
     },
     5: {
@@ -1924,6 +1911,29 @@ async function prepareGenerationProjectContext(req, res, {
     return { projectId, filePath, projectData, data: projectData.data || {} };
 }
 
+function deriveStage4BeatsFromStage2Outline(projectData, {
+    projectId = projectData?.id || '',
+    stage2Outline = projectData?.data?.stage2_outline || null,
+    operation = 'derivation',
+    note = 'Derived from Stage 2 Outline'
+} = {}) {
+    if (!stage2Outline?.outline) return null;
+    projectData.data = projectData.data || {};
+    const derived = outlineToHybridBeatSheet(stage2Outline);
+    const before = projectData.data.stage4_beats || null;
+    recordArtifactMutation(projectData, {
+        projectId,
+        stage: 4,
+        before,
+        after: derived,
+        operation,
+        note
+    });
+    projectData.data.stage4_beats = derived;
+    stampGenerated(projectData, 'stage4_beats');
+    return derived;
+}
+
 async function finalizeGeneratedStageArtifact({
     projectId,
     filePath,
@@ -1941,6 +1951,7 @@ async function finalizeGeneratedStageArtifact({
     sourceReason = operation,
     sourceData = result,
     beforeSave = null,
+    afterStageStamp = null,
     afterSave = null
 } = {}) {
     const snapshotEntries = recordArtifactMutation(projectData, {
@@ -1962,6 +1973,8 @@ async function finalizeGeneratedStageArtifact({
     } else {
         stampGenerated(projectData, stageKey);
     }
+
+    if (afterStageStamp) await afterStageStamp(projectData);
 
     if (sourcePacket) {
         recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(sourceData, null, 2), sourceReason);
@@ -1998,6 +2011,7 @@ async function finalizeGenerationEndpointArtifact({
     sourceReason = operation,
     sourceData = result,
     beforeSave = null,
+    afterStageStamp = null,
     afterSave = null
 } = {}) {
     const receipt = revisionReceipt !== undefined
@@ -2020,6 +2034,7 @@ async function finalizeGenerationEndpointArtifact({
         sourceReason,
         sourceData,
         beforeSave,
+        afterStageStamp,
         afterSave
     });
     return { snapshotIds, revisionReceipt: receipt, changed };
@@ -2806,7 +2821,6 @@ function stageHasApprovedOutput(projectData, stageId) {
         case 1: return !!data.stage1_pitch?.pitch;
         case 2: return !!data.stage2_outline?.outline?.length;
         case 3: return !!data.stage3_characters?.characters?.length;
-        case 4: return !!data.stage4_beats;
         case 5: return !!data.stage5_treatment;
         case 6: return !!data.stage6_scenes?.length;
         case 7: return !!data.stage7_style;
@@ -2839,8 +2853,6 @@ function stageDataForReadiness(projectData, stageId) {
                 tier_overrides: data.stage3_characters?.tier_overrides || {},
                 characters: normalizeStage3CharactersForPipeline(data.stage3_characters || {})
             }, null, 2);
-        case 4:
-            return JSON.stringify(data.stage4_beats || data.stage4_treatment || [], null, 2);
         case 5:
             return JSON.stringify(data.stage5_treatment || {}, null, 2);
         case 6:
@@ -3002,7 +3014,6 @@ function stageHasReadinessOutput(projectData, stageId) {
         case 1: return !!data.stage1_pitch?.pitch;
         case 2: return !!data.stage2_outline?.outline?.length;
         case 3: return !!data.stage3_characters?.characters?.length;
-        case 4: return !!(data.stage4_beats || data.stage4_treatment);
         case 5: return !!data.stage5_treatment;
         case 6: return !!data.stage6_scenes?.length;
         case 7: return !!data.stage7_style;
@@ -3238,14 +3249,14 @@ function sourceAuditForClient(audit = {}, readiness = null) {
 
 function buildSourceReadinessList(projectData) {
     const knowledge = ensureProjectKnowledge(projectData);
-    const stageIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10]);
+    const stageIds = new Set([1, 2, 3, 5, 6, 7, 8, 10]);
     for (const key of Object.keys(knowledge.stage_source_audits || {})) {
         const stageId = Number(key.replace('stage', ''));
-        if (stageId) stageIds.add(stageId);
+        if (stageId && STAGE_NAMES[stageId]) stageIds.add(stageId);
     }
     for (const key of Object.keys(knowledge.stage_source_plans || {})) {
         const stageId = Number(key.replace('stage', ''));
-        if (stageId) stageIds.add(stageId);
+        if (stageId && STAGE_NAMES[stageId]) stageIds.add(stageId);
     }
     return Array.from(stageIds)
         .sort((a, b) => a - b)
@@ -3378,54 +3389,6 @@ ${body}`;
     }).join('\n\n---\n\n');
 }
 
-function buildStage4OutlineDiscussionBoundary(projectData) {
-    const outline = projectData.data?.stage2_outline?.outline;
-    if (!outline) return '';
-    return `## STAGE 4 OUTLINE ALIGNMENT BOUNDARY
-You are discussing the Stage 4 beat sheet, but the approved Stage 2 outline below is binding for sequence order, act placement, reveal placement, set-piece placement, cause/effect, transformations, and endpoints.
-
-When the writer asks whether a Stage 4 beat originated in the outline, verify against this block before answering. If the beat sheet moved or invented a major event that is not in the same Stage 2 sequence, identify it as Stage 4 drift or an adaptation addition, not as outline intent.
-
-APPROVED STAGE 2 OUTLINE:
-${compactText(JSON.stringify(outline, null, 2), 12_000)}`;
-}
-
-function buildStage4CurrentBeatEvidenceBlock(projectData) {
-    const sheet = projectData.data?.stage4_beats?.hybrid_beat_sheet
-        || projectData.data?.stage4_treatment?.hybrid_beat_sheet;
-    if (!Array.isArray(sheet) || !sheet.length) return '';
-
-    const sequences = sheet.map(sequence => {
-        const beats = Array.isArray(sequence.beats)
-            ? sequence.beats.map(beat => {
-                const text = [
-                    beat.detailed_action,
-                    beat.emotional_arc,
-                    beat.genre_variation_notes,
-                    beat.pacing_notes
-                ].filter(Boolean).join(' ');
-                return `- ${beat.beat_name || 'Unnamed beat'}: ${compactText(text, 1_200)}`;
-            }).join('\n')
-            : compactText(JSON.stringify(sequence.beats || [], null, 2), 700);
-        return `Sequence ${sequence.sequence_number || '?'}: ${sequence.sequence_title || 'Untitled'}\n${beats}`;
-    }).join('\n\n');
-
-    return `## CURRENT STAGE 4 BEAT EVIDENCE
-This is a compact map of the CURRENT saved beat sheet. It overrides earlier Stage 4 chat messages, which may refer to an older regenerated version.
-
-Rules for analysis:
-- Verify event placement against this current evidence before naming a contradiction.
-- Do not repeat an earlier assistant claim unless the current evidence supports it.
-- If prior chat says an event is in one sequence but the current evidence places it elsewhere, call the prior chat stale and analyze the current placement.
-
-${compactText(sequences, 14_000)}`;
-}
-
-function isStage4CurrentArtifactAnalysisRequest(message = '') {
-    const text = String(message || '').toLowerCase();
-    return /\b(analy[sz]e|analysis|review|assess|source[- ]?faith|source material|contradict|contradiction|fundamental|outline|midpoint|beat sheet|current|regenerated|new version)\b/.test(text);
-}
-
 function isStage6SourceComparisonRequest(message = '', hasAttachment = false) {
     if (!hasAttachment) return false;
     const text = String(message || '').toLowerCase();
@@ -3482,114 +3445,6 @@ The attachment contains these numbered source items. Your audit must account for
 ${items.map(item => `- ${item.id}: ${item.summary}`).join('\n')}`;
 }
 
-function stage4CurrentEventListTerm(message = '') {
-    const text = String(message || '').trim();
-    const match = text.match(/\blist\s+(?:all|every)\s+(.+?)(?:[-\s]?related)?\s+events?\b/i);
-    if (!match) return '';
-    return match[1]
-        .replace(/\b(current|new|regenerated|stage\s*4|beat\s*sheet|only)\b/gi, ' ')
-        .replace(/[-_]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function buildStage4CurrentEventListResponse(projectData, message = '') {
-    const term = stage4CurrentEventListTerm(message);
-    if (!term) return null;
-
-    const sheet = projectData.data?.stage4_beats?.hybrid_beat_sheet
-        || projectData.data?.stage4_treatment?.hybrid_beat_sheet;
-    if (!Array.isArray(sheet) || !sheet.length) {
-        return {
-            message: 'I do not see a current Stage 4 beat sheet saved for this project yet.'
-        };
-    }
-
-    const needles = term.toLowerCase().split(/\s+/).filter(Boolean);
-    const matches = [];
-    for (const sequence of sheet) {
-        for (const beat of Array.isArray(sequence.beats) ? sequence.beats : []) {
-            const searchable = [
-                sequence.sequence_title,
-                beat.beat_name,
-                beat.detailed_action,
-                beat.emotional_arc,
-                beat.genre_variation_notes,
-                beat.pacing_notes
-            ].filter(Boolean).join(' ');
-            const lower = searchable.toLowerCase();
-            if (!needles.every(needle => lower.includes(needle))) continue;
-            matches.push({
-                sequenceNumber: sequence.sequence_number || '?',
-                sequenceTitle: sequence.sequence_title || 'Untitled',
-                beatName: beat.beat_name || 'Unnamed beat',
-                excerpt: compactText(beat.detailed_action || searchable, 420)
-            });
-        }
-    }
-
-    const heading = `From the current Stage 4 beat sheet only, I found ${matches.length} ${term}-related event${matches.length === 1 ? '' : 's'}:`;
-    const body = matches.length
-        ? matches.map(item => `- Sequence ${item.sequenceNumber}: ${item.sequenceTitle} — ${item.beatName}: ${item.excerpt}`).join('\n')
-        : `- No current Stage 4 beats mention ${term}.`;
-
-    return {
-        message: `${heading}\n\n${body}`
-    };
-}
-
-const STAGE4_CONFIRMATION_PATTERN = /\b(yes|yep|yeah|sure|ok|okay|go ahead|do it|apply|revise|revising|make the change|sounds good|i(?:'|\u2019)?m ok|i am ok|fine)\b/i;
-const STAGE4_REVISION_PROPOSAL_PATTERN = /\b(want me to|should we|do you want|revise|revising|revision|update|align|work that|apply|applying|change|improve|sequence\s*5|kaiju march|source spiritually|faithful|flow)\b/i;
-const STAGE4_ASSISTANT_ERROR_PATTERN = /^(error:|something went wrong|assistant request timed out|application failed|failed to respond)/i;
-
-function isStage4AssistantErrorMessage(content = '') {
-    return STAGE4_ASSISTANT_ERROR_PATTERN.test(String(content || '').trim());
-}
-
-function findRecentStage4RevisionProposal(messages = []) {
-    return messages
-        .slice(0, -1)
-        .reverse()
-        .find(m => m.role === 'assistant'
-            && typeof m.content === 'string'
-            && m.content.trim()
-            && !isStage4AssistantErrorMessage(m.content)
-            && STAGE4_REVISION_PROPOSAL_PATTERN.test(m.content));
-}
-
-function buildStage4ConfirmationBypassResponse(messages = []) {
-    const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
-    const clean = String(latestUserMessage || '').trim();
-    if (!clean || clean.length > 240) return null;
-    if (!STAGE4_CONFIRMATION_PATTERN.test(clean)) return null;
-
-    const priorAssistant = findRecentStage4RevisionProposal(messages);
-    if (!priorAssistant) return null;
-
-    return {
-        message: 'On it — applying that Stage 4 revision now.'
-    };
-}
-
-function buildStage4ConfirmationRevisionBrief(messages = []) {
-    const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
-    const priorAssistant = findRecentStage4RevisionProposal(messages);
-    const recentConversation = messages
-        .slice(-10)
-        .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}:\n${m.content || ''}`)
-        .join('\n\n---\n\n');
-    return `LATEST USER CONFIRMATION:
-${latestUserMessage}
-
-Apply the most recent concrete Stage 4 beat-sheet revision proposal from the assistant context below. Preserve any constraints in the latest user confirmation. Do not treat older, unrelated discussion items as additional instructions.
-
-RECENT ASSISTANT PROPOSAL:
-${priorAssistant?.content || 'No prior assistant proposal captured.'}
-
-RECENT CONVERSATION CONTEXT:
-${recentConversation}`;
-}
-
 function isScopedPolishRequest(message = '') {
     const text = String(message || '');
     if (!text.trim()) return false;
@@ -3636,27 +3491,12 @@ function isSourceLocationQuestion(message = '') {
 
 function buildToolAssistantContextAdditions({ projectData, stageId, lastUserMessage = '', attachmentText = '', isInit = false }) {
     const numericStageId = Number(stageId);
-    const stage4CurrentArtifactAnalysis = !isInit && numericStageId === 4 && isStage4CurrentArtifactAnalysisRequest(lastUserMessage);
     const stage6SourceComparisonAnalysis = !isInit && numericStageId === 6 && isStage6SourceComparisonRequest(lastUserMessage, Boolean(attachmentText));
     const stage6ExternalFeedbackReview = !isInit && numericStageId === 6 && isStage6ExternalFeedbackReviewRequest(lastUserMessage);
     const scopedPolishRequest = !isInit && isScopedPolishRequest(lastUserMessage);
     const sourceLocationQuestion = !isInit && isSourceLocationQuestion(lastUserMessage);
 
     const fragments = [];
-
-    if (numericStageId === 4) {
-        const outlineBoundary = buildStage4OutlineDiscussionBoundary(projectData);
-        if (outlineBoundary) fragments.push(outlineBoundary);
-    }
-
-    if (stage4CurrentArtifactAnalysis) {
-        fragments.push(`## CURRENT ARTIFACT ANALYSIS MODE
-The writer is asking you to analyze the current Stage 4 beat sheet. Ignore earlier Stage 4 assistant analysis or claims because they may describe a previous regenerated version. Use only the CURRENT Stage 4 artifact, the approved Stage 2 outline, source/project memory, and the latest writer question.
-
-When flagging a contradiction or structural drift, cite the current sequence number and beat name that supports the claim. If the current beat sheet does not support a prior claim, do not repeat it. Do not call apply_revision unless the writer explicitly asks you to apply a concrete change.`);
-        const currentBeatEvidence = buildStage4CurrentBeatEvidenceBlock(projectData);
-        if (currentBeatEvidence) fragments.push(currentBeatEvidence);
-    }
 
     if (stage6SourceComparisonAnalysis) {
         fragments.push(buildSourceItemInventoryBlock(attachmentText));
@@ -3717,7 +3557,7 @@ Hard rules:
 
     return {
         context: fragments.filter(Boolean).join('\n\n---\n\n'),
-        latestOnly: stage4CurrentArtifactAnalysis || stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview || scopedPolishRequest
+        latestOnly: stage6SourceComparisonAnalysis || stage6ExternalFeedbackReview || scopedPolishRequest
     };
 }
 
@@ -3738,9 +3578,6 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
                 tier_overrides: projectData.data?.stage3_characters?.tier_overrides || {},
                 characters: normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {})
             }, null, 2);
-            break;
-        case 4:
-            stageData = JSON.stringify(projectData.data?.stage4_beats || [], null, 2);
             break;
         case 5: {
             const t = projectData.data?.stage5_treatment || {};
@@ -4031,6 +3868,7 @@ registerGenerationRoutes(app, {
     recordSourceGenerationUsage,
     trackUsage,
     prepareGenerationProjectContext,
+    deriveStage4BeatsFromStage2Outline,
     finalizeGenerationEndpointArtifact,
     completeGenerationEndpoint,
     createClientAbortTracker,
@@ -4042,7 +3880,6 @@ registerGenerationRoutes(app, {
     createRevisionTransaction,
     outlineRevisionAdapter,
     characterRevisionAdapter,
-    stage4RevisionAdapter,
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter,
     buildOutlineRevisionChecklist,
@@ -4057,7 +3894,6 @@ registerGenerationRoutes(app, {
     agent1Refine,
     agent2Outline,
     agent3Characters,
-    agent4Beats,
     agent5Treatment,
     generateStage6Scenes,
     reviseStage6Scenes,
@@ -4169,14 +4005,10 @@ registerAssistantRoutes(app, {
     buildKnowledgeContextBlock,
     memoryUsageForStage,
     updateProjectJSON,
-    buildStage4CurrentEventListResponse,
     persistStageConversation,
     buildMemoryRecallResponse,
     compactText,
     buildToolAssistantContextAdditions,
-    buildStage4ConfirmationBypassResponse,
-    buildStage4ConfirmationRevisionBrief,
-    buildNeutralMessages,
     trackUsage,
     sendApiError
 });
@@ -4244,7 +4076,9 @@ registerProjectRoutes(app, {
     mergeVersionHistory,
     changedStageKeysFromUpdate,
     stageConfig,
+    deriveStage4BeatsFromStage2Outline,
     recordArtifactMutation,
+    stampGenerated,
     stampRevised,
     removeProjectSourceAssets,
     sendApiError
@@ -4411,9 +4245,6 @@ module.exports = {
     sourceAuditHasActionableItems,
     stageSourceProfile,
     stageDataOverrideToText,
-    buildStage4CurrentEventListResponse,
-    stage4CurrentEventListTerm,
-    buildStage4ConfirmationBypassResponse,
     isScopedPolishRequest,
     buildScopedPolishPromptBlock,
     extractNumberedSourceItems,

@@ -1,5 +1,10 @@
 # PageOne Pipeline Audit — Outline / Beats / Treatment Redundancy (2026-07-12)
 
+**Status update (2026-07-12):** Option A has been implemented with one naming adjustment:
+the merged structure pass keeps the user-facing name **Outline**. The former Beats stage is
+retired from the visible pipeline; `stage4_beats` remains only as a derived compatibility
+artifact generated from Stage 2 Outline for downstream Treatment and Scene Blueprint reads.
+
 Author: Claude (Fable 5). Evidence: code audit of routes/generation.js + agents 2–6 + skill
 SOPs (file:line refs throughout), plus content analysis of the six I.M.A.G.I.N.E. stage
 exports (2026-07-12). Question under audit: are Outline → Beats → Treatment three documents

@@ -187,24 +187,6 @@ function characterRevisionAdapter({ before, after, notes = '' }) {
     return namedItemDiffAdapter({ before, after, labelKey: 'name', itemType: 'character', notes, guardDeletions: true });
 }
 
-function flattenStage4Beats(stage4 = {}) {
-    return (Array.isArray(stage4?.hybrid_beat_sheet) ? stage4.hybrid_beat_sheet : [])
-        .flatMap(sequence => (Array.isArray(sequence?.beats) ? sequence.beats : [])
-            .map(beat => ({
-                ...beat,
-                _label: `${sequence.sequence_number || ''}:${beat.beat_name || ''}`
-            })));
-}
-
-function stage4RevisionAdapter({ before, after }) {
-    return namedItemDiffAdapter({
-        before: flattenStage4Beats(before),
-        after: flattenStage4Beats(after),
-        labelKey: '_label',
-        itemType: 'stage4_beat'
-    });
-}
-
 function treatmentRevisionAdapter({ before = {}, after = {} }) {
     const fields = ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3'];
     const operations = fields
@@ -276,7 +258,6 @@ module.exports = {
     dataHash,
     outlineRevisionAdapter,
     characterRevisionAdapter,
-    stage4RevisionAdapter,
     treatmentRevisionAdapter,
     sceneBlueprintRevisionAdapter
 };
