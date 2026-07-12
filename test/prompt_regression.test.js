@@ -7,6 +7,7 @@ const {
     buildRevisionChecklist,
     applyStructuralOutlinePatches
 } = require('../agents/agent_2_outline');
+const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
 const { agent3Characters } = require('../agents/agent_3_characters');
 const { agent4Beats } = require('../agents/agent_4_beats');
 const { agent5Treatment } = require('../agents/agent_5_treatment');
@@ -212,6 +213,69 @@ function makeRecorder(responder) {
     };
     return { calls, generateContentFn };
 }
+
+test('Stage 2 outline sanitizer removes leaked tone guidance beats', () => {
+    const outline = {
+        outline: {
+            act_1: [],
+            act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: Resolution',
+                beats: [{
+                    beat_label: 'Closing Image',
+                    description: 'Mara returns the blue key to the silent arcade.'
+                }, {
+                    beat_label: 'Tone',
+                    description: 'Ensure the "Saul Goodman" and "Dirty Rotten Scoundrels" likeability is present. Remove any remaining "AI-style" jargon.'
+                }]
+            }]
+        }
+    };
+
+    sanitizeOutlineMetaBeats(outline);
+
+    assert.deepEqual(outline.outline.act_3[0].beats, [{
+        beat_label: 'Closing Image',
+        description: 'Mara returns the blue key to the silent arcade.'
+    }]);
+});
+
+test('Stage 2 outline agent output filters leaked tone guidance beats before returning', async () => {
+    const outlineResponse = {
+        title: pitch.title,
+        genre: pitch.genre,
+        logline: pitch.logline,
+        outline: {
+            act_1: [],
+            act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: Resolution',
+                beats: [{
+                    beat_label: 'Closing Image',
+                    description: 'Mara returns the blue key to the silent arcade.'
+                }, {
+                    beat_label: 'Tone',
+                    description: 'Ensure the likeability is present. Remove any remaining AI-style jargon.'
+                }]
+            }]
+        }
+    };
+    const { generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(outlineResponse),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent2Outline(pitch, null, null, null, {
+        model: 'gemini-test',
+        geminiApiKey: 'test-key',
+        generateContentFn
+    });
+
+    assert.deepEqual(result.outline.act_3[0].beats, [{
+        beat_label: 'Closing Image',
+        description: 'Mara returns the blue key to the silent arcade.'
+    }]);
+});
 
 test('Stage 2 outline notes with an empty scraped outline generate a fresh outline', async () => {
     const emptyScrapedOutline = { act_1: [], act_2: [], act_3: [] };
@@ -1797,6 +1861,18 @@ test('Stage 3 character generation coerces configured project tiers and strips m
                 },
                 arc: { core_drive: 'To be safe', direction: 'Growth' },
                 _deep_profile: { mbti_type: 'ISTJ' }
+            },
+            {
+                name: 'Moog',
+                role: 'Repeat Offender',
+                profile_tier: 'Tier 1',
+                brief_summary: 'A hulking stone-and-root figment whose desperate attempts to be seen by his aged-out child result in massive property damage.',
+                functional_profile: {},
+                cameo_profile: {},
+                psychological_core: {},
+                voice_and_behavior: {},
+                arc: {},
+                ticks: {}
             }
         ]
     };
@@ -1813,7 +1889,7 @@ test('Stage 3 character generation coerces configured project tiers and strips m
         null,
         {
             generateContentFn,
-            tierOverrides: { Molly: 3, Pono: 2 }
+            tierOverrides: { Molly: 3, Pono: 2, Moog: 2 }
         }
     );
 
@@ -1840,6 +1916,13 @@ test('Stage 3 character generation coerces configured project tiers and strips m
     assert.equal(pono.ticks.description, '');
     assert.equal(pono.ticks.frequency_gate, '');
     assert.equal(pono._deep_profile, undefined);
+
+    const moog = result.characters.find(c => c.name === 'Moog');
+    assert.equal(moog.profile_tier, 'Tier 2');
+    assert.equal(moog.functional_profile.narrative_function, badModelCharacters.characters[2].brief_summary);
+    assert.deepEqual(moog.psychological_core, {});
+    assert.deepEqual(moog.arc, {});
+    assert.equal(moog._deep_profile, undefined);
 });
 
 test('Stage 3 tier guidance uses project tier overrides when names appear', async () => {

@@ -45,6 +45,7 @@ function registerGenerationRoutes(app, deps) {
         extractExplicitOutlineSequenceReplacement,
         applyExplicitOutlineSequenceReplacement,
         applyStructuralOutlinePatches,
+        sanitizeOutlineMetaBeats,
         compactText,
         agent1Pitch,
         agent1Refine,
@@ -235,6 +236,7 @@ function registerGenerationRoutes(app, deps) {
                         outline: deterministicRevision.after,
                         protected_beats: activeProtectedBeats
                     };
+                    sanitizeOutlineMetaBeats(outlineData);
                     deterministicRevision.receipt.changed = deterministicRevision.changed;
                     const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData.outline || {}));
                     const { snapshotIds } = await finalizeGenerationEndpointArtifact({
@@ -301,6 +303,7 @@ function registerGenerationRoutes(app, deps) {
             if (missingChecklistItems.length) {
                 throw new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
             }
+            sanitizeOutlineMetaBeats(outlineData);
             const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));
             const revisionTransaction = createVerifiedGenerationRevision({
                 enabled: !!notesWithUpload,

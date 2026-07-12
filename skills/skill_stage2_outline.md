@@ -50,3 +50,4 @@ To ensure the outline is not just a list of events, you must weave Gulino's stor
 * **Plant the Tentpoles:** Ensure the major structural pillars (Inciting Incident, Midpoint, Main Culmination) serve as the climaxes of their respective sequences.
 * **Invisible Cause-and-Effect:** The narrative must flow using the "Therefore/But" engine naturally. Avoid episodic "And then..." progressions. If Sequence C happens, it must be because of how Sequence B ended.
 * **Lean Formatting:** Write exclusively in the active present tense. Keep descriptions punchy, highly visual, and focused on narrative momentum.
+* **No Meta Notes in Outline JSON:** The returned outline must contain only user-facing story material. Never emit tone/style/revision/process guidance, model notes, cleanup instructions, or prompt reminders as beats, sequence entries, titles, or descriptions.

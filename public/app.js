@@ -2469,6 +2469,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return Object.fromEntries(STAGE2_ACT_KEYS.map(actKey => [actKey, cloneAct(actKey)]));
     }
 
+    function isStage2MetaBeat(beat = {}) {
+        const label = String(beat?.beat_label || beat?.beat || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[\u2018\u2019`]/g, "'")
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        const description = String(beat?.description || '').trim();
+        if (!label || !description) return false;
+        const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);
+        return metaLabel && /\b(?:ensure|remove|avoid|do not|don't|keep|maintain|make sure|style|tone|jargon|ai[-\s]?style|likeability|architectural glitches|identity absorption)\b/i.test(description);
+    }
+
+    function sanitizeStage2OutlineForDisplay(outline = {}) {
+        const sanitized = cloneStage2Outline(outline);
+        STAGE2_ACT_KEYS.forEach(actKey => {
+            sanitized[actKey] = (sanitized[actKey] || []).map(seq => ({
+                ...seq,
+                beats: (seq.beats || []).filter(beat => !isStage2MetaBeat(beat))
+            }));
+        });
+        return sanitized;
+    }
+
     function stage2OutlineHasContent(outline = {}) {
         return STAGE2_ACT_KEYS.some(key => outline?.[key]?.length);
     }
@@ -2482,7 +2506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const next = {
             ...existing,
             ...payload,
-            outline: cloneStage2Outline(payload.outline || existing.outline || {}),
+            outline: sanitizeStage2OutlineForDisplay(payload.outline || existing.outline || {}),
             protected_beats: normalizeStage2ProtectedBeatLabels(protectedSource || [])
         };
         data.stage2_outline = next;
@@ -2569,7 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = ensureCurrentProjectData();
         data.stage2_outline = {
             ...(data.stage2_outline || {}),
-            outline: cloneStage2Outline(data.stage2_outline?.outline || {}),
+            outline: sanitizeStage2OutlineForDisplay(data.stage2_outline?.outline || {}),
             protected_beats
         };
         return protected_beats;
@@ -2578,7 +2602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function stage2PayloadFromOutline(outline = {}) {
         return {
             ...(window.currentProjectData?.stage2_outline || {}),
-            outline,
+            outline: sanitizeStage2OutlineForDisplay(outline),
             protected_beats: currentStage2ProtectedBeats()
         };
     }
@@ -2938,9 +2962,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    function normalizeStage3TierOverrides(overrides = {}) {
+        if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return {};
+        return Object.entries(overrides).reduce((acc, [name, tier]) => {
+            const cleanName = String(name || '').trim();
+            const normalizedTier = normalizeTierOverrideValue(tier);
+            if (cleanName && normalizedTier) acc[cleanName] = profileTierNumber(normalizedTier);
+            return acc;
+        }, {});
+    }
+
     function currentCharacterTierOverrides() {
         const overrides = window.currentProjectData?.stage3_characters?.tier_overrides;
-        return overrides && typeof overrides === 'object' && !Array.isArray(overrides) ? overrides : {};
+        return normalizeStage3TierOverrides(overrides);
     }
 
     function projectTierForCharacterName(name = '', overrides = currentCharacterTierOverrides()) {
@@ -2959,8 +2993,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (projectTier) return projectTier;
         const normalizedTier = normalizeTierOverrideValue(value);
         if (normalizedTier) return normalizedTier;
-        if (character.cameo_profile) return 'Tier 3';
-        if (character.functional_profile) return 'Tier 2';
+        if (hasMeaningfulStage3Profile(character.cameo_profile)) return 'Tier 3';
+        if (hasMeaningfulStage3Profile(character.functional_profile)) return 'Tier 2';
         return 'Tier 1';
     }
 
@@ -2978,14 +3012,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1;
     }
 
+    function hasMeaningfulStage3Profile(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+        return Object.values(value).some(entry => {
+            if (entry == null) return false;
+            if (typeof entry === 'object') return hasMeaningfulStage3Profile(entry);
+            return String(entry).trim() !== '';
+        });
+    }
+
     function stage3TierOverridesFromCharacters(characters = []) {
-        const overrides = { ...currentCharacterTierOverrides() };
-        for (const character of characters || []) {
-            const name = String(character?.name || '').trim();
-            if (!name) continue;
-            overrides[name] = profileTierNumber(character.profile_tier);
-        }
-        return overrides;
+        return currentCharacterTierOverrides();
+    }
+
+    function setCurrentStage3TierOverride(name = '', tier = '') {
+        const cleanName = String(name || '').trim();
+        const normalizedTier = normalizeTierOverrideValue(tier);
+        if (!cleanName || !normalizedTier) return;
+        const data = ensureCurrentProjectData();
+        const stage3 = data.stage3_characters || {};
+        data.stage3_characters = {
+            ...stage3,
+            tier_overrides: {
+                ...currentCharacterTierOverrides(),
+                [cleanName]: profileTierNumber(normalizedTier)
+            }
+        };
     }
 
     const STAGE3_TICK_WARNING = 'WARNING TO DOWNSTREAM AGENTS: This tick must be used a maximum of ONCE per sequence, and only during the scene of absolute highest stress within that sequence.';
@@ -2994,12 +3046,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.isArray(characters) ? JSON.parse(JSON.stringify(characters)) : [];
     }
 
-    function stage3PayloadFromCharacters(characters = []) {
-        const normalizedCharacters = cloneStage3Characters(characters).map(normalizeStage3CharacterForPersistence);
+    function stage3PayloadFromCharacters(characters = [], tierOverrides = currentCharacterTierOverrides()) {
+        const normalizedOverrides = normalizeStage3TierOverrides(tierOverrides);
+        const normalizedCharacters = cloneStage3Characters(characters)
+            .map(character => normalizeStage3CharacterForPersistence(character, normalizedOverrides));
         return {
             ...(window.currentProjectData?.stage3_characters || {}),
             characters: normalizedCharacters,
-            tier_overrides: stage3TierOverridesFromCharacters(normalizedCharacters)
+            tier_overrides: normalizedOverrides
         };
     }
 
@@ -3007,12 +3061,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = ensureCurrentProjectData();
         const existingPayload = data.stage3_characters || {};
         const hasCharacters = Array.isArray(payload?.characters);
+        const nextTierOverrides = normalizeStage3TierOverrides(
+            payload?.tier_overrides && typeof payload.tier_overrides === 'object' && !Array.isArray(payload.tier_overrides)
+                ? payload.tier_overrides
+                : existingPayload.tier_overrides
+        );
         data.stage3_characters = payload && typeof payload === 'object'
             ? {
                 ...existingPayload,
                 ...payload,
-                characters: hasCharacters ? cloneStage3Characters(payload.characters).map(normalizeStage3CharacterForPersistence) : cloneStage3Characters(existingPayload.characters),
-                tier_overrides: payload.tier_overrides || stage3TierOverridesFromCharacters(payload.characters || existingPayload.characters || [])
+                characters: hasCharacters
+                    ? cloneStage3Characters(payload.characters).map(character => normalizeStage3CharacterForPersistence(character, nextTierOverrides))
+                    : cloneStage3Characters(existingPayload.characters).map(character => normalizeStage3CharacterForPersistence(character, nextTierOverrides)),
+                tier_overrides: nextTierOverrides
             }
             : payload;
         return data.stage3_characters;
@@ -3061,7 +3122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cameo = character.cameo_profile || {};
         const voice = character.voice_and_behavior || {};
         return {
-            narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || '',
+            narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || character.brief_summary || '',
             emotional_truth: functional.emotional_truth || character.emotional_truth || '',
             comic_or_tension_function: functional.comic_or_tension_function || functional.comic_function || functional.tension_function || character.comic_or_tension_function || '',
             pressure_behavior: functional.pressure_behavior || functional.temptation_choice_or_pressure || functional.temptation_or_choice || functional.playable_behavior || cameo.playable_behavior || character.playable_behavior || character.pressure_behavior || '',
@@ -3073,7 +3134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cameo = character.cameo_profile || {};
         const functional = character.functional_profile || {};
         return {
-            scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || '',
+            scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || character.brief_summary || '',
             casting_energy: cameo.casting_energy || functional.casting_energy || character.casting_energy || '',
             playable_behavior: cameo.playable_behavior || functional.playable_behavior || functional.pressure_behavior || character.playable_behavior || '',
             line_style_example: cameo.line_style_example || cameo.optional_line_style_example || functional.line_style_or_dialogue_flavor || functional.voice_flavor || character.line_style_example || ''
@@ -3093,11 +3154,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function normalizeStage3CharacterForEditor(character = {}) {
+    function normalizeStage3CharacterForEditor(character = {}, tierOverrides = currentCharacterTierOverrides()) {
         const core = character.psychological_core || {};
         const voice = character.voice_and_behavior || {};
         const ticks = character.ticks || {};
-        const profile_tier = normalizeCharacterProfileTier(character.profile_tier, character);
+        const profile_tier = normalizeCharacterProfileTier(character.profile_tier, character, tierOverrides);
         const isFullProfile = profile_tier === 'Tier 1';
         const psychological_core = isFullProfile
             ? {
@@ -3148,8 +3209,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return normalized;
     }
 
-    function normalizeStage3CharacterForPersistence(character = {}) {
-        const normalized = normalizeStage3CharacterForEditor(character);
+    function normalizeStage3CharacterForPersistence(character = {}, tierOverrides = currentCharacterTierOverrides()) {
+        const normalized = normalizeStage3CharacterForEditor(character, tierOverrides);
         if (normalized.profile_tier === 'Tier 1' && normalized.ticks?.enabled && normalized.ticks.frequency_gate) {
             const frequencyGate = String(normalized.ticks.frequency_gate || '').trim();
             normalized.ticks.frequency_gate = frequencyGate.includes('WARNING TO DOWNSTREAM AGENTS')
@@ -3165,7 +3226,8 @@ document.addEventListener('DOMContentLoaded', () => {
         _deepProfileCache = {};
 
         // Sort: Protagonist first, Antagonist second, Supporting last
-        const sorted = cloneStage3Characters(characters).map(normalizeStage3CharacterForEditor).sort((a, b) => {
+        const activeTierOverrides = currentCharacterTierOverrides();
+        const sorted = cloneStage3Characters(characters).map(character => normalizeStage3CharacterForEditor(character, activeTierOverrides)).sort((a, b) => {
             const rank = r => {
                 const role = (r.role || '').toLowerCase();
                 if (role.includes('protagonist')) return 0;
@@ -3174,7 +3236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             return rank(a) - rank(b);
         });
-        const stage3Payload = setCurrentStage3Payload(stage3PayloadFromCharacters(sorted));
+        const stage3Payload = setCurrentStage3Payload(stage3PayloadFromCharacters(sorted, activeTierOverrides));
         const renderedCharacters = stage3Payload?.characters || sorted;
 
         renderedCharacters.forEach((char, index) => {
@@ -3480,10 +3542,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Profile tier toggle
             card.querySelectorAll('.char-tier-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
+                    const nextTier = btn.dataset.value || 'Tier 1';
                     card.querySelectorAll('.char-tier-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    card.dataset.profileTier = btn.dataset.value || 'Tier 1';
-                    updateCurrentStage3CharacterField(index, 'profile_tier', btn.dataset.value || 'Tier 1');
+                    card.dataset.profileTier = nextTier;
+                    setCurrentStage3TierOverride(char.name, nextTier);
+                    updateCurrentStage3CharacterField(index, 'profile_tier', nextTier);
                     renderCharacters(getCurrentStage3Characters());
                     markStage3Dirty();
                 });

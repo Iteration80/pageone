@@ -43,6 +43,15 @@ function normalizeTierOverrides(overrides = {}) {
     }, {});
 }
 
+function hasMeaningfulProfileData(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return Object.values(value).some(entry => {
+        if (entry == null) return false;
+        if (typeof entry === 'object') return hasMeaningfulProfileData(entry);
+        return String(entry).trim() !== '';
+    });
+}
+
 function projectTierForCharacterName(name = '', tierOverrides = {}) {
     const normalized = normalizeProjectName(name);
     if (!normalized) return null;
@@ -54,8 +63,8 @@ function normalizeProfileTier(value = '', character = {}, tierOverrides = {}) {
     if (projectTier) return projectTier;
     const normalizedTier = normalizeTierValue(value);
     if (normalizedTier) return normalizedTier;
-    if (character.cameo_profile) return PROFILE_TIERS.CAMEO;
-    if (character.functional_profile) return PROFILE_TIERS.FUNCTIONAL;
+    if (hasMeaningfulProfileData(character.cameo_profile)) return PROFILE_TIERS.CAMEO;
+    if (hasMeaningfulProfileData(character.functional_profile)) return PROFILE_TIERS.FUNCTIONAL;
     return PROFILE_TIERS.FULL;
 }
 
@@ -64,7 +73,7 @@ function normalizeFunctionalProfile(character = {}) {
     const cameo = character.cameo_profile || {};
     const voice = character.voice_and_behavior || {};
     return {
-        narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || '',
+        narrative_function: functional.narrative_function || character.narrative_function || character.role_in_story || functional.scene_purpose || cameo.scene_purpose || character.scene_purpose || character.brief_summary || '',
         emotional_truth: functional.emotional_truth || character.emotional_truth || '',
         comic_or_tension_function: functional.comic_or_tension_function || functional.comic_function || functional.tension_function || character.comic_or_tension_function || '',
         pressure_behavior: functional.pressure_behavior || functional.temptation_choice_or_pressure || functional.temptation_or_choice || functional.playable_behavior || cameo.playable_behavior || character.playable_behavior || character.pressure_behavior || '',
@@ -76,7 +85,7 @@ function normalizeCameoProfile(character = {}) {
     const cameo = character.cameo_profile || {};
     const functional = character.functional_profile || {};
     return {
-        scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || '',
+        scene_purpose: cameo.scene_purpose || functional.scene_purpose || functional.narrative_function || character.scene_purpose || character.narrative_function || character.brief_summary || '',
         casting_energy: cameo.casting_energy || functional.casting_energy || character.casting_energy || '',
         playable_behavior: cameo.playable_behavior || functional.playable_behavior || functional.pressure_behavior || character.playable_behavior || '',
         line_style_example: cameo.line_style_example || cameo.optional_line_style_example || functional.line_style_or_dialogue_flavor || functional.voice_flavor || character.line_style_example || ''

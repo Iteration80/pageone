@@ -98,33 +98,43 @@ function registerProjectRoutes(app, deps) {
     // (DATA_DIR), so the seed can be executed on deployments without shell access.
     // GET  /api/maintenance/stage3-tiers/audit  = dry run
     // POST /api/maintenance/stage3-tiers/seed   = persist
-    function runTierMigration(write) {
+    // Add ?overwrite=1, or POST { "overwrite": true }, to replace bad saved tiers.
+    function truthyFlag(value) {
+        return value === true || value === 1 || /^(1|true|yes|overwrite)$/i.test(String(value || '').trim());
+    }
+
+    function shouldOverwriteStage3Tiers(req) {
+        return truthyFlag(req.query?.overwrite) || truthyFlag(req.body?.overwrite);
+    }
+
+    function runTierMigration(write, { overwrite = false } = {}) {
         return new Promise((resolve, reject) => {
             const scriptPath = modulePath.join(__dirname, '../scripts/seed-stage3-tier-overrides.js');
             const args = [scriptPath, '--dir', DATA_DIR];
             if (write) args.push('--write');
+            if (overwrite) args.push('--overwrite');
             execFile(process.execPath, args, { timeout: 30_000 }, (error, stdout, stderr) => {
                 if (error) {
                     error.message = `${error.message}${stderr ? ` — ${String(stderr).trim()}` : ''}`;
                     return reject(error);
                 }
-                resolve({ ok: true, write, output: String(stdout).trim().split('\n') });
+                resolve({ ok: true, write, overwrite, output: String(stdout).trim().split('\n') });
             });
         });
     }
 
-    app.get('/api/maintenance/stage3-tiers/audit', requireAuth, async (_req, res) => {
+    app.get('/api/maintenance/stage3-tiers/audit', requireAuth, async (req, res) => {
         try {
-            res.json(await runTierMigration(false));
+            res.json(await runTierMigration(false, { overwrite: shouldOverwriteStage3Tiers(req) }));
         } catch (error) {
             console.error('stage3 tier audit error:', error.message);
             sendApiError(res, error, 'Failed to audit Stage 3 tier overrides');
         }
     });
 
-    app.post('/api/maintenance/stage3-tiers/seed', requireAuth, async (_req, res) => {
+    app.post('/api/maintenance/stage3-tiers/seed', requireAuth, async (req, res) => {
         try {
-            res.json(await runTierMigration(true));
+            res.json(await runTierMigration(true, { overwrite: shouldOverwriteStage3Tiers(req) }));
         } catch (error) {
             console.error('stage3 tier seed error:', error.message);
             sendApiError(res, error, 'Failed to seed Stage 3 tier overrides');

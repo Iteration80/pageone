@@ -5,6 +5,7 @@ const {
     labelsEqual,
     parseStructuralPatchOps
 } = require('../utils/revision_patch');
+const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
 const { loadSkill } = require('../utils/skills_cache');
 
 function normalizeOutlineInput(outline) {
@@ -1109,7 +1110,7 @@ async function parseOutlineResponse(response, {
 }) {
     try {
         return {
-            result: parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' }),
+            result: sanitizeOutlineMetaBeats(parseJsonWithRepair(response.text, { schema: outlineSchema, label: 'Stage 2 outline response' })),
             usage: response.usage
         };
     } catch (parseError) {
@@ -1138,7 +1139,7 @@ ${response.text}`],
 
         try {
             return {
-                result: parseJsonWithRepair(repairResponse.text, { schema: outlineSchema, label: 'Stage 2 repaired outline response' }),
+                result: sanitizeOutlineMetaBeats(parseJsonWithRepair(repairResponse.text, { schema: outlineSchema, label: 'Stage 2 repaired outline response' })),
                 usage: combineUsage(response.usage, repairResponse.usage)
             };
         } catch (repairError) {

@@ -426,6 +426,7 @@ const {
     snapshotForStage,
     stageConfig
 } = require('./utils/artifact_snapshots');
+const { sanitizeOutlineMetaBeats } = require('./utils/outline_sanitizer');
 const { generateContent } = require('./agents/ai-client');
 const { runAssistantTurn, buildNeutralMessages } = require('./agents/assistant');
 const { registerAssistantRoutes } = require('./routes/assistant');
@@ -4037,6 +4038,7 @@ registerGenerationRoutes(app, {
     extractExplicitOutlineSequenceReplacement,
     applyExplicitOutlineSequenceReplacement,
     applyStructuralOutlinePatches,
+    sanitizeOutlineMetaBeats,
     compactText,
     agent1Pitch,
     agent1Refine,

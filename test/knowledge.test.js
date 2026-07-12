@@ -185,6 +185,21 @@ test('unknown API routes return JSON 404 diagnostics', () => {
     assert.match(projectRouteSource, /buildTimestamp: BUILD_TIMESTAMP/);
 });
 
+test('Stage 2 outline meta guidance is filtered across generation, display, and export', () => {
+    const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const generationRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'generation.js'), 'utf8');
+    const appSource = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    const exportSource = fs.readFileSync(path.join(__dirname, '..', 'agents', 'export.js'), 'utf8');
+    const skillSource = fs.readFileSync(path.join(__dirname, '..', 'skills', 'skill_stage2_outline.md'), 'utf8');
+
+    assert.match(serverSource, /sanitizeOutlineMetaBeats[\s\S]*require\('\.\/utils\/outline_sanitizer'\)/);
+    assert.ok((generationRouteSource.match(/sanitizeOutlineMetaBeats\(outlineData\);/g) || []).length >= 2);
+    assert.match(appSource, /function sanitizeStage2OutlineForDisplay/);
+    assert.match(appSource, /outline: sanitizeStage2OutlineForDisplay\(outline\)/);
+    assert.match(exportSource, /sanitizeOutlineMetaBeats\(JSON\.parse\(JSON\.stringify\(outline \|\| \{\}\)\)\)/);
+    assert.match(skillSource, /No Meta Notes in Outline JSON/);
+});
+
 test('build fingerprint is exposed, cached, and stamped into exports', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
     const projectRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'projects.js'), 'utf8');
@@ -643,11 +658,15 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
     const agent3Js = fs.readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
     const generationRoutes = fs.readFileSync(require.resolve('../routes/generation.js'), 'utf8');
+    const projectRoutes = fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8');
     const assistantJs = fs.readFileSync(require.resolve('../agents/assistant.js'), 'utf8');
 
     assert.match(appJs, /normalizeStage3CharacterForEditor/);
     assert.match(appJs, /currentCharacterTierOverrides/);
-    assert.match(appJs, /tier_overrides: stage3TierOverridesFromCharacters\(normalizedCharacters\)/);
+    assert.match(appJs, /function normalizeStage3TierOverrides/);
+    assert.match(appJs, /function setCurrentStage3TierOverride/);
+    assert.match(appJs, /tier_overrides: normalizedOverrides/);
+    assert.match(appJs, /normalizeStage3CharacterForPersistence\(character, nextTierOverrides\)/);
     assert.match(appJs, /function getCurrentStage3Characters/);
     assert.match(appJs, /function updateCurrentStage3CharacterField/);
     assert.match(appJs, /getSnapshot: \(\) => stage3PayloadFromCharacters\(getCurrentStage3Characters\(\)\)/);
@@ -660,7 +679,9 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
 
     assert.match(agent3Js, /normalizeLegacyCharacter/);
     assert.match(agent3Js, /function normalizeTierOverrides/);
+    assert.match(agent3Js, /function hasMeaningfulProfileData/);
     assert.match(generationRoutes, /tierOverrides: activeTierOverrides/);
+    assert.match(projectRoutes, /overwrite: shouldOverwriteStage3Tiers\(req\)/);
     assert.doesNotMatch(agent3Js, /TIER_1_PROJECT_NAMES/);
     assert.doesNotMatch(agent3Js, /Rebecca, Dapple, Dave, Terry, Elliot/);
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
