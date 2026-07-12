@@ -2,8 +2,10 @@ const { generateContent } = require('./ai-client');
 const { parseJsonWithRepair } = require('./json_parse');
 const {
     isBroadRevisionIntent,
-    mergeSurgicalLabeledItems
+    mergeSurgicalLabeledItems,
+    notesRequestRemoval
 } = require('../utils/revision_patch');
+const { sanitizeStringsDeep } = require('../utils/model_text_sanitizer');
 const { loadSkill } = require('../utils/skills_cache');
 const {
     hasMeaningfulBackstory,
@@ -222,10 +224,13 @@ function characterFromPatchOperation(op = {}, tierOverrides = {}) {
 }
 
 function normalizeCharacterResult(result = {}, tierOverrides = {}, rawTierOverrides = tierOverrides) {
+    // Strip model meta-narration ("(Note: …)", "Wait, correcting…", glitch tokens)
+    // from every string field before the result is saved or rendered.
+    const sanitized = sanitizeStringsDeep(result || {});
     return {
-        ...result,
-        tier_overrides: result.tier_overrides || rawTierOverrides || {},
-        characters: normalizeCurrentCharacters(result, tierOverrides)
+        ...sanitized,
+        tier_overrides: sanitized.tier_overrides || rawTierOverrides || {},
+        characters: normalizeCurrentCharacters(sanitized, tierOverrides)
     };
 }
 
@@ -273,24 +278,47 @@ function explicitOnlyCharacterTargets(notes = '', currentList = []) {
 }
 
 function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false, tierOverrides = {} } = {}) {
-    if (legacyModernizationNeeded || isBroadRevisionIntent(notes)) return modelResult;
     const currentList = normalizeCurrentCharacters(currentCharacters, tierOverrides);
-    const revisedList = normalizeCurrentCharacters(modelResult, tierOverrides);
-    if (!currentList.length || !revisedList.length) return modelResult;
-    const targetLabels = explicitOnlyCharacterTargets(notes, currentList);
+    let candidate = modelResult;
 
-    const merged = mergeSurgicalLabeledItems(currentList, revisedList, notes, {
-        targetLabels,
-        getLabel: character => character.name || '',
-        setLabel: (character, label) => { character.name = label || character.name || 'New Character'; },
-        setBody: (character, body) => { character.brief_summary = body || character.brief_summary || ''; },
-        buildNewItem: op => characterFromPatchOperation(op, tierOverrides)
+    if (!legacyModernizationNeeded && !isBroadRevisionIntent(notes)) {
+        const revisedList = normalizeCurrentCharacters(modelResult, tierOverrides);
+        if (currentList.length && revisedList.length) {
+            const targetLabels = explicitOnlyCharacterTargets(notes, currentList);
+            const merged = mergeSurgicalLabeledItems(currentList, revisedList, notes, {
+                targetLabels,
+                getLabel: character => character.name || '',
+                setLabel: (character, label) => { character.name = label || character.name || 'New Character'; },
+                setBody: (character, body) => { character.brief_summary = body || character.brief_summary || ''; },
+                buildNewItem: op => characterFromPatchOperation(op, tierOverrides)
+            });
+            if (merged.changed) candidate = { ...modelResult, characters: merged.items };
+        }
+    }
+
+    // SAFETY NET (applies on EVERY revision path, including the broad-intent bypass
+    // above): a revision may never silently drop existing characters. Any character
+    // present before the revision but missing from the model's result is re-appended
+    // unchanged, unless the revision brief explicitly asked to remove that character.
+    // (2026-07-12: a brief containing the word "full" triggered the broad-intent
+    // bypass, the model returned a partial cast, and 29 of 30 characters were lost.)
+    return preserveExistingCharacters(currentList, candidate, notes);
+}
+
+function preserveExistingCharacters(currentList = [], resultObj = {}, notes = '') {
+    if (!Array.isArray(currentList) || !currentList.length) return resultObj;
+    const resultCharacters = Array.isArray(resultObj?.characters) ? resultObj.characters : [];
+    const nameKey = value => String(value || '').trim().toLowerCase();
+    const presentNames = new Set(resultCharacters.map(character => nameKey(character?.name)).filter(Boolean));
+    const preserved = currentList.filter(character => {
+        const key = nameKey(character?.name);
+        if (!key || presentNames.has(key)) return false;
+        return !notesRequestRemoval(notes, character.name);
     });
-
-    if (!merged.changed) return modelResult;
+    if (!preserved.length) return resultObj;
     return {
-        ...modelResult,
-        characters: merged.items
+        ...resultObj,
+        characters: [...resultCharacters, ...preserved.map(character => JSON.parse(JSON.stringify(character)))]
     };
 }
 
@@ -538,4 +566,4 @@ ${JSON.stringify(beatsData, null, 2)}`;
     return { result: normalizeCharacterResult(parseJsonWithRepair(response.text, { label: 'Stage 3 character generation response' }), normalizedTierOverrides, rawTierOverrides), usage: response.usage };
 };
 
-module.exports = { agent3Characters };
+module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters };

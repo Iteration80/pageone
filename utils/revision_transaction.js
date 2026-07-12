@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const {
     labelsEqual,
     normalizePatchLabel,
+    notesRequestRemoval,
     parseStructuralPatchOps
 } = require('./revision_patch');
 
@@ -123,7 +124,16 @@ function outlineRevisionAdapter({ before, after, notes = '', structuralPatch = n
     };
 }
 
-function namedItemDiffAdapter({ before = [], after = [], labelKey = 'name', itemType = 'item' }) {
+function namedItemDiffAdapter({
+    before = [],
+    after = [],
+    labelKey = 'name',
+    itemType = 'item',
+    notes = '',
+    guardDeletions = false,
+    massShrinkRatio = 0.7,
+    massShrinkMinCount = 5
+}) {
     const beforeItems = Array.isArray(before) ? before : [];
     const afterItems = Array.isArray(after) ? after : [];
     const beforeMap = new Map(beforeItems.map(item => [normalizePatchLabel(item?.[labelKey] || ''), item]));
@@ -140,21 +150,41 @@ function namedItemDiffAdapter({ before = [], after = [], labelKey = 'name', item
     }
     for (const [key, beforeItem] of beforeMap.entries()) {
         if (!afterMap.has(key)) {
-            operations.push({ type: 'delete', itemType, label: beforeItem?.[labelKey] || key, status: 'verified' });
+            const label = beforeItem?.[labelKey] || key;
+            // A deletion is only "verified" when the revision brief explicitly asked
+            // for it (or this adapter doesn't guard deletions). Unrequested deletions
+            // are failures: a model returning a partial list must never silently
+            // shrink the saved artifact (2026-07-12: 29 of 30 characters wiped).
+            const requested = !guardDeletions || notesRequestRemoval(notes, label);
+            operations.push({ type: 'delete', itemType, label, status: requested ? 'verified' : 'unverified' });
         }
+    }
+
+    const failures = operations.filter(op => op.status !== 'verified');
+    if (
+        guardDeletions
+        && beforeItems.length >= massShrinkMinCount
+        && afterItems.length < beforeItems.length * massShrinkRatio
+    ) {
+        failures.push({
+            type: 'mass_shrink',
+            itemType,
+            label: `${itemType} count dropped ${beforeItems.length} → ${afterItems.length}`,
+            status: 'unverified'
+        });
     }
 
     return {
         operations: operations.slice(0, 24),
-        failures: [],
+        failures: failures.slice(0, 12),
         summary: operations.length
-            ? `${operations.length} ${itemType} operation(s) verified.`
+            ? `${operations.length - failures.filter(f => f.type !== 'mass_shrink').length}/${operations.length} ${itemType} operation(s) verified.`
             : `No ${itemType} operations detected.`
     };
 }
 
-function characterRevisionAdapter({ before, after }) {
-    return namedItemDiffAdapter({ before, after, labelKey: 'name', itemType: 'character' });
+function characterRevisionAdapter({ before, after, notes = '' }) {
+    return namedItemDiffAdapter({ before, after, labelKey: 'name', itemType: 'character', notes, guardDeletions: true });
 }
 
 function flattenStage4Beats(stage4 = {}) {

@@ -404,6 +404,19 @@ function isBroadRevisionIntent(notes = '') {
     return /\b(all|every|entire|whole|full|global|throughout|across the board|from top to bottom)\b/i.test(String(notes || ''));
 }
 
+// Does the revision brief explicitly ask for this named item to be removed?
+// Used to distinguish requested deletions from silent data loss (2026-07-12:
+// a Stage 3 revision wiped 29 of 30 characters because the model returned a
+// partial cast and nothing checked whether those deletions were asked for).
+const REMOVAL_INTENT = /\b(delete|remove|cut|drop|eliminate|retire|write[-\s]?out|kill(?:\s+off)?)\b/i;
+function notesRequestRemoval(notes = '', label = '') {
+    const text = String(notes || '');
+    const name = String(label || '').trim();
+    if (!name || !REMOVAL_INTENT.test(text)) return false;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|[^A-Za-z0-9])${escaped}(?:$|[^A-Za-z0-9])`, 'i').test(text);
+}
+
 module.exports = {
     applyStructuralPatchToItems,
     bracketedBlocks,
@@ -413,6 +426,7 @@ module.exports = {
     labelsEqual,
     mergeSurgicalLabeledItems,
     normalizePatchLabel,
+    notesRequestRemoval,
     parseSequenceTargets,
     parseStructuralPatchOps,
     textMentionsLabel
