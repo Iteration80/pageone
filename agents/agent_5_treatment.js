@@ -5,6 +5,7 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
 const { loadSkill } = require('../utils/skills_cache');
+const { formatCharacterBackstory } = require('../utils/character_backstory');
 
 const TREATMENT_FIELDS = [
     {
@@ -70,7 +71,9 @@ function buildTitleLoglineCharacters(pitchData, charactersData) {
         for (const character of characters) {
             const name = character.name || 'Unnamed Character';
             const summary = character.brief_summary || character.role || '';
-            lines.push(summary ? `${name}: ${summary}` : name);
+            const backstory = formatCharacterBackstory(character.backstory, character.profile_tier || 'Tier 1', { maxPerField: 180 });
+            const suffix = backstory ? ` Backstory relevance: ${backstory}` : '';
+            lines.push(summary ? `${name}: ${summary}${suffix}` : `${name}${suffix}`);
         }
     }
 
@@ -119,12 +122,14 @@ function formatCharacterLock(character = {}) {
     const voice = character.voice_and_behavior || {};
     const arc = character.arc || {};
     const deep = character._deep_profile || {};
+    const backstory = formatCharacterBackstory(character.backstory, tier);
     if (isTier3) {
         return [
             `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}, ${tier}): ${character.brief_summary || ''}`,
             cameo.scene_purpose ? `Scene purpose: ${cameo.scene_purpose}` : '',
             cameo.playable_behavior ? `Playable behavior: ${cameo.playable_behavior}` : '',
-            cameo.casting_energy ? `Casting energy: ${cameo.casting_energy}` : ''
+            cameo.casting_energy ? `Casting energy: ${cameo.casting_energy}` : '',
+            backstory ? `Backstory relevance: ${backstory}` : ''
         ].filter(Boolean).join(' | ');
     }
     if (isTier2) {
@@ -134,7 +139,8 @@ function formatCharacterLock(character = {}) {
             functional.emotional_truth ? `Emotional truth: ${functional.emotional_truth}` : '',
             functional.comic_or_tension_function ? `Comic/tension function: ${functional.comic_or_tension_function}` : '',
             functional.pressure_behavior ? `Pressure behavior: ${functional.pressure_behavior}` : '',
-            functional.voice_flavor ? `Voice flavor: ${functional.voice_flavor}` : ''
+            functional.voice_flavor ? `Voice flavor: ${functional.voice_flavor}` : '',
+            backstory ? `Backstory relevance: ${backstory}` : ''
         ].filter(Boolean).join(' | ');
     }
     return [
@@ -144,7 +150,8 @@ function formatCharacterLock(character = {}) {
         core.ghost_and_wound ? `Wound: ${core.ghost_and_wound}` : '',
         arc.direction || arc.core_drive ? `Arc: ${[arc.direction, arc.core_drive].filter(Boolean).join(', ')}` : '',
         voice.voice_tag || voice.pressure_tag ? `Voice/pressure: ${[voice.voice_tag, voice.pressure_tag].filter(Boolean).join(', ')}` : '',
-        deep.scene_behavior_predictions ? `Behavior prediction: ${compactText(deep.scene_behavior_predictions, 450)}` : ''
+        deep.scene_behavior_predictions ? `Behavior prediction: ${compactText(deep.scene_behavior_predictions, 450)}` : '',
+        backstory ? `Backstory relevance: ${backstory}` : ''
     ].filter(Boolean).join(' | ');
 }
 

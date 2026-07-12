@@ -1,3 +1,5 @@
+const { formatCharacterBackstory } = require('../utils/character_backstory');
+
 function registerRewriteRoutes(app, deps) {
     const {
         requireAuth,
@@ -231,13 +233,15 @@ function registerRewriteRoutes(app, deps) {
                 ? `\n\n## CHARACTERS\n${characters.map(c => {
                     const tier = c.profile_tier || 'Tier 1';
                     const tierText = String(tier).toLowerCase();
+                    const backstory = formatCharacterBackstory(c.backstory, tier, { maxPerField: 220 });
+                    const backstorySuffix = backstory ? `, backstory relevance=${backstory}` : '';
                     if (/\b3\b|cameo|utility/.test(tierText)) {
-                        return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}`;
+                        return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}${backstorySuffix}`;
                     }
                     if (/\b2\b|functional/.test(tierText)) {
-                        return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}`;
+                        return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}${backstorySuffix}`;
                     }
-                    return `${c.name} (${c.role}, ${tier}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}`;
+                    return `${c.name} (${c.role}, ${tier}): arc=${c.arc?.direction || 'unknown'}, drive=${c.arc?.core_drive || 'unknown'}${backstorySuffix}`;
                 }).join('\n')}`
                 : '';
             const { styleContent: plannerStyleContent, referenceContent: plannerRefContent } = await loadProjectStyle(projectData);
@@ -435,13 +439,15 @@ function registerRewriteRoutes(app, deps) {
                     const dp = c._deep_profile || {};
                     const tier = c.profile_tier || 'Tier 1';
                     const tierText = String(tier).toLowerCase();
+                    const backstory = formatCharacterBackstory(c.backstory, tier, { maxPerField: 260 });
+                    const backstoryLine = backstory ? `\nBackstory relevance: ${backstory}` : '';
                     if (/\b3\b|cameo|utility/.test(tierText)) {
-                        return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}, playable behavior=${c.cameo_profile?.playable_behavior || 'unknown'}${c.cameo_profile?.line_style_example ? `\nLine style example: ${c.cameo_profile.line_style_example}` : ''}`;
+                        return `${c.name} (${c.role}, ${tier}): scene purpose=${c.cameo_profile?.scene_purpose || c.brief_summary || 'unknown'}, playable behavior=${c.cameo_profile?.playable_behavior || 'unknown'}${backstoryLine}${c.cameo_profile?.line_style_example ? `\nLine style example: ${c.cameo_profile.line_style_example}` : ''}`;
                     }
                     if (/\b2\b|functional/.test(tierText)) {
-                        return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}`;
+                        return `${c.name} (${c.role}, ${tier}): narrative function=${c.functional_profile?.narrative_function || c.brief_summary || 'unknown'}, emotional truth=${c.functional_profile?.emotional_truth || 'unknown'}, comic/tension=${c.functional_profile?.comic_or_tension_function || 'unknown'}, pressure behavior=${c.functional_profile?.pressure_behavior || 'unknown'}, voice flavor=${c.functional_profile?.voice_flavor || 'unknown'}${backstoryLine}`;
                     }
-                    return `${c.name} (${c.role}, ${tier}): voice=${c.voice_and_behavior?.voice_tag || 'unknown'}, pressure=${c.voice_and_behavior?.pressure_tag || 'unknown'}${dp.dialogue_fingerprint ? `\nDialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
+                    return `${c.name} (${c.role}, ${tier}): voice=${c.voice_and_behavior?.voice_tag || 'unknown'}, pressure=${c.voice_and_behavior?.pressure_tag || 'unknown'}${backstoryLine}${dp.dialogue_fingerprint ? `\nDialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
                 }).join('\n\n')
                 : '';
 

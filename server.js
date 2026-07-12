@@ -382,6 +382,7 @@ const {
     generateDraftDocx,
     generateScreenplayPdf
 } = require('./agents/export');
+const { formatCharacterBackstory } = require('./utils/character_backstory');
 
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
@@ -3815,7 +3816,11 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
                 : 'No rewrite priorities are available yet.';
             const characters = projectData.data?.stage3_characters?.characters || [];
             const charSummary = characters.length > 0
-                ? characters.map(c => `${c.name} (${c.role}, ${c.profile_tier || 'Tier 1'}): ${c.brief_summary || ''}`).join('\n')
+                ? characters.map(c => {
+                    const tier = c.profile_tier || 'Tier 1';
+                    const backstory = formatCharacterBackstory(c.backstory, tier, { maxPerField: 220 });
+                    return `${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}${backstory ? ` | Backstory relevance: ${backstory}` : ''}`;
+                }).join('\n')
                 : '';
             const stage6Scenes = projectData.data?.stage6_scenes || [];
             const allScenes = [];

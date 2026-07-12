@@ -43,7 +43,7 @@ const STAGE_CONFIG = {
     3: {
         name: 'Characters', artifactName: 'character profiles', revisionTool: true,
         stageFragment: `## STAGE 3 CHARACTER BOUNDARY
-Keep the conversation anchored in character-profile mechanics (profile tiers, psychological core, functional/cameo profiles, voice, relationship dynamics). Use the outline only as context for why a character mechanic matters. Do NOT prescribe sequence- or scene-level plot placement unless the writer explicitly asks to change a downstream stage — translate timing into character-arc language instead. Stage 3 execution means updating character profiles only; if the writer asks for structural placement, flag that it belongs in Stage 4+ and ask whether to carry the note forward.`
+Keep the conversation anchored in character-profile mechanics (profile tiers, psychological core, optional backstory, functional/cameo profiles, voice, relationship dynamics). Use the outline only as context for why a character mechanic matters. Do NOT prescribe sequence- or scene-level plot placement unless the writer explicitly asks to change a downstream stage — translate timing into character-arc language instead. Stage 3 execution means updating character profiles only; if the writer asks for structural placement, flag that it belongs in Stage 4+ and ask whether to carry the note forward.`
     },
     4: { name: 'Beats', artifactName: 'beat sheet', revisionTool: true },
     5: {

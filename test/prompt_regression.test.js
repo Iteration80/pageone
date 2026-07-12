@@ -1790,20 +1790,98 @@ test('Stage 3 character generation keeps cameo profiles light by default', async
     assert.ok(!required.includes('psychological_core'));
     assert.ok(!required.includes('ticks'));
     assert.ok(!required.includes('_deep_profile'));
+    assert.ok(!required.includes('backstory'));
+    assert.ok(calls[0].schema.properties.characters.items.properties.backstory);
 
     const promptText = collectText(calls[0].contents);
     assert.match(promptText, /profile_tier: "Tier 3"/);
     assert.match(promptText, /Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need/);
+    assert.match(promptText, /Backstory is not required/);
     assert.match(calls[0].config.systemInstruction, /Giving a full therapeutic profile to a utility role is also an error/);
 
     const cameo = result.characters[0];
     assert.equal(cameo.profile_tier, 'Tier 3');
     assert.equal(cameo.cameo_profile.scene_purpose, modelCharacters.characters[0].cameo_profile.scene_purpose);
+    assert.deepEqual(cameo.backstory, {});
     assert.deepEqual(cameo.psychological_core, {});
     assert.deepEqual(cameo.voice_and_behavior, {});
     assert.deepEqual(cameo.arc, {});
     assert.equal(cameo.ticks.enabled, false);
     assert.equal(cameo._deep_profile, undefined);
+});
+
+test('Stage 3 character generation keeps backstory optional and tier-aware', async () => {
+    const modelCharacters = {
+        characters: [
+            {
+                name: 'Mara',
+                role: 'Protagonist',
+                profile_tier: 'Tier 1',
+                brief_summary: 'Mara carries the blue key into the flooded arcade.',
+                backstory: {
+                    essential_history: 'Mara found the blue key during the first flood and never told June.',
+                    formative_event: 'She was blamed for opening the wrong door.',
+                    relationship_history: 'June covered for her once and has been waiting for honesty since.',
+                    secret_or_reveal: 'The key was not found; it was stolen.',
+                    onscreen_relevance: 'She avoids locked doors until the midpoint forces a confession.'
+                },
+                psychological_core: {
+                    ghost_and_wound: 'Old wound.',
+                    the_lie: 'She must solve it alone.',
+                    fear: 'Being trapped.',
+                    desire: 'Find the exit.',
+                    psychological_need: 'Trust someone else.',
+                    moral_need: 'Stop hiding costs from allies.'
+                },
+                voice_and_behavior: {},
+                arc: { core_drive: 'To be safe', direction: 'Growth' },
+                ticks: {}
+            },
+            {
+                name: 'Pono',
+                role: 'Supporting',
+                profile_tier: 'Tier 2',
+                brief_summary: 'Pono keeps the crew honest about practical obstacles.',
+                backstory: {
+                    relevant_history: 'Pono used to maintain the arcade flood gates.',
+                    why_they_matter_now: 'They know which warning lights are lying.'
+                },
+                functional_profile: {
+                    narrative_function: 'Forces the crew to solve problems in the right order.',
+                    emotional_truth: 'Wants competence to count for something.',
+                    comic_or_tension_function: 'Dry logistical friction.',
+                    pressure_behavior: 'Names the cost before the room is ready.',
+                    voice_flavor: 'Plainspoken and unimpressed.'
+                }
+            }
+        ]
+    };
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify(modelCharacters),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    const { result } = await agent3Characters(
+        pitch,
+        beats,
+        null,
+        null,
+        null,
+        { generateContentFn }
+    );
+
+    const promptText = collectText(calls[0].contents);
+    assert.match(promptText, /Tier 1 may use essential_history, formative_event, relationship_history, secret_or_reveal, and onscreen_relevance/);
+    assert.match(promptText, /Tier 2 may use only relevant_history and why_they_matter_now/);
+
+    const mara = result.characters.find(c => c.name === 'Mara');
+    assert.equal(mara.backstory.essential_history, modelCharacters.characters[0].backstory.essential_history);
+    assert.equal(mara.backstory.secret_or_reveal, modelCharacters.characters[0].backstory.secret_or_reveal);
+
+    const pono = result.characters.find(c => c.name === 'Pono');
+    assert.equal(pono.backstory.relevant_history, modelCharacters.characters[1].backstory.relevant_history);
+    assert.equal(pono.backstory.why_they_matter_now, modelCharacters.characters[1].backstory.why_they_matter_now);
+    assert.deepEqual(pono.psychological_core, {});
 });
 
 test('Stage 3 character generation coerces configured project tiers and strips minor psychology', async () => {

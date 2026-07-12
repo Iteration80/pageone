@@ -13,6 +13,7 @@ const {
     textMentionsLabel
 } = require('../utils/revision_patch');
 const { loadSkill } = require('../utils/skills_cache');
+const { formatCharacterBackstory } = require('../utils/character_backstory');
 
 function compactText(value, maxChars = 4000) {
     const text = typeof value === 'string' ? value.trim() : JSON.stringify(value ?? '', null, 2);
@@ -237,12 +238,14 @@ function formatCharacterLock(character = {}) {
     const cameo = character.cameo_profile || {};
     const core = character.psychological_core || {};
     const arc = character.arc || {};
+    const backstory = formatCharacterBackstory(character.backstory, tier);
     if (isTier3) {
         return [
             `${character.name || 'Unnamed Character'} (${character.role || 'role unknown'}, ${tier}): ${character.brief_summary || ''}`,
             cameo.scene_purpose ? `Scene purpose: ${cameo.scene_purpose}` : '',
             cameo.playable_behavior ? `Playable behavior: ${cameo.playable_behavior}` : '',
-            cameo.casting_energy ? `Casting energy: ${cameo.casting_energy}` : ''
+            cameo.casting_energy ? `Casting energy: ${cameo.casting_energy}` : '',
+            backstory ? `Backstory relevance: ${backstory}` : ''
         ].filter(Boolean).join(' | ');
     }
     if (isTier2) {
@@ -252,7 +255,8 @@ function formatCharacterLock(character = {}) {
             functional.emotional_truth ? `Emotional truth: ${functional.emotional_truth}` : '',
             functional.comic_or_tension_function ? `Comic/tension function: ${functional.comic_or_tension_function}` : '',
             functional.pressure_behavior ? `Pressure behavior: ${functional.pressure_behavior}` : '',
-            functional.voice_flavor ? `Voice flavor: ${functional.voice_flavor}` : ''
+            functional.voice_flavor ? `Voice flavor: ${functional.voice_flavor}` : '',
+            backstory ? `Backstory relevance: ${backstory}` : ''
         ].filter(Boolean).join(' | ');
     }
     return [
@@ -260,7 +264,8 @@ function formatCharacterLock(character = {}) {
         core.desire ? `Want: ${core.desire}` : '',
         core.psychological_need || core.moral_need ? `Need: ${[core.psychological_need, core.moral_need].filter(Boolean).join(' / ')}` : '',
         core.ghost_and_wound ? `Wound: ${core.ghost_and_wound}` : '',
-        arc.direction || arc.core_drive ? `Arc: ${[arc.direction, arc.core_drive].filter(Boolean).join(', ')}` : ''
+        arc.direction || arc.core_drive ? `Arc: ${[arc.direction, arc.core_drive].filter(Boolean).join(', ')}` : '',
+        backstory ? `Backstory relevance: ${backstory}` : ''
     ].filter(Boolean).join(' | ');
 }
 

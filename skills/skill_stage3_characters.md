@@ -12,6 +12,7 @@ Tier 1 includes:
 * Full psychological_core: ghost_and_wound, the_lie, fear, desire, psychological_need, moral_need, and optional paradox.
 * Full voice_and_behavior: voice_tag, pressure_tag, humor_tag, speech_patterns, and deflection_tactic.
 * Full arc: core_drive and direction.
+* Optional `backstory` only when prior history changes present behavior, conflict, relationships, reveals, dialogue, or audience understanding.
 * Optional ticks only when the tic/tell is naturally visible on screen and useful for the writer/actor.
 * Optional hidden `_deep_profile` drafting guidance.
 
@@ -27,6 +28,8 @@ Tier 2 must use `functional_profile`:
 
 Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, full relationship maps, ticks, paradoxes, or full arcs for Tier 2. Their profiles should help a writer play the scene, not force a full character journey.
 
+Tier 2 may use optional `backstory.relevant_history` and `backstory.why_they_matter_now` only when compact past context is required to play their function in the present story.
+
 ### Tier 3: Cameo / Scene Utility Profiles
 Use `profile_tier: "Tier 3"` for one-scene or near-one-scene roles such as receptionists, aides, parents, workers, civilians, guards, clerks, social workers, and other utility figures. In this project, use cameo / scene utility profiles for Molly, Dylan, Dylan's parents, Ms. Alvarado, Carol, Brenda, Vance, Gary, and Tyler unless the writer explicitly changes that tiering.
 
@@ -37,6 +40,8 @@ Tier 3 must use `cameo_profile`:
 * `line_style_example` — optional, only if a quick line-style sample helps.
 
 Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, `_deep_profile`, or full arcs for Tier 3. A scene utility role should feel playable, specific, and light.
+
+Tier 3 should have no backstory by default. Add compact backstory only if the writer explicitly asks or a concrete historical fact is necessary for the scene to work.
 
 ## 3. CRITICAL RULES
 
@@ -68,6 +73,19 @@ For Tier 1 only, flesh out physiology, sociology, and psychology. Define:
 * **The Metaphor Ban:** Do not give characters traits revolving around literally saving, rescuing, or interacting with insects, animals, or pets to create empathy.
 
 Do not invent trauma, moral failure, fear engines, psychological needs, moral needs, or arc machinery for characters whose job is minor support or scene utility.
+
+### Rule 2A: Optional Backstory
+Backstory is optional and must serve the script. It is not a mandatory lore bucket.
+
+Use `backstory` only when prior history creates present-tense dramatic value:
+* `essential_history` — the pre-story history that materially affects behavior, conflict, plot, or audience understanding now.
+* `formative_event` — one specific past event that shaped the character, only when it adds useful story context beyond Ghost & Wound.
+* `relationship_history` — shared history with another character that changes current dynamics.
+* `secret_or_reveal` — hidden history only when the script can use it as a reveal, reversal, pressure point, or audience-context shift.
+* `onscreen_relevance` — how the backstory changes choices, conflict, dialogue, staging, or payoff.
+* `relevant_history` and `why_they_matter_now` — compact Tier 2/Tier 3 backstory fields when a supporting or utility role needs one concrete historical fact.
+
+Return an empty object or omit backstory when it would be decorative biography. Never generate childhood lore, trauma, family history, or secrets simply because a field exists.
 
 ### Rule 3: Voice, Paradox, and Subtext
 For Tier 1, define full voice mechanics. For Tier 2, define only `voice_flavor`. For Tier 3, include only a light `line_style_example` when useful.

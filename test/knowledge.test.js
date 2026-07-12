@@ -670,6 +670,8 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.match(appJs, /normalizeStage3CharacterForPersistence\(character, nextTierOverrides\)/);
     assert.match(appJs, /function getCurrentStage3Characters/);
     assert.match(appJs, /function updateCurrentStage3CharacterField/);
+    assert.match(appJs, /function normalizeStage3Backstory/);
+    assert.match(appJs, /char-backstory-section/);
     assert.match(appJs, /getSnapshot: \(\) => stage3PayloadFromCharacters\(getCurrentStage3Characters\(\)\)/);
     assert.doesNotMatch(appJs, /scrapeCharacters/);
     assert.match(appJs, /core\.false_belief/);
@@ -679,6 +681,7 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.doesNotMatch(appJs, /Applying those character changes now/);
 
     assert.match(agent3Js, /normalizeLegacyCharacter/);
+    assert.match(agent3Js, /backstory/);
     assert.match(agent3Js, /function normalizeTierOverrides/);
     assert.match(agent3Js, /function hasMeaningfulProfileData/);
     assert.match(generationRoutes, /tierOverrides: activeTierOverrides/);

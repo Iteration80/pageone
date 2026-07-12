@@ -6,6 +6,7 @@ const {
 } = require('./memory_contract');
 const { parseJsonWithRepair } = require('./json_parse');
 const { loadSkill } = require('../utils/skills_cache');
+const { formatCharacterBackstory } = require('../utils/character_backstory');
 
 // Note: consolidateCoverage is initialized lazily so it picks up the API key
 // that may have been set via settings after module load.
@@ -186,19 +187,21 @@ const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) 
             const dp = c._deep_profile || {};
             const tier = c.profile_tier || 'Tier 1';
             const tierText = String(tier).toLowerCase();
+            const backstory = formatCharacterBackstory(c.backstory, tier);
+            const backstoryLine = backstory ? `\n  Backstory relevance: ${backstory}` : '';
             if (/\b3\b|cameo|utility/.test(tierText)) {
                 const cameo = c.cameo_profile || {};
                 return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
-  Scene purpose: ${cameo.scene_purpose || 'unknown'} | Playable behavior: ${cameo.playable_behavior || 'unknown'}`;
+  Scene purpose: ${cameo.scene_purpose || 'unknown'} | Playable behavior: ${cameo.playable_behavior || 'unknown'}${backstoryLine}`;
             }
             if (/\b2\b|functional/.test(tierText)) {
                 const functional = c.functional_profile || {};
                 return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
-  Narrative function: ${functional.narrative_function || 'unknown'} | Emotional truth: ${functional.emotional_truth || 'unknown'} | Comic/tension: ${functional.comic_or_tension_function || 'unknown'} | Pressure behavior: ${functional.pressure_behavior || 'unknown'} | Voice flavor: ${functional.voice_flavor || 'unknown'}`;
+  Narrative function: ${functional.narrative_function || 'unknown'} | Emotional truth: ${functional.emotional_truth || 'unknown'} | Comic/tension: ${functional.comic_or_tension_function || 'unknown'} | Pressure behavior: ${functional.pressure_behavior || 'unknown'} | Voice flavor: ${functional.voice_flavor || 'unknown'}${backstoryLine}`;
             }
             return `- ${c.name} (${c.role}, ${tier}): ${c.brief_summary || ''}
   Voice: ${c.voice_and_behavior?.voice_tag || 'unknown'} | Pressure: ${c.voice_and_behavior?.pressure_tag || 'unknown'} | Humor: ${c.voice_and_behavior?.humor_tag || 'unknown'}
-  Arc: ${c.arc?.core_drive || 'unknown'} → ${c.arc?.direction || 'unknown'}${dp.dialogue_fingerprint ? `\n  Dialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
+  Arc: ${c.arc?.core_drive || 'unknown'} -> ${c.arc?.direction || 'unknown'}${backstoryLine}${dp.dialogue_fingerprint ? `\n  Dialogue rules: ${dp.dialogue_fingerprint}` : ''}`;
         }).join('\n')}`
         : '';
 

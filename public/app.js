@@ -3141,6 +3141,77 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    const STAGE3_TIER1_BACKSTORY_FIELDS = [
+        ['Essential History', 'backstory.essential_history', 'essential_history'],
+        ['Formative Event', 'backstory.formative_event', 'formative_event'],
+        ['Relationship History', 'backstory.relationship_history', 'relationship_history'],
+        ['Secret / Reveal', 'backstory.secret_or_reveal', 'secret_or_reveal'],
+        ['Onscreen Relevance', 'backstory.onscreen_relevance', 'onscreen_relevance']
+    ];
+
+    const STAGE3_SUPPORTING_BACKSTORY_FIELDS = [
+        ['Relevant History', 'backstory.relevant_history', 'relevant_history'],
+        ['Why They Matter Now', 'backstory.why_they_matter_now', 'why_they_matter_now']
+    ];
+
+    function normalizeStage3Backstory(character = {}, profileTier = '') {
+        const raw = character.backstory;
+        if (typeof raw === 'string') {
+            const text = raw.trim();
+            if (!text) return {};
+            return profileTier === 'Tier 1'
+                ? { essential_history: text }
+                : { relevant_history: text };
+        }
+        const backstory = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        const normalized = {
+            essential_history: backstory.essential_history || backstory.history || backstory.summary || character.essential_history || '',
+            formative_event: backstory.formative_event || backstory.formative_experience || character.formative_event || '',
+            relationship_history: backstory.relationship_history || backstory.relationship_context || character.relationship_history || '',
+            secret_or_reveal: backstory.secret_or_reveal || backstory.secret || backstory.reveal || character.secret_or_reveal || '',
+            onscreen_relevance: backstory.onscreen_relevance || backstory.present_day_relevance || backstory.plot_relevance || character.onscreen_relevance || '',
+            relevant_history: backstory.relevant_history || backstory.supporting_history || character.relevant_history || '',
+            why_they_matter_now: backstory.why_they_matter_now || backstory.current_relevance || character.why_they_matter_now || ''
+        };
+        return Object.entries(normalized).reduce((acc, [key, value]) => {
+            const text = String(value || '').trim();
+            if (text) acc[key] = text;
+            return acc;
+        }, {});
+    }
+
+    function stage3BackstoryFieldsForTier(profileTier = '') {
+        return profileTier === 'Tier 1'
+            ? [...STAGE3_TIER1_BACKSTORY_FIELDS, ...STAGE3_SUPPORTING_BACKSTORY_FIELDS]
+            : [...STAGE3_SUPPORTING_BACKSTORY_FIELDS, ...STAGE3_TIER1_BACKSTORY_FIELDS];
+    }
+
+    function visibleStage3BackstoryFieldsForTier(profileTier = '', backstory = {}) {
+        const primary = profileTier === 'Tier 1' ? STAGE3_TIER1_BACKSTORY_FIELDS : STAGE3_SUPPORTING_BACKSTORY_FIELDS;
+        const primaryKeys = new Set(primary.map(([, , key]) => key));
+        const extras = stage3BackstoryFieldsForTier(profileTier)
+            .filter(([, , key]) => !primaryKeys.has(key) && String(backstory?.[key] || '').trim());
+        return [...primary, ...extras];
+    }
+
+    function defaultStage3BackstoryForTier(profileTier = '') {
+        const keys = (profileTier === 'Tier 1' ? STAGE3_TIER1_BACKSTORY_FIELDS : STAGE3_SUPPORTING_BACKSTORY_FIELDS)
+            .map(([, , key]) => key);
+        return keys.reduce((acc, key) => {
+            acc[key] = '';
+            return acc;
+        }, {});
+    }
+
+    function formatStage3BackstoryForText(backstory = {}, profileTier = '') {
+        const normalized = normalizeStage3Backstory({ backstory }, profileTier);
+        if (!hasMeaningfulStage3Profile(normalized)) return '';
+        return stage3BackstoryFieldsForTier(profileTier)
+            .map(([label, , key]) => normalized[key] ? `${label}: ${normalized[key]}` : '')
+            .filter(Boolean)
+            .join('; ');
+    }
+
     function markStage3Dirty() {
         if (btnStage3Approve) {
             setApproveButtonState(btnStage3Approve, 'ready');
@@ -3186,6 +3257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 direction: character.arc?.direction || 'Growth'
             }
             : {};
+        const backstory = normalizeStage3Backstory(character, profile_tier);
         const normalized = {
             ...character,
             profile_tier,
@@ -3194,6 +3266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             psychological_core,
             voice_and_behavior,
             arc,
+            backstory: hasMeaningfulStage3Profile(backstory) ? backstory : {},
             ticks: {
                 enabled: isFullProfile && ticks.enabled === true,
                 description: isFullProfile ? (ticks.description || '') : '',
@@ -3436,6 +3509,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${field('Line Style', 'cameo_profile.line_style_example', char.cameo_profile?.line_style_example)}
                 </div>
             `;
+            const hasBackstory = hasMeaningfulStage3Profile(char.backstory);
+            const backstoryFields = visibleStage3BackstoryFieldsForTier(profileTier, char.backstory || {});
+            const backstoryFieldsHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                    ${backstoryFields.map(([label, dataField, key]) => field(label, dataField, char.backstory?.[key])).join('')}
+                </div>
+            `;
+            const backstorySectionHtml = `
+                <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
+                <div class="char-backstory-section" data-enabled="${hasBackstory}">
+                    <div class="char-backstory-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <span class="char-backstory-arrow">${hasBackstory ? '▼' : '▶'}</span>
+                        <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;">Backstory</div>
+                        ${!hasBackstory ? '<button class="char-backstory-add-btn" style="font-size: 0.7rem; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;">Add Backstory</button>' : '<button class="char-backstory-remove-btn" style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;">Remove</button>'}
+                    </div>
+                    <div class="char-backstory-body" style="margin-top: 8px; ${hasBackstory ? '' : 'display: none;'}">
+                        ${hasBackstory ? backstoryFieldsHtml : '<div style="color: #6b7280; font-size: 0.82rem; font-style: italic;">No backstory for this character</div>'}
+                    </div>
+                </div>
+            `;
             const rightColumnHtml = profileTierRank === 1
                 ? fullProfileHtml
                 : (profileTierRank === 2 ? functionalProfileHtml : cameoProfileHtml);
@@ -3464,6 +3557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- RIGHT COLUMN: Tiered Profile -->
                 <div>
                     ${rightColumnHtml}
+                    ${backstorySectionHtml}
                     ${legacySubtlety ? `
                         <div style="border-top: 1px solid #1f2937; margin: 12px 0;"></div>
                         <div style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Subtlety (legacy)</div>
@@ -3613,6 +3707,60 @@ document.addEventListener('DOMContentLoaded', () => {
                     markStage3Dirty();
                 });
             }
+
+            const backstorySection = card.querySelector('.char-backstory-section');
+            const backstoryHeader = card.querySelector('.char-backstory-header');
+            const backstoryBody = card.querySelector('.char-backstory-body');
+            const backstoryArrow = card.querySelector('.char-backstory-arrow');
+            const wireBackstoryRemoveButton = (button) => {
+                button?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    updateCurrentStage3Character(index, (character) => {
+                        character.backstory = {};
+                    });
+                    renderCharacters(getCurrentStage3Characters());
+                    markStage3Dirty();
+                });
+            };
+            if (backstoryHeader && backstoryBody) {
+                backstoryHeader.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('char-backstory-add-btn') || e.target.classList.contains('char-backstory-remove-btn')) return;
+                    const isOpen = backstoryBody.style.display !== 'none';
+                    backstoryBody.style.display = isOpen ? 'none' : '';
+                    if (backstoryArrow) backstoryArrow.textContent = isOpen ? '▶' : '▼';
+                });
+            }
+            const addBackstoryBtn = card.querySelector('.char-backstory-add-btn');
+            if (addBackstoryBtn && backstoryBody) {
+                addBackstoryBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const emptyBackstory = defaultStage3BackstoryForTier(profileTier);
+                    const nextFields = visibleStage3BackstoryFieldsForTier(profileTier, emptyBackstory);
+                    updateCurrentStage3Character(index, (character) => {
+                        character.backstory = emptyBackstory;
+                    });
+                    backstoryBody.innerHTML = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;">
+                            ${nextFields.map(([label, dataField, key]) => field(label, dataField, emptyBackstory[key])).join('')}
+                        </div>
+                    `;
+                    backstoryBody.style.display = '';
+                    if (backstorySection) backstorySection.dataset.enabled = 'true';
+                    if (backstoryArrow) backstoryArrow.textContent = '▼';
+                    const removeButton = document.createElement('button');
+                    removeButton.className = 'char-backstory-remove-btn';
+                    removeButton.textContent = 'Remove';
+                    removeButton.style.cssText = 'font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 8px; cursor: pointer;';
+                    addBackstoryBtn.replaceWith(removeButton);
+                    wireBackstoryRemoveButton(removeButton);
+                    backstoryBody.querySelectorAll('.char-ta').forEach(ta => {
+                        wireCharacterTextarea(ta);
+                        autoResize(ta);
+                    });
+                    markStage3Dirty();
+                });
+            }
+            wireBackstoryRemoveButton(card.querySelector('.char-backstory-remove-btn'));
 
             charactersContainer.appendChild(card);
         });
@@ -3803,6 +3951,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const cNew = nc.cameo_profile || {};
             for (const k of ['scene_purpose', 'casting_energy', 'playable_behavior', 'line_style_example']) {
                 if ((cOld[k] || '') !== (cNew[k] || '')) changes.push(`${nc.name}: ${k.replace(/_/g, ' ')} updated`);
+            }
+            const bOld = normalizeStage3Backstory(oc, nc.profile_tier || oc.profile_tier || 'Tier 1');
+            const bNew = normalizeStage3Backstory(nc, nc.profile_tier || oc.profile_tier || 'Tier 1');
+            for (const k of ['essential_history', 'formative_event', 'relationship_history', 'secret_or_reveal', 'onscreen_relevance', 'relevant_history', 'why_they_matter_now']) {
+                if ((bOld[k] || '') !== (bNew[k] || '')) changes.push(`${nc.name}: backstory ${k.replace(/_/g, ' ')} updated`);
             }
             const pOld = oc.psychological_core || {};
             const pNew = nc.psychological_core || {};
@@ -9406,7 +9559,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (c.cameo_profile?.line_style_example) out += `  Line Style: ${c.cameo_profile.line_style_example}\n`;
                 if (typeof c.arc === 'string') out += `  Arc: ${c.arc}\n`;
                 if (c.arc?.direction || c.arc?.core_drive) out += `  Arc: ${[c.arc.direction, c.arc.core_drive].filter(Boolean).join(', ')}\n`;
-                if (c.backstory) out += `  Backstory: ${c.backstory}\n`;
+                const backstoryText = formatStage3BackstoryForText(c.backstory, c.profile_tier || 'Tier 1');
+                if (backstoryText) out += `  Backstory: ${backstoryText}\n`;
                 return out;
             }).join('\n');
         }

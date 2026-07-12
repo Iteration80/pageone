@@ -5,6 +5,10 @@ const {
     mergeSurgicalLabeledItems
 } = require('../utils/revision_patch');
 const { loadSkill } = require('../utils/skills_cache');
+const {
+    hasMeaningfulBackstory,
+    normalizeCharacterBackstory
+} = require('../utils/character_backstory');
 
 const PROFILE_TIERS = {
     FULL: 'Tier 1',
@@ -124,6 +128,7 @@ function normalizeLegacyCharacter(character = {}, tierOverrides = {}) {
             direction: character.arc?.direction || 'Growth'
         }
         : {};
+    const backstory = normalizeCharacterBackstory(character.backstory, character, profile_tier);
     const normalized = {
         ...character,
         profile_tier,
@@ -132,6 +137,7 @@ function normalizeLegacyCharacter(character = {}, tierOverrides = {}) {
         psychological_core,
         voice_and_behavior,
         arc,
+        backstory: hasMeaningfulBackstory(backstory) ? backstory : {},
         ticks: {
             enabled: isFullProfile && ticks.enabled === true,
             description: isFullProfile ? (ticks.description || '') : '',
@@ -194,6 +200,7 @@ function characterFromPatchOperation(op = {}, tierOverrides = {}) {
         role: profile_tier === PROFILE_TIERS.CAMEO ? 'Scene Utility' : 'Supporting',
         profile_tier,
         brief_summary: op.newBody || '',
+        backstory: {},
         functional_profile: profile_tier === PROFILE_TIERS.FUNCTIONAL ? {
             narrative_function: op.newBody || '',
             emotional_truth: '',
@@ -317,6 +324,19 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
                         role: { type: 'string', description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
                         profile_tier: { type: 'string', description: "Use exactly one of: Tier 1, Tier 2, Tier 3. Tier 1 = major arc-bearing full profile. Tier 2 = functional recurring/supporting profile. Tier 3 = cameo / scene utility profile." },
                         brief_summary: { type: 'string', description: "A punchy, 1-2 sentence bio encapsulating who they are and their exact narrative function. Keep Tier 3 summaries brief." },
+                        backstory: {
+                            type: 'object',
+                            description: "Optional. Use only when prior history creates present-tense dramatic value. Empty object when no backstory is useful.",
+                            properties: {
+                                essential_history: { type: 'string', description: "Tier 1 mostly: the pre-story history that materially affects present behavior, conflict, or plot." },
+                                formative_event: { type: 'string', description: "Tier 1 mostly: one specific past event that shaped the character. Leave empty if this repeats ghost_and_wound without adding story utility." },
+                                relationship_history: { type: 'string', description: "Tier 1 mostly: relevant shared history with another character that changes current dynamics." },
+                                secret_or_reveal: { type: 'string', description: "Optional: hidden history or reveal only when the script can actually use it." },
+                                onscreen_relevance: { type: 'string', description: "How this backstory changes choices, conflict, dialogue, staging, or audience understanding on screen." },
+                                relevant_history: { type: 'string', description: "Tier 2/3 only when needed: compact past context required to play the character's function." },
+                                why_they_matter_now: { type: 'string', description: "Tier 2/3 only when needed: why that past context matters in the current story moment." }
+                            }
+                        },
                         functional_profile: {
                             type: 'object',
                             properties: {
@@ -416,9 +436,9 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
     if (notes && normalizedCurrentCharacters.length > 0 && !fullRegenerationRequested) {
         console.log("  Surgical Revision Mode: Updating characters...");
         const legacyInstruction = legacyModernizationNeeded
-            ? '\n\nLEGACY MODERNIZATION: Some existing character records come from an older schema. Preserve their visible story intent, assign the appropriate profile_tier, and fill only the fields required by that tier. Tier 1 legacy records should receive the full psychological/voice/arc/_deep_profile treatment. Tier 2 records should receive functional_profile fields centered on narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor. Tier 3 records should receive cameo_profile fields centered on scene_purpose, casting_energy, playable_behavior, and line_style_example. Do not preserve or invent wounds, lies, fears, psychological needs, moral needs, ticks, arcs, or personality typing for functional supporting or scene utility characters.'
+            ? '\n\nLEGACY MODERNIZATION: Some existing character records come from an older schema. Preserve their visible story intent, assign the appropriate profile_tier, and fill only the fields required by that tier. Tier 1 legacy records should receive the full psychological/voice/arc/_deep_profile treatment. Tier 2 records should receive functional_profile fields centered on narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor. Tier 3 records should receive cameo_profile fields centered on scene_purpose, casting_energy, playable_behavior, and line_style_example. Preserve existing backstory when it has present-story value, but do not invent backstory just to fill a field. Do not preserve or invent wounds, lies, fears, psychological needs, moral needs, ticks, arcs, or personality typing for functional supporting or scene utility characters.'
             : '';
-        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a tier-appropriate profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the character is Tier 1 and the user's note specifically addresses personality typing, voice, behavioral patterns, or missing Tier 1 deep-profile data. Do not create or regenerate \`_deep_profile\` for Tier 2 or Tier 3 characters unless the writer explicitly asks for hidden drafting guidance for that minor character. If a Tier 1 character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY Tier 1 character's core traits change, regenerate Tier 1 relationship_dynamics for all affected Tier 1 characters (relationships are bidirectional).${legacyInstruction}`;
+        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a tier-appropriate profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the character is Tier 1 and the user's note specifically addresses personality typing, voice, behavioral patterns, or missing Tier 1 deep-profile data. Preserve the \`backstory\` field exactly as provided unless the writer specifically asks to add, remove, or revise backstory, history, secrets, or past relationships. Do not create or regenerate \`_deep_profile\` for Tier 2 or Tier 3 characters unless the writer explicitly asks for hidden drafting guidance for that minor character. If a Tier 1 character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY Tier 1 character's core traits change, regenerate Tier 1 relationship_dynamics for all affected Tier 1 characters (relationships are bidirectional).${legacyInstruction}`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
         const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
@@ -473,6 +493,13 @@ TIERING INSTRUCTIONS:
 3. SCENE UTILITY / CAMEO PROFILES: Assign \`profile_tier: "Tier 3"\` to one-scene or near-one-scene utility roles. Fill only \`cameo_profile\` with scene_purpose, casting_energy, playable_behavior, and line_style_example. Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MBTI/Enneagram logic, ticks, paradoxes, deep profiles, or full arcs for Tier 3.
 4. Ticks and paradox are optional for Tier 1. Include them only when naturally visible on screen and useful for the writer/actor.
 5. Do not invent trauma, moral failure, or arc machinery for characters whose only job is scene utility.${projectTierGuidance}
+
+OPTIONAL BACKSTORY INSTRUCTIONS:
+1. Backstory is not required. Return \`backstory: {}\` or omit backstory whenever prior history would be decorative lore rather than a useful writing constraint.
+2. Backstory is different from Ghost & Wound. Use it for concrete pre-story history that affects present choices, conflict, relationships, reveals, dialogue, or audience understanding.
+3. Tier 1 may use essential_history, formative_event, relationship_history, secret_or_reveal, and onscreen_relevance when those details will matter on screen.
+4. Tier 2 may use only relevant_history and why_they_matter_now, and only when the history clarifies the character's function now.
+5. Tier 3 should have no backstory unless the writer explicitly asks or the scene cannot work without one compact historical fact.
 
 BEHAVIORAL ENGINE INSTRUCTIONS:
 1. Run MBTI/Enneagram-style inference ONLY for Tier 1 characters.

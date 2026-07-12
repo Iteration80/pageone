@@ -12,6 +12,12 @@ const {
 } = require('docx');
 const { formatBuildFingerprint, getBuildInfo } = require('../utils/build_info');
 const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
+const {
+    TIER1_BACKSTORY_FIELDS,
+    TIER2_BACKSTORY_FIELDS,
+    hasMeaningfulBackstory,
+    normalizeCharacterBackstory
+} = require('../utils/character_backstory');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -423,6 +429,10 @@ function normalizeCameoProfile(character = {}) {
     };
 }
 
+function normalizeBackstory(character = {}, tier = '') {
+    return normalizeCharacterBackstory(character.backstory, character, tier);
+}
+
 function addKeyValueSection(children, label, obj, fields) {
     if (!obj) return;
     const validFields = fields.filter(([, k]) => obj[k]);
@@ -460,6 +470,7 @@ async function generateCharactersDocx(characters, projectTitle) {
         const tier = normalizeCharacterProfileTier(char.profile_tier, char);
         const functionalProfile = normalizeFunctionalProfile(char);
         const cameoProfile = normalizeCameoProfile(char);
+        const backstory = normalizeBackstory(char, tier);
 
         children.push(
             new Paragraph({
@@ -478,6 +489,15 @@ async function generateCharactersDocx(characters, projectTitle) {
 
         if (char.brief_summary) {
             children.push(body(char.brief_summary, { spacingAfter: 240 }));
+        }
+
+        if (hasMeaningfulBackstory(backstory)) {
+            const backstoryFields = tier === 'Tier 1'
+                ? [...TIER1_BACKSTORY_FIELDS, ...TIER2_BACKSTORY_FIELDS]
+                : [...TIER2_BACKSTORY_FIELDS, ...TIER1_BACKSTORY_FIELDS];
+            addKeyValueSection(children, 'BACKSTORY', backstory, [
+                ...backstoryFields
+            ]);
         }
 
         if (tier === 'Tier 3') {
