@@ -691,6 +691,37 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
     assert.match(agent3Js, /LEGACY MODERNIZATION/);
     assert.match(agent3Js, /fresh character regeneration/);
+    assert.match(generationRoutes, /normalizeStage3CharactersForPipeline/);
+    assert.match(fs.readFileSync(require.resolve('../server.js'), 'utf8'), /normalizeStage3CharactersForPipeline\(projectData\.data\?\.stage3_characters \|\| \{\}\)/);
+});
+
+test('Stage 3 pipeline character context applies tier overrides over stale raw profile tiers', () => {
+    const { normalizeStage3CharactersForPipeline } = require('../utils/character_profiles');
+    const normalized = normalizeStage3CharactersForPipeline({
+        tier_overrides: { Moog: 2 },
+        characters: [{
+            name: 'Moog',
+            role: 'Repeat Offender',
+            profile_tier: 'Tier 1',
+            brief_summary: 'A hulking stone-and-root figment whose desperate attempts to be seen cause property damage.',
+            psychological_core: {
+                ghost_and_wound: 'Stale full-profile wound.',
+                the_lie: 'Stale full-profile lie.'
+            },
+            voice_and_behavior: {
+                voice_tag: 'Sharp & confrontational'
+            },
+            arc: { core_drive: 'To be seen', direction: 'Growth' },
+            ticks: { enabled: true, description: 'Stale tick.', frequency_gate: 'Always.' }
+        }]
+    });
+
+    assert.equal(normalized[0].profile_tier, 'Tier 2');
+    assert.equal(normalized[0].functional_profile.narrative_function, 'A hulking stone-and-root figment whose desperate attempts to be seen cause property damage.');
+    assert.deepEqual(normalized[0].psychological_core, {});
+    assert.deepEqual(normalized[0].voice_and_behavior, {});
+    assert.deepEqual(normalized[0].arc, {});
+    assert.equal(normalized[0].ticks.enabled, false);
 });
 
 test('Stage 3 tier seed repairs unversioned I.M.A.G.I.N.E. overrides once', async () => {

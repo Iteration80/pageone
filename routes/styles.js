@@ -35,7 +35,8 @@ function registerStyleRoutes(app, deps) {
         extractAttachmentText,
         loadSkill,
         generateContent,
-        STYLES_DIR
+        STYLES_DIR,
+        normalizeStage3CharactersForPipeline
     } = deps;
 
     // Generate a style skill file from chat/form input
@@ -147,7 +148,7 @@ function registerStyleRoutes(app, deps) {
             const pitch = projectData.data?.stage1_pitch?.pitch;
             const projectContext = {
                 synopsis: pitch?.synopsis || '',
-                characters: projectData.data?.stage3_characters?.characters || []
+                characters: normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {})
             };
             const previewPacket = buildSourceGenerationPacket(projectData, 7, `${JSON.stringify(projectContext, null, 2)}\n${JSON.stringify(scene, null, 2)}`, { userMessage: 'Preview this scene in the selected style.' });
 

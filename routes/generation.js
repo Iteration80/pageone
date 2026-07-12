@@ -66,7 +66,8 @@ function registerGenerationRoutes(app, deps) {
         applyCheckResult,
         resolveError,
         buildSourceAuthorityBlock,
-        recordArtifactMutation
+        recordArtifactMutation,
+        normalizeStage3CharactersForPipeline
     } = deps;
 
     // API route
@@ -478,7 +479,7 @@ function registerGenerationRoutes(app, deps) {
         const { projectData } = context;
         const pitchData = projectData.data?.stage1_pitch?.pitch;
         const beatsData = projectData.data?.stage2_outline?.outline;
-        const charsData = projectData.data?.stage3_characters?.characters;
+        const charsData = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
 
         const parsedCurrentBeats = currentBeats ? safeParse(currentBeats, null) : null;
         const isFullStage4Generation = !parsedCurrentBeats;
@@ -591,7 +592,7 @@ function registerGenerationRoutes(app, deps) {
         const { projectData } = context;
 
         const pitchData = projectData.data?.stage1_pitch?.pitch;
-        const charactersData = projectData.data?.stage3_characters?.characters;
+        const charactersData = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
         const beatsData = projectData.data?.stage4_beats?.hybrid_beat_sheet;
 
         const { notes, currentTreatment } = req.body;
@@ -702,7 +703,7 @@ function registerGenerationRoutes(app, deps) {
         if (!context) return;
         const { projectData } = context;
         const pitch = projectData.data?.stage1_pitch?.pitch;
-        const characters = projectData.data?.stage3_characters?.characters;
+        const characters = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
         const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
         const treatment = projectData.data?.stage5_treatment;
 
@@ -915,7 +916,7 @@ function registerGenerationRoutes(app, deps) {
 
             const projectContext = {
                 synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || "",
-                characters: projectData.data.stage3_characters?.characters || []
+                characters: normalizeStage3CharactersForPipeline(projectData.data.stage3_characters || {})
             };
 
             clearSceneFacts(projectData, sceneNum);
@@ -993,7 +994,7 @@ function registerGenerationRoutes(app, deps) {
 
             const projectContext = {
                 synopsis: projectData.data.stage1_pitch?.pitch?.synopsis || "",
-                characters: projectData.data.stage3_characters?.characters || []
+                characters: normalizeStage3CharactersForPipeline(projectData.data.stage3_characters || {})
             };
 
             clearSceneFacts(projectData, sceneNum);

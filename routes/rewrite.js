@@ -1,4 +1,5 @@
 const { formatCharacterBackstory } = require('../utils/character_backstory');
+const { normalizeStage3CharactersForPipeline } = require('../utils/character_profiles');
 
 function registerRewriteRoutes(app, deps) {
     const {
@@ -92,7 +93,7 @@ function registerRewriteRoutes(app, deps) {
                 genre:    pitch?.genre || '',
                 logline:  pitch?.logline || '',
                 synopsis: pitch?.synopsis || '',
-                characters: projectData.data?.stage3_characters?.characters || []
+                characters: normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {})
             };
 
             console.log(`Generating Stage 9 Coverage for project ${projectId}...`);
@@ -228,7 +229,7 @@ function registerRewriteRoutes(app, deps) {
                 ? '...\n' + conversationContext.slice(-4000)
                 : conversationContext;
             const contextSection = trimmedContext ? `\n\n## BRAINSTORM CONTEXT\n${trimmedContext}` : '';
-            const characters = projectData.data?.stage3_characters?.characters || [];
+            const characters = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
             const charBlock = characters.length > 0
                 ? `\n\n## CHARACTERS\n${characters.map(c => {
                     const tier = c.profile_tier || 'Tier 1';
@@ -433,7 +434,7 @@ function registerRewriteRoutes(app, deps) {
             console.log(`Stage 10: rewriting scene ${sceneNumber} for task: "${priorityTask.slice(0, 60)}..."${referenceContent ? ' [with style compliance]' : ''}`);
 
             // Build character context for this scene
-            const characters = projectData.data?.stage3_characters?.characters || [];
+            const characters = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
             const charProfiles = characters.length > 0
                 ? characters.map(c => {
                     const dp = c._deep_profile || {};

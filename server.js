@@ -383,6 +383,7 @@ const {
     generateScreenplayPdf
 } = require('./agents/export');
 const { formatCharacterBackstory } = require('./utils/character_backstory');
+const { normalizeStage3CharactersForPipeline } = require('./utils/character_profiles');
 
 const { agent1Pitch } = require('./agents/agent_1_pitch');
 const { agent1Refine } = require('./agents/agent_1_refine');
@@ -2834,7 +2835,10 @@ function stageDataForReadiness(projectData, stageId) {
         case 2:
             return JSON.stringify({ outline: data.stage2_outline?.outline || [] }, null, 2);
         case 3:
-            return JSON.stringify({ characters: data.stage3_characters?.characters || [] }, null, 2);
+            return JSON.stringify({
+                tier_overrides: data.stage3_characters?.tier_overrides || {},
+                characters: normalizeStage3CharactersForPipeline(data.stage3_characters || {})
+            }, null, 2);
         case 4:
             return JSON.stringify(data.stage4_beats || data.stage4_treatment || [], null, 2);
         case 5:
@@ -3730,7 +3734,10 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
             stageData = JSON.stringify(projectData.data?.stage2_outline?.outline || [], null, 2);
             break;
         case 3:
-            stageData = JSON.stringify(projectData.data?.stage3_characters?.characters || [], null, 2);
+            stageData = JSON.stringify({
+                tier_overrides: projectData.data?.stage3_characters?.tier_overrides || {},
+                characters: normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {})
+            }, null, 2);
             break;
         case 4:
             stageData = JSON.stringify(projectData.data?.stage4_beats || [], null, 2);
@@ -3814,7 +3821,7 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
             const priorityList = allPriorities.length
                 ? allPriorities.map(p => `${p.done ? '[DONE]' : '[OPEN]'} ${p.label}: ${p.task}`).join('\n')
                 : 'No rewrite priorities are available yet.';
-            const characters = projectData.data?.stage3_characters?.characters || [];
+            const characters = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
             const charSummary = characters.length > 0
                 ? characters.map(c => {
                     const tier = c.profile_tier || 'Tier 1';
@@ -4065,7 +4072,8 @@ registerGenerationRoutes(app, {
     applyCheckResult,
     resolveError,
     buildSourceAuthorityBlock,
-    recordArtifactMutation
+    recordArtifactMutation,
+    normalizeStage3CharactersForPipeline
 });
 
 // --- Stage 10: Rewrite Routes --- //
@@ -4206,7 +4214,8 @@ registerStyleRoutes(app, {
     extractAttachmentText,
     loadSkill,
     generateContent,
-    STYLES_DIR
+    STYLES_DIR,
+    normalizeStage3CharactersForPipeline
 });
 
 registerProjectRoutes(app, {
