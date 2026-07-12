@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { Document, Packer, Paragraph } = require('docx');
 
@@ -687,6 +688,55 @@ test('Stage 3 character regeneration handles legacy cards and direct rebuild req
     assert.match(agent3Js, /isFullCharacterRegenerationRequest/);
     assert.match(agent3Js, /LEGACY MODERNIZATION/);
     assert.match(agent3Js, /fresh character regeneration/);
+});
+
+test('Stage 3 tier seed repairs unversioned I.M.A.G.I.N.E. overrides once', async () => {
+    const {
+        IMAGINE_TIER_OVERRIDES_VERSION,
+        seedStage3TierOverridesForDirectory
+    } = require('../scripts/seed-stage3-tier-overrides');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage3-tier-seed-'));
+    const file = path.join(dir, '1777000000000.json');
+    const project = {
+        id: '1777000000000',
+        title: 'I.M.A.G.I.N.E.',
+        data: {
+            stage3_characters: {
+                tier_overrides: {
+                    Rebecca: 1,
+                    Moog: 1
+                }
+            }
+        }
+    };
+    fs.writeFileSync(file, `${JSON.stringify(project, null, 2)}\n`);
+
+    await seedStage3TierOverridesForDirectory({
+        dir,
+        write: true,
+        overwriteUnversioned: true,
+        markSeedVersion: true,
+        log: () => {}
+    });
+
+    const repaired = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(repaired.data.stage3_characters.tier_overrides.Moog, 2);
+    assert.equal(repaired.data.stage3_characters.tier_overrides.Pono, 2);
+    assert.equal(repaired.data.stage3_characters._meta.tier_overrides_seed_version, IMAGINE_TIER_OVERRIDES_VERSION);
+
+    repaired.data.stage3_characters.tier_overrides.Moog = 1;
+    fs.writeFileSync(file, `${JSON.stringify(repaired, null, 2)}\n`);
+
+    await seedStage3TierOverridesForDirectory({
+        dir,
+        write: true,
+        overwriteUnversioned: true,
+        markSeedVersion: true,
+        log: () => {}
+    });
+
+    const preserved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(preserved.data.stage3_characters.tier_overrides.Moog, 1);
 });
 
 test('Claude client streams long Opus requests used by Stage 3 characters', () => {

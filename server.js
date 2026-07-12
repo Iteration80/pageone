@@ -427,6 +427,7 @@ const {
     stageConfig
 } = require('./utils/artifact_snapshots');
 const { sanitizeOutlineMetaBeats } = require('./utils/outline_sanitizer');
+const { seedStage3TierOverridesForDirectory } = require('./scripts/seed-stage3-tier-overrides');
 const { generateContent } = require('./agents/ai-client');
 const { runAssistantTurn, buildNeutralMessages } = require('./agents/assistant');
 const { registerAssistantRoutes } = require('./routes/assistant');
@@ -4310,13 +4311,29 @@ app.use('/api', (req, res) => {
 async function startServer() {
     await initDb();
     await loadSettings();
-    auditOrUpgradeAllProjectKnowledge({ write: true })
-        .then(({ totals }) => {
+    (async () => {
+        try {
+            const { totals } = await auditOrUpgradeAllProjectKnowledge({ write: true });
             if (totals.changed || totals.recoveredMarkdown) {
                 console.log(`[knowledge] legacy upgrade checked ${totals.projects} project(s), updated ${totals.changed}, recovered ${totals.recoveredMarkdown} markdown asset(s).`);
             }
-        })
-        .catch(error => console.error('[knowledge] legacy upgrade skipped:', error.message));
+        } catch (error) {
+            console.error('[knowledge] legacy upgrade skipped:', error.message);
+        }
+
+        try {
+            const { changed, inspected } = await seedStage3TierOverridesForDirectory({
+                dir: DATA_DIR,
+                write: true,
+                overwriteUnversioned: true,
+                markSeedVersion: true,
+                log: () => {}
+            });
+            if (changed) console.log(`[stage3] tier override seed updated ${changed} of ${inspected} project file(s).`);
+        } catch (error) {
+            console.error('[stage3] tier override seed skipped:', error.message);
+        }
+    })();
 
     const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;
     const hasAnthropic = appSettings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
