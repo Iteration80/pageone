@@ -152,6 +152,54 @@ test('sanitizer strips schema-instruction beats but keeps real story beats', () 
     assert.deepEqual(labels, ['Closing Image - The Photo on the Wall']);
 });
 
+// Regression for 2026-07-13 (round 2): a beat-naming revision brief armed the
+// scoped-merge safeguard, whose cloneBeat stripped every STC annotation the
+// model had just added — the schema upgrade saved with zero annotations.
+test('scoped-merge safeguard preserves model-supplied STC annotations', async () => {
+    const { agent2Outline } = require('../agents/agent_2_outline');
+    const currentOutline = {
+        act_1: [{
+            sequence_number_and_title: 'Sequence A: The Invisible World',
+            beats: [
+                { beat_label: 'The Moog Bust - A Repeat Offender', description: 'OLD long Moog description.' },
+                { beat_label: 'Meet Rebecca - The Skeptic Mom', description: 'OLD Rebecca description.' },
+                { beat_label: 'Pono at the Fence', description: 'OLD Pono description untargeted by the brief.' }
+            ]
+        }],
+        act_2: [], act_3: []
+    };
+    const modelResult = {
+        title: 'T', genre: 'G', logline: 'L', stc_genre_category: 'Superhero',
+        outline: {
+            act_1: [{
+                sequence_number_and_title: 'Sequence A: The Invisible World',
+                beats: [
+                    { beat_label: 'The Moog Bust - A Repeat Offender', description: 'NEW tight Moog description.', beat_name: 'Set-Up', emotional_arc: 'Chaos to grief.', pacing_notes: 'Kinetic.' },
+                    { beat_label: 'Meet Rebecca - The Skeptic Mom', description: 'NEW tight Rebecca description.', beat_name: 'Set-Up', emotional_arc: 'Love vs fear.', pacing_notes: 'Domestic hush.' },
+                    { beat_label: 'Pono at the Fence', description: 'NEW Pono text.', beat_name: 'Debate', emotional_arc: 'Temptation refused.', pacing_notes: 'Eerie.' }
+                ]
+            }],
+            act_2: [], act_3: []
+        }
+    };
+    // Brief shape that arms the scoped-merge safeguard: bracketed labels naming
+    // specific beats (exactly how the assistant writes revision briefs).
+    const notes = 'Update the outline to the new format. [The Moog Bust - A Repeat Offender] and [Meet Rebecca - The Skeptic Mom] keep their events but tighten descriptions and add beat_name, emotional_arc, pacing_notes.';
+    const { result } = await agent2Outline({ title: 'T', genre: 'G', logline: 'L' }, null, notes, null, {
+        model: 'gemini-test', geminiApiKey: 'x',
+        generateContentFn: async () => ({ text: JSON.stringify(modelResult), usage: {} }),
+        currentOutline
+    });
+    const beats = result.outline.act_1[0].beats;
+    for (const beat of beats) {
+        assert.ok(beat.beat_name, `annotations must survive the safeguards on [${beat.beat_label}]`);
+        assert.ok(beat.emotional_arc, `emotional_arc must survive on [${beat.beat_label}]`);
+    }
+    const moog = beats.find(b => b.beat_label === 'The Moog Bust - A Repeat Offender');
+    assert.equal(moog.description, 'NEW tight Moog description.', 'targeted beat takes the revised text');
+    assert.equal(moog.beat_name, 'Set-Up');
+});
+
 test('outlineToHybridBeatSheet accepts raw outline objects', () => {
     const result = outlineToHybridBeatSheet({
         act_1: [],

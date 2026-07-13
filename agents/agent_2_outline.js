@@ -392,11 +392,29 @@ function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
     });
 }
 
+// Preserve every field on the beat (Save the Cat annotations included) — this
+// used to strip everything but label+description, which silently deleted the
+// STC annotations whenever the scoped merge or restore safeguards fired.
 function cloneBeat(beat = {}) {
     return {
+        ...beat,
         beat_label: beat.beat_label || beat.beat || 'Restored Beat',
         description: beat.description || ''
     };
+}
+
+// Annotations (beat_name/emotional_arc/pacing_notes/genre notes) are additive
+// metadata, not protected story content: when the model supplies them for a
+// beat whose story text the merge keeps unchanged, adopt them anyway.
+const OUTLINE_BEAT_ANNOTATION_KEYS = ['beat_name', 'emotional_arc', 'pacing_notes', 'genre_variation_notes'];
+
+function adoptRevisedBeatAnnotations(mergedBeat = {}, revisedBeat = {}) {
+    if (!mergedBeat || !revisedBeat) return mergedBeat;
+    for (const key of OUTLINE_BEAT_ANNOTATION_KEYS) {
+        const value = String(revisedBeat[key] || '').trim();
+        if (value) mergedBeat[key] = value;
+    }
+    return mergedBeat;
 }
 
 function sequenceId(sequence = {}) {
@@ -820,8 +838,13 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
             for (let beatIndex = 0; beatIndex < (currentSequence.beats || []).length; beatIndex += 1) {
                 const currentBeat = currentSequence.beats[beatIndex];
                 if (structuralOperationProtectsCurrentBeat(structuralPatch.operations, currentSequence, beatIndex)) continue;
-                if (!notesTargetBeat(notes, currentBeat)) continue;
                 const revisedBeat = findMatchingRevisedBeat(revisedSequence, currentBeat);
+                if (!notesTargetBeat(notes, currentBeat)) {
+                    // Story text stays protected, but freshly supplied Save the Cat
+                    // annotations ride along even on untargeted beats.
+                    if (revisedBeat) adoptRevisedBeatAnnotations(mergedSequence.beats[beatIndex], revisedBeat);
+                    continue;
+                }
                 if (revisedBeat) {
                     mergedSequence.beats[beatIndex] = cloneBeat(revisedBeat);
                     appliedScopedChange = true;
