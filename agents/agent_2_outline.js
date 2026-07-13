@@ -125,6 +125,10 @@ function scopedPolishChecklistItems(text = '', maxItems = 12) {
 function isFormatDirectiveChecklistItem(item = '') {
     const text = String(item || '');
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b/i.test(text)) return true;
+    // Instructions about the outline's own machinery ("tighten all beat
+    // descriptions", "preserve all sequence titles") are process directives,
+    // not story content — story text never talks about beat labels.
+    if (/\b(beat descriptions?|beat labels?|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|beat order)\b/i.test(text)) return true;
     return /\b(?:update|annotate|include|add|apply|bring)\b[^.]{0,80}\b(?:every|all|each)\b[^.]{0,40}\bbeats?\b[^.]{0,80}\b(?:field|annotation|format|schema|save the cat)/i.test(text)
         || /\b(?:new|current|updated)\s+(?:format|schema)\b/i.test(text);
 }
@@ -995,9 +999,48 @@ function applyRecognitionAndAccountabilityPass(outlineResult = {}, notes = '') {
 }
 
 function applyPostRevisionSafeguards(outlineResult = {}, currentOutline = {}, notes = '', options = {}) {
+    // Dedupe BEFORE the scoped merge so its beat matching sees one candidate
+    // per label (the annotated one), and again after restore in case the
+    // restore pass re-added an original alongside its revised copy.
+    dedupeSequenceBeatsByLabel(outlineResult);
     applyScopedRevisionMerge(outlineResult, currentOutline, notes, options);
     restoreDroppedExistingBeats(outlineResult, currentOutline, notes, options);
+    dedupeSequenceBeatsByLabel(outlineResult);
     applyRecognitionAndAccountabilityPass(outlineResult, notes);
+    return outlineResult;
+}
+
+// The merge/restore safeguards can each contribute a copy of the same beat
+// (observed 2026-07-13: 'Aftermath - A Quiet Reckoning' saved twice in one
+// sequence — the old long version and the revised annotated one). Collapse
+// same-label beats within a sequence, preferring the annotated version.
+function dedupeSequenceBeatsByLabel(outlineResult = {}) {
+    const outline = outlineResult?.outline || outlineResult || {};
+    const annotationScore = beat => OUTLINE_BEAT_ANNOTATION_KEYS
+        .reduce((score, key) => score + (String(beat?.[key] || '').trim() ? 1 : 0), 0);
+    for (const actKey of ['act_1', 'act_2', 'act_3']) {
+        if (!Array.isArray(outline[actKey])) continue;
+        for (const sequence of outline[actKey]) {
+            if (!Array.isArray(sequence?.beats)) continue;
+            const firstIndexByLabel = new Map();
+            const deduped = [];
+            for (const beat of sequence.beats) {
+                const key = normalizedComparableLabel(beat?.beat_label || beat?.beat || '');
+                if (!key) { deduped.push(beat); continue; }
+                if (!firstIndexByLabel.has(key)) {
+                    firstIndexByLabel.set(key, deduped.length);
+                    deduped.push(beat);
+                    continue;
+                }
+                const index = firstIndexByLabel.get(key);
+                const kept = deduped[index];
+                // Prefer the annotated copy; tie goes to the later copy (the
+                // revised one is pushed after the restored original).
+                if (annotationScore(beat) >= annotationScore(kept)) deduped[index] = beat;
+            }
+            sequence.beats = deduped;
+        }
+    }
     return outlineResult;
 }
 

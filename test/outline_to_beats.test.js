@@ -131,6 +131,70 @@ test('format/schema directives never become checklist items', () => {
     }
 });
 
+// Round 3 (2026-07-13): process instructions phrased WITHOUT schema tokens
+// ("Tighten all beat descriptions...", "Preserve all sequence titles...") were
+// still fabricated as beats. Pin the broader outline-machinery heuristic.
+test('outline-machinery instructions never become checklist items or beats', () => {
+    const notes = [
+        'Run the format upgrade again.',
+        '',
+        'Tighten all beat descriptions to lean outline language of eighty words or fewer.',
+        '',
+        'Preserve all sequence titles, beat labels, and the existing beat order exactly.'
+    ].join('\n');
+    for (const item of buildRevisionChecklist(notes)) {
+        assert.ok(!/beat descriptions|sequence titles|beat labels|lean outline/i.test(item), `process directive leaked into checklist: "${item}"`);
+    }
+
+    const outline = {
+        outline: {
+            act_1: [], act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: A World That Remembers',
+                beats: [
+                    { beat_label: 'Closing Image - The Photo on the Wall', description: 'The photo hangs framed in the light.' },
+                    { beat_label: 'Tighten All Beat Descriptions To Lean Outline', description: 'Tighten all beat descriptions to lean outline language of eighty words or fewer.' },
+                    { beat_label: 'Preserve All Sequence Titles Beat Labels And', description: 'Preserve all sequence titles, beat labels, and the existing beat order exactly.' }
+                ]
+            }]
+        }
+    };
+    sanitizeOutlineMetaBeats(outline);
+    assert.deepEqual(outline.outline.act_3[0].beats.map(b => b.beat_label), ['Closing Image - The Photo on the Wall']);
+});
+
+test('duplicate same-label beats collapse to the annotated copy', async () => {
+    const { agent2Outline } = require('../agents/agent_2_outline');
+    const currentOutline = {
+        act_1: [{
+            sequence_number_and_title: 'Sequence E: The Wound Beneath the Suit',
+            beats: [{ beat_label: 'Aftermath - A Quiet Reckoning', description: 'OLD long diner description with many extra words.' }]
+        }],
+        act_2: [], act_3: []
+    };
+    // Model result contains the same beat twice (as the safeguards produced on 07-13).
+    const modelResult = {
+        title: 'T', genre: 'G', logline: 'L', stc_genre_category: 'Superhero',
+        outline: {
+            act_1: [{
+                sequence_number_and_title: 'Sequence E: The Wound Beneath the Suit',
+                beats: [
+                    { beat_label: 'Aftermath - A Quiet Reckoning', description: 'OLD long diner description with many extra words.' },
+                    { beat_label: 'Aftermath - A Quiet Reckoning', description: 'NEW tightened diner beat.', beat_name: 'Bad Guys Close In', emotional_arc: 'Flaw resurfaces.', pacing_notes: 'Quiet, aching.' }
+                ]
+            }],
+            act_2: [], act_3: []
+        }
+    };
+    const { result } = await agent2Outline({ title: 'T', genre: 'G', logline: 'L' }, currentOutline, 'Tighten the diner beat.', null, {
+        model: 'gemini-test', geminiApiKey: 'x',
+        generateContentFn: async () => ({ text: JSON.stringify(modelResult), usage: {} })
+    });
+    const beats = result.outline.act_1[0].beats.filter(b => /Quiet Reckoning/.test(b.beat_label));
+    assert.equal(beats.length, 1, 'same-label duplicates collapse');
+    assert.equal(beats[0].beat_name, 'Bad Guys Close In', 'the annotated copy wins');
+});
+
 test('sanitizer strips schema-instruction beats but keeps real story beats', () => {
     const outline = {
         outline: {
@@ -185,10 +249,9 @@ test('scoped-merge safeguard preserves model-supplied STC annotations', async ()
     // Brief shape that arms the scoped-merge safeguard: bracketed labels naming
     // specific beats (exactly how the assistant writes revision briefs).
     const notes = 'Update the outline to the new format. [The Moog Bust - A Repeat Offender] and [Meet Rebecca - The Skeptic Mom] keep their events but tighten descriptions and add beat_name, emotional_arc, pacing_notes.';
-    const { result } = await agent2Outline({ title: 'T', genre: 'G', logline: 'L' }, null, notes, null, {
+    const { result } = await agent2Outline({ title: 'T', genre: 'G', logline: 'L' }, currentOutline, notes, null, {
         model: 'gemini-test', geminiApiKey: 'x',
-        generateContentFn: async () => ({ text: JSON.stringify(modelResult), usage: {} }),
-        currentOutline
+        generateContentFn: async () => ({ text: JSON.stringify(modelResult), usage: {} })
     });
     const beats = result.outline.act_1[0].beats;
     for (const beat of beats) {

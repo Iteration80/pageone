@@ -18,8 +18,16 @@ function isOutlineMetaBeat(beat = {}) {
     // (observed 2026-07-13 during the outline schema upgrade).
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b\s*[:=]/i.test(description)) return true;
 
-    // Instruction-shaped labels: "Update Every Beat To Include", "Apply New Format", etc.
+    // Outline-machinery talk: story prose never discusses "beat descriptions",
+    // "sequence titles", or "lean outline language" — only leaked process
+    // instructions do (observed 2026-07-13, round 3: "Tighten All Beat
+    // Descriptions To Lean Outline" appended as a beat).
+    if (/\b(beat descriptions?|beat labels?|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count)\b/i.test(description)) return true;
+
+    // Instruction-shaped labels: "Update Every Beat To Include", "Tighten All
+    // Beat Descriptions", "Preserve All Sequence Titles", etc.
     if (/^(update every beat|update all beats|include in every beat|schema update|format update|apply new format|new format)\b/.test(label)) return true;
+    if (/^(tighten|preserve|keep|maintain|shorten|trim|condense|reformat|rephrase|retain) (all|every|each)\b/.test(label)) return true;
 
     const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);
     if (!metaLabel) return false;
