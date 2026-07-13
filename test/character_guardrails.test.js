@@ -116,3 +116,20 @@ test('sanitizer leaves legitimate content untouched', () => {
         assert.strictEqual(stripModelNarration(legit), legit);
     }
 });
+
+// ─── Layer 5: no project-specific tiering machinery ──────────────────────────
+
+test('Stage 3 SOP contains no project-specific character names', () => {
+    const fs = require('node:fs');
+    const sop = fs.readFileSync(require.resolve('../skills/skill_stage3_characters.md'), 'utf8');
+    assert.doesNotMatch(sop, /\bIn this project\b/i, 'SOP must stay project-agnostic');
+    for (const name of ['Pono', 'Moog', 'Big Doll', 'Pretz', 'Dapple', 'Ms. Alvarado', 'Furdlegurr']) {
+        assert.ok(!sop.includes(name), `SOP must not hardcode cast member "${name}"`);
+    }
+});
+
+test('server startup does not force-seed project-specific tier overrides', () => {
+    const fs = require('node:fs');
+    const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+    assert.doesNotMatch(serverJs, /seedStage3TierOverridesForDirectory/, 'tier seeding is manual-only (CLI or maintenance endpoint)');
+});

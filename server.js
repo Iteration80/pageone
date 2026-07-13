@@ -428,7 +428,6 @@ const {
 } = require('./utils/artifact_snapshots');
 const { sanitizeOutlineMetaBeats } = require('./utils/outline_sanitizer');
 const { outlineToHybridBeatSheet } = require('./utils/outline_to_beats');
-const { seedStage3TierOverridesForDirectory } = require('./scripts/seed-stage3-tier-overrides');
 const { generateContent } = require('./agents/ai-client');
 const { runAssistantTurn } = require('./agents/assistant');
 const { registerAssistantRoutes } = require('./routes/assistant');
@@ -4169,18 +4168,10 @@ async function startServer() {
             console.error('[knowledge] legacy upgrade skipped:', error.message);
         }
 
-        try {
-            const { changed, inspected } = await seedStage3TierOverridesForDirectory({
-                dir: DATA_DIR,
-                write: true,
-                overwriteUnversioned: true,
-                markSeedVersion: true,
-                log: () => {}
-            });
-            if (changed) console.log(`[stage3] tier override seed updated ${changed} of ${inspected} project file(s).`);
-        } catch (error) {
-            console.error('[stage3] tier override seed skipped:', error.message);
-        }
+        // NOTE: the Stage 3 tier-override seed (a project-specific migration for
+        // I.M.A.G.I.N.E.) intentionally does NOT run at startup. Tier assignments are
+        // project data owned by the writer — run the seed manually via
+        // `npm run migrate:stage3-tiers` or the /api/maintenance/stage3-tiers endpoints.
     })();
 
     const hasGemini = appSettings.geminiApiKey || process.env.GEMINI_API_KEY;

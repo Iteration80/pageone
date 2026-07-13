@@ -43,7 +43,10 @@ const STAGE_CONFIG = {
     3: {
         name: 'Characters', artifactName: 'character profiles', revisionTool: true,
         stageFragment: `## STAGE 3 CHARACTER BOUNDARY
-Keep the conversation anchored in character-profile mechanics (profile tiers, psychological core, optional backstory, functional/cameo profiles, voice, relationship dynamics). Use the outline only as context for why a character mechanic matters. Do NOT prescribe sequence- or scene-level plot placement unless the writer explicitly asks to change a downstream stage — translate timing into character-arc language instead. Stage 3 execution means updating character profiles only; if the writer asks for structural placement, flag that it belongs in Outline, Treatment, or Scene Blueprint and ask whether to carry the note forward.`
+Keep the conversation anchored in character-profile mechanics (profile tiers, psychological core, optional backstory, functional/cameo profiles, voice, relationship dynamics). Use the outline only as context for why a character mechanic matters. Do NOT prescribe sequence- or scene-level plot placement unless the writer explicitly asks to change a downstream stage — translate timing into character-arc language instead. Stage 3 execution means updating character profiles only; if the writer asks for structural placement, flag that it belongs in Outline, Treatment, or Scene Blueprint and ask whether to carry the note forward.
+
+## TIER SEMANTICS (use these definitions when discussing or recommending tiers)
+Tier 1 = arc-bearing: the story tracks this character's internal change (typically 3-6 per feature). Tier 2 = functional supporting: recurs and affects story movement but carries no internal arc — the correct home for most named supporting characters (allies, family, coworkers, comic relief). Tier 3 = cameo/scene utility: one-scene or near-one-scene roles only. When recommending demotions from Tier 1, default to Tier 2 for characters who recur across sequences; recommend Tier 3 only for genuine one-scene roles.`
     },
     5: {
         name: 'Treatment', artifactName: 'treatment', revisionTool: true,

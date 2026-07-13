@@ -17,7 +17,7 @@ Tier 1 includes:
 * Optional hidden `_deep_profile` drafting guidance.
 
 ### Tier 2: Functional Supporting Profiles
-Use `profile_tier: "Tier 2"` for functional supporting characters who affect story movement but do not need a full therapeutic arc. In this project, use functional supporting profiles for Pono, Moog, Big Doll, and Pretz unless the writer explicitly changes that tiering.
+Use `profile_tier: "Tier 2"` for functional supporting characters who affect story movement but do not need a full therapeutic arc. This is the DEFAULT tier for any named character who recurs across sequences without carrying their own internal transformation — allies, coworkers, family members, rivals' lieutenants, comic relief, mentors without arcs. When the prompt includes PROJECT-SPECIFIC TIERING SIGNALS or saved tier assignments for this project, honor those exactly unless the writer's notes explicitly change a character's tiering.
 
 Tier 2 must use `functional_profile`:
 * `narrative_function` — how the character moves story, conflict, or pressure.
@@ -31,7 +31,7 @@ Do NOT generate Ghost & Wound, The Lie, Fear, Psychological Need, Moral Need, MB
 Tier 2 may use optional `backstory.relevant_history` and `backstory.why_they_matter_now` only when compact past context is required to play their function in the present story.
 
 ### Tier 3: Cameo / Scene Utility Profiles
-Use `profile_tier: "Tier 3"` for one-scene or near-one-scene roles such as receptionists, aides, parents, workers, civilians, guards, clerks, social workers, and other utility figures. In this project, use cameo / scene utility profiles for Molly, Dylan, Dylan's parents, Ms. Alvarado, Carol, Brenda, Vance, Gary, and Tyler unless the writer explicitly changes that tiering.
+Use `profile_tier: "Tier 3"` for one-scene or near-one-scene roles such as receptionists, aides, parents, workers, civilians, guards, clerks, social workers, and other utility figures. When the prompt includes PROJECT-SPECIFIC TIERING SIGNALS or saved tier assignments for this project, honor those exactly unless the writer's notes explicitly change a character's tiering.
 
 Tier 3 must use `cameo_profile`:
 * `scene_purpose` — why the role exists in the scene.
@@ -52,8 +52,9 @@ Before doing anything else, scan the provided outline and extract every explicit
 * **Step 2 — Tier:** Assign Tier 1, Tier 2, or Tier 3 based on actual story weight.
 * **Step 3 — Cover:** Create a tier-appropriate entry for each character. Invent a proper name for role-only characters only when they recur, affect story movement, or need to be tracked later. One-scene utility roles may keep functional labels.
 * **Step 4 — Expand:** Only after all outline characters are covered may you invent additional characters to fulfill the Character Web requirements below.
+* **Step 5 — Cast Budget Check:** Before returning, count your Tier 1 characters. A typical feature carries only 3 to 6 Tier 1 profiles: the protagonist, the main opponent, and the small handful of characters whose internal change the story actually tracks. If more than a third of the total cast is Tier 1, you have over-tiered — demote every character whose sequences would play identically without an internal arc to Tier 2. The test for Tier 1 is not screen time or likability; it is whether the story breaks if that character does not change inside.
 
-Failure to cover an outline character is an error. Giving a full therapeutic profile to a utility role is also an error.
+Failure to cover an outline character is an error. Giving a full therapeutic profile to a utility role is also an error. Returning a cast where most named characters are Tier 1 is also an error.
 
 ### Rule 1: Proactive Casting & The Character Web
 Generate the Protagonist, Main Opponent, and essential supporting characters by building an interconnected Character Web. Characters must define each other through contrast and opposition.

@@ -299,9 +299,24 @@ function buildBeat(label = '', description = '', options = {}) {
     };
 }
 
+// Stage 2 beats carry Save the Cat annotations (beat_name, emotional_arc,
+// pacing_notes, genre_variation_notes) that deterministic edits must not drop:
+// backfill them from the beat being replaced when the edit doesn't set them.
+const BEAT_ANNOTATION_KEYS = ['beat_name', 'emotional_arc', 'pacing_notes', 'genre_variation_notes'];
+
+function carryBeatAnnotations(target = {}, source = {}) {
+    if (!target || typeof target !== 'object' || !source || typeof source !== 'object') return target;
+    for (const key of BEAT_ANNOTATION_KEYS) {
+        if (source[key] && !target[key]) target[key] = source[key];
+    }
+    return target;
+}
+
 function insertBeat(sequence = {}, beat = {}, { anchorLabel = '', final = false, protectedBeats = [] } = {}) {
     if (!sequence) return false;
     if (!Array.isArray(sequence.beats)) sequence.beats = [];
+    const equivalent = sequence.beats.find(existing => labelsEqual(beatLabel(existing), beat.beat_label));
+    if (equivalent) carryBeatAnnotations(beat, equivalent);
     removeEquivalentBeat(sequence, beat.beat_label);
 
     const protectedOrder = normalizeProtectedBeats(protectedBeats);
@@ -482,6 +497,7 @@ function applyStage2Operation(outline = {}, op = {}, options = {}) {
         if (op.anchorLabel) index = beatIndexAfterAnchor(sequence.beats, op.oldLabel, op.anchorLabel);
         if (index < 0) index = nthBeatIndex(sequence.beats, op.oldLabel, op.ordinal);
         if (index >= 0) {
+            carryBeatAnnotations(beat, sequence.beats[index]);
             sequence.beats[index] = beat;
             return { status: 'applied', changed: true };
         }

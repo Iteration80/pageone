@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pageone",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/carstenkurpanek/Documents/COWORK/ANTIGRAVITY/PageOne && PORT=3467 exec node server.js"],
+      "port": 3467
+    }
+  ]
+}
