@@ -125,11 +125,18 @@ function scopedPolishChecklistItems(text = '', maxItems = 12) {
 function isFormatDirectiveChecklistItem(item = '') {
     const text = String(item || '');
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b/i.test(text)) return true;
+    // Craft vocabulary: story prose never says "Save the Cat" — only
+    // annotation/format instructions do.
+    if (/\bsave the cat\b/i.test(text)) return true;
     // Instructions about the outline's own machinery ("tighten all beat
-    // descriptions", "preserve all sequence titles") are process directives,
-    // not story content — story text never talks about beat labels.
-    if (/\b(beat descriptions?|beat labels?|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|beat order)\b/i.test(text)) return true;
-    return /\b(?:update|annotate|include|add|apply|bring)\b[^.]{0,80}\b(?:every|all|each)\b[^.]{0,40}\bbeats?\b[^.]{0,80}\b(?:field|annotation|format|schema|save the cat)/i.test(text)
+    // descriptions", "preserve all sequence titles", "beat assignments") are
+    // process directives, not story content.
+    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|beat order)\b/i.test(text)) return true;
+    // Outline surgery ("remove the duplicate 'Aftermath' beat", "rebalance
+    // Sequence C and D", "change beats ... from 'Fun and Games' to ...") must
+    // be EXECUTED by the revision, never appended as a story beat.
+    if (/\b(?:remove|delete|rebalance|reorder|merge|swap|move|change|convert)\b[^.]{0,80}\b(?:duplicate|beats?|sequences?|annotations?|assignments?)\b/i.test(text)) return true;
+    return /\b(?:update|annotate|include|add|apply|bring)\b[^.]{0,80}\b(?:every|all|each)\b[^.]{0,40}\bbeats?\b[^.]{0,80}\b(?:field|annotation|format|schema)/i.test(text)
         || /\b(?:new|current|updated)\s+(?:format|schema)\b/i.test(text);
 }
 
@@ -1156,6 +1163,9 @@ function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
     if (!outline.act_3) outline.act_3 = [];
 
     for (const item of missingItems) {
+        // Defense-in-depth: even if a process directive slips through the
+        // checklist build filter, never fabricate a story beat from it.
+        if (isFormatDirectiveChecklistItem(item)) continue;
         const sequence = finalOutlineSequence(outline, item);
         if (!Array.isArray(sequence.beats)) sequence.beats = [];
         sequence.beats.push({

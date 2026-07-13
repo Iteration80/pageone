@@ -2473,7 +2473,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!label || !description) return false;
         // Keep in sync with utils/outline_sanitizer.js::isOutlineMetaBeat
         if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b\s*[:=]/i.test(description)) return true;
-        if (/\b(beat descriptions?|beat labels?|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count)\b/i.test(description)) return true;
+        if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
+        if (/^(?:remove|delete|rebalance|reorder|merge|swap|move|change|convert)\b[^.]{0,90}\b(?:duplicate|beats?|sequences?|annotations?|assignments?)\b/i.test(description)) return true;
         if (/^(update every beat|update all beats|include in every beat|schema update|format update|apply new format|new format)\b/.test(label)) return true;
         if (/^(tighten|preserve|keep|maintain|shorten|trim|condense|reformat|rephrase|retain) (all|every|each)\b/.test(label)) return true;
         const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);

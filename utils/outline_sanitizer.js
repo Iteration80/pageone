@@ -19,10 +19,15 @@ function isOutlineMetaBeat(beat = {}) {
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b\s*[:=]/i.test(description)) return true;
 
     // Outline-machinery talk: story prose never discusses "beat descriptions",
-    // "sequence titles", or "lean outline language" — only leaked process
-    // instructions do (observed 2026-07-13, round 3: "Tighten All Beat
-    // Descriptions To Lean Outline" appended as a beat).
-    if (/\b(beat descriptions?|beat labels?|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count)\b/i.test(description)) return true;
+    // "sequence titles", "Save the Cat", or "lean outline language" — only
+    // leaked process instructions do (observed 2026-07-13, rounds 3-4).
+    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
+
+    // Outline-surgery instructions emitted as beats: "Remove the duplicate
+    // 'Aftermath' beat...", "Change beats after the Midpoint ... from 'Fun and
+    // Games' to 'Bad Guys Close In'". Start-anchored so story prose that merely
+    // contains these verbs is untouched.
+    if (/^(?:remove|delete|rebalance|reorder|merge|swap|move|change|convert)\b[^.]{0,90}\b(?:duplicate|beats?|sequences?|annotations?|assignments?)\b/i.test(description)) return true;
 
     // Instruction-shaped labels: "Update Every Beat To Include", "Tighten All
     // Beat Descriptions", "Preserve All Sequence Titles", etc.

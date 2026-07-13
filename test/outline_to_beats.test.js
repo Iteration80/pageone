@@ -163,6 +163,52 @@ test('outline-machinery instructions never become checklist items or beats', () 
     assert.deepEqual(outline.outline.act_3[0].beats.map(b => b.beat_label), ['Closing Image - The Photo on the Wall']);
 });
 
+// Round 4 (2026-07-13): the assistant's own brief instructions ("remove the
+// duplicate beat", "rebalance sequences", a Save the Cat name list) were still
+// fabricated as beats — one even landed under the hardcoded "Kitchen Closing
+// Image" label because the STC list contains "Final Image". Pin the class.
+test('outline-surgery and STC-vocabulary instructions never become beats', () => {
+    const observedItems = [
+        "Remove the duplicate 'Aftermath' beat at the end of Sequence E.",
+        "Change beats after the Midpoint (Sequence D, Beats 3-4) and the later beats of Sequence C (Beats 4-6) from 'Fun and Games' to 'Bad Guys Close In' to reflect rising stakes.",
+        'The Save the Cat beat assignments (Opening Image, Set-Up, Theme Stated, Catalyst, Debate, Break into Two, Fun and Games, Midpoint, Bad Guys Close In, All Is Lost, Dark Night of the Soul, Break into Three, Finale, Final Image).'
+    ];
+    const notes = ['Tighten the four setpiece beats.', '', ...observedItems.flatMap(i => [i, ''])].join('\n');
+    for (const item of buildRevisionChecklist(notes)) {
+        assert.ok(!/duplicate|rebalance|save the cat|beat assignments/i.test(item), `surgery/vocabulary directive leaked into checklist: "${item}"`);
+    }
+
+    const outline = {
+        outline: {
+            act_1: [], act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: A World That Remembers',
+                beats: [
+                    { beat_label: 'Closing Image - The Photo on the Wall', description: 'The photo hangs framed in the light. Elliot sets the table for three.' },
+                    { beat_label: "Remove The Duplicate 'aftermath' Beat At The", description: "Remove the duplicate 'Aftermath' beat at the end of Sequence E." },
+                    { beat_label: 'Rebalance Sequence C And D', description: "Change beats after the Midpoint (Sequence D, Beats 3-4) and the later beats of Sequence C (Beats 4-6) from 'Fun and Games' to 'Bad Guys Close In' to reflect rising stakes." },
+                    { beat_label: 'Kitchen Closing Image', description: 'The Save the Cat beat assignments (Opening Image, Set-Up, Theme Stated, Catalyst, Debate, Break into Two, Fun and Games, Midpoint, Bad Guys Close In, All Is Lost, Dark Night of the Soul, Break into Three, Finale, Final Image).' }
+                ]
+            }]
+        }
+    };
+    sanitizeOutlineMetaBeats(outline);
+    assert.deepEqual(outline.outline.act_3[0].beats.map(b => b.beat_label), ['Closing Image - The Photo on the Wall']);
+});
+
+test('appendMissingChecklistBeats refuses to fabricate beats from directives', () => {
+    const { appendMissingChecklistBeats } = require('../agents/agent_2_outline');
+    const outline = { act_1: [], act_2: [], act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }] };
+    appendMissingChecklistBeats({ outline }, [
+        "Remove the duplicate 'Aftermath' beat at the end of Sequence E.",
+        'The Save the Cat beat assignments (Opening Image, Final Image).',
+        'Rebecca finds the tin can reliquary behind the garage and remembers Pillermoss.'
+    ]);
+    const labels = outline.act_3[0].beats.map(b => b.beat_label);
+    assert.equal(labels.length, 1, 'only the story item is appended');
+    assert.ok(/Rebecca|Tin Can|Reliquary|Pillermoss/i.test(labels[0]), `story item appended, got: ${labels}`);
+});
+
 test('duplicate same-label beats collapse to the annotated copy', async () => {
     const { agent2Outline } = require('../agents/agent_2_outline');
     const currentOutline = {
