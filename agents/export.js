@@ -342,14 +342,31 @@ async function generateOutlineDocx(outline, projectTitle) {
                 })
             );
             (seq.beats || []).forEach(beat => {
+                const labelRuns = [
+                    new TextRun({ text: `[${beat.beat_label}]  `, bold: true, font: 'Arial', size: 20, color: '6B7280' })
+                ];
+                if (beat.beat_name && beat.beat_name !== beat.beat_label) {
+                    labelRuns.push(new TextRun({ text: `${beat.beat_name}  `, bold: true, font: 'Arial', size: 20, color: '1D4ED8' }));
+                }
+                labelRuns.push(new TextRun({ text: beat.description || '', font: 'Arial', size: 22 }));
                 children.push(new Paragraph({
-                    children: [
-                        new TextRun({ text: `[${beat.beat_label}]  `, bold: true, font: 'Arial', size: 20, color: '6B7280' }),
-                        new TextRun({ text: beat.description || '', font: 'Arial', size: 22 })
-                    ],
+                    children: labelRuns,
                     spacing: { before: 80, after: 80 },
                     indent: { left: 360 }
                 }));
+
+                const annotations = [
+                    beat.emotional_arc ? `Arc: ${beat.emotional_arc}` : '',
+                    beat.pacing_notes ? `Pacing: ${beat.pacing_notes}` : '',
+                    beat.genre_variation_notes ? `Genre: ${beat.genre_variation_notes}` : ''
+                ].filter(Boolean);
+                if (annotations.length) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: annotations.join('   ·   '), font: 'Arial', size: 18, italics: true, color: '9CA3AF' })],
+                        spacing: { before: 0, after: 80 },
+                        indent: { left: 720 }
+                    }));
+                }
             });
             children.push(spacer());
         });
@@ -362,34 +379,11 @@ async function generateOutlineDocx(outline, projectTitle) {
 // Stage 3: Characters → .docx
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TIER_1_PROJECT_CHARACTER_NAMES = ['Rebecca', 'Dapple', 'Dave', 'Terry', 'Elliot', 'Furdlegurr', 'Blounder', 'Quist', 'Scott', 'Robotobob'];
-const TIER_2_PROJECT_CHARACTER_NAMES = ['Pono', 'Moog', 'Big Doll', 'Pretz'];
-const TIER_3_PROJECT_CHARACTER_NAMES = ['Molly', 'Dylan', "Dylan's parents", 'Dylan’s parents', 'Ms. Alvarado', 'Carol', 'Brenda', 'Vance', 'Gary', 'Tyler'];
-
-function normalizeProjectCharacterName(value = '') {
-    return String(value || '')
-        .normalize('NFKD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[’‘`]/g, "'")
-        .replace(/\b([A-Za-z0-9]+)'s\b/g, '$1s')
-        .replace(/[^A-Za-z0-9]+/g, ' ')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .toLowerCase();
-}
-
-function projectTierForCharacterName(name = '') {
-    const normalized = normalizeProjectCharacterName(name);
-    if (!normalized) return null;
-    if (TIER_1_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 1';
-    if (TIER_2_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 2';
-    if (TIER_3_PROJECT_CHARACTER_NAMES.some(projectName => normalizeProjectCharacterName(projectName) === normalized)) return 'Tier 3';
-    return null;
-}
-
+// Tier comes from the character's saved profile_tier (which already reflects any
+// project tier_overrides applied at generation/normalization time) plus structure
+// inference. Never from a hardcoded name list — a name-keyed list here mislabeled
+// same-named characters in EVERY project's export.
 function normalizeCharacterProfileTier(value = '', character = {}) {
-    const projectTier = projectTierForCharacterName(character.name);
-    if (projectTier) return projectTier;
     const text = String(value || '').toLowerCase();
     if (/\b(?:tier\s*)?3\b/.test(text) || /\b(cameo|scene utility|utility|minor)\b/.test(text)) return 'Tier 3';
     if (/\b(?:tier\s*)?2\b/.test(text) || /\b(functional|supporting|recurring)\b/.test(text)) return 'Tier 2';

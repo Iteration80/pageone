@@ -128,6 +128,15 @@ test('Stage 3 SOP contains no project-specific character names', () => {
     }
 });
 
+test('export pipeline contains no hardcoded cast-tier name lists', () => {
+    const fs = require('node:fs');
+    const exportJs = fs.readFileSync(require.resolve('../agents/export.js'), 'utf8');
+    assert.doesNotMatch(exportJs, /TIER_\d_PROJECT_CHARACTER_NAMES|projectTierForCharacterName/, 'export tier must come from saved profile_tier, not a name list');
+    for (const name of ['Furdlegurr', 'Blounder', 'Robotobob', 'Pretz']) {
+        assert.ok(!exportJs.includes(`'${name}'`), `export.js must not hardcode cast member "${name}"`);
+    }
+});
+
 test('server startup does not force-seed project-specific tier overrides', () => {
     const fs = require('node:fs');
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');

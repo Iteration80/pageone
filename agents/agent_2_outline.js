@@ -116,11 +116,24 @@ function scopedPolishChecklistItems(text = '', maxItems = 12) {
     return items.slice(0, maxItems);
 }
 
+// Format/schema directives ("add beat_name to every beat", "annotate with
+// emotional_arc") describe the SHAPE of the outline, not story content. They can
+// never be satisfied by beat text, so the coverage checker would flag them as
+// missing and appendMissingChecklistBeats would fabricate them as literal story
+// beats (observed 2026-07-13: an upgrade-in-place revision appended
+// "[Update Every Beat To Include] beat_name (Save the Cat)..." as a beat).
+function isFormatDirectiveChecklistItem(item = '') {
+    const text = String(item || '');
+    if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b/i.test(text)) return true;
+    return /\b(?:update|annotate|include|add|apply|bring)\b[^.]{0,80}\b(?:every|all|each)\b[^.]{0,40}\bbeats?\b[^.]{0,80}\b(?:field|annotation|format|schema|save the cat)/i.test(text)
+        || /\b(?:new|current|updated)\s+(?:format|schema)\b/i.test(text);
+}
+
 function buildRevisionChecklist(notes = '', maxItems = 12) {
     const text = normalizeRevisionBrief(notes);
     if (!text) return [];
     if (isScopedPolishText(text)) {
-        return scopedPolishChecklistItems(text, maxItems);
+        return scopedPolishChecklistItems(text, maxItems).filter(item => !isFormatDirectiveChecklistItem(item));
     }
     if (!/\n/.test(text)) {
         return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore|midpoint|recogniz|dapple was mine|storm drain|quiet kingdom|source[- ]?faith|ending line|accountability|answer for what you did)\b/i.test(text)
@@ -172,7 +185,9 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
         if (items.length >= maxItems) break;
     }
 
-    return Array.from(new Set(items)).slice(0, maxItems);
+    return Array.from(new Set(items))
+        .filter(item => !isFormatDirectiveChecklistItem(item))
+        .slice(0, maxItems);
 }
 
 function bracketedLabelNearestDeleteInstruction(text = '', { preferLastDelete = false } = {}) {
@@ -397,7 +412,13 @@ function sequenceSlug(sequence = {}) {
 }
 
 function beatText(beat = {}) {
-    return [beat.beat_label || beat.beat || '', beat.description || ''].join(' ').toLowerCase();
+    return [
+        beat.beat_label || beat.beat || '',
+        beat.description || '',
+        beat.beat_name || '',
+        beat.emotional_arc || '',
+        beat.pacing_notes || ''
+    ].join(' ').toLowerCase();
 }
 
 function significantBeatTerms(beat = {}) {

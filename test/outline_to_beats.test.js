@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const { outlineToHybridBeatSheet } = require('../utils/outline_to_beats');
 const { STAGE_REVISION_ADAPTERS } = require('../utils/stage_revision_kernel');
+const { buildRevisionChecklist } = require('../agents/agent_2_outline');
+const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
 
 test('outlineToHybridBeatSheet flattens Stage 2 acts into hybrid beat sequences', () => {
     const result = outlineToHybridBeatSheet({
@@ -105,6 +107,49 @@ test('deterministic kernel edits preserve Save the Cat beat annotations', () => 
     assert.equal(beat.emotional_arc, 'Curiosity turns into dread.');
     assert.equal(beat.pacing_notes, 'Start quiet, then snap into urgency.');
     assert.equal(beat.genre_variation_notes, 'The quest object is also a warning.');
+});
+
+// Regression for 2026-07-13: an upgrade-in-place revision note ("update every
+// beat to include beat_name, emotional_arc, pacing_notes" + bracketed per-beat
+// examples) was parsed into checklist items, flagged "uncovered" (the coverage
+// scan reads beat text, not schema fields), and appended to the outline as
+// literal story beats.
+
+test('format/schema directives never become checklist items', () => {
+    const notes = [
+        'Keep every sequence and every beat exactly as they are.',
+        '',
+        '[Update Every Beat To Include] beat_name (Save the Cat), emotional_arc, and pacing_notes for the new outline format.',
+        '',
+        "[Moog Bust] beat_name: 'Set-up', emotional_arc: 'Chaos to Confusion', pacing_notes: 'Kinetic/Action'.",
+        '',
+        '[The Rally] Dapple reveals his manifesto to hundreds of recruited figments in the warehouse and unveils Elliot in a glass case on stage.'
+    ].join('\n');
+    const checklist = buildRevisionChecklist(notes);
+    for (const item of checklist) {
+        assert.ok(!/beat_name|emotional_arc|pacing_notes/i.test(item), `format directive leaked into checklist: "${item}"`);
+    }
+});
+
+test('sanitizer strips schema-instruction beats but keeps real story beats', () => {
+    const outline = {
+        outline: {
+            act_1: [],
+            act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: A World That Remembers',
+                beats: [
+                    { beat_label: 'Closing Image - The Photo on the Wall', description: 'The once face-down photo of young Becky and Dapple now hangs framed in the light.' },
+                    { beat_label: 'Update Every Beat To Include', description: 'beat_name (Save the Cat), emotional_arc, and pacing_notes.' },
+                    { beat_label: 'Moog Bust', description: "beat_name: 'Set-up', emotional_arc: 'Chaos to Confusion', pacing_notes: 'Kinetic/Action'." },
+                    { beat_label: 'Pono', description: "beat_name: 'Set-up', emotional_arc: 'Melancholy to Suspicion', pacing_notes: 'Eerie'." }
+                ]
+            }]
+        }
+    };
+    sanitizeOutlineMetaBeats(outline);
+    const labels = outline.outline.act_3[0].beats.map(beat => beat.beat_label);
+    assert.deepEqual(labels, ['Closing Image - The Photo on the Wall']);
 });
 
 test('outlineToHybridBeatSheet accepts raw outline objects', () => {

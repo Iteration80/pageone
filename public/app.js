@@ -2471,6 +2471,9 @@ document.addEventListener('DOMContentLoaded', () => {
             .trim();
         const description = String(beat?.description || '').trim();
         if (!label || !description) return false;
+        // Keep in sync with utils/outline_sanitizer.js::isOutlineMetaBeat
+        if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b\s*[:=]/i.test(description)) return true;
+        if (/^(update every beat|update all beats|include in every beat|schema update|format update|apply new format|new format)\b/.test(label)) return true;
         const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);
         return metaLabel && /\b(?:ensure|remove|avoid|do not|don't|keep|maintain|make sure|style|tone|jargon|ai[-\s]?style|likeability|architectural glitches|identity absorption)\b/i.test(description);
     }
@@ -2712,14 +2715,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     const label = beat.beat_label || '';
                     const protectedKey = label.toLowerCase().replace(/['"‘’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
                     const isProtected = protectedBeats.has(protectedKey);
+                    const stcChip = beat.beat_name && beat.beat_name !== label
+                        ? `<span class="text-xs font-semibold text-blue-400 mr-2" title="Save the Cat beat">${escapeHtml(beat.beat_name)}</span>`
+                        : '';
+                    const annotationParts = [
+                        beat.emotional_arc ? `Arc: ${beat.emotional_arc}` : '',
+                        beat.pacing_notes ? `Pacing: ${beat.pacing_notes}` : ''
+                    ].filter(Boolean);
+                    const annotationLine = annotationParts.length
+                        ? `<div class="beat-annotations text-xs italic text-gray-500 mt-1">${escapeHtml(annotationParts.join('   ·   '))}</div>`
+                        : '';
                     card.innerHTML = `
                         <div class="beat-card-header">
-                            <h4>${escapeHtml(label)}</h4>
+                            <h4>${stcChip}${escapeHtml(label)}</h4>
                             <button type="button" class="stage2-protected-toggle ${isProtected ? 'is-active' : ''}" title="Protect beat" aria-label="Protect beat" aria-pressed="${isProtected ? 'true' : 'false'}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
                             </button>
                         </div>
                         <textarea class="beat-description w-full bg-transparent border-none resize-none overflow-hidden text-gray-300">${escapeHtml(beat.description)}</textarea>
+                        ${annotationLine}
                     `;
 
                     const protectedToggle = card.querySelector('.stage2-protected-toggle');
