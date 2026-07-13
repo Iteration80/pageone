@@ -16,7 +16,7 @@ Each sequence must contain story beats. Each beat must include:
 
 * `beat_label` — a user-facing story title for the beat.
 * `beat_name` — the Save the Cat beat name or function this story beat satisfies.
-* `description` — active-present story action, capped at roughly 80 words.
+* `description` — active-present story action, capped at roughly 80 words. Sequence climaxes and major setpieces may run up to roughly 150 words (at most one or two such beats per sequence); the length budget buys more story turns, never dialogue blocks or staging.
 * `emotional_arc` — the emotional turn created by the beat.
 * `pacing_notes` — concise rhythm, pressure, or escalation guidance.
 * `genre_variation_notes` — optional genre-specific structural note when useful.
