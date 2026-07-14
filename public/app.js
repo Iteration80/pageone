@@ -3780,6 +3780,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         renderCharacterIndexRail(renderedCharacters);
+        updateCompleteProfilesButton(renderedCharacters);
 
         charactersContainer.classList.remove('hidden');
         if (stage3Workshop) stage3Workshop.classList.remove('hidden');
@@ -3793,6 +3794,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Character index rail: per-tier quick-nav with completeness indicators ──
 
     let characterRailObserver = null;
+
+    function updateCompleteProfilesButton(renderedCharacters = []) {
+        const button = document.getElementById('btnStage3CompleteProfiles');
+        if (!button) return;
+        const incompleteCount = renderedCharacters.filter(char => !characterProfileIsComplete(char)).length;
+        if (incompleteCount > 0) {
+            button.textContent = `Complete ${incompleteCount} Profile${incompleteCount === 1 ? '' : 's'}`;
+            button.classList.remove('hidden');
+        } else {
+            button.classList.add('hidden');
+        }
+    }
+
+    async function completeIncompleteProfiles() {
+        const button = document.getElementById('btnStage3CompleteProfiles');
+        if (!activeProjectId || !button || button.disabled) return;
+        button.disabled = true;
+        const originalLabel = button.textContent;
+        button.textContent = 'Completing…';
+        try {
+            const res = await fetch('/api/generate-characters', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId, mode: 'complete_profiles' })
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to complete profiles');
+            }
+            const data = await res.json();
+            renderCharacters(data.result.characters);
+            setCurrentStage3Payload(data.result);
+            markStage3Dirty();
+        } catch (err) {
+            console.error(err);
+            alert('Error completing profiles: ' + err.message);
+            button.textContent = originalLabel;
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    document.getElementById('btnStage3CompleteProfiles')?.addEventListener('click', completeIncompleteProfiles);
 
     function characterProfileIsComplete(char) {
         const tierRank = characterProfileTierRank(normalizeCharacterProfileTier(char.profile_tier, char), char);
@@ -3900,6 +3944,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingStateCharacters.classList.remove('hidden');
         charactersContainer.classList.add('hidden');
         document.getElementById('characterIndexRail')?.classList.add('hidden');
+        document.getElementById('btnStage3CompleteProfiles')?.classList.add('hidden');
 
         // Ensure the feedback/revise bar is gone
         if (stage3Workshop) stage3Workshop.classList.add('hidden');
@@ -3997,6 +4042,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingStateCharacters.classList.remove('hidden');
             charactersContainer.classList.add('hidden');
         document.getElementById('characterIndexRail')?.classList.add('hidden');
+        document.getElementById('btnStage3CompleteProfiles')?.classList.add('hidden');
             btnStage3Revise.disabled = true;
             btnStage3Revise.textContent = 'Revising...';
 

@@ -51,6 +51,7 @@ function registerGenerationRoutes(app, deps) {
         agent1Refine,
         agent2Outline,
         agent3Characters,
+        completeCharacterProfiles,
         agent5Treatment,
         generateStage6Scenes,
         reviseStage6Scenes,
@@ -394,7 +395,7 @@ function registerGenerationRoutes(app, deps) {
 
     app.post('/api/generate-characters', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
         try {
-            const { projectId, currentCharacters, notes, tierOverrides } = req.body;
+            const { projectId, currentCharacters, notes, tierOverrides, mode } = req.body;
             const uploadedFile = req.file;
 
             const context = await prepareGenerationProjectContext(req, res, {
@@ -419,6 +420,39 @@ function registerGenerationRoutes(app, deps) {
                 ? parsedTierOverrides
                 : (projectData.data?.stage3_characters?.tier_overrides || {});
             const beforeCharactersForRevision = parsedChars || projectData.data?.stage3_characters?.characters || [];
+
+            // Targeted completion: repair ONLY characters with missing tier-required
+            // fields; the rest of the cast is untouched. No full regeneration.
+            if (mode === 'complete_profiles') {
+                console.log("Completing Stage 3 character profiles (targeted repair)...");
+                const { result: repairedData, usage: repairUsage, repairedNames } = await completeCharacterProfiles(
+                    beforeCharactersForRevision,
+                    pitchData,
+                    {
+                        ...getModelConfig(3),
+                        tierOverrides: activeTierOverrides
+                    }
+                );
+                repairedData.tier_overrides = activeTierOverrides;
+                if (!repairedNames.length) {
+                    res.json({ result: repairedData, changed: false, repairedNames: [] });
+                    return;
+                }
+                const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+                    context,
+                    stage: 3,
+                    stageKey: 'stage3_characters',
+                    result: repairedData,
+                    before: { characters: beforeCharactersForRevision },
+                    operation: 'profile_completion',
+                    note: `Completed missing tier-required fields for: ${repairedNames.join(', ')}`,
+                    changed: true,
+                    usage: repairUsage,
+                    sourceReason: 'profile_completion'
+                });
+                res.json({ result: repairedData, changed: true, repairedNames, snapshotIds });
+                return;
+            }
             const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
             const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
 

@@ -322,6 +322,124 @@ function preserveExistingCharacters(currentList = [], resultObj = {}, notes = ''
     };
 }
 
+const CHARACTER_SCHEMA = {
+    type: 'object',
+    required: ['characters'],
+    properties: {
+        characters: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['name', 'role', 'profile_tier', 'brief_summary'],
+                properties: {
+                    name: { type: 'string' },
+                    role: { type: 'string', description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
+                    profile_tier: { type: 'string', description: "Use exactly one of: Tier 1, Tier 2, Tier 3. Tier 1 = major arc-bearing full profile. Tier 2 = functional recurring/supporting profile. Tier 3 = cameo / scene utility profile." },
+                    brief_summary: { type: 'string', description: "A punchy, 1-2 sentence bio encapsulating who they are and their exact narrative function. Keep Tier 3 summaries brief." },
+                    backstory: {
+                        type: 'object',
+                        description: "Optional. Use only when prior history creates present-tense dramatic value. Empty object when no backstory is useful.",
+                        properties: {
+                            essential_history: { type: 'string', description: "Tier 1 mostly: the pre-story history that materially affects present behavior, conflict, or plot." },
+                            formative_event: { type: 'string', description: "Tier 1 mostly: one specific past event that shaped the character. Leave empty if this repeats ghost_and_wound without adding story utility." },
+                            relationship_history: { type: 'string', description: "Tier 1 mostly: relevant shared history with another character that changes current dynamics." },
+                            secret_or_reveal: { type: 'string', description: "Optional: hidden history or reveal only when the script can actually use it." },
+                            onscreen_relevance: { type: 'string', description: "How this backstory changes choices, conflict, dialogue, staging, or audience understanding on screen." },
+                            relevant_history: { type: 'string', description: "Tier 2/3 only when needed: compact past context required to play the character's function." },
+                            why_they_matter_now: { type: 'string', description: "Tier 2/3 only when needed: why that past context matters in the current story moment." }
+                        }
+                    },
+                    functional_profile: {
+                        type: 'object',
+                        properties: {
+                            narrative_function: { type: 'string', description: "Tier 2 only: how this functional supporting character moves story or pressure." },
+                            emotional_truth: { type: 'string', description: "Tier 2 only: the simple human truth underneath their function. Not a trauma diagnosis." },
+                            comic_or_tension_function: { type: 'string', description: "Tier 2 only: what kind of comedy, friction, or tension they reliably bring." },
+                            pressure_behavior: { type: 'string', description: "Tier 2 only: one temptation, choice, or pressure behavior that matters on screen. Not a stress-arrow or arc mechanic." },
+                            voice_flavor: { type: 'string', description: "Tier 2 only: broad playable voice flavor without rigid psychological typing or a binding dialogue fingerprint." }
+                        }
+                    },
+                    cameo_profile: {
+                        type: 'object',
+                        properties: {
+                            scene_purpose: { type: 'string', description: "Tier 3 only: the reason this utility role exists in the scene." },
+                            casting_energy: { type: 'string', description: "Tier 3 only: fast casting/actor energy." },
+                            playable_behavior: { type: 'string', description: "Tier 3 only: one active, playable behavior." },
+                            line_style_example: { type: 'string', description: "Tier 3 only: a short line style / dialogue flavor note if useful." }
+                        }
+                    },
+                    psychological_core: {
+                        type: 'object',
+                        description: "Tier 1 only. Omit or return an empty object for Tier 2 and Tier 3 characters.",
+                        properties: {
+                            ghost_and_wound: { type: 'string', description: "Tier 1 only. Do not invent trauma for Tier 2 or Tier 3." },
+                            the_lie: { type: 'string', description: "Tier 1 only. Do not invent a false worldview for minor or utility roles." },
+                            fear: { type: 'string', description: "Tier 1 only. Do not invent fear engines for functional supporting or scene utility roles." },
+                            desire: { type: 'string', description: "Tier 1 only: a highly specific, visible, and trackable external goal." },
+                            psychological_need: { type: 'string', description: "Tier 1 only: the internal flaw they must overcome that is hurting themselves." },
+                            moral_need: { type: 'string', description: "Tier 1 only: the internal flaw they must overcome that is actively hurting others." },
+                            paradox: { type: 'string', description: "Optional for Tier 1 only when naturally visible on screen. Do not force paradoxes for functional supporting or cameo characters." }
+                        }
+                    },
+                    voice_and_behavior: {
+                        type: 'object',
+                        description: "Tier 1 only. Tier 2 and Tier 3 should use functional_profile/cameo_profile line flavor instead.",
+                        properties: {
+                            voice_tag: { type: 'string', description: "Select from: Sparse & precise, Warm & meandering, Sharp & confrontational, Measured & diplomatic, Stream-of-consciousness, Performative & deflecting, Blunt & clipped, Lyrical & indirect. Or provide a custom tag." },
+                            pressure_tag: { type: 'string', description: "How they behave under pressure. Select from: Withdraws, Controls, Lashes out, People-pleases, Dissociates, Doubles down, Goes numb, Deflects with humor. Or provide a custom tag." },
+                            humor_tag: { type: 'string', description: "Their humor style. Select from: Dry wit, Self-deprecating, Dark / gallows, Physical, Deflection, None. Or provide a custom tag." },
+                            speech_patterns: { type: 'string', description: "Tier 1 only: how they talk and what they NEVER say. Tier 2 should use functional_profile.voice_flavor instead. Tier 3 should use cameo_profile.line_style_example only if useful." },
+                            deflection_tactic: { type: 'string', description: "Tier 1 only. Do not create deflection tactics for minor/scene utility characters." }
+                        }
+                    },
+                    arc: {
+                        type: 'object',
+                        description: "Tier 1 only. Omit or return an empty object for minor/scene utility characters.",
+                        properties: {
+                            core_drive: { type: 'string', description: "Tier 1 only: select from To be right, To be needed, To succeed, To be unique, To understand, To be safe, To be free, To be in control, To keep peace; or provide a custom drive." },
+                            direction: { type: 'string', description: "Tier 1 only: Growth, Decline, or Circular." }
+                        }
+                    },
+                    ticks: {
+                        type: 'object',
+                        properties: {
+                            enabled: { type: 'boolean', description: "Optional for Tier 1 only. Use true only when this character has a physical tic or behavioral tell that is naturally visible on screen and useful for the writer/actor." },
+                            description: { type: 'string', description: "The specific tic/tell and what psychological function it serves." },
+                            frequency_gate: { type: 'string', description: "Exactly when this tic surfaces. For Tier 1, include when it evolves or disappears as the arc completes. Avoid ticks for Tier 2 and Tier 3." }
+                        }
+                    },
+                    _deep_profile: {
+                        type: 'object',
+                        description: "Tier 1 only. Omit for minor/scene utility characters.",
+                        properties: {
+                            mbti_type: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
+                            enneagram_type: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
+                            enneagram_wing: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
+                            stress_behavior: { type: 'string', description: "Tier 1 only: concrete behavioral description under maximum pressure." },
+                            growth_behavior: { type: 'string', description: "Tier 1 only: concrete behavioral description when growing/healing." },
+                            dialogue_fingerprint: { type: 'string', description: "Tier 1 only: technical writing rules for dialogue. For Tier 2/3, do not create binding fingerprints." },
+                            relationship_dynamics: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    required: ['with_character', 'dynamic', 'friction_points', 'alliance_points'],
+                                    properties: {
+                                        with_character: { type: 'string', description: "Name of the other character." },
+                                        dynamic: { type: 'string', description: "One-line summary of how these two interact." },
+                                        friction_points: { type: 'string', description: "What triggers conflict between them." },
+                                        alliance_points: { type: 'string', description: "What creates cooperation or bonding." }
+                                    }
+                                }
+                            },
+                            scene_behavior_predictions: { type: 'string', description: "Tier 1 only: low-stakes vs high-stakes behavior predictions. Do not generate for scene utility characters." }
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
 const agent3Characters = async (pitchData, beatsData, currentCharacters = null, notes = null, pdfFile = null, modelConfig = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
@@ -337,124 +455,6 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
     const normalizedTierOverrides = normalizeTierOverrides(rawTierOverrides);
 
     const charactersSOP = loadSkill('skill_stage3_characters');
-
-    const characterSchema = {
-        type: 'object',
-        required: ['characters'],
-        properties: {
-            characters: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    required: ['name', 'role', 'profile_tier', 'brief_summary'],
-                    properties: {
-                        name: { type: 'string' },
-                        role: { type: 'string', description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
-                        profile_tier: { type: 'string', description: "Use exactly one of: Tier 1, Tier 2, Tier 3. Tier 1 = major arc-bearing full profile. Tier 2 = functional recurring/supporting profile. Tier 3 = cameo / scene utility profile." },
-                        brief_summary: { type: 'string', description: "A punchy, 1-2 sentence bio encapsulating who they are and their exact narrative function. Keep Tier 3 summaries brief." },
-                        backstory: {
-                            type: 'object',
-                            description: "Optional. Use only when prior history creates present-tense dramatic value. Empty object when no backstory is useful.",
-                            properties: {
-                                essential_history: { type: 'string', description: "Tier 1 mostly: the pre-story history that materially affects present behavior, conflict, or plot." },
-                                formative_event: { type: 'string', description: "Tier 1 mostly: one specific past event that shaped the character. Leave empty if this repeats ghost_and_wound without adding story utility." },
-                                relationship_history: { type: 'string', description: "Tier 1 mostly: relevant shared history with another character that changes current dynamics." },
-                                secret_or_reveal: { type: 'string', description: "Optional: hidden history or reveal only when the script can actually use it." },
-                                onscreen_relevance: { type: 'string', description: "How this backstory changes choices, conflict, dialogue, staging, or audience understanding on screen." },
-                                relevant_history: { type: 'string', description: "Tier 2/3 only when needed: compact past context required to play the character's function." },
-                                why_they_matter_now: { type: 'string', description: "Tier 2/3 only when needed: why that past context matters in the current story moment." }
-                            }
-                        },
-                        functional_profile: {
-                            type: 'object',
-                            properties: {
-                                narrative_function: { type: 'string', description: "Tier 2 only: how this functional supporting character moves story or pressure." },
-                                emotional_truth: { type: 'string', description: "Tier 2 only: the simple human truth underneath their function. Not a trauma diagnosis." },
-                                comic_or_tension_function: { type: 'string', description: "Tier 2 only: what kind of comedy, friction, or tension they reliably bring." },
-                                pressure_behavior: { type: 'string', description: "Tier 2 only: one temptation, choice, or pressure behavior that matters on screen. Not a stress-arrow or arc mechanic." },
-                                voice_flavor: { type: 'string', description: "Tier 2 only: broad playable voice flavor without rigid psychological typing or a binding dialogue fingerprint." }
-                            }
-                        },
-                        cameo_profile: {
-                            type: 'object',
-                            properties: {
-                                scene_purpose: { type: 'string', description: "Tier 3 only: the reason this utility role exists in the scene." },
-                                casting_energy: { type: 'string', description: "Tier 3 only: fast casting/actor energy." },
-                                playable_behavior: { type: 'string', description: "Tier 3 only: one active, playable behavior." },
-                                line_style_example: { type: 'string', description: "Tier 3 only: a short line style / dialogue flavor note if useful." }
-                            }
-                        },
-                        psychological_core: {
-                            type: 'object',
-                            description: "Tier 1 only. Omit or return an empty object for Tier 2 and Tier 3 characters.",
-                            properties: {
-                                ghost_and_wound: { type: 'string', description: "Tier 1 only. Do not invent trauma for Tier 2 or Tier 3." },
-                                the_lie: { type: 'string', description: "Tier 1 only. Do not invent a false worldview for minor or utility roles." },
-                                fear: { type: 'string', description: "Tier 1 only. Do not invent fear engines for functional supporting or scene utility roles." },
-                                desire: { type: 'string', description: "Tier 1 only: a highly specific, visible, and trackable external goal." },
-                                psychological_need: { type: 'string', description: "Tier 1 only: the internal flaw they must overcome that is hurting themselves." },
-                                moral_need: { type: 'string', description: "Tier 1 only: the internal flaw they must overcome that is actively hurting others." },
-                                paradox: { type: 'string', description: "Optional for Tier 1 only when naturally visible on screen. Do not force paradoxes for functional supporting or cameo characters." }
-                            }
-                        },
-                        voice_and_behavior: {
-                            type: 'object',
-                            description: "Tier 1 only. Tier 2 and Tier 3 should use functional_profile/cameo_profile line flavor instead.",
-                            properties: {
-                                voice_tag: { type: 'string', description: "Select from: Sparse & precise, Warm & meandering, Sharp & confrontational, Measured & diplomatic, Stream-of-consciousness, Performative & deflecting, Blunt & clipped, Lyrical & indirect. Or provide a custom tag." },
-                                pressure_tag: { type: 'string', description: "How they behave under pressure. Select from: Withdraws, Controls, Lashes out, People-pleases, Dissociates, Doubles down, Goes numb, Deflects with humor. Or provide a custom tag." },
-                                humor_tag: { type: 'string', description: "Their humor style. Select from: Dry wit, Self-deprecating, Dark / gallows, Physical, Deflection, None. Or provide a custom tag." },
-                                speech_patterns: { type: 'string', description: "Tier 1 only: how they talk and what they NEVER say. Tier 2 should use functional_profile.voice_flavor instead. Tier 3 should use cameo_profile.line_style_example only if useful." },
-                                deflection_tactic: { type: 'string', description: "Tier 1 only. Do not create deflection tactics for minor/scene utility characters." }
-                            }
-                        },
-                        arc: {
-                            type: 'object',
-                            description: "Tier 1 only. Omit or return an empty object for minor/scene utility characters.",
-                            properties: {
-                                core_drive: { type: 'string', description: "Tier 1 only: select from To be right, To be needed, To succeed, To be unique, To understand, To be safe, To be free, To be in control, To keep peace; or provide a custom drive." },
-                                direction: { type: 'string', description: "Tier 1 only: Growth, Decline, or Circular." }
-                            }
-                        },
-                        ticks: {
-                            type: 'object',
-                            properties: {
-                                enabled: { type: 'boolean', description: "Optional for Tier 1 only. Use true only when this character has a physical tic or behavioral tell that is naturally visible on screen and useful for the writer/actor." },
-                                description: { type: 'string', description: "The specific tic/tell and what psychological function it serves." },
-                                frequency_gate: { type: 'string', description: "Exactly when this tic surfaces. For Tier 1, include when it evolves or disappears as the arc completes. Avoid ticks for Tier 2 and Tier 3." }
-                            }
-                        },
-                        _deep_profile: {
-                            type: 'object',
-                            description: "Tier 1 only. Omit for minor/scene utility characters.",
-                            properties: {
-                                mbti_type: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
-                                enneagram_type: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
-                                enneagram_wing: { type: 'string', description: "Tier 1 only and hidden from the user. Leave empty/omit for Tier 2 and Tier 3." },
-                                stress_behavior: { type: 'string', description: "Tier 1 only: concrete behavioral description under maximum pressure." },
-                                growth_behavior: { type: 'string', description: "Tier 1 only: concrete behavioral description when growing/healing." },
-                                dialogue_fingerprint: { type: 'string', description: "Tier 1 only: technical writing rules for dialogue. For Tier 2/3, do not create binding fingerprints." },
-                                relationship_dynamics: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'object',
-                                        required: ['with_character', 'dynamic', 'friction_points', 'alliance_points'],
-                                        properties: {
-                                            with_character: { type: 'string', description: "Name of the other character." },
-                                            dynamic: { type: 'string', description: "One-line summary of how these two interact." },
-                                            friction_points: { type: 'string', description: "What triggers conflict between them." },
-                                            alliance_points: { type: 'string', description: "What creates cooperation or bonding." }
-                                        }
-                                    }
-                                },
-                                scene_behavior_predictions: { type: 'string', description: "Tier 1 only: low-stakes vs high-stakes behavior predictions. Do not generate for scene utility characters." }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    };
 
     const normalizedCurrentCharacters = normalizeCurrentCharacters(currentCharacters, normalizedTierOverrides);
     const fullRegenerationRequested = isFullCharacterRegenerationRequest(notes);
@@ -484,7 +484,7 @@ Please apply the note surgically and return the full updated character list in J
                 temperature: 0.3,
                 maxOutputTokens: 32000,
             },
-            schema: characterSchema
+            schema: CHARACTER_SCHEMA
         });
 
         const parsed = parseJsonWithRepair(response.text, { label: 'Stage 3 character revision response' });
@@ -560,7 +560,7 @@ ${JSON.stringify(beatsData, null, 2)}`;
             thinkingConfig: { thinkingLevel: 'HIGH' },
             maxOutputTokens: 32000,
         },
-        schema: characterSchema
+        schema: CHARACTER_SCHEMA
     });
 
     let result = normalizeCharacterResult(parseJsonWithRepair(response.text, { label: 'Stage 3 character generation response' }), normalizedTierOverrides, rawTierOverrides);
@@ -570,51 +570,293 @@ ${JSON.stringify(beatsData, null, 2)}`;
     // output-token ceiling and the tail of the cast arrives skeletal (observed
     // 2026-07-13: 10 Tier 1s requested, the last 5 saved with empty psychological
     // cores). Run ONE focused repair call for the incomplete characters only.
-    const incomplete = charactersWithIncompleteProfiles(result.characters || []);
-    if (incomplete.length) {
-        console.log(`  Stage 3 completeness repair: ${incomplete.length} character(s) missing tier-required fields (${incomplete.map(c => c.name).join(', ')}).`);
-        try {
-            const castSummary = (result.characters || []).map(c => `${c.name} (${c.role || 'Unknown'}, ${c.profile_tier || 'Tier 1'})`).join('; ');
-            const repairPrompt = `${sourceBlock}PROFILE COMPLETION REPAIR: The character profiles below were saved with tier-required fields missing (usually a truncated generation). Complete ONLY these characters. Preserve name, role, profile_tier, brief_summary, and every already-populated field VERBATIM — fill in only what is empty, at the depth their profile_tier requires. Tier 1 needs the full psychological core (ghost_and_wound, the_lie, fear, desire, psychological_need, moral_need), voice_and_behavior tags, arc with core_drive, and _deep_profile. Tier 2 needs the functional_profile fields. Tier 3 needs the cameo_profile fields.
+    try {
+        for (let round = 0; round < REPAIR_MAX_ROUNDS; round += 1) {
+            const incomplete = charactersWithIncompleteProfiles(result.characters || []);
+            if (!incomplete.length) break;
+            const repair = await runProfileCompletionRepair({
+                characters: result.characters || [],
+                incomplete,
+                pitchData,
+                sourceBlock,
+                systemInstruction,
+                generateContentFn,
+                model,
+                geminiApiKey,
+                anthropicApiKey
+            });
+            result = normalizeCharacterResult(
+                mergeRepairedCharacters(result, repair.repaired),
+                normalizedTierOverrides,
+                rawTierOverrides
+            );
+            usage = combineUsage(usage, repair.usage);
+        }
+        const stillIncomplete = charactersWithIncompleteProfiles(result.characters || []);
+        if (stillIncomplete.length) {
+            console.warn(`  Stage 3 completeness repair left ${stillIncomplete.length} character(s) incomplete: ${stillIncomplete.map(c => c.name).join(', ')}.`);
+        }
+    } catch (error) {
+        // A failed repair must not fail the generation — the partial cast is
+        // still saved and the UI completeness indicators surface the gaps.
+        console.warn(`  Stage 3 completeness repair skipped: ${error.message}`);
+    }
 
-FULL CAST (for relationship_dynamics references): ${castSummary}
+    return { result, usage };
+};
 
-INCOMPLETE CHARACTERS:
-${JSON.stringify(incomplete, null, 2)}
+const REPAIR_BATCH_SIZE = 3;
+const REPAIR_MAX_ROUNDS = 2;
+
+// A repair must NOT reuse CHARACTER_SCHEMA. That schema exists to cast a whole
+// ensemble; handed to the model to fill one gap it burns the entire output
+// budget (measured 2026-07-14: 29,992 tokens / 119KB for ONE character, JSON
+// truncated at the cap, and the requested field still empty). The same prompt
+// with a compact schema answers correctly in 40 tokens. Only completeness-
+// required fields belong here — everything else (_deep_profile, ticks,
+// backstory) is preserved from the existing profile by mergeRepairedCharacters.
+const PROFILE_REPAIR_SCHEMA = {
+    type: 'object',
+    required: ['characters'],
+    properties: {
+        characters: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['name', 'profile_tier'],
+                properties: {
+                    name: { type: 'string', description: 'Must exactly match the name of the character being completed.' },
+                    profile_tier: { type: 'string', description: 'Copy verbatim from the input character: Tier 1, Tier 2, or Tier 3.' },
+                    psychological_core: {
+                        type: 'object',
+                        description: 'Tier 1 only. Omit entirely for Tier 2/Tier 3.',
+                        properties: {
+                            ghost_and_wound: { type: 'string' },
+                            the_lie: { type: 'string' },
+                            fear: { type: 'string' },
+                            desire: { type: 'string' },
+                            psychological_need: { type: 'string' },
+                            moral_need: { type: 'string' },
+                            paradox: { type: 'string' }
+                        }
+                    },
+                    voice_and_behavior: {
+                        type: 'object',
+                        description: 'Tier 1 only. Omit entirely for Tier 2/Tier 3.',
+                        properties: {
+                            voice_tag: { type: 'string', description: 'One of: Sparse & precise, Warm & meandering, Sharp & confrontational, Measured & diplomatic, Stream-of-consciousness, Performative & deflecting, Blunt & clipped, Lyrical & indirect.' },
+                            pressure_tag: { type: 'string', description: 'One of: Withdraws, Controls, Lashes out, People-pleases, Dissociates, Doubles down, Goes numb, Deflects with humor.' },
+                            humor_tag: { type: 'string', description: 'One of: Dry wit, Self-deprecating, Dark / gallows, Physical, Deflection, None.' },
+                            speech_patterns: { type: 'string' },
+                            deflection_tactic: { type: 'string' }
+                        }
+                    },
+                    arc: {
+                        type: 'object',
+                        description: 'Tier 1 only. Omit entirely for Tier 2/Tier 3.',
+                        properties: {
+                            core_drive: { type: 'string', description: 'One of: To be right, To be needed, To succeed, To be unique, To understand, To be safe, To be free, To be in control, To keep peace.' },
+                            direction: { type: 'string', description: 'Growth, Decline, or Circular.' }
+                        }
+                    },
+                    functional_profile: {
+                        type: 'object',
+                        description: 'Tier 2 only. Omit entirely for Tier 1/Tier 3.',
+                        properties: {
+                            narrative_function: { type: 'string' },
+                            emotional_truth: { type: 'string' },
+                            comic_or_tension_function: { type: 'string' },
+                            pressure_behavior: { type: 'string' },
+                            voice_flavor: { type: 'string' }
+                        }
+                    },
+                    cameo_profile: {
+                        type: 'object',
+                        description: 'Tier 3 only. Omit entirely for Tier 1/Tier 2.',
+                        properties: {
+                            scene_purpose: { type: 'string' },
+                            casting_energy: { type: 'string' },
+                            playable_behavior: { type: 'string' },
+                            line_style_example: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
+// Exact missing tier-required paths for one character — spelling these out in
+// the repair prompt beats asking the model to infer the gaps (observed: it
+// filled Brenda's voice but not her arc, and Marcus's arc but not his voice).
+function missingProfileFieldPaths(character = {}) {
+    const tier = normalizeProfileTier(character.profile_tier, character);
+    const filled = value => String(value || '').trim() !== '';
+    const missing = [];
+    if (tier === PROFILE_TIERS.FULL) {
+        const core = character.psychological_core || {};
+        for (const field of TIER1_REQUIRED_CORE_FIELDS) {
+            if (!filled(core[field])) missing.push(`psychological_core.${field}`);
+        }
+        if (!filled(character.voice_and_behavior?.voice_tag)) missing.push('voice_and_behavior.voice_tag (plus the other voice fields)');
+        if (!filled(character.arc?.core_drive)) missing.push('arc.core_drive');
+    } else if (tier === PROFILE_TIERS.FUNCTIONAL) {
+        const functional = character.functional_profile || {};
+        if (!filled(functional.narrative_function)) missing.push('functional_profile.narrative_function');
+        if (!filled(functional.emotional_truth)) missing.push('functional_profile.emotional_truth');
+    } else {
+        const cameo = character.cameo_profile || {};
+        if (!filled(cameo.scene_purpose)) missing.push('cameo_profile.scene_purpose');
+        if (!filled(cameo.playable_behavior)) missing.push('cameo_profile.playable_behavior');
+    }
+    return missing;
+}
+
+// Drop empty scaffolding (empty strings/objects/arrays) so the repair prompt
+// carries only real data — the normalized empty shells both bloat the prompt
+// and invite the model to echo them back.
+function compactCharacterForPrompt(character = {}) {
+    const compact = {};
+    for (const [field, value] of Object.entries(character)) {
+        if (value == null) continue;
+        if (typeof value === 'string') { if (value.trim()) compact[field] = value; continue; }
+        if (Array.isArray(value)) { if (value.length) compact[field] = value; continue; }
+        if (typeof value === 'object') { if (hasMeaningfulProfileData(value)) compact[field] = value; continue; }
+        compact[field] = value;
+    }
+    return compact;
+}
+
+async function runProfileCompletionRepair({
+    characters = [],
+    incomplete = [],
+    pitchData = {},
+    sourceBlock = '',
+    systemInstruction = '',
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey
+}) {
+    console.log(`  Stage 3 completeness repair: ${incomplete.length} character(s) missing tier-required fields (${incomplete.map(c => c.name).join(', ')}).`);
+    const castSummary = characters.map(c => `${c.name} (${c.role || 'Unknown'}, ${c.profile_tier || 'Tier 1'})`).join('; ');
+    const allRepaired = [];
+    let usage = null;
+
+    // Batched: one huge response invites the model to re-emit the whole cast and
+    // truncate mid-JSON (observed live 2026-07-14 — a 2-character repair came
+    // back as ~138k chars of full-cast output, unterminated at the token cap).
+    for (let offset = 0; offset < incomplete.length; offset += REPAIR_BATCH_SIZE) {
+        const batch = incomplete.slice(offset, offset + REPAIR_BATCH_SIZE);
+        const batchNames = batch.map(c => c.name).join(', ');
+        const repairPrompt = `${sourceBlock}PROFILE COMPLETION REPAIR: The character profiles below were saved with tier-required fields missing (usually a truncated generation). Complete ONLY these characters. Preserve name, role, profile_tier, brief_summary, and every already-populated field VERBATIM — fill in only what is empty, at the depth their profile_tier requires. Tier 1 needs the full psychological core (ghost_and_wound, the_lie, fear, desire, psychological_need, moral_need), voice_and_behavior tags, arc with core_drive, and _deep_profile. Tier 2 needs the functional_profile fields. Tier 3 needs the cameo_profile fields.
+
+FULL CAST (reference only, for relationship_dynamics — do NOT include these characters in your response): ${castSummary}
+
+EXACT MISSING FIELDS (fill every one of these — this list is authoritative):
+${batch.map(c => `- ${c.name}: ${missingProfileFieldPaths(c).join('; ') || 'tier-required fields'}`).join('\n')}
+
+INCOMPLETE CHARACTERS TO COMPLETE:
+${JSON.stringify(batch.map(compactCharacterForPrompt), null, 2)}
 
 Here is the approved pitch for story context:
 ${JSON.stringify(pitchData, null, 2)}
 
-Return ONLY the completed versions of these ${incomplete.length} character(s) in the standard JSON format.`;
-            const repairResponse = await generateContentFn({
-                model, geminiApiKey, anthropicApiKey,
-                contents: [repairPrompt],
-                config: {
-                    systemInstruction,
-                    temperature: 0.4,
-                    maxOutputTokens: 32000,
-                },
-                schema: characterSchema
-            });
-            const repaired = parseJsonWithRepair(repairResponse.text, { label: 'Stage 3 character completion repair response' });
-            result = normalizeCharacterResult(
-                mergeRepairedCharacters(result, repaired),
-                normalizedTierOverrides,
-                rawTierOverrides
-            );
-            usage = combineUsage(usage, repairResponse.usage);
-            const stillIncomplete = charactersWithIncompleteProfiles(result.characters || []);
-            if (stillIncomplete.length) {
-                console.warn(`  Stage 3 completeness repair left ${stillIncomplete.length} character(s) incomplete: ${stillIncomplete.map(c => c.name).join(', ')}.`);
+CRITICAL OUTPUT CONTRACT: Your characters array must contain EXACTLY ${batch.length} entr${batch.length === 1 ? 'y' : 'ies'} — ${batchNames} — and no one else. Do not restate any other cast member. Keep every field value concise; never repeat a sentence.`;
+
+        // One batch failing (e.g. a sampling repetition-loop producing unterminated
+        // JSON — observed live 2026-07-14) must not sink the other batches: retry
+        // once at a different temperature, then skip and leave those characters
+        // for the UI indicators / the next repair round.
+        let parsed = null;
+        for (const temperature of [0.4, 0.7]) {
+            try {
+                const repairResponse = await generateContentFn({
+                    model, geminiApiKey, anthropicApiKey,
+                    contents: [repairPrompt],
+                    config: {
+                        systemInstruction,
+                        temperature,
+                        thinkingConfig: { thinkingLevel: 'HIGH' },
+                        // Gemini 3 counts THINKING tokens against maxOutputTokens.
+                        // A correct repair answer is ~373 tokens, but a tight
+                        // ceiling starves the thinking budget and truncates the
+                        // JSON mid-answer (measured 2026-07-14: 4000 → truncated
+                        // at ~600 chars; 16000 → clean in 13.6s). Do not lower.
+                        maxOutputTokens: 16000,
+                    },
+                    schema: PROFILE_REPAIR_SCHEMA
+                });
+                parsed = parseJsonWithRepair(repairResponse.text, { label: 'Stage 3 character completion repair response' });
+                usage = combineUsage(usage, repairResponse.usage);
+                break;
+            } catch (error) {
+                console.warn(`  Stage 3 completeness repair batch (${batchNames}) failed at temperature ${temperature}: ${error.message}`);
             }
-        } catch (error) {
-            // A failed repair must not fail the generation — the partial cast is
-            // still saved and the UI completeness indicators surface the gaps.
-            console.warn(`  Stage 3 completeness repair skipped: ${error.message}`);
+        }
+        if (!parsed) continue;
+        const batchNameSet = new Set(batch.map(c => String(c.name || '').trim().toLowerCase()));
+        for (const character of (parsed?.characters || [])) {
+            if (batchNameSet.has(String(character?.name || '').trim().toLowerCase())) allRepaired.push(character);
         }
     }
 
-    return { result, usage };
+    return { repaired: { characters: allRepaired }, usage };
+}
+
+// Standalone repair: complete ONLY the characters with missing tier-required
+// fields, leaving the rest of the saved cast byte-identical. Used by the
+// "Complete Profiles" action so a partial cast never forces a full regeneration.
+const completeCharacterProfiles = async (currentCharacters, pitchData, modelConfig = {}) => {
+    const {
+        model = process.env.GEMINI_MODEL,
+        geminiApiKey = process.env.GEMINI_API_KEY,
+        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
+        knowledgeContext = '',
+        generateContentFn = generateContent,
+        tierOverrides = {}
+    } = modelConfig;
+    const rawTierOverrides = tierOverrides && typeof tierOverrides === 'object' && !Array.isArray(tierOverrides)
+        ? tierOverrides
+        : {};
+    const normalizedTierOverrides = normalizeTierOverrides(rawTierOverrides);
+    const normalized = normalizeCurrentCharacters(currentCharacters, normalizedTierOverrides);
+    const incomplete = charactersWithIncompleteProfiles(normalized);
+    const baseResult = { characters: normalized, tier_overrides: rawTierOverrides };
+    if (!incomplete.length) {
+        return { result: normalizeCharacterResult(baseResult, normalizedTierOverrides, rawTierOverrides), usage: null, repairedNames: [] };
+    }
+
+    const charactersSOP = loadSkill('skill_stage3_characters');
+    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+    let result = normalizeCharacterResult(baseResult, normalizedTierOverrides, rawTierOverrides);
+    let usage = null;
+    for (let round = 0; round < REPAIR_MAX_ROUNDS; round += 1) {
+        const roundIncomplete = charactersWithIncompleteProfiles(result.characters || []);
+        if (!roundIncomplete.length) break;
+        const repair = await runProfileCompletionRepair({
+            characters: result.characters || [],
+            incomplete: roundIncomplete,
+            pitchData,
+            sourceBlock,
+            systemInstruction: charactersSOP,
+            generateContentFn,
+            model,
+            geminiApiKey,
+            anthropicApiKey
+        });
+        result = normalizeCharacterResult(
+            mergeRepairedCharacters(result, repair.repaired),
+            normalizedTierOverrides,
+            rawTierOverrides
+        );
+        usage = combineUsage(usage, repair.usage);
+    }
+    const stillIncomplete = charactersWithIncompleteProfiles(result.characters || []);
+    if (stillIncomplete.length) {
+        console.warn(`  Stage 3 profile completion left ${stillIncomplete.length} character(s) incomplete: ${stillIncomplete.map(c => c.name).join(', ')}.`);
+    }
+    return { result, usage, repairedNames: incomplete.map(c => c.name) };
 };
 
 const TIER1_REQUIRED_CORE_FIELDS = ['ghost_and_wound', 'the_lie', 'fear', 'desire'];
@@ -648,8 +890,11 @@ function mergeRepairedCharacters(result = {}, repaired = {}) {
     const characters = (result.characters || []).map(character => {
         const replacement = repairedByName.get(key(character?.name));
         if (!replacement) return character;
-        // Existing populated fields win; the repair only fills gaps.
-        const merged = { ...replacement, ...prunedPopulatedFields(character) };
+        // Existing populated values win LEAF BY LEAF; the repair only fills gaps.
+        // (A whole-object comparison fails here: the normalizer's arc default
+        // `direction: 'Growth'` makes an otherwise-empty arc look populated,
+        // which silently discarded the repair's core_drive.)
+        const merged = fillEmptyFieldsDeep(character, replacement);
         merged.name = character.name;
         merged.profile_tier = character.profile_tier || replacement.profile_tier;
         return merged;
@@ -657,16 +902,19 @@ function mergeRepairedCharacters(result = {}, repaired = {}) {
     return { ...result, characters };
 }
 
-function prunedPopulatedFields(character = {}) {
-    const populated = {};
-    for (const [field, value] of Object.entries(character)) {
-        if (value == null) continue;
-        if (typeof value === 'string' && !value.trim()) continue;
-        if (typeof value === 'object' && !Array.isArray(value) && !hasMeaningfulProfileData(value)) continue;
-        if (Array.isArray(value) && !value.length) continue;
-        populated[field] = value;
+function fillEmptyFieldsDeep(existing, replacement) {
+    if (existing == null) return replacement ?? existing;
+    if (typeof existing === 'string') return existing.trim() ? existing : (replacement ?? existing);
+    if (Array.isArray(existing)) return existing.length ? existing : (replacement ?? existing);
+    if (typeof existing === 'object') {
+        if (!replacement || typeof replacement !== 'object' || Array.isArray(replacement)) return existing;
+        const merged = {};
+        for (const field of new Set([...Object.keys(replacement), ...Object.keys(existing)])) {
+            merged[field] = fillEmptyFieldsDeep(existing[field], replacement[field]);
+        }
+        return merged;
     }
-    return populated;
+    return existing;
 }
 
 function combineUsage(a, b) {
@@ -678,4 +926,4 @@ function combineUsage(a, b) {
     };
 }
 
-module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile };
+module.exports = { agent3Characters, completeCharacterProfiles, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };
