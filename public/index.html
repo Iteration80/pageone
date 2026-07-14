@@ -457,9 +457,15 @@
                     <span id="loadingTextStage3">Casting your characters...</span>
                 </div>
 
-                <div id="charactersContainer" class="hidden"
-                    style="display: flex; flex-direction: column; gap: 24px; margin-top: 24px;">
-                    <!-- Character cards injected here -->
+                <div id="stage3ContentRow" style="display: flex; gap: 20px; align-items: flex-start;">
+                    <nav id="characterIndexRail" class="hidden" aria-label="Character index"
+                        style="position: sticky; top: 12px; flex: 0 0 190px; max-height: calc(100vh - 220px); overflow-y: auto; background: #0d1320; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 10px; margin-top: 24px; font-size: 0.8rem; scrollbar-width: thin;">
+                        <!-- Character index injected here -->
+                    </nav>
+                    <div id="charactersContainer" class="hidden"
+                        style="display: flex; flex-direction: column; gap: 24px; margin-top: 24px; flex: 1; min-width: 0;">
+                        <!-- Character cards injected here -->
+                    </div>
                 </div>
             </div>
 

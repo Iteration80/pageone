@@ -563,7 +563,119 @@ ${JSON.stringify(beatsData, null, 2)}`;
         schema: characterSchema
     });
 
-    return { result: normalizeCharacterResult(parseJsonWithRepair(response.text, { label: 'Stage 3 character generation response' }), normalizedTierOverrides, rawTierOverrides), usage: response.usage };
+    let result = normalizeCharacterResult(parseJsonWithRepair(response.text, { label: 'Stage 3 character generation response' }), normalizedTierOverrides, rawTierOverrides);
+    let usage = response.usage;
+
+    // Completeness repair: with many Tier 1 characters, one generation can hit the
+    // output-token ceiling and the tail of the cast arrives skeletal (observed
+    // 2026-07-13: 10 Tier 1s requested, the last 5 saved with empty psychological
+    // cores). Run ONE focused repair call for the incomplete characters only.
+    const incomplete = charactersWithIncompleteProfiles(result.characters || []);
+    if (incomplete.length) {
+        console.log(`  Stage 3 completeness repair: ${incomplete.length} character(s) missing tier-required fields (${incomplete.map(c => c.name).join(', ')}).`);
+        try {
+            const castSummary = (result.characters || []).map(c => `${c.name} (${c.role || 'Unknown'}, ${c.profile_tier || 'Tier 1'})`).join('; ');
+            const repairPrompt = `${sourceBlock}PROFILE COMPLETION REPAIR: The character profiles below were saved with tier-required fields missing (usually a truncated generation). Complete ONLY these characters. Preserve name, role, profile_tier, brief_summary, and every already-populated field VERBATIM — fill in only what is empty, at the depth their profile_tier requires. Tier 1 needs the full psychological core (ghost_and_wound, the_lie, fear, desire, psychological_need, moral_need), voice_and_behavior tags, arc with core_drive, and _deep_profile. Tier 2 needs the functional_profile fields. Tier 3 needs the cameo_profile fields.
+
+FULL CAST (for relationship_dynamics references): ${castSummary}
+
+INCOMPLETE CHARACTERS:
+${JSON.stringify(incomplete, null, 2)}
+
+Here is the approved pitch for story context:
+${JSON.stringify(pitchData, null, 2)}
+
+Return ONLY the completed versions of these ${incomplete.length} character(s) in the standard JSON format.`;
+            const repairResponse = await generateContentFn({
+                model, geminiApiKey, anthropicApiKey,
+                contents: [repairPrompt],
+                config: {
+                    systemInstruction,
+                    temperature: 0.4,
+                    maxOutputTokens: 32000,
+                },
+                schema: characterSchema
+            });
+            const repaired = parseJsonWithRepair(repairResponse.text, { label: 'Stage 3 character completion repair response' });
+            result = normalizeCharacterResult(
+                mergeRepairedCharacters(result, repaired),
+                normalizedTierOverrides,
+                rawTierOverrides
+            );
+            usage = combineUsage(usage, repairResponse.usage);
+            const stillIncomplete = charactersWithIncompleteProfiles(result.characters || []);
+            if (stillIncomplete.length) {
+                console.warn(`  Stage 3 completeness repair left ${stillIncomplete.length} character(s) incomplete: ${stillIncomplete.map(c => c.name).join(', ')}.`);
+            }
+        } catch (error) {
+            // A failed repair must not fail the generation — the partial cast is
+            // still saved and the UI completeness indicators surface the gaps.
+            console.warn(`  Stage 3 completeness repair skipped: ${error.message}`);
+        }
+    }
+
+    return { result, usage };
 };
 
-module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters };
+const TIER1_REQUIRED_CORE_FIELDS = ['ghost_and_wound', 'the_lie', 'fear', 'desire'];
+
+function isIncompleteProfile(character = {}) {
+    const tier = normalizeProfileTier(character.profile_tier, character);
+    const filled = value => String(value || '').trim() !== '';
+    if (tier === PROFILE_TIERS.FULL) {
+        const core = character.psychological_core || {};
+        return TIER1_REQUIRED_CORE_FIELDS.some(field => !filled(core[field]))
+            || !filled(character.voice_and_behavior?.voice_tag)
+            || !filled(character.arc?.core_drive);
+    }
+    if (tier === PROFILE_TIERS.FUNCTIONAL) {
+        const functional = character.functional_profile || {};
+        return !filled(functional.narrative_function) || !filled(functional.emotional_truth);
+    }
+    const cameo = character.cameo_profile || {};
+    return !filled(cameo.scene_purpose) || !filled(cameo.playable_behavior);
+}
+
+function charactersWithIncompleteProfiles(characters = []) {
+    return (Array.isArray(characters) ? characters : []).filter(character => character?.name && isIncompleteProfile(character));
+}
+
+function mergeRepairedCharacters(result = {}, repaired = {}) {
+    const repairedList = Array.isArray(repaired?.characters) ? repaired.characters : [];
+    if (!repairedList.length) return result;
+    const key = value => String(value || '').trim().toLowerCase();
+    const repairedByName = new Map(repairedList.map(character => [key(character?.name), character]).filter(([name]) => name));
+    const characters = (result.characters || []).map(character => {
+        const replacement = repairedByName.get(key(character?.name));
+        if (!replacement) return character;
+        // Existing populated fields win; the repair only fills gaps.
+        const merged = { ...replacement, ...prunedPopulatedFields(character) };
+        merged.name = character.name;
+        merged.profile_tier = character.profile_tier || replacement.profile_tier;
+        return merged;
+    });
+    return { ...result, characters };
+}
+
+function prunedPopulatedFields(character = {}) {
+    const populated = {};
+    for (const [field, value] of Object.entries(character)) {
+        if (value == null) continue;
+        if (typeof value === 'string' && !value.trim()) continue;
+        if (typeof value === 'object' && !Array.isArray(value) && !hasMeaningfulProfileData(value)) continue;
+        if (Array.isArray(value) && !value.length) continue;
+        populated[field] = value;
+    }
+    return populated;
+}
+
+function combineUsage(a, b) {
+    if (!a) return b || null;
+    if (!b) return a;
+    return {
+        input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0),
+        output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0)
+    };
+}
+
+module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile };

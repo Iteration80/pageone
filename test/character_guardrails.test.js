@@ -117,6 +117,67 @@ test('sanitizer leaves legitimate content untouched', () => {
     }
 });
 
+// ─── Completeness repair (2026-07-13: 10 Tier 1s hit the output-token ceiling
+// and the tail of the cast saved with empty psychological cores) ─────────────
+
+test('incomplete Tier 1/2/3 profiles are detected per tier requirements', () => {
+    const { isIncompleteProfile, charactersWithIncompleteProfiles } = require('../agents/agent_3_characters');
+    const fullT1 = {
+        name: 'Rebecca', profile_tier: 'Tier 1',
+        psychological_core: { ghost_and_wound: 'w', the_lie: 'l', fear: 'f', desire: 'd' },
+        voice_and_behavior: { voice_tag: 'Sparse & precise' },
+        arc: { core_drive: 'To be in control', direction: 'Growth' }
+    };
+    const skeletalT1 = { name: 'Blounder', profile_tier: 'Tier 1', brief_summary: 'bio only', arc: { core_drive: '', direction: 'Growth' } };
+    const fullT2 = { name: 'Moog', profile_tier: 'Tier 2', functional_profile: { narrative_function: 'n', emotional_truth: 'e' } };
+    const emptyT2 = { name: 'Pretz', profile_tier: 'Tier 2', functional_profile: {} };
+    const fullT3 = { name: 'Molly', profile_tier: 'Tier 3', cameo_profile: { scene_purpose: 's', playable_behavior: 'p' } };
+
+    assert.equal(isIncompleteProfile(fullT1), false);
+    assert.equal(isIncompleteProfile(skeletalT1), true, 'empty psychological core = incomplete Tier 1');
+    assert.equal(isIncompleteProfile(fullT2), false);
+    assert.equal(isIncompleteProfile(emptyT2), true);
+    assert.equal(isIncompleteProfile(fullT3), false);
+    assert.deepStrictEqual(
+        charactersWithIncompleteProfiles([fullT1, skeletalT1, fullT2, emptyT2, fullT3]).map(c => c.name),
+        ['Blounder', 'Pretz']
+    );
+});
+
+test('generation runs a completion repair call when Tier 1 profiles arrive skeletal', async () => {
+    const { agent3Characters } = require('../agents/agent_3_characters');
+    const fullCore = { ghost_and_wound: 'w', the_lie: 'l', fear: 'f', desire: 'd' };
+    const fullBits = { voice_and_behavior: { voice_tag: 'Blunt & clipped' }, arc: { core_drive: 'To be needed', direction: 'Growth' } };
+    const firstResponse = {
+        characters: [
+            { name: 'Rebecca', role: 'Protagonist', profile_tier: 'Tier 1', brief_summary: 'b', psychological_core: fullCore, ...fullBits },
+            { name: 'Blounder', role: 'Mentor', profile_tier: 'Tier 1', brief_summary: 'bio only' }
+        ]
+    };
+    const repairResponse = {
+        characters: [
+            { name: 'Blounder', role: 'Mentor', profile_tier: 'Tier 1', brief_summary: 'bio only', psychological_core: { ghost_and_wound: 'seven empty chairs', the_lie: 'staying is enough', fear: 'being unneeded', desire: 'a kid who keeps him' }, ...fullBits }
+        ]
+    };
+    const calls = [];
+    const { result } = await agent3Characters({ title: 'T' }, null, null, null, null, {
+        model: 'gemini-test', geminiApiKey: 'x',
+        generateContentFn: async request => {
+            calls.push(request);
+            return { text: JSON.stringify(calls.length === 1 ? firstResponse : repairResponse), usage: { input_tokens: 1, output_tokens: 1 } };
+        }
+    });
+    assert.equal(calls.length, 2, 'a second (repair) model call ran');
+    assert.match(calls[1].contents[0], /PROFILE COMPLETION REPAIR/);
+    const incompleteBlock = calls[1].contents[0].match(/INCOMPLETE CHARACTERS:([\s\S]*?)Here is the approved pitch/)?.[1] || '';
+    assert.ok(incompleteBlock.includes('Blounder'), 'repair prompt targets the skeletal character');
+    assert.ok(!incompleteBlock.includes('"Rebecca"'), 'complete characters are not re-sent for repair');
+    const blounder = result.characters.find(c => c.name === 'Blounder');
+    assert.equal(blounder.psychological_core.ghost_and_wound, 'seven empty chairs', 'repair filled the empty core');
+    const rebecca = result.characters.find(c => c.name === 'Rebecca');
+    assert.equal(rebecca.psychological_core.ghost_and_wound, 'w', 'complete characters untouched');
+});
+
 // ─── Layer 5: no project-specific tiering machinery ──────────────────────────
 
 test('Stage 3 SOP contains no project-specific character names', () => {

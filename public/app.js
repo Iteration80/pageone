@@ -1295,6 +1295,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage3Notes) autoResize(stage3Notes);
                 } else {
                     if (charactersContainer) charactersContainer.innerHTML = '';
+                    const clearedRail = document.getElementById('characterIndexRail');
+                    if (clearedRail) { clearedRail.innerHTML = ''; clearedRail.classList.add('hidden'); }
                     if (stage3Workshop) stage3Workshop.classList.add('hidden');
                 }
 
@@ -3772,8 +3774,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             wireBackstoryRemoveButton(card.querySelector('.char-backstory-remove-btn'));
 
+            card.id = `char-card-${index}`;
+            card.style.scrollMarginTop = '12px';
             charactersContainer.appendChild(card);
         });
+
+        renderCharacterIndexRail(renderedCharacters);
 
         charactersContainer.classList.remove('hidden');
         if (stage3Workshop) stage3Workshop.classList.remove('hidden');
@@ -3782,6 +3788,106 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             document.querySelectorAll('.char-ta').forEach(ta => autoResize(ta));
         }, 100);
+    }
+
+    // ── Character index rail: per-tier quick-nav with completeness indicators ──
+
+    let characterRailObserver = null;
+
+    function characterProfileIsComplete(char) {
+        const tierRank = characterProfileTierRank(normalizeCharacterProfileTier(char.profile_tier, char), char);
+        const filled = value => String(value || '').trim() !== '';
+        if (tierRank === 1) {
+            const core = char.psychological_core || {};
+            return ['ghost_and_wound', 'the_lie', 'fear', 'desire'].every(field => filled(core[field]))
+                && filled(char.voice_and_behavior?.voice_tag)
+                && filled(char.arc?.core_drive);
+        }
+        if (tierRank === 2) {
+            const functional = char.functional_profile || {};
+            return filled(functional.narrative_function) && filled(functional.emotional_truth);
+        }
+        const cameo = char.cameo_profile || {};
+        return filled(cameo.scene_purpose) && filled(cameo.playable_behavior);
+    }
+
+    function renderCharacterIndexRail(renderedCharacters = []) {
+        const rail = document.getElementById('characterIndexRail');
+        if (!rail) return;
+        if (characterRailObserver) {
+            characterRailObserver.disconnect();
+            characterRailObserver = null;
+        }
+        if (!Array.isArray(renderedCharacters) || renderedCharacters.length < 5) {
+            rail.classList.add('hidden');
+            rail.innerHTML = '';
+            return;
+        }
+
+        const groups = { 1: [], 2: [], 3: [] };
+        renderedCharacters.forEach((char, index) => {
+            const tierRank = characterProfileTierRank(normalizeCharacterProfileTier(char.profile_tier, char), char);
+            (groups[tierRank] || groups[3]).push({ char, index });
+        });
+
+        const tierMeta = {
+            1: { label: 'Tier 1 · Full', color: '#93c5fd' },
+            2: { label: 'Tier 2 · Functional', color: '#a7f3d0' },
+            3: { label: 'Tier 3 · Cameo', color: '#9ca3af' }
+        };
+
+        rail.innerHTML = [1, 2, 3].map(tier => {
+            const entries = groups[tier];
+            if (!entries.length) return '';
+            const items = entries.map(({ char, index }) => {
+                const complete = characterProfileIsComplete(char);
+                const dot = complete
+                    ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tierMeta[tier].color};flex-shrink:0;" title="Profile complete"></span>`
+                    : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;border:1.5px solid #f59e0b;background:transparent;flex-shrink:0;" title="Profile incomplete — missing tier-required fields"></span>`;
+                return `<button type="button" class="char-rail-entry" data-target="char-card-${index}"
+                    style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:none;color:#d1d5db;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    ${dot}<span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(char.name || 'Unnamed')}</span>
+                </button>`;
+            }).join('');
+            return `<div style="margin-bottom:10px;">
+                <div style="font-size:0.66rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${tierMeta[tier].color};padding:2px 8px 4px;">${tierMeta[tier].label}</div>
+                ${items}
+            </div>`;
+        }).join('');
+
+        rail.querySelectorAll('.char-rail-entry').forEach(entry => {
+            entry.addEventListener('click', () => {
+                const card = document.getElementById(entry.dataset.target);
+                if (!card) return;
+                // Instant jump (long smooth scrolls get interrupted in this
+                // container) + a brief highlight pulse so the landing is obvious.
+                card.scrollIntoView({ behavior: 'auto', block: 'start' });
+                const originalBorder = card.style.border;
+                card.style.border = '1px solid rgba(59,130,246,0.9)';
+                card.style.transition = 'border 0.2s';
+                setTimeout(() => { card.style.border = originalBorder; }, 900);
+            });
+            entry.addEventListener('mouseenter', () => { entry.style.background = 'rgba(255,255,255,0.06)'; });
+            entry.addEventListener('mouseleave', () => {
+                if (!entry.classList.contains('is-active')) entry.style.background = 'transparent';
+            });
+        });
+
+        // Highlight the character currently in view
+        const scrollRoot = rail.closest('.workspace-scrollable');
+        characterRailObserver = new IntersectionObserver(observed => {
+            const visible = observed.filter(item => item.isIntersecting);
+            if (!visible.length) return;
+            const topmost = visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+            rail.querySelectorAll('.char-rail-entry').forEach(entry => {
+                const active = entry.dataset.target === topmost.target.id;
+                entry.classList.toggle('is-active', active);
+                entry.style.background = active ? 'rgba(59,130,246,0.15)' : 'transparent';
+            });
+        }, { root: scrollRoot || null, rootMargin: '0px 0px -60% 0px' });
+        charactersContainer.querySelectorAll('.character-card').forEach(card => characterRailObserver.observe(card));
+
+        rail.classList.remove('hidden');
     }
 
     async function autoGenerateCharacters() {
@@ -3793,6 +3899,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadingStateCharacters.classList.remove('hidden');
         charactersContainer.classList.add('hidden');
+        document.getElementById('characterIndexRail')?.classList.add('hidden');
 
         // Ensure the feedback/revise bar is gone
         if (stage3Workshop) stage3Workshop.classList.add('hidden');
@@ -3889,6 +3996,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             loadingStateCharacters.classList.remove('hidden');
             charactersContainer.classList.add('hidden');
+        document.getElementById('characterIndexRail')?.classList.add('hidden');
             btnStage3Revise.disabled = true;
             btnStage3Revise.textContent = 'Revising...';
 
