@@ -924,6 +924,19 @@ textarea.synopsis-input {
     margin-top: 8px;
 }
 
+/* .danger-btn carries `margin-left:auto` for its usual full-width contexts;
+   inside a right-aligned modal action row that would strand it from Cancel. */
+.modal-actions .danger-btn {
+    margin-left: 0;
+}
+
+/* Confirm dialog buttons sit in a compact row — scale them down from the
+   full-size page buttons they inherit from. */
+#confirmModal .modal-actions button {
+    padding: 9px 18px;
+    font-size: 0.875rem;
+}
+
 .settings-build-panel {
     border-top: 1px solid var(--card-border);
     margin-top: 8px;

@@ -804,61 +804,6 @@ CRITICAL OUTPUT CONTRACT: Your characters array must contain EXACTLY ${batch.len
     return { repaired: { characters: allRepaired }, usage };
 }
 
-// Standalone repair: complete ONLY the characters with missing tier-required
-// fields, leaving the rest of the saved cast byte-identical. Used by the
-// "Complete Profiles" action so a partial cast never forces a full regeneration.
-const completeCharacterProfiles = async (currentCharacters, pitchData, modelConfig = {}) => {
-    const {
-        model = process.env.GEMINI_MODEL,
-        geminiApiKey = process.env.GEMINI_API_KEY,
-        anthropicApiKey = process.env.ANTHROPIC_API_KEY,
-        knowledgeContext = '',
-        generateContentFn = generateContent,
-        tierOverrides = {}
-    } = modelConfig;
-    const rawTierOverrides = tierOverrides && typeof tierOverrides === 'object' && !Array.isArray(tierOverrides)
-        ? tierOverrides
-        : {};
-    const normalizedTierOverrides = normalizeTierOverrides(rawTierOverrides);
-    const normalized = normalizeCurrentCharacters(currentCharacters, normalizedTierOverrides);
-    const incomplete = charactersWithIncompleteProfiles(normalized);
-    const baseResult = { characters: normalized, tier_overrides: rawTierOverrides };
-    if (!incomplete.length) {
-        return { result: normalizeCharacterResult(baseResult, normalizedTierOverrides, rawTierOverrides), usage: null, repairedNames: [] };
-    }
-
-    const charactersSOP = loadSkill('skill_stage3_characters');
-    const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
-    let result = normalizeCharacterResult(baseResult, normalizedTierOverrides, rawTierOverrides);
-    let usage = null;
-    for (let round = 0; round < REPAIR_MAX_ROUNDS; round += 1) {
-        const roundIncomplete = charactersWithIncompleteProfiles(result.characters || []);
-        if (!roundIncomplete.length) break;
-        const repair = await runProfileCompletionRepair({
-            characters: result.characters || [],
-            incomplete: roundIncomplete,
-            pitchData,
-            sourceBlock,
-            systemInstruction: charactersSOP,
-            generateContentFn,
-            model,
-            geminiApiKey,
-            anthropicApiKey
-        });
-        result = normalizeCharacterResult(
-            mergeRepairedCharacters(result, repair.repaired),
-            normalizedTierOverrides,
-            rawTierOverrides
-        );
-        usage = combineUsage(usage, repair.usage);
-    }
-    const stillIncomplete = charactersWithIncompleteProfiles(result.characters || []);
-    if (stillIncomplete.length) {
-        console.warn(`  Stage 3 profile completion left ${stillIncomplete.length} character(s) incomplete: ${stillIncomplete.map(c => c.name).join(', ')}.`);
-    }
-    return { result, usage, repairedNames: incomplete.map(c => c.name) };
-};
-
 const TIER1_REQUIRED_CORE_FIELDS = ['ghost_and_wound', 'the_lie', 'fear', 'desire'];
 
 function isIncompleteProfile(character = {}) {
@@ -926,4 +871,4 @@ function combineUsage(a, b) {
     };
 }
 
-module.exports = { agent3Characters, completeCharacterProfiles, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };
+module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };

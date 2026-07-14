@@ -59,3 +59,31 @@ test('parseJsonWithRepair throws a labeled error on unrepairable input', () => {
         () => parseJsonWithRepair('not json at all', { label: 'Stage X response' }),
         /Stage X response was not valid JSON after repair/);
 });
+
+// ─── Guard: no native confirm() dialogs in the UI ────────────────────────────
+// window.confirm renders browser chrome ("<host> says…") that breaks the app's
+// look. Use confirmDialog() (public/app.js) instead. The single allowed use is
+// confirmDialog's own fallback, for when the modal markup is unavailable.
+test('public/app.js uses confirmDialog, not native confirm()', () => {
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    const offenders = appJs
+        .split('\n')
+        .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+        .filter(({ line }) => /(?<![\w.])confirm\s*\(/.test(line))
+        .filter(({ line }) => !line.includes('confirmDialog'))
+        .filter(({ line }) => !line.includes('return Promise.resolve(window.confirm('));
+    assert.deepStrictEqual(offenders, [], `native confirm() found — use confirmDialog() instead:\n${offenders.map(o => `  line ${o.number}: ${o.line}`).join('\n')}`);
+});
+
+test('the confirm dialog markup and helper exist and are wired', () => {
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    for (const id of ['confirmModal', 'confirmModalTitle', 'confirmModalMessage', 'confirmModalConfirm', 'confirmModalCancel']) {
+        assert.ok(indexHtml.includes(`id="${id}"`), `index.html must contain #${id}`);
+    }
+    // Top-level, not trapped inside DOMContentLoaded (the June gear-icon bug class).
+    const helperIndex = appJs.indexOf('function confirmDialog(');
+    const domReadyIndex = appJs.indexOf("document.addEventListener('DOMContentLoaded'");
+    assert.ok(helperIndex > -1, 'confirmDialog must exist');
+    assert.ok(helperIndex < domReadyIndex, 'confirmDialog must be top-level, not inside DOMContentLoaded');
+});

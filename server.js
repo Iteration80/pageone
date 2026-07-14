@@ -396,7 +396,7 @@ const {
     applyExplicitSequenceReplacement: applyExplicitOutlineSequenceReplacement,
     applyStructuralOutlinePatches
 } = require('./agents/agent_2_outline');
-const { agent3Characters, completeCharacterProfiles } = require('./agents/agent_3_characters');
+const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
@@ -3893,7 +3893,6 @@ registerGenerationRoutes(app, {
     agent1Refine,
     agent2Outline,
     agent3Characters,
-    completeCharacterProfiles,
     agent5Treatment,
     generateStage6Scenes,
     reviseStage6Scenes,

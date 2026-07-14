@@ -4,6 +4,58 @@ const nativeFetch = window.fetch.bind(window);
 // Shared with the top-level Settings modal code below.
 let authMode = 'secret';
 
+/**
+ * In-app replacement for window.confirm — the native dialog is browser chrome
+ * ("pageone-production.up.railway.app says…") and breaks the app's look.
+ * Resolves true on confirm, false on cancel/Escape/backdrop click.
+ * Top-level by design: helpers called from anywhere must not be trapped inside
+ * DOMContentLoaded (that scoping mistake silently killed the gear icon in June).
+ */
+function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+    const overlay = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const messageEl = document.getElementById('confirmModalMessage');
+    const confirmBtn = document.getElementById('confirmModalConfirm');
+    const cancelBtn = document.getElementById('confirmModalCancel');
+    // If the markup is missing for any reason, fail open to the native dialog
+    // rather than silently blocking a destructive-action guard.
+    if (!overlay || !confirmBtn || !cancelBtn) return Promise.resolve(window.confirm(message || title));
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    messageEl.style.display = message ? '' : 'none';
+    confirmBtn.textContent = confirmLabel;
+    cancelBtn.textContent = cancelLabel;
+    confirmBtn.classList.toggle('danger-btn', !!danger);
+
+    const previouslyFocused = document.activeElement;
+    overlay.classList.remove('hidden');
+    confirmBtn.focus();
+
+    return new Promise(resolve => {
+        const close = (result) => {
+            overlay.classList.add('hidden');
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            if (previouslyFocused?.focus) previouslyFocused.focus();
+            resolve(result);
+        };
+        const onConfirm = () => close(true);
+        const onCancel = () => close(false);
+        const onBackdrop = (event) => { if (event.target === overlay) close(false); };
+        const onKey = (event) => {
+            if (event.key === 'Escape') close(false);
+            if (event.key === 'Enter' && document.activeElement !== cancelBtn) close(true);
+        };
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
@@ -839,7 +891,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btnStyleDetailDelete')?.addEventListener('click', async () => {
         if (!currentDetailStyleSlug) return;
-        if (!confirm(`Delete style "${currentDetailStyleSlug}"? This cannot be undone.`)) return;
+        if (!await confirmDialog({
+            title: 'Delete style?',
+            message: `"${currentDetailStyleSlug}" will be permanently deleted. This cannot be undone.`,
+            confirmLabel: 'Delete', danger: true
+        })) return;
         try {
             const res = await fetch(`/api/styles/${currentDetailStyleSlug}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Delete failed');
@@ -2060,7 +2116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCompactMemory?.addEventListener('click', () => compactProjectMemory());
     btnSourceReaderClose?.addEventListener('click', () => sourceReaderPanel?.classList.add('hidden'));
     sourceUploadForm?.addEventListener('submit', uploadSourceToKnowledge);
-    sourceLibraryList?.addEventListener('click', (event) => {
+    sourceLibraryList?.addEventListener('click', async (event) => {
         const readBtn = event.target.closest('.source-library-read');
         if (readBtn) {
             readSourceAsset(readBtn.dataset.sourceId, readBtn.dataset.assetKind || 'extracted');
@@ -2075,7 +2131,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const deleteBtn = event.target.closest('.source-library-delete');
         if (deleteBtn) {
-            if (!confirm('Delete this source from project knowledge?')) return;
+            if (!await confirmDialog({
+                title: 'Delete source?',
+                message: 'This source will be removed from project knowledge.',
+                confirmLabel: 'Delete', danger: true
+            })) return;
             deleteSource(deleteBtn.dataset.sourceId);
             return;
         }
@@ -2161,7 +2221,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function regenerateGeneratedStage(stageNum, button, runner) {
         if (!activeProjectId || !runner) return;
         const label = STAGE_LABELS[stageNum] || `Stage ${stageNum}`;
-        if (!confirm(`Regenerate ${label}? The current version will be saved to Version History first.`)) return;
+        if (!await confirmDialog({
+            title: `Regenerate ${label}?`,
+            message: 'The current version will be saved to Version History first, so you can restore it later.',
+            confirmLabel: 'Regenerate'
+        })) return;
 
         const originalText = button?.textContent || 'Regenerate';
         try {
@@ -2186,7 +2250,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function regenerateCoverage(button) {
         if (!activeProjectId) return;
-        if (!confirm('Regenerate Coverage? The current report will be saved to Version History first.')) return;
+        if (!await confirmDialog({
+            title: 'Regenerate Coverage?',
+            message: 'The current report will be saved to Version History first, so you can restore it later.',
+            confirmLabel: 'Regenerate'
+        })) return;
         const originalText = button?.textContent || 'Regenerate';
         try {
             if (button) {
@@ -2379,7 +2447,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const version = history.find(v => v.id === versionId);
         if (!version) { alert('Version not found.'); return; }
 
-        const confirmed = confirm(`Restore Stage ${version.stage} (${version.stageName}) — Version ${version.version}?\n\nThe stage will reload with this version. You can review and re-approve from there.`);
+        const confirmed = await confirmDialog({
+            title: `Restore Version ${version.version}?`,
+            message: `Stage ${version.stage} (${version.stageName}) will reload with this version. You can review and re-approve from there.`,
+            confirmLabel: 'Restore'
+        });
         if (!confirmed) return;
 
         try {
@@ -3780,7 +3852,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         renderCharacterIndexRail(renderedCharacters);
-        updateCompleteProfilesButton(renderedCharacters);
 
         charactersContainer.classList.remove('hidden');
         if (stage3Workshop) stage3Workshop.classList.remove('hidden');
@@ -3795,48 +3866,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let characterRailObserver = null;
 
-    function updateCompleteProfilesButton(renderedCharacters = []) {
-        const button = document.getElementById('btnStage3CompleteProfiles');
-        if (!button) return;
-        const incompleteCount = renderedCharacters.filter(char => !characterProfileIsComplete(char)).length;
-        if (incompleteCount > 0) {
-            button.textContent = `Complete ${incompleteCount} Profile${incompleteCount === 1 ? '' : 's'}`;
-            button.classList.remove('hidden');
-        } else {
-            button.classList.add('hidden');
-        }
-    }
-
-    async function completeIncompleteProfiles() {
-        const button = document.getElementById('btnStage3CompleteProfiles');
-        if (!activeProjectId || !button || button.disabled) return;
-        button.disabled = true;
-        const originalLabel = button.textContent;
-        button.textContent = 'Completing…';
-        try {
-            const res = await fetch('/api/generate-characters', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: activeProjectId, mode: 'complete_profiles' })
-            });
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || 'Failed to complete profiles');
-            }
-            const data = await res.json();
-            renderCharacters(data.result.characters);
-            setCurrentStage3Payload(data.result);
-            markStage3Dirty();
-        } catch (err) {
-            console.error(err);
-            alert('Error completing profiles: ' + err.message);
-            button.textContent = originalLabel;
-        } finally {
-            button.disabled = false;
-        }
-    }
-
-    document.getElementById('btnStage3CompleteProfiles')?.addEventListener('click', completeIncompleteProfiles);
 
     function characterProfileIsComplete(char) {
         const tierRank = characterProfileTierRank(normalizeCharacterProfileTier(char.profile_tier, char), char);
@@ -3944,7 +3973,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingStateCharacters.classList.remove('hidden');
         charactersContainer.classList.add('hidden');
         document.getElementById('characterIndexRail')?.classList.add('hidden');
-        document.getElementById('btnStage3CompleteProfiles')?.classList.add('hidden');
 
         // Ensure the feedback/revise bar is gone
         if (stage3Workshop) stage3Workshop.classList.add('hidden');
@@ -4042,7 +4070,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingStateCharacters.classList.remove('hidden');
             charactersContainer.classList.add('hidden');
         document.getElementById('characterIndexRail')?.classList.add('hidden');
-        document.getElementById('btnStage3CompleteProfiles')?.classList.add('hidden');
             btnStage3Revise.disabled = true;
             btnStage3Revise.textContent = 'Revising...';
 
@@ -5817,8 +5844,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!activeProjectId) return;
 
-        const confirmText = 'Create a fresh Scene Blueprint from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment? The current blueprint will be saved in Version History first.';
-        if (!confirm(confirmText)) return;
+        if (!await confirmDialog({
+            title: 'Create a fresh Scene Blueprint?',
+            message: 'It will be rebuilt from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment. The current blueprint will be saved to Version History first.',
+            confirmLabel: 'Regenerate'
+        })) return;
 
         const originalText = btnStage6Regenerate?.textContent;
         try {

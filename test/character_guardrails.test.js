@@ -178,34 +178,6 @@ test('generation runs a completion repair call when Tier 1 profiles arrive skele
     assert.equal(rebecca.psychological_core.ghost_and_wound, 'w', 'complete characters untouched');
 });
 
-test('completeCharacterProfiles repairs only the incomplete characters, no model call when complete', async () => {
-    const { completeCharacterProfiles } = require('../agents/agent_3_characters');
-    const fullBits = { voice_and_behavior: { voice_tag: 'Blunt & clipped' }, arc: { core_drive: 'To be needed', direction: 'Growth' } };
-    const cast = [
-        { name: 'Rebecca', role: 'Protagonist', profile_tier: 'Tier 1', brief_summary: 'b', psychological_core: { ghost_and_wound: 'w', the_lie: 'l', fear: 'f', desire: 'd' }, ...fullBits },
-        { name: 'Blounder', role: 'Mentor', profile_tier: 'Tier 1', brief_summary: 'bio only' }
-    ];
-    const calls = [];
-    const repairResponse = {
-        characters: [{ name: 'Blounder', role: 'Mentor', profile_tier: 'Tier 1', brief_summary: 'bio only', psychological_core: { ghost_and_wound: 'seven empty chairs', the_lie: 'staying is enough', fear: 'being unneeded', desire: 'a kid who keeps him' }, ...fullBits }]
-    };
-    const modelConfig = {
-        model: 'gemini-test', geminiApiKey: 'x',
-        generateContentFn: async request => { calls.push(request); return { text: JSON.stringify(repairResponse), usage: {} }; }
-    };
-
-    const { result, repairedNames } = await completeCharacterProfiles(cast, { title: 'T' }, modelConfig);
-    assert.equal(calls.length, 1, 'exactly one repair call');
-    assert.deepStrictEqual(repairedNames, ['Blounder']);
-    assert.equal(result.characters.find(c => c.name === 'Blounder').psychological_core.ghost_and_wound, 'seven empty chairs');
-    assert.equal(result.characters.find(c => c.name === 'Rebecca').psychological_core.ghost_and_wound, 'w', 'complete character untouched');
-
-    const completeCast = result.characters;
-    const second = await completeCharacterProfiles(completeCast, { title: 'T' }, modelConfig);
-    assert.equal(calls.length, 1, 'no model call when every profile is complete');
-    assert.deepStrictEqual(second.repairedNames, []);
-});
-
 test('the repair call uses the compact schema, never the full casting schema', () => {
     // 2026-07-14, measured live: handing CHARACTER_SCHEMA (75 nodes / 8KB) to the
     // repair made Gemini burn 29,992 output tokens producing 119KB for ONE
@@ -231,7 +203,12 @@ test('the repair call uses the compact schema, never the full casting schema', (
     }
 
     const source = require('node:fs').readFileSync(require.resolve('../agents/agent_3_characters.js'), 'utf8');
-    const repairFn = source.slice(source.indexOf('async function runProfileCompletionRepair'), source.indexOf('// Standalone repair'));
+    const fnStart = source.indexOf('async function runProfileCompletionRepair');
+    assert.ok(fnStart > -1, 'runProfileCompletionRepair must exist');
+    // Body = from the declaration to the next top-level declaration after it.
+    const rest = source.slice(fnStart + 1);
+    const nextDecl = rest.search(/\n(?:async function|function|const) /);
+    const repairFn = nextDecl > -1 ? rest.slice(0, nextDecl) : rest;
     assert.ok(repairFn.includes('schema: PROFILE_REPAIR_SCHEMA'), 'repair must pass the compact schema');
     assert.ok(!repairFn.includes('schema: CHARACTER_SCHEMA'), 'repair must never pass the full casting schema');
     // Thinking tokens share maxOutputTokens on Gemini 3; a tight ceiling starves
