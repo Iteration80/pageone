@@ -312,6 +312,28 @@ body {
     line-height: 1.25;
 }
 
+.stage6-audit-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stage6-audit-status {
+    color: #fbbf24;
+    font-size: 0.74rem;
+    font-weight: 700;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.stage6-audit-status.empty {
+    color: #64748b;
+}
+
+.stage6-audit-status.stale {
+    color: #f59e0b;
+}
+
 .stage-source-readiness {
     width: 8px;
     height: 8px;
@@ -2632,6 +2654,34 @@ textarea.synopsis-input {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
+}
+
+.stage6-audit-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+    min-width: 0;
+}
+
+.stage6-audit-badge {
+    border: 1px solid rgba(245, 158, 11, 0.42);
+    background: rgba(245, 158, 11, 0.12);
+    color: #facc15;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: 5px 6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.stage6-audit-badge:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.65);
 }
 
 .scene-number {
@@ -2722,6 +2772,56 @@ textarea.synopsis-input {
     border: none;
     width: 60px;
     outline: none;
+}
+
+.stage6-audit-modal {
+    max-width: 560px;
+}
+
+.stage6-audit-modal-header {
+    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.modal-x-btn {
+    background: transparent;
+    border: 0;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 3px 6px;
+}
+
+.modal-x-btn:hover {
+    color: #e5e7eb;
+}
+
+.stage6-audit-modal-body {
+    color: #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin-top: 12px;
+}
+
+.stage6-audit-detail {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.stage6-audit-detail strong {
+    color: #f8fafc;
+    display: block;
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+    text-transform: uppercase;
 }
 
 .ai-rewrite-btn {

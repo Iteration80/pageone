@@ -598,6 +598,10 @@
                     <p>Manage and refine individual scenes organized by sequence.</p>
                 </div>
                 <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <div class="stage6-audit-header">
+                        <button id="btnStage6Audit" class="secondary-btn" type="button" style="font-size:0.8rem;white-space:nowrap">Audit Scenes</button>
+                        <span id="stage6AuditStatus" class="stage6-audit-status"></span>
+                    </div>
                     <div class="stage-regenerate-menu">
                         <button id="btnStage6Regenerate" class="secondary-btn stage-regenerate-trigger" type="button" style="font-size:0.8rem;white-space:nowrap">
                             Regenerate
@@ -659,6 +663,20 @@
                 </div>
             </div>
         </main>
+
+        <div id="stage6AuditModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="stage6AuditModalTitle">
+            <div class="modal-content stage6-audit-modal">
+                <div class="stage6-audit-modal-header">
+                    <h3 id="stage6AuditModalTitle">Scene Audit Flag</h3>
+                    <button id="stage6AuditModalClose" class="modal-x-btn" type="button" title="Close">x</button>
+                </div>
+                <div id="stage6AuditModalBody" class="stage6-audit-modal-body"></div>
+                <div class="modal-actions">
+                    <button id="stage6AuditDismiss" class="secondary-btn" type="button">Dismiss</button>
+                    <button id="stage6AuditModalDone" class="primary-btn" type="button">Done</button>
+                </div>
+            </div>
+        </div>
 
 
         <!-- Stage 6: Style (internal id: stage 7) -->

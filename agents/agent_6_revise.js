@@ -377,7 +377,8 @@ CRITICAL RULES:
 - For unmodified scenes within a modified sequence, copy them verbatim from the input.
 - If a scene is split into multiple scenes, generate complete data for each new scene.
 - If scenes are merged, generate a single combined scene with updated data.
-- Preserve the original sequence_number so the system can merge your changes back into the full blueprint.`, 'Stage 6 Scene Blueprint Revision'),
+- Preserve the original sequence_number so the system can merge your changes back into the full blueprint.
+- Every changed or new dramaturgical_function must include the Stage 6 necessity markers: VALUE SHIFT or QUIET FUNCTION, plus UNIQUE JOB. Use SETS UP/PAYS OFF when relevant.`, 'Stage 6 Scene Blueprint Revision'),
         temperature: 0.5,
     };
 

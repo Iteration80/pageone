@@ -36,7 +36,8 @@ function registerRewriteRoutes(app, deps) {
         ensureStage10RewriteState,
         persistChatAttachmentToKnowledge,
         safeParse,
-        generateContent
+        generateContent,
+        formatAuditFlagsForCoverage
     } = deps;
 
     // --- Stage 9: Coverage --- //
@@ -95,11 +96,15 @@ function registerRewriteRoutes(app, deps) {
                 synopsis: pitch?.synopsis || '',
                 characters: normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {})
             };
+            const auditBlock = formatAuditFlagsForCoverage(projectData.data?.stage6_scenes_audit || projectData.data?.stage6_scenes?.audit || {});
 
             console.log(`Generating Stage 9 Coverage for project ${projectId}...`);
-            const coverageKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${compactText(fullScriptText, 24_000)}`;
+            const coverageKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${auditBlock}\n${compactText(fullScriptText, 24_000)}`;
             const sourcePacket = buildSourceGenerationPacket(projectData, 9, coverageKnowledgeSeed, { userMessage: 'Generate screenplay coverage against approved project memory.' });
-            const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, getModelConfigWithSourcePacket(9, sourcePacket));
+            const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, {
+                ...getModelConfigWithSourcePacket(9, sourcePacket),
+                stage6AuditBlock: auditBlock
+            });
             const snapshotEntries = recordArtifactMutation(projectData, {
                 projectId,
                 stage: 9,

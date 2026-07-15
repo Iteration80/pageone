@@ -57,6 +57,7 @@ All stage SOPs live in `skills/`:
 ## Project Data (observation signals)
 User feedback and quality signals are stored in `data/projects/*.json`:
 - `stage{N}.notes` — user feedback text submitted when regenerating a stage output
+- `stage6_scenes_audit` — advisory Stage 6 dramaturgical audit (`generated_at`, `blueprint_hash`, and dismissible flags for redundancy, no-shift/filler, and overload); it never mutates `stage6_scenes`
 - `stage8_coverage.evaluation_grid` / `.analytical_comments` / `.blueprint` — coverage quality ratings, qualitative notes, and macro/micro to-do lists (Coverage = visible Stage 8 despite the key name)
 - `data.conversations.stageN` — persisted assistant chats (Rewrite under `stage9`)
 
@@ -90,6 +91,9 @@ Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. D
 
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-07-15 — Stage 6 dramaturgical audit
+Added the advisory Stage 6 scene audit for redundancy, missing value shift/quiet function, and overloaded scenes. Deterministic nominators bound the candidate list, a prosecutor/defense model pass adjudicates flags, writer dismissals persist in `stage6_scenes_audit`, non-dismissed flags feed Stage 9 coverage, and the Stage 6 UI shows stale-aware badges without auto-cutting or page targets.
 
 ### 2026-07-12 — Outline absorbs Beats; visible pipeline is 9 stages
 Merged the former Beats pass into Stage 2 Outline. Stage 2 now owns Save the Cat beat names, emotional arcs, pacing notes, genre notes, and `stc_genre_category`; the server deterministically derives the compatibility `stage4_beats` artifact after Stage 2 saves/revisions. Removed the Stage 4 Beats route, agent, skill file, nav/workspace/chat UI, and assistant entry. Visible stages now run 1-9 while internal ids/data keys remain backward-compatible.

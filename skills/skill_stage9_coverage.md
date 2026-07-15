@@ -26,6 +26,13 @@ If the response schema exposes `source_alignment`, use it for a concise assessme
 
 ---
 
+## BLUEPRINT-STAGE DRAMATURGICAL FLAGS
+If the prompt includes `BLUEPRINT-STAGE DRAMATURGICAL FLAGS (adjudicated, writer has not dismissed)`, treat those as advisory evidence from the Stage 6 scene blueprint audit. Weigh them when building `macro_todo` and `micro_todo`, especially for redundant beats, scenes without a value shift or legitimate quiet function, and overloaded scenes carrying too many dramatic jobs.
+
+Do not blindly repeat every flag as a task. If the finished draft resolves the underlying issue, omit it. If the issue persists, translate it into a specific rewrite action for the affected scene(s). Dismissed flags are intentionally absent and must not be reopened.
+
+---
+
 ## 1. METADATA & LOGLINE
 * **title:** The title of the screenplay as written.
 * **genre:** The genre(s) (e.g., "Action Thriller", "Romantic Comedy").

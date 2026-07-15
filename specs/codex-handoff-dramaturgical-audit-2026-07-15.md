@@ -217,3 +217,17 @@ existence under "Project Data"), and append a completion record to this file.
 - Do not touch: the Stage 4 beats derivation, Stage 3 guardrails/repair, the
   auth system, `stage4_beats`/`stage8_coverage`/`stage9_rewrites` key names.
 - Do not add new npm dependencies (similarity = plain token overlap).
+
+---
+
+## Completion Record — Codex — 2026-07-15
+
+Implemented the Stage 6 dramaturgical audit end to end:
+
+- Added the Stage 6 Dramatic Necessity Contract markers to `skills/skill_stage6_scenes.md` and kept them inside the existing `dramaturgical_function` string.
+- Added deterministic nominators and hashing in `utils/blueprint_audit.js`, plus compact-schema prosecutor/defense adjudication in `agents/agent_scene_audit.js` with `skills/skill_scene_audit.md`.
+- Added `POST /api/generate-stage6-audit`, `PATCH /api/projects/:id/stage6-audit/dismiss`, and non-fatal post-generation/post-revision audit kicks.
+- Stored persistent audit data in `data.stage6_scenes_audit` rather than `data.stage6_scenes.audit` because `stage6_scenes` is currently an array and array object properties do not survive JSON serialization without a broader data-shape migration.
+- Added stale-aware Stage 6 UI badges, a manual Audit Scenes button, flag detail modal, and dismiss flow.
+- Injected non-dismissed flags into Stage 9 coverage and seeded Stage 6 assistant context with a current audit summary.
+- Added focused parser/nominator/adjudication/guard/coverage-injection tests in `test/blueprint_audit.test.js`.

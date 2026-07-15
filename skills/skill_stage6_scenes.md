@@ -51,6 +51,32 @@ Every single scene must justify its existence. There are no "filler" scenes or p
 * **The Triangle of Knowledge (Dramatic Irony):** Explicitly define the hierarchy of knowledge for the scene. Does the audience know a secret the protagonist doesn't? Does the protagonist know a trap awaits the antagonist? Use this imbalance to generate subtext.
 * **The Value Shift (+/-):** Every scene must contain a polarity shift. If a character enters confident (+), they must leave insecure (-). A scene without a value shift is a dead scene.
 
+## 6.1 DRAMATIC NECESSITY CONTRACT
+Inside every scene's existing `dramaturgical_function` string, add the parseable declarations below. Keep all existing Function-line craft content, including Structural Purpose, Layered Micro-Conflict, Triangle of Knowledge, and any Save the Cat beat function. These markers are additions, not replacements.
+
+Use EXACTLY these marker labels:
+
+* `VALUE SHIFT: <state> (+/-) to <state> (-/+)` — required unless the scene declares a quiet function instead.
+* `QUIET FUNCTION: <one of: aftermath | setup-plant | irony-marination | tonal-reset | transition | pressure-valve>` — use this instead of `VALUE SHIFT` only for legitimate non-plot-advancing work.
+* `SETS UP: <what, paid off where>` — required when `QUIET FUNCTION: setup-plant`; optional elsewhere.
+* `PAYS OFF: <what, planted where>` — optional, but include it when the scene resolves an earlier plant.
+* `UNIQUE JOB: <one sentence — the dramatic work no other scene does>`.
+
+Quiet functions are legitimate dramatic work:
+
+* `aftermath` — characters process consequences immediately after a major turn.
+* `setup-plant` — the scene plants a future payoff and must name that payoff.
+* `irony-marination` — the audience sits in a knowledge imbalance that creates dread, comedy, or suspense.
+* `tonal-reset` — the sequence needs a controlled shift in emotional register before the next escalation.
+* `transition` — geography, time, or handoff logic must be made clear for the next consequential scene to work.
+* `pressure-valve` — a brief release that sharpens, rather than stalls, the next pressure build.
+
+Anti-redundancy rule: before writing scene N, check the unique jobs already completed in the sequence and do not re-accomplish completed dramatic work. Re-establishing what the audience already knows is filler by definition unless the repetition creates a new value shift, irony gap, or payoff.
+
+Anti-bloat rule: if one scene carries 3 or more distinct dramatic jobs, split it or shed a job. A scene may be layered, but it cannot become a warehouse for every reveal, turn, beat, and payoff in the sequence.
+
+No page targets: length is an output, not an input. Do not stretch or compress scenes to hit a target. Police whether each scene earns its place.
+
 ## 7. THE SUBTLETY & QUIRK LIMITATION (ACTIVE FILTERING)
 You will be provided with tiered Character Profiles. Tier 1 characters may include specific "Deflection Tactics" or "Subtlety Guidelines" (e.g., physical tics, nervous habits). You are strictly forbidden from overusing these traits.
 

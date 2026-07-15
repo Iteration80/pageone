@@ -54,6 +54,7 @@ function registerGenerationRoutes(app, deps) {
         agent5Treatment,
         generateStage6Scenes,
         reviseStage6Scenes,
+        runStage6SceneAudit,
         generateSceneDraft,
         humanizeDraft,
         findProjectScene,
@@ -66,8 +67,55 @@ function registerGenerationRoutes(app, deps) {
         resolveError,
         buildSourceAuthorityBlock,
         recordArtifactMutation,
-        normalizeStage3CharactersForPipeline
+        normalizeStage3CharactersForPipeline,
+        hashBlueprintScenes,
+        mergeDismissedFlags
     } = deps;
+
+    function savedStage6Audit(projectData = {}) {
+        return projectData.data?.stage6_scenes_audit || projectData.data?.stage6_scenes?.audit || {};
+    }
+
+    function buildStage6AuditPayload(sequences, auditResult, previousAudit = {}, blueprintHash = null) {
+        return {
+            generated_at: new Date().toISOString(),
+            blueprint_hash: blueprintHash || hashBlueprintScenes(sequences || []),
+            flags: mergeDismissedFlags(previousAudit, auditResult.flags || []),
+            candidate_count: auditResult.candidateCount || 0,
+            dropped_candidates: auditResult.dropped || 0,
+            skipped_candidates: auditResult.skipped || []
+        };
+    }
+
+    async function runAndPersistStage6Audit(projectId) {
+        const projectData = await readProjectJSONById(projectId, { invalidMessage: 'Invalid projectId' });
+        const sequences = projectData.data?.stage6_scenes;
+        if (!Array.isArray(sequences) && !Array.isArray(sequences?.sequences) && !Array.isArray(sequences?.scenes)) {
+            throw new BadRequestError('No Stage 6 scene blueprint found to audit');
+        }
+        const auditedHash = hashBlueprintScenes(sequences);
+        const auditResult = await runStage6SceneAudit(sequences, getModelConfig(6));
+        let savedAudit = null;
+        await updateProjectJSON(projectId, (freshProject) => {
+            freshProject.data = freshProject.data || {};
+            const freshSequences = freshProject.data.stage6_scenes || sequences;
+            savedAudit = buildStage6AuditPayload(sequences, auditResult, savedStage6Audit(freshProject), auditedHash);
+            if (hashBlueprintScenes(freshSequences) !== auditedHash) {
+                savedAudit.stale_on_arrival = true;
+            }
+            freshProject.data.stage6_scenes_audit = savedAudit;
+            return freshProject;
+        });
+        trackUsage(projectId, auditResult.usageList || []);
+        return savedAudit;
+    }
+
+    function kickStage6Audit(projectId, label) {
+        if (!projectId) return;
+        runAndPersistStage6Audit(projectId).catch(error => {
+            console.warn(`${label || 'Stage 6 audit'} failed non-fatally:`, error.message);
+        });
+    }
 
     // API route
     app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
@@ -661,6 +709,7 @@ function registerGenerationRoutes(app, deps) {
                 sourceReason: 'generation'
             });
 
+            kickStage6Audit(projectId, 'Stage 6 post-generation audit');
             send({ type: 'complete', result: allSequences, snapshotIds, ...sourceResponseExtras(sourcePacket) });
         } catch (error) {
             if (isClientAbortError(error)) {
@@ -674,6 +723,62 @@ function registerGenerationRoutes(app, deps) {
             clearInterval(heartbeat);
             abortTracker.markComplete();
             if (!res.destroyed && !res.writableEnded) res.end();
+        }
+    });
+
+    app.post('/api/generate-stage6-audit', requireAuth, aiLimiter, async (req, res) => {
+        try {
+            const { projectId } = req.body || {};
+            if (!isValidProjectId(projectId)) {
+                throw new BadRequestError('Missing or invalid projectId');
+            }
+            const audit = await runAndPersistStage6Audit(projectId);
+            res.json({ audit });
+        } catch (error) {
+            console.error('Stage 6 Audit Error:', error.message);
+            sendApiError(res, error, 'Failed to audit scene blueprint');
+        }
+    });
+
+    app.patch('/api/projects/:id/stage6-audit/dismiss', requireAuth, async (req, res) => {
+        try {
+            const { id } = req.params;
+            if (!isValidProjectId(id)) throw new BadRequestError('Missing or invalid projectId');
+            const sceneNumber = Number(req.body?.scene_number);
+            const type = String(req.body?.type || '').trim();
+            const dismissed = req.body?.dismissed !== false;
+            const counterpartScene = req.body?.counterpart_scene === undefined ? null : Number(req.body.counterpart_scene);
+            if (!Number.isFinite(sceneNumber) || sceneNumber < 1 || !type) {
+                throw new BadRequestError('Missing scene_number or type');
+            }
+
+            let updatedAudit = null;
+            let matched = false;
+            await updateProjectJSON(id, (projectData) => {
+                projectData.data = projectData.data || {};
+                const audit = projectData.data.stage6_scenes_audit || projectData.data.stage6_scenes?.audit || {};
+                const flags = Array.isArray(audit.flags) ? audit.flags : [];
+                updatedAudit = {
+                    ...audit,
+                    flags: flags.map(flag => {
+                        const sameCounterpart = counterpartScene === null
+                            || Number(flag.counterpart_scene || 0) === Number(counterpartScene || 0);
+                        if (Number(flag.scene_number) === sceneNumber && flag.type === type && sameCounterpart) {
+                            matched = true;
+                            return { ...flag, dismissed };
+                        }
+                        return flag;
+                    })
+                };
+                projectData.data.stage6_scenes_audit = updatedAudit;
+                return projectData;
+            });
+
+            if (!matched) throw new NotFoundError('Stage 6 audit flag not found');
+            res.json({ audit: updatedAudit });
+        } catch (error) {
+            console.error('Stage 6 Audit Dismiss Error:', error.message);
+            sendApiError(res, error, 'Failed to dismiss scene audit flag');
         }
     });
 
@@ -757,6 +862,7 @@ function registerGenerationRoutes(app, deps) {
                 sourceReason: 'revision'
             });
 
+            kickStage6Audit(projectId, 'Stage 6 post-revision audit');
             const payload = { result: updatedBlueprint, changed, revisionReceipt: revisionTransaction.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) };
             if (streaming) {
                 // Keep the final SSE packet small. The browser refreshes the saved

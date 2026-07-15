@@ -400,6 +400,7 @@ const { agent3Characters } = require('./agents/agent_3_characters');
 const { agent5Treatment } = require('./agents/agent_5_treatment');
 const { generateStage6Scenes } = require('./agents/agent_6_scenes');
 const { reviseStage6Scenes } = require('./agents/agent_6_revise');
+const { runStage6SceneAudit } = require('./agents/agent_scene_audit');
 const { generateSceneDraft } = require('./agents/agent_8_draft');
 const { humanizeDraft } = require('./agents/agent_humanizer');
 const { runContinuityCheck, applyCheckResult, buildContinuityContext, clearSceneFacts, resolveError } = require('./agents/agent_continuity');
@@ -428,6 +429,12 @@ const {
 } = require('./utils/artifact_snapshots');
 const { sanitizeOutlineMetaBeats } = require('./utils/outline_sanitizer');
 const { outlineToHybridBeatSheet } = require('./utils/outline_to_beats');
+const {
+    hashBlueprintScenes,
+    mergeDismissedFlags,
+    formatAuditFlagsForCoverage,
+    formatAuditSummaryForAssistant
+} = require('./utils/blueprint_audit');
 const { generateContent } = require('./agents/ai-client');
 const { runAssistantTurn } = require('./agents/assistant');
 const { registerAssistantRoutes } = require('./routes/assistant');
@@ -3585,6 +3592,13 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
         }
         case 6:
             stageData = JSON.stringify(projectData.data?.stage6_scenes || [], null, 2);
+            {
+                const audit = projectData.data?.stage6_scenes_audit || projectData.data?.stage6_scenes?.audit || {};
+                const auditSummary = audit?.blueprint_hash === hashBlueprintScenes(projectData.data?.stage6_scenes || [])
+                    ? formatAuditSummaryForAssistant(audit)
+                    : '';
+                if (auditSummary) stageData = `## STAGE 6 DRAMATURGICAL AUDIT SUMMARY\n${auditSummary}\n\n---\n\n${stageData}`;
+            }
             break;
         case 7: {
             const savedStyleNames = [];
@@ -3896,6 +3910,7 @@ registerGenerationRoutes(app, {
     agent5Treatment,
     generateStage6Scenes,
     reviseStage6Scenes,
+    runStage6SceneAudit,
     generateSceneDraft,
     humanizeDraft,
     findProjectScene,
@@ -3908,7 +3923,9 @@ registerGenerationRoutes(app, {
     resolveError,
     buildSourceAuthorityBlock,
     recordArtifactMutation,
-    normalizeStage3CharactersForPipeline
+    normalizeStage3CharactersForPipeline,
+    hashBlueprintScenes,
+    mergeDismissedFlags
 });
 
 // --- Stage 10: Rewrite Routes --- //
@@ -3982,7 +3999,8 @@ registerRewriteRoutes(app, {
     ensureStage10RewriteState,
     persistChatAttachmentToKnowledge,
     safeParse,
-    generateContent
+    generateContent,
+    formatAuditFlagsForCoverage
 });
 
 registerAssistantRoutes(app, {

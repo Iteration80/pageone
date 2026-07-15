@@ -56,6 +56,71 @@ function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = '
     });
 }
 
+function stage6AuditNormalizeSequences(data) {
+    let sourceSequences = [];
+    if (Array.isArray(data)) sourceSequences = data;
+    else if (Array.isArray(data?.sequences)) sourceSequences = data.sequences;
+    else if (Array.isArray(data?.scenes)) sourceSequences = [{ sequence_title: 'Blueprint', scenes: data.scenes }];
+
+    return sourceSequences.map((sequence, sequenceIndex) => ({
+        sequence_number: Number(sequence?.sequence_number) || sequenceIndex + 1,
+        sequence_title: sequence?.sequence_title || sequence?.title || sequence?.name || '',
+        scenes: Array.isArray(sequence?.scenes)
+            ? sequence.scenes.map((scene, sceneIndex) => ({
+                scene_number: Number(scene?.scene_number) || sceneIndex + 1,
+                scene_heading: scene?.scene_heading || scene?.slugline || '',
+                narrative_action: scene?.narrative_action || '',
+                dramaturgical_function: scene?.dramaturgical_function || '',
+                estimated_page_count: scene?.estimated_page_count ?? ''
+            }))
+            : []
+    }));
+}
+
+function stage6AuditStableStringify(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(stage6AuditStableStringify).join(',')}]`;
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stage6AuditStableStringify(value[key])}`).join(',')}}`;
+}
+
+function stage6AuditHash(data) {
+    const text = stage6AuditStableStringify(stage6AuditNormalizeSequences(data));
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i += 1) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return `s6a_${hash.toString(16).padStart(8, '0')}`;
+}
+
+function getStage6AuditData(projectData = window.currentProjectData || {}) {
+    return projectData?.stage6_scenes_audit || projectData?.stage6_scenes?.audit || null;
+}
+
+function isStage6AuditStale(projectData = window.currentProjectData || {}) {
+    const audit = getStage6AuditData(projectData);
+    if (!audit?.blueprint_hash) return false;
+    return audit.blueprint_hash !== stage6AuditHash(projectData?.stage6_scenes || []);
+}
+
+function activeStage6AuditFlags(projectData = window.currentProjectData || {}) {
+    const audit = getStage6AuditData(projectData);
+    if (!audit || isStage6AuditStale(projectData)) return [];
+    return Array.isArray(audit.flags) ? audit.flags.filter(flag => flag && !flag.dismissed) : [];
+}
+
+function stage6AuditFlagsForScene(projectData, sceneNumber) {
+    const target = Number(sceneNumber);
+    return activeStage6AuditFlags(projectData).filter(flag => Number(flag.scene_number) === target);
+}
+
+function stage6AuditLabel(flag = {}) {
+    if (flag.type === 'redundant') return `REDUNDANT${flag.counterpart_scene ? ` (w/ Sc ${flag.counterpart_scene})` : ''}`;
+    if (flag.type === 'no_shift') return 'NO SHIFT';
+    if (flag.type === 'overloaded') return 'OVERLOADED';
+    return String(flag.type || 'FLAG').replace(/_/g, ' ').toUpperCase();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
@@ -445,6 +510,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStage6Approve = document.getElementById('btnStage6Approve');
     const btnStage6Revise = document.getElementById('btnStage6Revise');
     const btnStage6Regenerate = document.getElementById('btnStage6Regenerate');
+    const btnStage6Audit = document.getElementById('btnStage6Audit');
+    const stage6AuditStatus = document.getElementById('stage6AuditStatus');
+    const stage6AuditModal = document.getElementById('stage6AuditModal');
+    const stage6AuditModalTitle = document.getElementById('stage6AuditModalTitle');
+    const stage6AuditModalBody = document.getElementById('stage6AuditModalBody');
+    const stage6AuditModalClose = document.getElementById('stage6AuditModalClose');
+    const stage6AuditModalDone = document.getElementById('stage6AuditModalDone');
+    const stage6AuditDismiss = document.getElementById('stage6AuditDismiss');
     const stage6RegenerateMenu = document.getElementById('stage6RegenerateMenu');
     const stage6PdfUpload = document.getElementById('stage6PdfUpload');
     const stage6FileNameDisplay = document.getElementById('stage6FileNameDisplay');
@@ -1387,6 +1460,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (stage6Board) stage6Board.innerHTML = '';
                     if (stage6Workshop) stage6Workshop.classList.add('hidden');
+                    if (stage6AuditStatus) {
+                        stage6AuditStatus.textContent = '';
+                        stage6AuditStatus.classList.remove('empty', 'stale');
+                    }
                 }
 
                 // Restore persisted chat conversations
@@ -5567,12 +5644,154 @@ document.addEventListener('DOMContentLoaded', () => {
         renumberCurrentStage6Blueprint();
     }
 
+    function renderStage6AuditStatus() {
+        if (!stage6AuditStatus) return;
+        const audit = getStage6AuditData(window.currentProjectData);
+        const stale = isStage6AuditStale(window.currentProjectData);
+        const flags = activeStage6AuditFlags(window.currentProjectData);
+        stage6AuditStatus.classList.remove('empty', 'stale');
+        if (stale) {
+            stage6AuditStatus.textContent = 'Audit stale';
+            stage6AuditStatus.classList.add('stale');
+        } else if (flags.length > 0) {
+            stage6AuditStatus.textContent = `${flags.length} flag${flags.length === 1 ? '' : 's'}`;
+        } else if (audit?.generated_at) {
+            stage6AuditStatus.textContent = 'No flags';
+            stage6AuditStatus.classList.add('empty');
+        } else {
+            stage6AuditStatus.textContent = '';
+        }
+    }
+
+    function closeStage6AuditModal() {
+        stage6AuditModal?.classList.add('hidden');
+        activeStage6AuditFlag = null;
+    }
+
+    function appendStage6AuditDetail(label, value) {
+        if (!stage6AuditModalBody || !value) return;
+        const section = document.createElement('div');
+        section.className = 'stage6-audit-detail';
+        const strong = document.createElement('strong');
+        strong.textContent = label;
+        const body = document.createElement('div');
+        body.textContent = value;
+        section.appendChild(strong);
+        section.appendChild(body);
+        stage6AuditModalBody.appendChild(section);
+    }
+
+    let activeStage6AuditFlag = null;
+    function openStage6AuditFlag(flag) {
+        activeStage6AuditFlag = flag;
+        if (stage6AuditModalTitle) {
+            stage6AuditModalTitle.textContent = `Scene ${flag.scene_number} ${stage6AuditLabel(flag)}`;
+        }
+        if (stage6AuditModalBody) {
+            stage6AuditModalBody.innerHTML = '';
+            appendStage6AuditDetail('Charge', stage6AuditLabel(flag));
+            appendStage6AuditDetail('Evidence', flag.evidence || '');
+            appendStage6AuditDetail('Failed Defense', flag.failed_defense || '');
+            appendStage6AuditDetail('Severity', flag.severity || '');
+        }
+        stage6AuditModal?.classList.remove('hidden');
+    }
+
+    function renderStage6AuditBadges(card, sceneNumber) {
+        const mount = card.querySelector('[data-audit-badges]');
+        if (!mount) return;
+        mount.innerHTML = '';
+        const flags = stage6AuditFlagsForScene(window.currentProjectData, sceneNumber);
+        flags.forEach(flag => {
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.className = 'stage6-audit-badge';
+            badge.textContent = stage6AuditLabel(flag);
+            badge.addEventListener('click', (event) => {
+                event.stopPropagation();
+                openStage6AuditFlag(flag);
+            });
+            mount.appendChild(badge);
+        });
+    }
+
+    function refreshStage6AuditDecorations() {
+        renderStage6AuditStatus();
+        document.querySelectorAll('#stage6-blueprint-container .scene-card:not(.ghost-card)').forEach(card => {
+            renderStage6AuditBadges(card, card.dataset.sceneNumber);
+        });
+    }
+
+    async function runStage6AuditFromUI() {
+        if (!activeProjectId || !btnStage6Audit) return;
+        const originalText = btnStage6Audit.textContent;
+        btnStage6Audit.disabled = true;
+        btnStage6Audit.textContent = 'Auditing...';
+        if (stage6AuditStatus) {
+            stage6AuditStatus.textContent = '';
+            stage6AuditStatus.classList.remove('empty', 'stale');
+        }
+        try {
+            const response = await fetch('/api/generate-stage6-audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: activeProjectId })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: `Server error ${response.status}` }));
+                throw new Error(error.error || `Server error ${response.status}`);
+            }
+            const data = await response.json();
+            ensureCurrentProjectData().stage6_scenes_audit = data.audit;
+            renderStage6(window.currentProjectData.stage6_scenes || []);
+        } catch (error) {
+            console.error('Stage 6 audit failed:', error);
+            alert(error.message || 'Could not audit the Scene Blueprint.');
+        } finally {
+            btnStage6Audit.disabled = false;
+            btnStage6Audit.textContent = originalText || 'Audit Scenes';
+            renderStage6AuditStatus();
+        }
+    }
+
+    async function dismissActiveStage6AuditFlag() {
+        if (!activeProjectId || !activeStage6AuditFlag) return;
+        const flag = activeStage6AuditFlag;
+        if (stage6AuditDismiss) stage6AuditDismiss.disabled = true;
+        try {
+            const response = await fetch(`/api/projects/${activeProjectId}/stage6-audit/dismiss`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scene_number: flag.scene_number,
+                    type: flag.type,
+                    counterpart_scene: flag.counterpart_scene,
+                    dismissed: true
+                })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: `Server error ${response.status}` }));
+                throw new Error(error.error || `Server error ${response.status}`);
+            }
+            const data = await response.json();
+            ensureCurrentProjectData().stage6_scenes_audit = data.audit;
+            closeStage6AuditModal();
+            renderStage6(window.currentProjectData.stage6_scenes || []);
+        } catch (error) {
+            console.error('Stage 6 audit dismissal failed:', error);
+            alert(error.message || 'Could not dismiss the audit flag.');
+        } finally {
+            if (stage6AuditDismiss) stage6AuditDismiss.disabled = false;
+        }
+    }
+
     function renderStage6(data) {
         const container = document.getElementById('stage6-blueprint-container');
         if (!container) return;
         container.innerHTML = ''; // Wipe clean before drawing
 
         const sequences = setCurrentStage6BlueprintPayload(data);
+        renderStage6AuditStatus();
 
         if (sequences.length === 0) {
             return; // Nothing to render
@@ -5629,6 +5848,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="card-grip">⋮⋮</span>
                             <span class="scene-number">Scene ${globalSceneCounter}</span>
                         </div>
+                        <div class="stage6-audit-badges" data-audit-badges></div>
                     </div>
                     <input type="text" class="scene-heading-input" value="${escapeHtml(scene.scene_heading)}" placeholder="SCENE HEADING">
                     <div class="scene-field-group">
@@ -5643,6 +5863,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="text" class="page-count-input" value="${escapeHtml(scene.estimated_page_count)}" placeholder="0.5 pgs">
                     </div>
                 `;
+                renderStage6AuditBadges(card, sceneNumber);
 
                 // Add resize listeners to textareas
                 const sceneTextareas = card.querySelectorAll('textarea');
@@ -5651,6 +5872,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateCurrentStage6SceneField(card.dataset.sceneNumber, textareaIndex === 0 ? 'narrative_action' : 'dramaturgical_function', ta.value);
                         autoResize(ta);
                         setApproveButtonState(btnStage6Approve, 'ready');
+                        refreshStage6AuditDecorations();
                     });
                     // Initial resize
                     setTimeout(() => autoResize(ta), 0);
@@ -5660,10 +5882,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headingInput?.addEventListener('input', () => {
                     updateCurrentStage6SceneField(card.dataset.sceneNumber, 'scene_heading', headingInput.value);
                     setApproveButtonState(btnStage6Approve, 'ready');
+                    refreshStage6AuditDecorations();
                 });
                 pageCountInput?.addEventListener('input', () => {
                     updateCurrentStage6SceneField(card.dataset.sceneNumber, 'estimated_page_count', pageCountInput.value);
                     setApproveButtonState(btnStage6Approve, 'ready');
+                    refreshStage6AuditDecorations();
                 });
 
                 cardsContainer.appendChild(card);
@@ -5724,6 +5948,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         updateSceneNumbers();
                         setApproveButtonState(btnStage6Approve, 'ready');
+                        refreshStage6AuditDecorations();
                     }
                 });
             });
@@ -5970,6 +6195,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.addEventListener('click', closeStage6RegenerateMenu);
     }
+
+    btnStage6Audit?.addEventListener('click', runStage6AuditFromUI);
+    stage6AuditModalClose?.addEventListener('click', closeStage6AuditModal);
+    stage6AuditModalDone?.addEventListener('click', closeStage6AuditModal);
+    stage6AuditDismiss?.addEventListener('click', dismissActiveStage6AuditFlag);
+    stage6AuditModal?.addEventListener('click', (event) => {
+        if (event.target === stage6AuditModal) closeStage6AuditModal();
+    });
 
     if (btnStage6Submit) {
         btnStage6Submit.addEventListener('click', async () => {

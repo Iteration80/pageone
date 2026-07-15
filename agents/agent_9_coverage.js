@@ -179,6 +179,9 @@ const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') =>
 const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) => {
     const sop = loadSkill('skill_stage9_coverage');
     const sourceSection = buildMemorySourcePromptBlock(modelConfig.knowledgeContext, 'Stage 9 Coverage');
+    const auditFlagSection = modelConfig.stage6AuditBlock
+        ? `\n\n${modelConfig.stage6AuditBlock}`
+        : '';
 
     // Build character profiles section if available
     const chars = projectContext.characters || [];
@@ -212,7 +215,7 @@ Genre: ${projectContext.genre || 'Unknown'}
 Logline: ${projectContext.logline || 'Not provided'}
 
 Synopsis:
-${projectContext.synopsis || 'Not provided'}${charSection}
+${projectContext.synopsis || 'Not provided'}${charSection}${auditFlagSection}
 
 ${sourceSection ? `---\n\n${sourceSection}\n` : ''}
 
