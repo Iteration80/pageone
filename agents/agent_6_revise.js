@@ -1,5 +1,6 @@
 const { generateContent } = require('./ai-client');
 const { parseJsonWithRepair } = require('./json_parse');
+const { deriveBlueprintPageCounts } = require('../utils/blueprint_pages');
 const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
@@ -326,6 +327,13 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
         generateContentFn = generateContent
     } = modelConfig;
 
+    // Normalize the incoming blueprint's page totals BEFORE any change
+    // detection. A no-op for freshly generated blueprints (already derived), but
+    // legacy/model-authored totals can be stale — and if we only derived on the
+    // way out, that correction would read as "the revision changed something"
+    // and silently defeat the no-change retry enforcement below.
+    deriveBlueprintPageCounts(currentBlueprint);
+
     // Strict JSON Schema matching agent_6_scenes.js
     const sequenceSchema = {
         type: 'object',
@@ -349,7 +357,7 @@ const reviseStage6Scenes = async (currentBlueprint, feedback, modelConfig = {}) 
                 }
             }
         },
-        required: ['sequence_number', 'sequence_title', 'total_estimated_pages', 'scenes']
+        required: ['sequence_number', 'sequence_title', 'scenes']
     };
 
     // The root schema is an array of sequences (only modified ones returned)
@@ -423,6 +431,9 @@ FIDELITY RULES:
         }
         const mergedData = mergeModifiedSequences(currentBlueprint, modifiedSequences);
         const structuralPatch = applyStructuralScenePatches(mergedData, feedback);
+        // A revision can add/cut/resize scenes, so page totals are re-derived
+        // here too — the model is never the source of truth for the arithmetic.
+        deriveBlueprintPageCounts(structuralPatch.blueprint);
         return {
             modifiedSequences,
             updatedData: structuralPatch.blueprint

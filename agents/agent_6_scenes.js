@@ -4,6 +4,7 @@ const {
     buildMemorySourceSystemInstruction
 } = require('./memory_contract');
 const { parseJsonWithRepair } = require('./json_parse');
+const { deriveBlueprintPageCounts } = require('../utils/blueprint_pages');
 const { loadSkill } = require('../utils/skills_cache');
 
 /**
@@ -304,7 +305,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
                 }
             }
         },
-        required: ['sequence_title', 'total_estimated_pages', 'scenes']
+        required: ['sequence_title', 'scenes']
     };
 
     const config = {
@@ -519,6 +520,8 @@ Return a JSON object for this sequence only.`;
 
     // --- Concatenate ---
     // allSequences is the master Scene Blueprint document (array of 8 objects).
+    // Page totals are derived from the scenes, never trusted from the model.
+    deriveBlueprintPageCounts(allSequences);
     return { result: allSequences, usageList };
 };
 
