@@ -87,3 +87,37 @@ test('the confirm dialog markup and helper exist and are wired', () => {
     assert.ok(helperIndex > -1, 'confirmDialog must exist');
     assert.ok(helperIndex < domReadyIndex, 'confirmDialog must be top-level, not inside DOMContentLoaded');
 });
+
+// ─── Guard: treatment plumbing never reaches the reader ──────────────────────
+// [SEQUENCE N START]/[SEQUENCE N END] are the Stage 5 agent's parse contract and
+// must stay in saved data (the revision path requires them verbatim), but they
+// are not prose. The UI strips them on render; the DOCX export must too — it
+// didn't, and 16 shipped in a real treatment export (2026-07-14).
+test('treatment export strips the [SEQUENCE N] parse tags, keeping prose', () => {
+    const { stripTreatmentSequenceTags } = require('../agents/export');
+    const act = [
+        '[SEQUENCE 1 START]',
+        'SEQUENCE 1: The Invisible World',
+        'Rebecca burns the toast while Elliot talks to an empty chair.',
+        '[SEQUENCE 1 END]',
+        '',
+        '[SEQUENCE 2 START]',
+        'SEQUENCE 2: The Mother Who Could Not See',
+        'The scanner shrieks.',
+        '[SEQUENCE 2 END]'
+    ].join('\n');
+    const cleaned = stripTreatmentSequenceTags(act);
+    assert.ok(!/\[SEQUENCE \d+ (?:START|END)\]/.test(cleaned), 'no parse tags may survive');
+    assert.ok(cleaned.includes('Rebecca burns the toast while Elliot talks to an empty chair.'), 'prose survives');
+    assert.ok(cleaned.includes('SEQUENCE 1: The Invisible World'), 'sequence heading survives');
+    assert.ok(cleaned.includes('SEQUENCE 2: The Mother Who Could Not See'), 'all headings survive');
+    // Prose that merely mentions a bracket must not be eaten.
+    assert.equal(stripTreatmentSequenceTags('He read [SEQUENCE 1 START] aloud from the script.'),
+        'He read [SEQUENCE 1 START] aloud from the script.', 'only whole-line tags are stripped');
+});
+
+test('the treatment DOCX export routes act text through the strip', () => {
+    const exportJs = fs.readFileSync(path.join(__dirname, '..', 'agents', 'export.js'), 'utf8');
+    const fn = exportJs.slice(exportJs.indexOf('async function generateTreatmentDocx'), exportJs.indexOf('async function generateTreatmentDocx') + 900);
+    assert.ok(/stripTreatmentSequenceTags/.test(fn), 'generateTreatmentDocx must strip parse tags before rendering');
+});

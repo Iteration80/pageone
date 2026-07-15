@@ -538,8 +538,19 @@ async function generateCharactersDocx(characters, projectTitle) {
 // Stage 5: Treatment → .docx
 // ─────────────────────────────────────────────────────────────────────────────
 
+// [SEQUENCE N START] / [SEQUENCE N END] are a parse contract between the Stage 5
+// agent and its revision path (agent_5_treatment.js) — they must stay in the
+// saved data, but they are plumbing and must never reach the reader. The UI
+// already strips them on render; the DOCX export did not, so 16 of them shipped
+// in the I.M.A.G.I.N.E. treatment (observed 2026-07-14).
+function stripTreatmentSequenceTags(value = '') {
+    return String(value || '').replace(/^[ \t]*\[SEQUENCE \d+ (?:START|END)\][ \t]*\n?/gim, '');
+}
+
 async function generateTreatmentDocx(treatment, projectTitle) {
-    const { title_logline_characters, act_1, act_2a, act_2b, act_3 } = treatment;
+    const { title_logline_characters, act_1, act_2a, act_2b, act_3 } = Object.fromEntries(
+        Object.entries(treatment || {}).map(([key, value]) => [key, typeof value === 'string' ? stripTreatmentSequenceTags(value) : value])
+    );
 
     const children = [
         new Paragraph({
@@ -1070,6 +1081,7 @@ module.exports = {
     generateOutlineDocx,
     generateCharactersDocx,
     generateTreatmentDocx,
+    stripTreatmentSequenceTags,
     generateDraftDocx,
     generateScreenplayPdf
 };
