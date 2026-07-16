@@ -89,6 +89,16 @@ test('the Stage 6 stream is hardened against proxy buffering like Stage 5', () =
 
     const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
     assert.ok(/recoverStage6FromInterruptedStream/.test(appJs), 'Stage 6 must recover from an interrupted stream, as Stage 2 does');
+    // The server keeps generating and saves the blueprint minutes after the
+    // browser's connection drops (Railway cuts the client leg, not the server
+    // leg). A single immediate refetch checks before the save lands and reports a
+    // false failure — recovery must POLL until the blueprint changes or a deadline.
+    const recoverFn = appJs.slice(
+        appJs.indexOf('async function recoverStage6FromInterruptedStream'),
+        appJs.indexOf('async function generateStage6')
+    );
+    assert.ok(/setTimeout/.test(recoverFn) && /deadline|MAX_WAIT_MS/.test(recoverFn),
+        'Stage 6 recovery must poll for the delayed server-side save, not check once');
 });
 
 test('public/app.js uses confirmDialog, not native confirm()', () => {

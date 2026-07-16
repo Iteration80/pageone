@@ -6137,27 +6137,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Stage 6 is the app's longest stream (8 sequential model calls). If the
-    // transport dies mid-flight the browser throws a bare "network error" and the
-    // work looks lost — but the server may have finished and saved before the
-    // break. Mirrors recoverOutlineFromInterruptedStream (Stage 2), which exists
-    // for this exact bug class.
+    // Stage 6 is the app's longest stream (8 sequential model calls; a feature-
+    // length blueprint runs several minutes). When the transport dies mid-flight
+    // the browser throws a bare "network error" and the work LOOKS lost — but on
+    // Railway the proxy cuts the browser<->proxy leg on an idle/duration limit
+    // while the proxy<->server leg stays open, so the server keeps generating and
+    // SAVES the finished blueprint minutes later (this is why a manual hard-refresh
+    // finds a complete result). A single immediate refetch checks too early — the
+    // save hasn't landed yet — so we POLL: keep the spinner up and re-check until
+    // the blueprint actually changes, or give up after a bounded window.
     async function recoverStage6FromInterruptedStream(previousBlueprint) {
-        let refreshed;
-        try {
-            refreshed = await refreshCurrentProjectData();
-        } catch (err) {
-            console.warn('Stage 6 stream recovery refresh failed:', err.message);
-            return null;
+        const POLL_INTERVAL_MS = 6000;
+        const MAX_WAIT_MS = 5 * 60 * 1000; // server-side gen can run a few minutes past the break
+        const deadline = Date.now() + MAX_WAIT_MS;
+        const before = JSON.stringify(previousBlueprint || []);
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        let attempt = 0;
+
+        while (true) {
+            let refreshed = null;
+            try {
+                refreshed = await refreshCurrentProjectData();
+            } catch (err) {
+                // A transient refresh failure shouldn't abandon the whole poll —
+                // the server may still be finishing. Log and keep waiting.
+                console.warn('Stage 6 stream recovery refresh failed (will retry):', err.message);
+            }
+
+            const recovered = refreshed?.stage6_scenes;
+            if (Array.isArray(recovered) && recovered.length && JSON.stringify(recovered) !== before) {
+                updateStageNav(refreshed);
+                renderStage6(recovered);
+                await handleSourceGenerationResult(6, { type: 'complete', result: recovered, recoveredFromInterruptedStream: true }, { refreshKnowledge: false });
+                return recovered;
+            }
+
+            if (Date.now() >= deadline) return null;
+
+            attempt += 1;
+            if (loadingTextStage6) {
+                const waited = Math.round((attempt * POLL_INTERVAL_MS) / 1000);
+                loadingTextStage6.textContent = `Connection dropped — the blueprint is still generating on the server. Reconnecting… (${waited}s)`;
+            }
+            await sleep(POLL_INTERVAL_MS);
         }
-        const recovered = refreshed?.stage6_scenes;
-        if (!Array.isArray(recovered) || !recovered.length) return null;
-        // Only a recovery if the server actually produced something new.
-        if (JSON.stringify(previousBlueprint || []) === JSON.stringify(recovered)) return null;
-        updateStageNav(refreshed);
-        renderStage6(recovered);
-        await handleSourceGenerationResult(6, { type: 'complete', result: recovered, recoveredFromInterruptedStream: true }, { refreshKnowledge: false });
-        return recovered;
     }
 
     async function generateStage6(options = {}) {
