@@ -273,7 +273,7 @@ ${fullTreatmentText}`;
  *
  * Note: googleSearch tool is Gemini-only and silently dropped when using Claude.
  */
-const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '', modelConfig = {}, generationNotes = '') => {
+const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgress = null, sourceAuthorityBlock = '', modelConfig = {}, generationNotes = '', options = {}) => {
     const {
         model = process.env.GEMINI_MODEL,
         geminiApiKey = process.env.GEMINI_API_KEY,
@@ -281,6 +281,28 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         generateContentFn = generateContent,
         retryDelayMs = 750
     } = modelConfig;
+
+    // Incremental / resumable generation controls (all optional; the defaults
+    // reproduce the original "generate all 8 in one shot" behavior exactly):
+    //   fromSequence / toSequence — the inclusive sequence range to generate now
+    //   existingSequences         — already-saved sequences, used to reconstruct
+    //                               the continuity-climax anchor and the running
+    //                               global scene number when resuming/continuing
+    //   meta                      — cached { canonicalLocations, continuityLedger }
+    //                               so a continuation skips the two expensive
+    //                               setup calls (location scan + continuity ledger)
+    //   onMeta(meta)              — fired once the setup artifacts are known, so the
+    //                               caller can cache them for later sequence calls
+    //   onSequence(seq, i, total) — fired (awaited) after each sequence completes,
+    //                               so the caller can persist + stream it live
+    const {
+        fromSequence = 1,
+        toSequence = 8,
+        existingSequences = [],
+        meta: providedMeta = null,
+        onMeta = null,
+        onSequence = null
+    } = options || {};
 
     const scenesSOP = loadSkill('skill_stage6_scenes');
 
@@ -334,11 +356,25 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
 
     const usageList = [];
 
+    let canonicalLocations = '';
+    let continuityLedger = null;
+    let continuityLedgerText = '';
+
+    // --- Cached setup fast-path ---
+    // When continuing/resuming a blueprint, the canonical-location scan and the
+    // continuity ledger were already computed on the first sequence call. Reuse
+    // them instead of paying for two more LLM calls per continuation.
+    if (providedMeta && (providedMeta.canonicalLocations || providedMeta.continuityLedger)) {
+        canonicalLocations = providedMeta.canonicalLocations || '';
+        continuityLedger = providedMeta.continuityLedger || null;
+        continuityLedgerText = continuityLedger ? formatContinuityLedgerForPrompt(continuityLedger) : '';
+        console.log('  Stage 6: Reusing cached location + continuity setup (skipping setup calls).');
+    } else {
+
     // --- Location Dictionary Extraction ---
     // One lightweight call to extract canonical location names from the full
     // treatment. This list is injected into every per-sequence prompt so the
     // agent uses consistent slugline locations instead of hallucinating new ones.
-    let canonicalLocations = '';
     try {
         console.log('  Stage 6: Extracting canonical locations from treatment...');
         const locationSchema = { type: 'object', properties: { locations: { type: 'array', items: { type: 'string' } } }, required: ['locations'] };
@@ -375,8 +411,6 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         console.warn('  Stage 6: Location extraction failed (non-fatal):', err.message);
     }
 
-    let continuityLedger = null;
-    let continuityLedgerText = '';
     try {
         console.log('  Stage 6: Building continuity ledger from approved treatment...');
         const ledgerResult = await buildContinuityLedger({
@@ -401,13 +435,41 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
         console.warn('  Stage 6: Continuity ledger extraction failed (non-fatal):', err.message);
     }
 
-    // --- Iterative Loop ---
-    let allSequences = [];
-    let previousSequenceClimax = 'N/A - Start of Film';
+    } // end cached-setup else
 
+    // Hand the setup artifacts back so the caller can cache them for the next
+    // sequence call (a no-op on a full one-shot run that never continues).
+    const resolvedMeta = { canonicalLocations, continuityLedger };
+    if (onMeta) {
+        try { await onMeta(resolvedMeta); }
+        catch (err) { console.warn('  Stage 6: onMeta callback failed (non-fatal):', err.message); }
+    }
+
+    // --- Iterative Loop ---
+    // Only the requested [fromSequence, toSequence] range is generated this call.
+    // On a continuation, previously-saved sequences seed the continuity anchor
+    // and the running global scene number so numbering + climax carry across calls.
+    const newSequences = [];
+    let previousSequenceClimax = 'N/A - Start of Film';
     let globalSceneIndex = 1;
 
-    for (let i = 1; i <= 8; i++) {
+    if (Array.isArray(existingSequences) && existingSequences.length) {
+        let maxSceneNumber = 0;
+        existingSequences.forEach((seq) => {
+            (seq?.scenes || []).forEach((sc) => {
+                const n = Number(sc?.scene_number) || 0;
+                if (n > maxSceneNumber) maxSceneNumber = n;
+            });
+        });
+        globalSceneIndex = maxSceneNumber + 1;
+        const priorSeq = existingSequences.find((s) => Number(s?.sequence_number) === fromSequence - 1);
+        if (priorSeq?.scenes?.length) {
+            const lastScene = priorSeq.scenes[priorSeq.scenes.length - 1];
+            previousSequenceClimax = `Scene ${lastScene.scene_number}: ${lastScene.scene_heading}\n\n${lastScene.narrative_action}`;
+        }
+    }
+
+    for (let i = fromSequence; i <= toSequence; i++) {
         console.log(`  Stage 6 Chain: Generating Sequence ${i}/8...`);
 
         // Inject ONLY this sequence's beats (JSON is already per-sequence)
@@ -500,7 +562,12 @@ Return a JSON object for this sequence only.`;
                 });
             }
 
-            allSequences.push(parsedSeq);
+            // Page totals are derived from the scenes, never trusted from the
+            // model. Derive per-sequence so each incrementally-saved sequence is
+            // already correct on disk (matches the whole-array derivation below).
+            deriveBlueprintPageCounts([parsedSeq]);
+
+            newSequences.push(parsedSeq);
 
             // --- State Pass ---
             // Capture only the final scene of this sequence as the climax anchor
@@ -511,6 +578,10 @@ Return a JSON object for this sequence only.`;
                 previousSequenceClimax = `Scene ${lastScene.scene_number}: ${lastScene.scene_heading}\n\n${lastScene.narrative_action}`;
             }
 
+            // Fire the per-sequence hook (awaited) so the caller can persist +
+            // stream this sequence before the next one starts. A completed
+            // sequence is therefore already safe on disk if a later one fails.
+            if (onSequence) await onSequence(parsedSeq, i, 8);
             if (onProgress) onProgress(i, 8);
         } catch (error) {
             console.error(`Error generating sequence ${i}:`, error);
@@ -518,11 +589,10 @@ Return a JSON object for this sequence only.`;
         }
     }
 
-    // --- Concatenate ---
-    // allSequences is the master Scene Blueprint document (array of 8 objects).
-    // Page totals are derived from the scenes, never trusted from the model.
-    deriveBlueprintPageCounts(allSequences);
-    return { result: allSequences, usageList };
+    // newSequences holds only the range generated this call. Page totals were
+    // already derived per-sequence above; re-derive defensively for the batch.
+    deriveBlueprintPageCounts(newSequences);
+    return { result: newSequences, usageList, meta: resolvedMeta };
 };
 
 module.exports = { generateStage6Scenes };

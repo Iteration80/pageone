@@ -117,6 +117,18 @@ function registerGenerationRoutes(app, deps) {
         });
     }
 
+    // Insert/replace one sequence into a blueprint array, keeping it ordered by
+    // sequence_number. Used to persist Stage 6 sequences incrementally as each
+    // one finishes, so a broken/paused generation leaves a resumable partial.
+    function upsertSequence(list, seq) {
+        const out = (Array.isArray(list) ? list : []).filter(
+            (s) => Number(s?.sequence_number) !== Number(seq?.sequence_number)
+        );
+        out.push(seq);
+        out.sort((a, b) => (Number(a?.sequence_number) || 0) - (Number(b?.sequence_number) || 0));
+        return out;
+    }
+
     // API route
     app.post('/api/execute', requireAuth, aiLimiter, upload.single('pdfFile'), async (req, res) => {
         try {
@@ -629,8 +641,13 @@ function registerGenerationRoutes(app, deps) {
     });
 
     app.post('/api/generate-stage6-scenes', requireAuth, aiLimiter, async (req, res) => {
-        const { projectId, notes } = req.body;
+        const { projectId, notes, mode: rawMode, resume: rawResume } = req.body;
         const generationNotes = typeof notes === 'string' ? notes.trim() : '';
+        // mode: 'auto' generates the whole remaining range in one stream;
+        //       'manual' generates exactly one sequence then stops for review.
+        // resume: continue an existing partial blueprint instead of starting fresh.
+        const mode = rawMode === 'manual' ? 'manual' : 'auto';
+        const resume = rawResume === true || rawResume === 'true';
 
         let context;
         try {
@@ -658,6 +675,19 @@ function registerGenerationRoutes(app, deps) {
         const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
         const treatment = projectData.data?.stage5_treatment;
 
+        // --- Incremental / resumable planning ---
+        const TOTAL_SEQUENCES = 8;
+        const savedBlueprint = Array.isArray(projectData.data?.stage6_scenes) ? projectData.data.stage6_scenes : [];
+        const beforeBlueprint = JSON.parse(JSON.stringify(savedBlueprint));
+        // Resume only makes sense with a partial (1..7 sequences) blueprint on disk.
+        const canResume = resume && savedBlueprint.length > 0 && savedBlueprint.length < TOTAL_SEQUENCES;
+        const fromSequence = canResume ? savedBlueprint.length + 1 : 1;
+        const toSequence = mode === 'manual' ? fromSequence : TOTAL_SEQUENCES;
+        const existingSequences = canResume ? savedBlueprint : [];
+        const cachedMeta = canResume ? (projectData.data?.stage6_meta || null) : null;
+        let assembled = canResume ? [...savedBlueprint] : [];
+        let currentMeta = cachedMeta;
+
         // SSE setup. This is the longest-running route in the app (8 sequential
         // model calls), so it is the most exposed to an edge proxy buffering or
         // killing a stream that looks idle. Mirrors the Stage 5 treatment route's
@@ -684,8 +714,30 @@ function registerGenerationRoutes(app, deps) {
         heartbeat.unref?.();
 
         try {
-            console.log("Generating Stage 6 Scene Blueprint (Sequential Chain)...");
-            send({ type: 'status', message: generationNotes ? 'Preparing fresh blueprint with your notes...' : 'Preparing fresh blueprint...' });
+            console.log(`Generating Stage 6 Scene Blueprint (${mode}, sequences ${fromSequence}-${toSequence}${canResume ? ', resuming' : ''})...`);
+            send({
+                type: 'status',
+                message: canResume
+                    ? `Resuming from Sequence ${fromSequence}...`
+                    : (generationNotes ? 'Preparing fresh blueprint with your notes...' : 'Preparing fresh blueprint...'),
+                fromSequence, toSequence, total: TOTAL_SEQUENCES, mode
+            });
+
+            // Fresh runs overwrite the blueprint incrementally. Snapshot the prior
+            // blueprint first so a mid-run break stays fully restorable from
+            // Version History (a resume, by contrast, only ever appends).
+            if (!canResume && beforeBlueprint.length) {
+                try {
+                    recordArtifactMutation(projectData, {
+                        projectId, stage: 6, before: beforeBlueprint, after: [],
+                        operation: 'generation', note: 'Snapshot before Scene Blueprint regeneration'
+                    });
+                    await writeJSONQueued(context.filePath, projectData);
+                } catch (snapErr) {
+                    console.warn('Stage 6: pre-regeneration snapshot failed (non-fatal):', snapErr.message);
+                }
+            }
+
             const sourceAuthorityBlock = buildSourceAuthorityBlock(projectData, 'stage6_scenes');
             if (sourceAuthorityBlock) {
                 console.log("Stage 6: upstream revisions detected, injecting source authority block.");
@@ -694,32 +746,85 @@ function registerGenerationRoutes(app, deps) {
             const sourcePacket = buildSourceGenerationPacket(projectData, 6, stage6KnowledgeSeed, { userMessage: generationNotes });
             const combinedSourceBlock = [sourceAuthorityBlock, sourcePacket.contextBlock].filter(Boolean).join('\n\n---\n\n');
 
-            const { result: allSequences, usageList } = await generateStage6Scenes(
+            // Cache the expensive setup artifacts (location scan + continuity
+            // ledger) so a later manual "next sequence" call skips recomputing them.
+            const onMeta = async (meta) => {
+                currentMeta = meta;
+                await updateProjectJSON(projectId, (p) => {
+                    p.data = p.data || {};
+                    p.data.stage6_meta = meta;
+                    return p;
+                });
+                if (context.projectData?.data) context.projectData.data.stage6_meta = meta;
+            };
+
+            // Persist + stream each sequence the moment it lands. Mirror onto
+            // context.projectData so the final finalize save stays consistent.
+            const onSequence = async (seq, index, total) => {
+                assembled = upsertSequence(assembled, seq);
+                const snapshot = JSON.parse(JSON.stringify(assembled));
+                await updateProjectJSON(projectId, (p) => {
+                    p.data = p.data || {};
+                    p.data.stage6_scenes = snapshot;
+                    if (currentMeta) p.data.stage6_meta = currentMeta;
+                    return p;
+                });
+                if (context.projectData?.data) {
+                    context.projectData.data.stage6_scenes = snapshot;
+                    if (currentMeta) context.projectData.data.stage6_meta = currentMeta;
+                }
+                send({
+                    type: 'sequence',
+                    sequence_number: seq.sequence_number,
+                    index, total,
+                    sequence: seq,
+                    completed: assembled.length
+                });
+            };
+
+            const { usageList } = await generateStage6Scenes(
                 pitch, characters, beats, treatment,
                 (current, total) => send({ type: 'progress', current, total }),
                 combinedSourceBlock,
                 withAbortSignal(getModelConfig(6), abortTracker.signal),
-                generationNotes
+                generationNotes,
+                { fromSequence, toSequence, existingSequences, meta: cachedMeta, onMeta, onSequence }
             );
             abortTracker.throwIfAborted();
-            const { snapshotIds } = await finalizeGenerationEndpointArtifact({
-                context,
-                stage: 6,
-                stageKey: 'stage6_scenes',
-                result: allSequences,
-                before: projectData.data?.stage6_scenes || [],
-                operation: 'generation',
-                note: generationNotes,
-                sourcePacket,
-                usage: usageList,
-                sourceReason: 'generation'
-            });
 
-            kickStage6Audit(projectId, 'Stage 6 post-generation audit');
-            send({ type: 'complete', result: allSequences, snapshotIds, ...sourceResponseExtras(sourcePacket) });
+            const isComplete = assembled.length >= TOTAL_SEQUENCES;
+            if (isComplete) {
+                // The blueprint is whole — snapshot old->new, stamp staleness,
+                // consume the source packet, and kick the advisory audit.
+                const { snapshotIds } = await finalizeGenerationEndpointArtifact({
+                    context,
+                    stage: 6,
+                    stageKey: 'stage6_scenes',
+                    result: assembled,
+                    before: beforeBlueprint,
+                    operation: 'generation',
+                    note: generationNotes,
+                    sourcePacket,
+                    usage: usageList,
+                    sourceReason: 'generation'
+                });
+                kickStage6Audit(projectId, 'Stage 6 post-generation audit');
+                send({ type: 'complete', result: assembled, snapshotIds, ...sourceResponseExtras(sourcePacket) });
+            } else {
+                // Manual mode: one sequence done, more remain. Already persisted;
+                // the source packet is not consumed until the blueprint completes.
+                trackUsage(projectId, usageList);
+                send({
+                    type: 'sequence-batch-complete',
+                    completed: assembled.length,
+                    next: assembled.length + 1,
+                    total: TOTAL_SEQUENCES,
+                    result: assembled
+                });
+            }
         } catch (error) {
             if (isClientAbortError(error)) {
-                console.warn('Stage 6 scene generation stream stopped after client disconnect.');
+                console.warn('Stage 6 scene generation stream stopped after client disconnect (partial sequences are already saved).');
                 return;
             }
             console.error('Stage 6 Scene Gen Error:', error.message);

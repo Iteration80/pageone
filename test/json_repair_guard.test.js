@@ -101,6 +101,31 @@ test('the Stage 6 stream is hardened against proxy buffering like Stage 5', () =
         'Stage 6 recovery must poll for the delayed server-side save, not check once');
 });
 
+test('Stage 6 generation persists each sequence incrementally and finalizes only when complete', () => {
+    // Sequences save one at a time (crash-safe + resumable), but the version
+    // snapshot / staleness stamp / source-packet consumption must happen only
+    // once the whole 8-sequence blueprint exists — otherwise a partial (manual)
+    // blueprint would be stamped "generated" and consume upstream sources early.
+    const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'generation.js'), 'utf8');
+    const stage6 = routes.slice(
+        routes.indexOf("app.post('/api/generate-stage6-scenes'"),
+        routes.indexOf("app.post('/api/generate-stage6-audit'")
+    );
+    // Incremental persistence: each sequence is upserted + written as it lands.
+    assert.ok(/onSequence\s*=\s*async/.test(stage6), 'Stage 6 must define an onSequence persistence hook');
+    assert.ok(/upsertSequence\(assembled/.test(stage6), 'Stage 6 onSequence must upsert into the assembled blueprint');
+    assert.ok(/updateProjectJSON\(projectId/.test(stage6), 'Stage 6 must persist sequences incrementally under the write lock');
+    // Finalize is gated on completeness, not run unconditionally.
+    assert.ok(/assembled\.length\s*>=\s*TOTAL_SEQUENCES/.test(stage6), 'Stage 6 must gate finalize on a complete blueprint');
+    const finalizeIdx = stage6.indexOf('finalizeGenerationEndpointArtifact');
+    const completeGateIdx = stage6.indexOf('isComplete');
+    assert.ok(completeGateIdx !== -1 && finalizeIdx > completeGateIdx,
+        'finalizeGenerationEndpointArtifact must run inside the isComplete branch');
+    // Mode + resume are honored.
+    assert.ok(/rawMode === 'manual'/.test(stage6), 'Stage 6 must support manual mode');
+    assert.ok(/const canResume =/.test(stage6), 'Stage 6 must support resuming a partial blueprint');
+});
+
 test('public/app.js uses confirmDialog, not native confirm()', () => {
     const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
     const offenders = appJs

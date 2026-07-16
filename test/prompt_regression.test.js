@@ -2317,6 +2317,93 @@ test('Stage 6 scene generation retries transient late sequence failures', async 
     assert.equal(calls.filter(call => /OBJECTIVE: Break down Sequence 7/.test(collectText(call.contents))).length, 2);
 });
 
+test('Stage 6 continuation generates only the requested range and fires onSequence per sequence', async () => {
+    const sceneResponse = (heading) => ({
+        sequence_title: 'Arcade Sequence',
+        total_estimated_pages: 1,
+        scenes: [{
+            scene_number: 1,
+            scene_heading: heading,
+            narrative_action: 'Mara keeps the blue key visible.',
+            dramaturgical_function: 'Preserves source continuity.',
+            estimated_page_count: 1
+        }]
+    });
+    const { calls, generateContentFn } = makeRecorder(request => {
+        const text = collectText(request.contents);
+        if (/Extract every distinct physical location/.test(text)) {
+            return { text: JSON.stringify({ locations: ['FLOODED ARCADE'] }), usage: { inputTokens: 1, outputTokens: 1 } };
+        }
+        if (/Build a Stage 6 continuity ledger/.test(text)) {
+            return { text: JSON.stringify({ global_locks: [], sequence_contracts: [] }), usage: { inputTokens: 1, outputTokens: 1 } };
+        }
+        return { text: JSON.stringify(sceneResponse('INT. FLOODED ARCADE - NIGHT')), usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const emitted = [];
+    let metaSeen = null;
+    const { result } = await generateStage6Scenes(pitch, characters, beats, treatmentFixture(), null, BASE_KNOWLEDGE_PACKET, {
+        generateContentFn
+    }, '', {
+        fromSequence: 4,
+        toSequence: 5,
+        onSequence: (seq, i, total) => { emitted.push({ i, total, seqNum: seq.sequence_number, firstScene: seq.scenes[0].scene_number }); },
+        onMeta: (m) => { metaSeen = m; }
+    });
+
+    // Only sequences 4 and 5 were generated this call.
+    const sequenceCalls = calls.filter(call => /OBJECTIVE: Break down Sequence/.test(collectText(call.contents)));
+    assert.equal(sequenceCalls.length, 2);
+    assert.ok(/OBJECTIVE: Break down Sequence 4/.test(collectText(sequenceCalls[0].contents)));
+    assert.ok(/OBJECTIVE: Break down Sequence 5/.test(collectText(sequenceCalls[1].contents)));
+    assert.equal(result.length, 2);
+    assert.equal(result[0].sequence_number, 4);
+    assert.equal(result[1].sequence_number, 5);
+    // onSequence fired once per generated sequence, onMeta once with setup artifacts.
+    assert.deepEqual(emitted.map(e => e.seqNum), [4, 5]);
+    assert.equal(emitted.length, 2);
+    assert.ok(metaSeen && 'canonicalLocations' in metaSeen && 'continuityLedger' in metaSeen);
+});
+
+test('Stage 6 continuation with cached meta skips the setup calls and continues scene numbering', async () => {
+    const { calls, generateContentFn } = makeRecorder(() => ({
+        text: JSON.stringify({
+            sequence_title: 'Arcade Sequence',
+            total_estimated_pages: 1,
+            scenes: [
+                { scene_number: 1, scene_heading: 'INT. FLOODED ARCADE - NIGHT', narrative_action: 'Mara keeps the blue key visible.', dramaturgical_function: 'Continues.', estimated_page_count: 1 },
+                { scene_number: 2, scene_heading: 'INT. FLOODED ARCADE - LATER', narrative_action: 'Mara moves on.', dramaturgical_function: 'Continues.', estimated_page_count: 1 }
+            ]
+        }),
+        usage: { inputTokens: 1, outputTokens: 1 }
+    }));
+
+    // Two sequences already saved, whose scenes run up to global scene 9.
+    const existingSequences = [
+        { sequence_number: 1, scenes: [{ scene_number: 1 }, { scene_number: 2 }, { scene_number: 3 }, { scene_number: 4 }] },
+        { sequence_number: 2, scenes: [{ scene_number: 5 }, { scene_number: 6 }, { scene_number: 7 }, { scene_number: 8 }, { scene_number: 9, scene_heading: 'INT. PIER - DAWN', narrative_action: 'The prior climax.' }] }
+    ];
+
+    const { result } = await generateStage6Scenes(pitch, characters, beats, treatmentFixture(), null, BASE_KNOWLEDGE_PACKET, {
+        generateContentFn
+    }, '', {
+        fromSequence: 3,
+        toSequence: 3,
+        existingSequences,
+        meta: { canonicalLocations: 'FLOODED ARCADE', continuityLedger: { global_locks: [], sequence_contracts: [] } }
+    });
+
+    // No setup calls — the cached meta was reused.
+    assert.equal(calls.filter(c => /Extract every distinct physical location/.test(collectText(c.contents))).length, 0);
+    assert.equal(calls.filter(c => /Build a Stage 6 continuity ledger/.test(collectText(c.contents))).length, 0);
+    // Exactly one sequence generated, and its scenes continue numbering from 10.
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].scenes.map(s => s.scene_number), [10, 11]);
+    // The prior sequence's last scene was injected as the continuity anchor.
+    const seqCall = calls.find(c => /OBJECTIVE: Break down Sequence 3/.test(collectText(c.contents)));
+    assert.match(collectText(seqCall.contents), /The prior climax\./);
+});
+
 test('Stage 6 revision carries project memory beside director feedback', async () => {
     const currentBlueprint = [{
         sequence_number: 1,
