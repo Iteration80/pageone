@@ -1374,7 +1374,7 @@ test('frontend Stage 6 regenerate menu uses novice-facing labels and chat notes'
     assert.match(appJs, /Regenerate the blueprint with these notes:/);
     assert.match(appJs, /shouldRegenerateStage6FromChat/);
     assert.match(appJs, /generateStage6\(\{ notes, isRegenerate: true/);
-    assert.match(appJs, /alert\(error\.message \|\| 'An error occurred during scene generation\.'\)/);
+    assert.match(appJs, /noticeDialog\(\{ message: error\.message \|\| 'An error occurred during scene generation\.' \}\)/);
     assert.match(generationRoutes, /Failed to generate scene blueprint: \$\{detail\}/);
     assert.match(generationRoutes, /type: 'heartbeat', label: 'Still generating scene blueprint\.\.\.'/);
     assert.match(generationRoutes, /X-Accel-Buffering', 'no'/);

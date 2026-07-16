@@ -5,6 +5,46 @@ const nativeFetch = window.fetch.bind(window);
 let authMode = 'secret';
 
 /**
+ * In-app replacement for window.alert — same reason as confirmDialog below: the
+ * native dialog is browser chrome ("pageone-production.up.railway.app says…")
+ * and is not part of this app's UI. Fire-and-forget; returns a promise that
+ * resolves when dismissed, so callers may await it but don't have to.
+ */
+function noticeDialog({ title = 'Notice', message = '', okLabel = 'OK' } = {}) {
+    const overlay = document.getElementById('noticeModal');
+    const titleEl = document.getElementById('noticeModalTitle');
+    const messageEl = document.getElementById('noticeModalMessage');
+    const okBtn = document.getElementById('noticeModalOk');
+    // Fail open to the native dialog rather than swallow a message entirely.
+    if (!overlay || !okBtn) { window.alert(message || title); return Promise.resolve(); }
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    messageEl.style.display = message ? '' : 'none';
+    okBtn.textContent = okLabel;
+
+    const previouslyFocused = document.activeElement;
+    overlay.classList.remove('hidden');
+    okBtn.focus();
+
+    return new Promise(resolve => {
+        const close = () => {
+            overlay.classList.add('hidden');
+            okBtn.removeEventListener('click', close);
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            if (previouslyFocused?.focus) previouslyFocused.focus();
+            resolve();
+        };
+        const onBackdrop = (event) => { if (event.target === overlay) close(); };
+        const onKey = (event) => { if (event.key === 'Escape' || event.key === 'Enter') close(); };
+        okBtn.addEventListener('click', close);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+    });
+}
+
+/**
  * In-app replacement for window.confirm — the native dialog is browser chrome
  * ("pageone-production.up.railway.app says…") and breaks the app's look.
  * Resolves true on confirm, false on cancel/Escape/backdrop click.
@@ -933,7 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
         } catch (err) {
             console.error('Open style detail error:', err);
-            alert('Failed to load style details.');
+            noticeDialog({ message: 'Failed to load style details.' });
         }
     }
 
@@ -976,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadHubStyles();
         } catch (err) {
             console.error('Delete style error:', err);
-            alert('Failed to delete style.');
+            noticeDialog({ message: 'Failed to delete style.' });
         }
     });
 
@@ -1012,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadHubStyles();
         } catch (err) {
             console.error('Save style error:', err);
-            alert('Failed to save style.');
+            noticeDialog({ message: 'Failed to save style.' });
         }
     });
 
@@ -1196,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCreateStyleUpload')?.addEventListener('click', async () => {
         const files = document.getElementById('createStyleFiles')?.files;
         if (!files?.length) {
-            alert('Please select at least one screenplay file.');
+            noticeDialog({ message: 'Please select at least one screenplay file.' });
             return;
         }
 
@@ -1227,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             openStyleDetail(data.slug);
         } catch (err) {
             console.error('Trained style error:', err);
-            alert('Failed to create trained style: ' + err.message);
+            noticeDialog({ message: 'Failed to create trained style: ' + err.message });
         } finally {
             progress?.classList.add('hidden');
             btn.disabled = false;
@@ -1587,12 +1627,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pitches && Array.isArray(pitches)) {
                 renderPitches(pitches);
             } else {
-                alert("Unexpected response format from server.");
+                noticeDialog({ message: "Unexpected response format from server." });
                 console.error("Data received:", data);
             }
         } catch (error) {
             console.error(error);
-            alert("An error occurred while generating pitches.");
+            noticeDialog({ message: "An error occurred while generating pitches." });
         } finally {
             loadingState.classList.add('hidden');
             generateBtn.disabled = false;
@@ -1802,7 +1842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setApproveButtonState(btnStage1Approve, 'ready');
             } catch (err) {
                 console.error("Failed to manual save:", err);
-                alert("An error occurred while saving your manual changes.");
+                noticeDialog({ message: "An error occurred while saving your manual changes." });
                 btnStage1Revise.textContent = originalText;
                 btnStage1Revise.disabled = false;
             }
@@ -1857,11 +1897,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 setApproveButtonState(btnStage1Approve, 'ready');
             } else {
-                alert("Unexpected response format from server.");
+                noticeDialog({ message: "Unexpected response format from server." });
             }
         } catch (error) {
             console.error(error);
-            alert("An error occurred while revising the pitch.");
+            noticeDialog({ message: "An error occurred while revising the pitch." });
         } finally {
             btnStage1Revise.textContent = originalText;
             btnStage1Revise.disabled = false;
@@ -1920,7 +1960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             autoGenerateOutline();
         } catch (error) {
             console.error("Failed to save approved pitch:", error);
-            alert("An error occurred while saving to the database.");
+            noticeDialog({ message: "An error occurred while saving to the database." });
             setApproveButtonState(btnStage1Approve, 'ready');
         }
         });
@@ -2315,7 +2355,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await runner();
         } catch (error) {
             console.error(`${label} regenerate failed:`, error);
-            alert(error.message || `Could not regenerate ${label}.`);
+            noticeDialog({ message: error.message || `Could not regenerate ${label}.` });
         } finally {
             if (button) {
                 button.disabled = false;
@@ -2358,7 +2398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switchStage(9);
         } catch (error) {
             console.error('Coverage regenerate failed:', error);
-            alert(error.message || 'Could not regenerate Coverage.');
+            noticeDialog({ message: error.message || 'Could not regenerate Coverage.' });
         } finally {
             if (button) {
                 button.disabled = false;
@@ -2458,7 +2498,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error(errorLog, error);
-                if (errorMessage) alert(errorMessage);
+                if (errorMessage) noticeDialog({ message: errorMessage });
                 setApproveButtonState(approveButton, 'ready', { text: originalText });
             }
         };
@@ -2522,7 +2562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.restoreVersionById = async function(versionId) {
         const history = window.currentProjectData?.versionHistory || [];
         const version = history.find(v => v.id === versionId);
-        if (!version) { alert('Version not found.'); return; }
+        if (!version) { noticeDialog({ message: 'Version not found.' }); return; }
 
         const confirmed = await confirmDialog({
             title: `Restore Version ${version.version}?`,
@@ -2545,7 +2585,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switchStage(version.stage);
         } catch (err) {
             console.error('Restore failed:', err);
-            alert('Failed to restore: ' + err.message);
+            noticeDialog({ message: 'Failed to restore: ' + err.message });
         }
     };
 
@@ -2834,7 +2874,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await consumeOutlineGenerationResponse(res, { fallback: 'Failed to generate outline', previousOutline });
         } catch (err) {
             console.error(err);
-            alert(err.message);
+            noticeDialog({ message: err.message });
         } finally {
             loadingStateOutline.classList.add('hidden');
         }
@@ -3033,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (err) {
                 console.error(err);
-                alert("Failed to save manual changes.");
+                noticeDialog({ message: "Failed to save manual changes." });
                 btnStage2Revise.textContent = originalText;
                 btnStage2Revise.disabled = false;
             }
@@ -3078,7 +3118,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setApproveButtonState(btnStage2Approve, 'ready');
         } catch (err) {
             console.error(err);
-            alert("Error revising outline: " + err.message);
+            noticeDialog({ message: "Error revising outline: " + err.message });
         } finally {
             loadingStateOutline.classList.add('hidden');
             btnStage2Revise.disabled = false;
@@ -4087,7 +4127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setApproveButtonState(btnStage3Approve, 'ready', { hidden: false });
         } catch (err) {
             console.error(err);
-            alert("Error generating characters: " + err.message);
+            noticeDialog({ message: "Error generating characters: " + err.message });
         } finally {
             loadingStateCharacters.classList.add('hidden');
             if (generateCharactersBtn) generateCharactersBtn.disabled = false;
@@ -4137,7 +4177,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } catch (err) {
                     console.error(err);
-                    alert("Failed to save manual changes.");
+                    noticeDialog({ message: "Failed to save manual changes." });
                     btnStage3Revise.textContent = originalText;
                     btnStage3Revise.disabled = false;
                 }
@@ -4186,7 +4226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setApproveButtonState(btnStage3Approve, 'ready');
             } catch (err) {
                 console.error(err);
-                alert("Error revising characters.");
+                noticeDialog({ message: "Error revising characters." });
             } finally {
                 loadingStateCharacters.classList.add('hidden');
                 btnStage3Revise.disabled = false;
@@ -5376,7 +5416,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error('Error generating stage 5 treatment:', err);
-            alert('An error occurred during Treatment generation.');
+            noticeDialog({ message: 'An error occurred during Treatment generation.' });
             if (stage5Actions) stage5Actions.classList.remove('hidden');
         } finally {
             if (loadingStateStage5) loadingStateStage5.classList.add('hidden');
@@ -5510,7 +5550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error('Error revising stage 5:', err);
-                alert('An error occurred while revising the treatment.');
+                noticeDialog({ message: 'An error occurred while revising the treatment.' });
             } finally {
                 btnStage5Revise.textContent = originalText;
                 btnStage5Revise.disabled = false;
@@ -5746,7 +5786,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStage6(window.currentProjectData.stage6_scenes || []);
         } catch (error) {
             console.error('Stage 6 audit failed:', error);
-            alert(error.message || 'Could not audit the Scene Blueprint.');
+            noticeDialog({ message: error.message || 'Could not audit the Scene Blueprint.' });
         } finally {
             btnStage6Audit.disabled = false;
             btnStage6Audit.textContent = originalText || 'Audit Scenes';
@@ -5779,7 +5819,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStage6(window.currentProjectData.stage6_scenes || []);
         } catch (error) {
             console.error('Stage 6 audit dismissal failed:', error);
-            alert(error.message || 'Could not dismiss the audit flag.');
+            noticeDialog({ message: error.message || 'Could not dismiss the audit flag.' });
         } finally {
             if (stage6AuditDismiss) stage6AuditDismiss.disabled = false;
         }
@@ -6085,7 +6125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await generateStage6({ isRegenerate: true, throwOnError: true });
         } catch (error) {
             console.error('Stage 6 regenerate failed:', error);
-            alert(error.message || 'Could not regenerate the Scene Blueprint.');
+            noticeDialog({ message: error.message || 'Could not regenerate the Scene Blueprint.' });
         } finally {
             if (btnStage6Regenerate) {
                 btnStage6Regenerate.disabled = false;
@@ -6097,9 +6137,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Stage 6 is the app's longest stream (8 sequential model calls). If the
+    // transport dies mid-flight the browser throws a bare "network error" and the
+    // work looks lost — but the server may have finished and saved before the
+    // break. Mirrors recoverOutlineFromInterruptedStream (Stage 2), which exists
+    // for this exact bug class.
+    async function recoverStage6FromInterruptedStream(previousBlueprint) {
+        let refreshed;
+        try {
+            refreshed = await refreshCurrentProjectData();
+        } catch (err) {
+            console.warn('Stage 6 stream recovery refresh failed:', err.message);
+            return null;
+        }
+        const recovered = refreshed?.stage6_scenes;
+        if (!Array.isArray(recovered) || !recovered.length) return null;
+        // Only a recovery if the server actually produced something new.
+        if (JSON.stringify(previousBlueprint || []) === JSON.stringify(recovered)) return null;
+        updateStageNav(refreshed);
+        renderStage6(recovered);
+        await handleSourceGenerationResult(6, { type: 'complete', result: recovered, recoveredFromInterruptedStream: true }, { refreshKnowledge: false });
+        return recovered;
+    }
+
     async function generateStage6(options = {}) {
         if (!activeProjectId) return;
         const { notes = '', isRegenerate = false, throwOnError = false } = options || {};
+        const previousBlueprint = window.currentProjectData?.stage6_scenes
+            ? JSON.parse(JSON.stringify(window.currentProjectData.stage6_scenes))
+            : [];
 
         setApproveButtonState(btnStage6Approve, 'ready', { hidden: true });
         if (btnStage6Regenerate) btnStage6Regenerate.disabled = true;
@@ -6175,8 +6241,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Stage 6 generation failed:', error);
+            if (isLikelyStreamTransportError(error)) {
+                const recovered = await recoverStage6FromInterruptedStream(previousBlueprint);
+                if (recovered) {
+                    console.warn('Stage 6 stream broke, but the blueprint was recovered from the server.');
+                    return;
+                }
+            }
             if (throwOnError) throw error;
-            alert(error.message || 'An error occurred during scene generation.');
+            noticeDialog({ message: error.message || 'An error occurred during scene generation.' });
         } finally {
             if (loadingStateStage6) loadingStateStage6.classList.add('hidden');
             if (btnStage6Regenerate) btnStage6Regenerate.disabled = false;
@@ -6209,7 +6282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!activeProjectId) return;
             const feedback = stage6Notes ? stage6Notes.value.trim() : "";
             if (!feedback) {
-                alert("Please enter revision notes in the feedback box.");
+                noticeDialog({ message: "Please enter revision notes in the feedback box." });
                 return;
             }
 
@@ -6242,7 +6315,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 console.error('Stage 6 revision failed:', error);
-                alert('An error occurred during scene revision.');
+                noticeDialog({ message: 'An error occurred during scene revision.' });
                 btnStage6Submit.textContent = originalText;
                 btnStage6Submit.disabled = false;
             }
@@ -6365,7 +6438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         setCurrentProjectData((await projRes.json()).data);
                     } catch (err) {
                         console.error('Continuity re-draft failed:', err);
-                        alert(`Re-draft error: ${err.message}`);
+                        noticeDialog({ message: `Re-draft error: ${err.message}` });
                     } finally {
                         if (btnGenerateScene) { btnGenerateScene.textContent = originalText; btnGenerateScene.disabled = false; }
                     }
@@ -6453,7 +6526,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 console.error('Stage 8 draft generation failed:', error);
-                alert(`Error: ${error.message}`);
+                noticeDialog({ message: `Error: ${error.message}` });
             } finally {
                 btnGenerateScene.textContent = originalText;
                 btnGenerateScene.disabled = false;
@@ -6500,7 +6573,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!activeProjectId) return;
             const feedback = stage8Notes?.value.trim();
             if (!feedback) {
-                alert("Please enter revision notes in the feedback box before submitting.");
+                noticeDialog({ message: "Please enter revision notes in the feedback box before submitting." });
                 return;
             }
 
@@ -6553,7 +6626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 console.error('Stage 8 revision failed:', error);
-                alert(`Error: ${error.message}`);
+                noticeDialog({ message: `Error: ${error.message}` });
                 btnStage8Submit.textContent = originalText;
                 btnStage8Submit.disabled = false;
             }
@@ -6604,7 +6677,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pendingScenes = getFlatScenes().filter(s => !s.draft_text && !s.locked);
             if (pendingScenes.length === 0) {
-                alert('All scenes already have drafts.');
+                noticeDialog({ message: 'All scenes already have drafts.' });
                 return;
             }
 
@@ -6656,7 +6729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     isBatchGenerating = false;
                     btnGenerateAll.textContent = 'Generate All Scenes';
                     btnGenerateScene.disabled = false;
-                    alert(`Error on Scene ${scene.scene_number}: ${error.message}`);
+                    noticeDialog({ message: `Error on Scene ${scene.scene_number}: ${error.message}` });
                     return;
                 }
             }
@@ -6684,7 +6757,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(url);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ error: 'Export failed' }));
-                alert(err.error || 'Export failed');
+                noticeDialog({ message: err.error || 'Export failed' });
                 return;
             }
             const disposition = res.headers.get('Content-Disposition') || '';
@@ -6697,7 +6770,7 @@ document.addEventListener('DOMContentLoaded', () => {
             a.click();
             URL.revokeObjectURL(a.href);
         } catch (e) {
-            alert('Export failed: ' + e.message);
+            noticeDialog({ message: 'Export failed: ' + e.message });
         } finally {
             if (btn && orig) { btn.disabled = false; btn.textContent = orig; }
         }
@@ -6706,7 +6779,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadOutline = document.getElementById('btnDownloadOutline');
     if (btnDownloadOutline) {
         btnDownloadOutline.addEventListener('click', () => {
-            if (!window.currentProjectData?.stage2_outline?.outline) { alert('No outline has been generated yet.'); return; }
+            if (!window.currentProjectData?.stage2_outline?.outline) { noticeDialog({ message: 'No outline has been generated yet.' }); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=outline`, btnDownloadOutline);
         });
     }
@@ -6714,7 +6787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadPitch = document.getElementById('btnDownloadPitch');
     if (btnDownloadPitch) {
         btnDownloadPitch.addEventListener('click', () => {
-            if (!window.currentProjectData?.stage1_pitch?.pitch) { alert('No pitch has been generated yet.'); return; }
+            if (!window.currentProjectData?.stage1_pitch?.pitch) { noticeDialog({ message: 'No pitch has been generated yet.' }); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=pitch`, btnDownloadPitch);
         });
     }
@@ -6722,7 +6795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadCharacters = document.getElementById('btnDownloadCharacters');
     if (btnDownloadCharacters) {
         btnDownloadCharacters.addEventListener('click', () => {
-            if (!window.currentProjectData?.stage3_characters?.characters?.length) { alert('No characters have been generated yet.'); return; }
+            if (!window.currentProjectData?.stage3_characters?.characters?.length) { noticeDialog({ message: 'No characters have been generated yet.' }); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=characters`, btnDownloadCharacters);
         });
     }
@@ -6731,7 +6804,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnDownloadScenes) {
         btnDownloadScenes.addEventListener('click', () => {
             const d = window.currentProjectData?.stage6_scenes;
-            if (!d || !(Array.isArray(d) ? d : (d.sequences || [])).length) { alert('No scene blueprint has been generated yet.'); return; }
+            if (!d || !(Array.isArray(d) ? d : (d.sequences || [])).length) { noticeDialog({ message: 'No scene blueprint has been generated yet.' }); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=scenes`, btnDownloadScenes);
         });
     }
@@ -6740,7 +6813,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnDownloadTreatment) {
         btnDownloadTreatment.addEventListener('click', () => {
             const t = window.currentProjectData?.stage5_treatment;
-            if (!t || !Object.values(t).some(v => v && typeof v === 'string' && v.trim())) { alert('No treatment has been generated yet.'); return; }
+            if (!t || !Object.values(t).some(v => v && typeof v === 'string' && v.trim())) { noticeDialog({ message: 'No treatment has been generated yet.' }); return; }
             triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=treatment`, btnDownloadTreatment);
         });
     }
@@ -6751,7 +6824,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const scenes = getFlatScenes();
             const drafted = scenes.filter(s => s.draft_text);
             if (drafted.length === 0) {
-                alert('No scenes have been drafted yet.');
+                noticeDialog({ message: 'No scenes have been drafted yet.' });
                 return;
             }
             const fountainText = drafted.map(s => s.draft_text.trim()).join('\n\n');
@@ -6770,7 +6843,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnExportDraftPdf) {
         btnExportDraftPdf.addEventListener('click', () => {
             const scenes = getFlatScenes().filter(s => s.draft_text || s.humanized_draft_text);
-            if (!scenes.length) { alert('No scenes have been drafted yet.'); return; }
+            if (!scenes.length) { noticeDialog({ message: 'No scenes have been drafted yet.' }); return; }
             triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=draft`, btnExportDraftPdf);
         });
     }
@@ -6854,7 +6927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     await saveCoveragePriorities();
                 } catch (err) {
-                    alert('Failed to save your edits. Please try again.');
+                    noticeDialog({ message: 'Failed to save your edits. Please try again.' });
                     return;
                 }
                 const originalText = btnApprove.textContent;
@@ -6874,7 +6947,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     switchStage(10);
                 } catch (err) {
                     console.error('Stage 9 approval failed:', err);
-                    alert('An error occurred. Please try again.');
+                    noticeDialog({ message: 'An error occurred. Please try again.' });
                     setApproveButtonState(btnApprove, 'ready', { text: originalText });
                 }
             };
@@ -6889,7 +6962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnDownload = document.getElementById('btnDownloadCoverage');
         if (btnDownload) {
             btnDownload.onclick = () => {
-                if (!window.currentProjectData?.stage8_coverage) { alert('No coverage report available.'); return; }
+                if (!window.currentProjectData?.stage8_coverage) { noticeDialog({ message: 'No coverage report available.' }); return; }
                 triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=coverage`, btnDownload);
             };
         }
@@ -7867,7 +7940,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await saveAcceptedSourceDivergence(stageId, audit);
                     cleanup(true);
                 } catch (err) {
-                    alert('Could not save accepted divergence: ' + err.message);
+                    noticeDialog({ message: 'Could not save accepted divergence: ' + err.message });
                     event.currentTarget.disabled = false;
                 }
             });
@@ -7878,7 +7951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await chat.applySourceAudit(audit, event.currentTarget);
                     cleanup(false);
                 } else {
-                    alert('This stage does not have an automatic source-fix path yet.');
+                    noticeDialog({ message: 'This stage does not have an automatic source-fix path yet.' });
                     event.currentTarget.disabled = false;
                 }
             });
@@ -7946,7 +8019,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setProjectKnowledge(data.knowledge);
                     cleanup(true);
                 } catch (err) {
-                    alert('Could not save project memory: ' + err.message);
+                    noticeDialog({ message: 'Could not save project memory: ' + err.message });
                     event.currentTarget.disabled = false;
                 }
             });
@@ -9071,7 +9144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Style generation error:', err);
             if (loadingEl) loadingEl.classList.add('hidden');
-            alert('Style generation failed: ' + err.message);
+            noticeDialog({ message: 'Style generation failed: ' + err.message });
             throw err;
         }
     }
@@ -9079,7 +9152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function stage7GenerateTrainedFromUpload() {
         const files = document.getElementById('stage7-trained-files')?.files;
         if (!files?.length) {
-            alert('Please select at least one screenplay file.');
+            noticeDialog({ message: 'Please select at least one screenplay file.' });
             return;
         }
 
@@ -9113,7 +9186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stage7LoadInlineStyles();
         } catch (err) {
             console.error('Stage 7 trained style error:', err);
-            alert('Failed to create trained style: ' + err.message);
+            noticeDialog({ message: 'Failed to create trained style: ' + err.message });
         } finally {
             if (progress) progress.classList.add('hidden');
             if (btn) { btn.disabled = false; btn.textContent = 'Analyze & Create'; }
@@ -9180,7 +9253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (err) {
                         console.error('Select style error:', err);
                         if (loadingEl) loadingEl.classList.add('hidden');
-                        alert('Failed to select style: ' + err.message);
+                        noticeDialog({ message: 'Failed to select style: ' + err.message });
                     }
                 });
                 grid.appendChild(card);
@@ -9215,7 +9288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7], postGenerationCheck: false });
         } catch (err) {
             console.error('Preview error:', err);
-            alert('Preview failed: ' + err.message);
+            noticeDialog({ message: 'Preview failed: ' + err.message });
         } finally {
             if (loadingEl) loadingEl.classList.add('hidden');
         }
@@ -9243,7 +9316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setApproveButtonState(btnApprove, 'approved');
         } catch (err) {
             console.error('Approve error:', err);
-            alert('Failed to approve style: ' + err.message);
+            noticeDialog({ message: 'Failed to approve style: ' + err.message });
             setApproveButtonState(btnApprove, 'ready', { text: originalText });
         }
     }
@@ -9589,7 +9662,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.previewVersionById = function(versionId) {
         const history = window.currentProjectData?.versionHistory || [];
         const version = history.find(v => v.id === versionId);
-        if (!version) { alert('Version not found.'); return; }
+        if (!version) { noticeDialog({ message: 'Version not found.' }); return; }
 
         currentPreviewVersion = version;
         const date = new Date(version.approvedAt);
@@ -10012,7 +10085,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error('Approve failed:', err);
-            alert('Failed to save: ' + err.message);
+            noticeDialog({ message: 'Failed to save: ' + err.message });
         }
     }
 
@@ -10540,7 +10613,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnFountain = document.getElementById('btnDownloadRewriteFountain');
         if (btnFountain) {
             btnFountain.onclick = () => {
-                if (!stage10State?.working) { alert('No rewrite data available.'); return; }
+                if (!stage10State?.working) { noticeDialog({ message: 'No rewrite data available.' }); return; }
                 const entries = Object.keys(stage10State.working).map(Number).sort((a, b) => a - b);
                 const fountainText = entries.map(n => (stage10State.working[n] || '').trim()).filter(t => t && t !== '[SCENE DELETED]').join('\n\n');
                 const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
@@ -10557,7 +10630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnPdf = document.getElementById('btnDownloadRewritePdf');
         if (btnPdf) {
             btnPdf.onclick = () => {
-                if (!stage10State) { alert('No rewrite data available.'); return; }
+                if (!stage10State) { noticeDialog({ message: 'No rewrite data available.' }); return; }
                 triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnPdf);
             };
         }
@@ -10788,7 +10861,7 @@ async function loadBuildInfo() {
             closeSettingsModal();
         } catch (err) {
             console.error('Failed to save settings:', err);
-            alert('Failed to save settings. Check the console for details.');
+            noticeDialog({ message: 'Failed to save settings. Check the console for details.' });
         }
     });
 

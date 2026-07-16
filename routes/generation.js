@@ -568,7 +568,7 @@ function registerGenerationRoutes(app, deps) {
             }
         };
         const heartbeat = setInterval(() => {
-            send({ type: 'heartbeat', label: 'Still generating scene blueprint...' });
+            send({ type: 'heartbeat', label: 'Still generating treatment...' });
         }, 10000);
         heartbeat.unref?.();
 
@@ -658,23 +658,29 @@ function registerGenerationRoutes(app, deps) {
         const beats = projectData.data?.stage4_beats?.hybrid_beat_sheet;
         const treatment = projectData.data?.stage5_treatment;
 
-        // SSE setup
+        // SSE setup. This is the longest-running route in the app (8 sequential
+        // model calls), so it is the most exposed to an edge proxy buffering or
+        // killing a stream that looks idle. Mirrors the Stage 5 treatment route's
+        // hardening exactly — Stage 6 was missing all of it and broke mid-stream
+        // with a client-side "network error" (observed live 2026-07-15).
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
         res.flushHeaders();
         const abortTracker = createClientAbortTracker(res, 'Stage 6 scene generation stream');
 
         const send = (data) => {
             if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
                 res.write(`data: ${JSON.stringify(data)}\n\n`);
+                res.flush?.();
             }
         };
+        // A real data event, not a `:` comment — comments can sit in a proxy
+        // buffer and never reach the client, which defeats the point.
         const heartbeat = setInterval(() => {
-            if (!abortTracker.signal.aborted && !res.destroyed && !res.writableEnded) {
-                res.write(': keep-alive\n\n');
-            }
-        }, 15000);
+            send({ type: 'heartbeat', label: 'Still generating scene blueprint...' });
+        }, 10000);
         heartbeat.unref?.();
 
         try {

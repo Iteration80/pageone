@@ -71,6 +71,17 @@
     </div>
 
     <!-- Import Script Modal -->
+    <!-- Reusable notice dialog (replaces native window.alert) -->
+    <div id="noticeModal" class="modal-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="noticeModalTitle">
+        <div class="modal-content" style="max-width:420px">
+            <h3 id="noticeModalTitle">Notice</h3>
+            <p id="noticeModalMessage"></p>
+            <div class="modal-actions">
+                <button id="noticeModalOk" class="primary-btn" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Reusable confirmation dialog (replaces native window.confirm) -->
     <div id="confirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
         <div class="modal-content" style="max-width:420px">

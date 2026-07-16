@@ -64,6 +64,33 @@ test('parseJsonWithRepair throws a labeled error on unrepairable input', () => {
 // window.confirm renders browser chrome ("<host> says…") that breaks the app's
 // look. Use confirmDialog() (public/app.js) instead. The single allowed use is
 // confirmDialog's own fallback, for when the modal markup is unavailable.
+test('public/app.js uses noticeDialog, not native alert()', () => {
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    const offenders = appJs
+        .split('\n')
+        .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+        .filter(({ line }) => /(?<![\w.])alert\s*\(/.test(line))
+        .filter(({ line }) => !line.includes('noticeDialog'))
+        // noticeDialog's own fallback for missing markup is the one allowed use.
+        .filter(({ line }) => !line.includes('window.alert(message || title)'));
+    assert.deepStrictEqual(offenders, [], `native alert() found — use noticeDialog() instead:\n${offenders.map(o => `  line ${o.number}: ${o.line}`).join('\n')}`);
+});
+
+test('the Stage 6 stream is hardened against proxy buffering like Stage 5', () => {
+    // 2026-07-15: Stage 6 (the app's longest stream — 8 sequential model calls)
+    // shipped without the SSE hardening Stage 5 already had, and broke mid-stream
+    // with a client-side "network error". Server aborts in-flight work on client
+    // disconnect, so a broken stream silently discards the whole generation.
+    const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'generation.js'), 'utf8');
+    const stage6 = routes.slice(routes.indexOf("app.post('/api/generate-stage6-scenes'"), routes.indexOf("app.post('/api/generate-stage6-audit'"));
+    assert.ok(/X-Accel-Buffering/.test(stage6), 'Stage 6 stream must disable proxy buffering');
+    assert.ok(/res\.flush\?\.\(\)/.test(stage6), 'Stage 6 must flush each SSE event');
+    assert.ok(/type: 'heartbeat'/.test(stage6), 'Stage 6 heartbeat must be a data event, not a : comment');
+
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    assert.ok(/recoverStage6FromInterruptedStream/.test(appJs), 'Stage 6 must recover from an interrupted stream, as Stage 2 does');
+});
+
 test('public/app.js uses confirmDialog, not native confirm()', () => {
     const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
     const offenders = appJs
