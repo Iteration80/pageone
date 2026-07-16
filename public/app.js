@@ -5832,6 +5832,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sequences = setCurrentStage6BlueprintPayload(data);
         renderStage6AuditStatus();
+        // Offer "continue" whenever a partial blueprint is shown outside a stream
+        // (self-guards against flicker during active generation).
+        updateStage6ContinueState();
 
         if (sequences.length === 0) {
             return; // Nothing to render
@@ -6009,6 +6012,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadingStateStage6 = document.getElementById('loadingStateStage6');
     const loadingTextStage6 = document.getElementById('loadingTextStage6');
+    // True while a Stage 6 generation stream is actively rendering sequences, so
+    // the partial-blueprint "continue" bar doesn't flicker in mid-stream.
+    let stage6Streaming = false;
 
     function hasStage6Scenes(snapshot) {
         return Array.isArray(snapshot) && snapshot.some(seq => Array.isArray(seq.scenes) && seq.scenes.length > 0);
@@ -6109,20 +6115,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!activeProjectId) return;
 
+        const manual = action === 'fresh-manual';
         if (!await confirmDialog({
-            title: 'Create a fresh Scene Blueprint?',
-            message: 'It will be rebuilt from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment. The current blueprint will be saved to Version History first.',
-            confirmLabel: 'Regenerate'
+            title: manual ? 'Generate one sequence at a time?' : 'Create a fresh Scene Blueprint?',
+            message: manual
+                ? 'This starts a fresh blueprint and generates Sequence 1 only, so you can review it before continuing. The current blueprint will be saved to Version History first.'
+                : 'It will be rebuilt from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment. The current blueprint will be saved to Version History first.',
+            confirmLabel: manual ? 'Start' : 'Regenerate'
         })) return;
 
         const originalText = btnStage6Regenerate?.textContent;
         try {
             if (btnStage6Regenerate) {
                 btnStage6Regenerate.disabled = true;
-                btnStage6Regenerate.textContent = 'Regenerating...';
+                btnStage6Regenerate.textContent = manual ? 'Starting...' : 'Regenerating...';
             }
             await saveStage6SnapshotBeforeRegenerate();
-            await generateStage6({ isRegenerate: true, throwOnError: true });
+            await generateStage6({ isRegenerate: true, throwOnError: true, mode: manual ? 'manual' : 'auto' });
         } catch (error) {
             console.error('Stage 6 regenerate failed:', error);
             noticeDialog({ message: error.message || 'Could not regenerate the Scene Blueprint.' });
@@ -6183,25 +6192,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Insert/replace one sequence into a client-side blueprint array, kept
+    // ordered by sequence_number — mirrors the server's upsert so progressive
+    // rendering during a stream stays in the right order.
+    function upsertClientSequence(list, seq) {
+        const out = (Array.isArray(list) ? list : []).filter(
+            (s) => Number(s?.sequence_number) !== Number(seq?.sequence_number)
+        );
+        out.push(seq);
+        out.sort((a, b) => (Number(a?.sequence_number) || 0) - (Number(b?.sequence_number) || 0));
+        return out;
+    }
+
+    function hideStage6ContinueBar() {
+        document.getElementById('stage6ContinueBar')?.classList.add('hidden');
+    }
+
+    function ensureStage6ContinueBarWired() {
+        const bar = document.getElementById('stage6ContinueBar');
+        if (!bar || bar.dataset.wired === 'true') return bar;
+        bar.dataset.wired = 'true';
+        bar.addEventListener('click', async (event) => {
+            const action = event.target.closest('[data-stage6-continue]')?.dataset.stage6Continue;
+            if (!action) return;
+            hideStage6ContinueBar();
+            try {
+                // "next" = one more sequence (manual); "rest" = auto through the end.
+                await generateStage6({ resume: true, isRegenerate: true, throwOnError: true, mode: action === 'next' ? 'manual' : 'auto' });
+            } catch (error) {
+                console.error('Stage 6 continue failed:', error);
+                noticeDialog({ message: error.message || 'Could not continue the Scene Blueprint.' });
+            }
+        });
+        return bar;
+    }
+
+    function showStage6ContinueBar(completed, total) {
+        const bar = ensureStage6ContinueBarWired();
+        if (!bar) return;
+        const next = completed + 1;
+        bar.innerHTML = `
+            <span class="stage6-continue-label">Partial blueprint — ${completed} of ${total} sequences generated.</span>
+            <div class="stage6-continue-actions">
+                <button type="button" class="primary-btn" data-stage6-continue="next">Generate Sequence ${next}</button>
+                <button type="button" class="secondary-btn" data-stage6-continue="rest">Generate All Remaining</button>
+            </div>`;
+        bar.classList.remove('hidden');
+    }
+
+    // Show the continue bar whenever a partial (1..7 of 8) blueprint is on screen
+    // outside of an active stream, so a blueprint left partial (a manual pause or
+    // an interrupted run) always offers a way to finish it.
+    function updateStage6ContinueState() {
+        if (stage6Streaming) return;
+        const sequences = window.currentProjectData?.stage6_scenes;
+        const count = Array.isArray(sequences) ? sequences.length : 0;
+        if (count > 0 && count < 8) showStage6ContinueBar(count, 8);
+        else hideStage6ContinueBar();
+    }
+
     async function generateStage6(options = {}) {
         if (!activeProjectId) return;
-        const { notes = '', isRegenerate = false, throwOnError = false } = options || {};
+        const { notes = '', isRegenerate = false, throwOnError = false, mode = 'auto', resume = false } = options || {};
         const previousBlueprint = window.currentProjectData?.stage6_scenes
             ? JSON.parse(JSON.stringify(window.currentProjectData.stage6_scenes))
             : [];
+        // Progressive-render accumulator. On a resume, seed it with the sequences
+        // already on disk so the board shows the whole blueprint growing.
+        let streamedSequences = resume ? JSON.parse(JSON.stringify(previousBlueprint)) : [];
 
         setApproveButtonState(btnStage6Approve, 'ready', { hidden: true });
         if (btnStage6Regenerate) btnStage6Regenerate.disabled = true;
 
-        // Clear old content and show loading state
-        if (stage6Board) stage6Board.innerHTML = '';
+        stage6Streaming = true;
+        hideStage6ContinueBar();
+        // A fresh run wipes the board; a resume keeps the already-saved sequences
+        // on screen and renders more as they stream in.
+        if (!resume && stage6Board) stage6Board.innerHTML = '';
+        if (resume && streamedSequences.length) renderStage6(streamedSequences);
         if (stage6Workshop) stage6Workshop.classList.add('hidden');
         if (loadingStateStage6) loadingStateStage6.classList.remove('hidden');
-        if (loadingTextStage6) loadingTextStage6.textContent = isRegenerate ? 'Regenerating Scene Blueprint...' : 'Generating Scene Blueprint...';
+        if (loadingTextStage6) {
+            loadingTextStage6.textContent = resume
+                ? `Resuming from Sequence ${streamedSequences.length + 1}...`
+                : (isRegenerate ? 'Regenerating Scene Blueprint...' : 'Generating Scene Blueprint...');
+        }
 
         try {
-            const requestBody = { projectId: activeProjectId };
+            const requestBody = { projectId: activeProjectId, mode };
             if (notes) requestBody.notes = notes;
+            if (resume) requestBody.resume = true;
             const response = await fetch('/api/generate-stage6-scenes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -6223,10 +6303,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (loadingTextStage6) loadingTextStage6.textContent = `Generating Sequence ${event.current} of ${event.total}...`;
                 } else if (event.type === 'status') {
                     if (loadingTextStage6) loadingTextStage6.textContent = event.message || 'Preparing Scene Blueprint...';
+                } else if (event.type === 'heartbeat') {
+                    // Keep-alive only; nothing to render.
+                } else if (event.type === 'sequence') {
+                    // Progressive render: a sequence landed and is already saved
+                    // server-side. Draw the blueprint-so-far.
+                    streamedSequences = upsertClientSequence(streamedSequences, event.sequence);
+                    if (window.currentProjectData) window.currentProjectData.stage6_scenes = streamedSequences;
+                    renderStage6(streamedSequences);
+                    if (loadingTextStage6) loadingTextStage6.textContent = `Generated Sequence ${event.sequence_number} of ${event.total || 8}...`;
                 } else if (event.type === 'complete') {
                     stage6GenerationComplete = true;
                     renderStage6(event.result);
                     await handleSourceGenerationResult(6, event);
+                } else if (event.type === 'sequence-batch-complete') {
+                    // Manual pause: one sequence generated, more remain. Mark
+                    // handled so the post-stream fallback doesn't treat it as a
+                    // broken stream, then surface the continue controls.
+                    stage6GenerationComplete = true;
+                    stage6Streaming = false;
+                    await refreshCurrentProjectData().catch((err) => console.warn('Stage 6 post-sequence refresh skipped:', err.message));
+                    renderStage6(window.currentProjectData?.stage6_scenes || streamedSequences);
+                    showStage6ContinueBar(event.completed, event.total || 8);
                 } else if (event.type === 'error') {
                     throw new Error(event.message);
                 }
@@ -6276,6 +6374,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             if (loadingStateStage6) loadingStateStage6.classList.add('hidden');
             if (btnStage6Regenerate) btnStage6Regenerate.disabled = false;
+            stage6Streaming = false;
+            // Reflect the true saved state: hide the bar on a complete blueprint,
+            // show it on a partial (manual pause or a recovered/interrupted run).
+            updateStage6ContinueState();
         }
     }
 

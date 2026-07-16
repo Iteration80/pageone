@@ -334,6 +334,40 @@ body {
     color: #f59e0b;
 }
 
+.stage6-continue-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 0 0 16px 0;
+    padding: 12px 16px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 10px;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.stage6-continue-bar.hidden {
+    display: none;
+}
+
+.stage6-continue-label {
+    color: #fbbf24;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.stage6-continue-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.stage6-continue-actions button {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
 .stage-source-readiness {
     width: 8px;
     height: 8px;

@@ -621,7 +621,11 @@
                         <div id="stage6RegenerateMenu" class="stage-regenerate-options hidden">
                             <button type="button" data-stage6-regenerate="fresh">
                                 <span>Fresh Blueprint</span>
-                                <small>Start over from approved work</small>
+                                <small>Generate all sequences at once</small>
+                            </button>
+                            <button type="button" data-stage6-regenerate="fresh-manual">
+                                <span>One Sequence at a Time</span>
+                                <small>Generate & review each sequence</small>
                             </button>
                             <button type="button" data-stage6-regenerate="notes">
                                 <span>Use Chat Notes...</span>
@@ -650,6 +654,9 @@
                     <div class="spinner"></div>
                     <span id="loadingTextStage6">Generating Scene Blueprint...</span>
                 </div>
+
+                <!-- Partial-blueprint continue bar (shown when fewer than 8 sequences exist) -->
+                <div id="stage6ContinueBar" class="stage6-continue-bar hidden"></div>
 
                 <!-- Scene Board Container -->
                 <div id="stage6-blueprint-container" class="flex flex-col gap-8 pb-24">

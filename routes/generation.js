@@ -723,20 +723,11 @@ function registerGenerationRoutes(app, deps) {
                 fromSequence, toSequence, total: TOTAL_SEQUENCES, mode
             });
 
-            // Fresh runs overwrite the blueprint incrementally. Snapshot the prior
-            // blueprint first so a mid-run break stays fully restorable from
-            // Version History (a resume, by contrast, only ever appends).
-            if (!canResume && beforeBlueprint.length) {
-                try {
-                    recordArtifactMutation(projectData, {
-                        projectId, stage: 6, before: beforeBlueprint, after: [],
-                        operation: 'generation', note: 'Snapshot before Scene Blueprint regeneration'
-                    });
-                    await writeJSONQueued(context.filePath, projectData);
-                } catch (snapErr) {
-                    console.warn('Stage 6: pre-regeneration snapshot failed (non-fatal):', snapErr.message);
-                }
-            }
+            // NOTE: a fresh run overwrites the blueprint incrementally, but the
+            // prior blueprint is already snapshotted to Version History by the
+            // client (saveStage6SnapshotBeforeRegenerate) before this request —
+            // so a mid-run break stays restorable without a second snapshot here.
+            // A resume only ever appends, so it needs no snapshot at all.
 
             const sourceAuthorityBlock = buildSourceAuthorityBlock(projectData, 'stage6_scenes');
             if (sourceAuthorityBlock) {
