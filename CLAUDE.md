@@ -92,6 +92,9 @@ Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. D
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-07-16 — Stage 6 per-sequence generation (progressive render + resume + manual step-through)
+Reworked Scene Blueprint generation so it produces one sequence at a time instead of one long 8-call request. `generateStage6Scenes(..., options)` takes `{ fromSequence, toSequence, existingSequences, meta, onMeta, onSequence }` (defaults reproduce the original one-shot). `/api/generate-stage6-scenes` accepts `{ mode: 'auto'|'manual', resume }`, persists each sequence via `updateProjectJSON` as it lands (crash-safe/resumable), caches setup artifacts (location scan + continuity ledger) in `data.stage6_meta` so a continuation skips them, streams `sequence` events, and runs `finalizeGenerationEndpointArtifact` + `kickStage6Audit` **only when the 8th sequence lands** (manual/partial runs emit `sequence-batch-complete` and are never stamped generated early). Client renders each sequence live, adds a "One Sequence at a Time" regenerate option, and shows a continue bar on any partial (1–7/8) blueprint. ⚠️ Because finalize saves the whole `context.projectData`, anything written incrementally (`stage6_meta`) is mirrored onto `context.projectData.data` so the final save can't drop it. The mid-stream polling recovery (2026-07-15) remains as the transport-break fallback.
+
 ### 2026-07-15 — Stage 6 dramaturgical audit
 Added the advisory Stage 6 scene audit for redundancy, missing value shift/quiet function, and overloaded scenes. Deterministic nominators bound the candidate list, a prosecutor/defense model pass adjudicates flags, writer dismissals persist in `stage6_scenes_audit`, non-dismissed flags feed Stage 9 coverage, and the Stage 6 UI shows stale-aware badges without auto-cutting or page targets.
 
