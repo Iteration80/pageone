@@ -301,6 +301,35 @@ test('Stage 2 checklist arms for concrete prose briefs from ANY project (Dearly 
     assert.equal(isConcreteContentRequest('Make the whole thing funnier and more grounded in tone.'), false);
 });
 
+test('Stage 2 scoped merge adopts brief-traceable added beats at position, drops invented padding', async () => {
+    // 2026-07-17 Dearly Beloved root cause: the merge only ever admitted
+    // model-added beats into the final sequence for I.M.A.G.I.N.E.-vocabulary
+    // restore briefs, so a requested new cold-open first beat was silently
+    // deleted on every attempt while the revision reported success.
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: The Perfect Mark', beats: [{ beat_label: 'The House That Waits', description: 'The Halloran estate sits inside impossible gardens.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H: Chosen Home', beats: [{ beat_label: 'A House That Lets You Go', description: 'The doors now genuinely open.' }] }]
+    };
+    const brief = '**Cold Open (new Sequence 1 opener)**\nOpen on the wedding: Elena in her dress runs out of her own ceremony and back into the house. Smash cut to three weeks earlier.';
+    const revised = {
+        title: 'Dearly Beloved', genre: 'Gothic Comedy', logline: 'x',
+        outline: JSON.parse(JSON.stringify(currentOutline))
+    };
+    revised.outline.act_1[0].beats.unshift({ beat_label: 'Cold Open — The Bride Runs', description: 'On the wedding: Elena in her dress runs out of her own ceremony and back into the house. Smash cut to three weeks earlier.' });
+    // Model also pads an unrequested beat nobody asked for — must be dropped.
+    revised.outline.act_3[0].beats.push({ beat_label: 'The Frog Prophecy', description: 'An ancient frog delivers a prophecy about tide charts and forgotten moons.' });
+    const { generateContentFn } = makeRecorder(() => ({ text: JSON.stringify(revised), usage: { inputTokens: 1, outputTokens: 1 } }));
+
+    const { result } = await agent2Outline({ title: 'Dearly Beloved' }, currentOutline, brief, null, {
+        model: 'gemini-test', geminiApiKey: 'test-key', generateContentFn
+    });
+
+    assert.equal(result.outline.act_1[0].beats[0].beat_label, 'Cold Open — The Bride Runs', 'requested addition must land at its revised position');
+    const allLabels = ['act_1', 'act_2', 'act_3'].flatMap(k => result.outline[k]).flatMap(s => (s.beats || []).map(b => b.beat_label));
+    assert.ok(!allLabels.includes('The Frog Prophecy'), 'unrequested model-invented padding must be dropped');
+});
+
 test('Stage 2 append safety net skips instruction-shaped items so they fail honestly', () => {
     const { appendMissingChecklistBeats } = require('../agents/agent_2_outline');
     const outlineResult = { outline: { act_1: [], act_2: [], act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }] } };

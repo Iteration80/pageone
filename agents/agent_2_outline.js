@@ -158,7 +158,12 @@ function isInstructionShapedChecklistItem(item = '') {
     // Conversational/meta talk: story beats are third-person narration; anything
     // first-person, hedged, or addressed to the assistant is writer conversation
     // ("I think we're missing the cold open...") — enforce it, never paste it.
-    return /\b(?:i think|i'd|i would|i want|we're|we are|we've|we have|we need|please|can you|could you|let's|make sure|shall we|previous version)\b/i.test(text);
+    if (/\b(?:i think|i'd|i would|i want|we're|we are|we've|we have|we need|please|can you|could you|let's|make sure|shall we|previous version)\b/i.test(text)) return true;
+    // Opening-position requests: the append fallback can only add near the END
+    // of the outline, which actively contradicts "make this the opening" — so a
+    // cold-open/opener item must fail honestly rather than append in the wrong
+    // place with a mangled label.
+    return /\b(?:cold open|opening beat|first beat|new opening|opener|prologue|opening image)\b/i.test(text);
 }
 
 // General, project-agnostic gate for "is this prose brief a concrete content
@@ -218,6 +223,7 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
             continue;
         }
 
+        const itemsBeforeBlock = items.length;
         for (const line of lines) {
             const bullet = line.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
             if (bullet && bullet[1].length > 18) items.push(compactText(bullet[1], 700));
@@ -234,6 +240,15 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
         // ("...please restore:"), not content in its own right.
         if (lines.length === 1 && !/:\s*$/.test(block) && isConcreteContentRequest(block)) {
             items.push(compactText(stripConversationalFraming(block), 800));
+        }
+        // Prose fallback: a multi-line block that matched none of the structured
+        // shapes (bullets, brackets, recognized header) but reads as a concrete
+        // content request must still be enforced. Assistant-authored briefs are
+        // often markdown-headed prose paragraphs — before this fallback they
+        // produced an EMPTY checklist and the request could be silently skipped
+        // (observed 2026-07-17, third Dearly Beloved cold-open attempt).
+        if (items.length === itemsBeforeBlock && lines.length >= 2 && !/:\s*$/.test(block) && isConcreteContentRequest(block)) {
+            items.push(compactText(stripConversationalFraming(lines.join(' ')), 900));
         }
         if (items.length >= maxItems) break;
     }
@@ -314,6 +329,12 @@ const CHECKLIST_STOPWORDS = new Set([
 // appear in a story beat, so coverage would fail even on a perfect revision.
 function stripConversationalFraming(text = '') {
     return String(text || '')
+        // Markdown formatting is presentation, not content — strip it rather
+        // than dropping the item. (Dropping items that contained ** silently
+        // disarmed enforcement for assistant-authored briefs, which routinely
+        // use **bold** headers — observed 2026-07-17, third Dearly Beloved
+        // cold-open request skipped with a success report.)
+        .replace(/\*\*|__|`/g, '')
         .replace(/^(?:btw[,\s]+|honestly[,\s]+|also[,\s]+)?(?:i (?:think|believe|feel like|'d say)|maybe|perhaps)[,\s]+/i, '')
         // Arrow-annotated writer asides ("--> this is still missing; please
         // restore.") are commentary about the content, not content.
@@ -695,17 +716,22 @@ function notesTargetBeat(notes = '', beat = {}) {
     }
 }
 
-function notesAllowSequenceAdditions(notes = '', sequence = {}) {
-    const text = String(notes || '');
-    const title = String(sequence?.sequence_number_and_title || '');
-    const isFinalSequence = /sequence\s*h\b|resolution|world that remembers|ending|finale/i.test(title);
-    const destructiveFinalInstruction = /(?:\b(delete|remove|cut|omit|drop)\b[\s\S]{0,180}\b(final beat|last paragraph|final paragraph)|\b(final beat|last paragraph|final paragraph)\b[\s\S]{0,180}\b(delete|remove|cut|omit|drop)\b)/i.test(text);
-    if (destructiveFinalInstruction && !/\b(sequence\s*h|closing image|photo on the wall|breakfast for three|visitor passes?)\b/i.test(text)) {
-        return false;
-    }
-    const asksRestore = /\b(restore|restoring|missing|omitted|dropped|lost|bring back|add|include)\b/i.test(text);
-    const finalBeatTerms = /\b(sequence\s*h|seq\s*h|ending beats?|final beats?|closing image|photo on the wall|breakfast for three|visitor passes?|aftermath.+new order|dapple'?s voluntary surrender)\b/i.test(text);
-    return isFinalSequence && asksRestore && finalBeatTerms;
+// Is a model-ADDED beat traceable to the writer's brief? Adopt an addition
+// only when its content substantially overlaps the notes — that keeps beats
+// the writer asked for (whose content the brief describes) and drops
+// model-invented padding (e.g. a contradictory second ending nobody requested).
+// The old gate (notesAllowSequenceAdditions) instead demanded
+// I.M.A.G.I.N.E.-specific final-sequence vocabulary, which made requested
+// additions structurally impossible for every other project — the root cause
+// of the 2026-07-17 Dearly Beloved cold-open silent skips.
+function beatTracesToNotes(revisedBeat = {}, notes = '') {
+    const beatTerms = Array.from(new Set(coverageTokens(`${revisedBeat?.beat_label || ''} ${revisedBeat?.description || ''}`)
+        .filter(token => token.length >= 4 && !CHECKLIST_STOPWORDS.has(token))
+        .map(stemToken)));
+    if (!beatTerms.length) return false;
+    const noteStems = new Set(coverageTokens(notes).map(stemToken));
+    const found = beatTerms.filter(term => noteStems.has(term)).length;
+    return found >= Math.max(3, Math.ceil(beatTerms.length * 0.5));
 }
 
 function revisedBeatMatchesCurrent(revisedBeat = {}, currentBeat = {}) {
@@ -946,14 +972,20 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
                 }
             }
 
-            if (notesAllowSequenceAdditions(notes, currentSequence)) {
-                for (const revisedBeat of revisedSequence.beats || []) {
-                    if (!sequenceHasEquivalentBeat(mergedSequence, revisedBeat)) {
-                        mergedSequence.beats.push(cloneBeat(revisedBeat));
-                        appliedScopedChange = true;
-                    }
+            // Adopt beats the model ADDED, at their revised positions. The old
+            // gate (notesAllowSequenceAdditions) only ever admitted additions to
+            // the final sequence for I.M.A.G.I.N.E.-style restore briefs, so any
+            // other requested addition — e.g. a new cold-open first beat — was
+            // silently deleted while the revision reported success (observed
+            // 2026-07-17: three Dearly Beloved cold-open requests in a row).
+            // The merge's job is to protect existing story text from unrequested
+            // rewrites, never to destroy new content the writer asked for.
+            (revisedSequence.beats || []).forEach((revisedBeat, position) => {
+                if (!sequenceHasEquivalentBeat(mergedSequence, revisedBeat) && beatTracesToNotes(revisedBeat, notes)) {
+                    mergedSequence.beats.splice(Math.min(position, mergedSequence.beats.length), 0, cloneBeat(revisedBeat));
+                    appliedScopedChange = true;
                 }
-            }
+            });
         }
     }
 
