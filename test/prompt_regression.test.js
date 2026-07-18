@@ -270,13 +270,46 @@ test('Stage 2 sanitizer removes revision-brief items appended as beats (Dearly B
 });
 
 test('Stage 2 checklist guard refuses revision-brief directives, keeps real content requests', () => {
-    const { isFormatDirectiveChecklistItem } = require('../agents/agent_2_outline');
-    // Directive-shaped brief items must never be appended as beats.
+    const { isFormatDirectiveChecklistItem, isInstructionShapedChecklistItem } = require('../agents/agent_2_outline');
+    // Markdown-formatted brief fragments are format directives — dropped everywhere.
     assert.equal(isFormatDirectiveChecklistItem('Sequence 2: The Arrival.** Update his backstory: disgraced Robin Hood.'), true);
     assert.equal(isFormatDirectiveChecklistItem('Preserve: ** the Meeting in the Middle arc.'), true);
-    assert.equal(isFormatDirectiveChecklistItem('Gallery: Establish the "Scream" portraits.'), true);
-    // A genuine content request (a beat the writer wants present) still passes.
+    // An instruction-shaped CONTENT request is NOT a format directive (it must
+    // stay on the checklist so coverage is enforced) — but it IS refused from
+    // verbatim append, so an unmet item fails honestly instead of fabricating.
+    assert.equal(isFormatDirectiveChecklistItem('Gallery: Establish the "Scream" portraits.'), false);
+    assert.equal(isInstructionShapedChecklistItem('Gallery: Establish the "Scream" portraits.'), true);
+    assert.equal(isInstructionShapedChecklistItem('Update his backstory: he is a disgraced Robin Hood con man.'), true);
+    assert.equal(isInstructionShapedChecklistItem('Make the midpoint scene punchier and more kinetic.'), true);
+    // Narrative content (a beat the writer wants present) passes both guards.
     assert.equal(isFormatDirectiveChecklistItem('Elena finds the crayon note on the windowsill and realizes her son is gone.'), false);
+    assert.equal(isInstructionShapedChecklistItem('Elena finds the crayon note on the windowsill and realizes her son is gone.'), false);
+});
+
+test('Stage 2 checklist arms for concrete prose briefs from ANY project (Dearly Beloved cold open)', () => {
+    const { buildRevisionChecklist, isConcreteContentRequest } = require('../agents/agent_2_outline');
+    // Carsten's literal chat request — the old gate was I.M.A.G.I.N.E.-specific
+    // keyword vocabulary, so this produced an EMPTY checklist: no enforcement,
+    // no repair pass, no honest failure. The revision skipped the change and
+    // still reported success (observed live 2026-07-17).
+    const brief = "I think we're missing the cold open flashforward from the previous version during the wedding, showing Elena running away from her own wedding.";
+    const checklist = buildRevisionChecklist(brief);
+    assert.equal(checklist.length, 1, 'a concrete single-line content request must become a checklist obligation');
+    assert.match(checklist[0], /cold open/i);
+    // Vague tone notes must NOT arm the checklist (no fabrication fuel).
+    assert.equal(buildRevisionChecklist('Make it funnier.').length, 0);
+    assert.equal(isConcreteContentRequest('Make the whole thing funnier and more grounded in tone.'), false);
+});
+
+test('Stage 2 append safety net skips instruction-shaped items so they fail honestly', () => {
+    const { appendMissingChecklistBeats } = require('../agents/agent_2_outline');
+    const outlineResult = { outline: { act_1: [], act_2: [], act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }] } };
+    appendMissingChecklistBeats(outlineResult, [
+        'Update his backstory: he is a disgraced Robin Hood con man.',
+        'Make the midpoint scene punchier and more kinetic.'
+    ]);
+    const allBeats = ['act_1', 'act_2', 'act_3'].flatMap(k => outlineResult.outline[k]).flatMap(s => s.beats || []);
+    assert.equal(allBeats.length, 0, 'instruction-shaped items must never be pasted in as beats');
 });
 
 test('Stage 2 outline agent output filters leaked tone guidance beats before returning', async () => {

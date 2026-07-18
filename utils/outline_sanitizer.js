@@ -18,14 +18,17 @@ function isOutlineMetaBeat(beat = {}) {
     // the writer's bracketed brief items were appended verbatim as three beats).
     if (/\*\*/.test(description)) return true;
 
-    // Instruction-shaped label: a bare directive verb ("Preserve", "Establish",
-    // "Update", "Integrate", ...) is a revision directive, not a beat name.
-    if (/^(?:preserve|establish|update|introduce|integrate|incorporate|revise|rework|retain|reinstate)\b/.test(label)) return true;
+    // Instruction-shaped label: a bare revision-machinery verb ("Preserve",
+    // "Update", "Revise", ...) is a directive, not a beat name. Deliberately
+    // narrower than the checklist-side guard: story-craft verbs like
+    // "Establish/Introduce" can legitimately open model-authored beat labels
+    // and prose, and a sanitizer false-positive silently deletes content.
+    if (/^(?:preserve|update|revise|rework|retain|reinstate)\b/.test(label)) return true;
 
-    // Description that opens with an imperative directive governing a story
-    // element ("Update his backstory...", "Establish the ... portraits",
-    // "Preserve the ... arc") is an instruction to EXECUTE, not narrated action.
-    if (/^(?:update|preserve|establish|introduce|integrate|incorporate|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(description)) return true;
+    // Description opening with a revision-machinery imperative ("Update his
+    // backstory...", "Preserve the ... arc") is an instruction to EXECUTE,
+    // not narrated action.
+    if (/^(?:update|preserve|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(description)) return true;
 
     // Schema-field leakage: a real story beat never carries raw schema tokens
     // like "beat_name: 'Set-up'" in its description. These appear when format

@@ -129,12 +129,6 @@ function isFormatDirectiveChecklistItem(item = '') {
     // append as a beat (observed 2026-07-17, "Dearly Beloved": bracketed brief
     // blocks like "[Preserve] **The ... arc**" leaked in as fabricated beats).
     if (/\*\*/.test(text)) return true;
-    // An item phrased as an imperative directive to modify the outline
-    // ("Update his backstory...", "Establish the ... portraits", "Preserve the
-    // ... arc") is a directive to EXECUTE, not content to append. Anchored to a
-    // clause start (line start or after a "Label: " prefix) so story prose that
-    // merely contains these verbs mid-sentence is untouched.
-    if (/(?:^|:\s*)(?:update|preserve|establish|introduce|integrate|incorporate|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(text)) return true;
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b/i.test(text)) return true;
     // Craft vocabulary: story prose never says "Save the Cat" — only
     // annotation/format instructions do.
@@ -151,6 +145,42 @@ function isFormatDirectiveChecklistItem(item = '') {
         || /\b(?:new|current|updated)\s+(?:format|schema)\b/i.test(text);
 }
 
+// A brief phrased as an imperative instruction ("Update his backstory...",
+// "Establish the ... portraits", "Make the midpoint punchier") is a directive
+// to EXECUTE. It belongs on the checklist so coverage is enforced, but it must
+// never be pasted verbatim into the outline as a story beat — if the model
+// can't apply it, the honest move is the STAGE2_CHECKLIST_UNMET error, not a
+// fabricated beat (observed 2026-07-17, "Dearly Beloved").
+function isInstructionShapedChecklistItem(item = '') {
+    const text = String(item || '');
+    // Imperative-led edits: "Update his backstory...", "Make the midpoint punchier".
+    if (/(?:^|:\s*)(?:add|make|ensure|show|open|start|begin|end|include|insert|restore|bring|give|keep|establish|introduce|update|preserve|integrate|incorporate|revise|rework|retain|reinstate|create|write|craft|depict|feature|highlight|emphasize|expand|extend|tighten|trim|cut|shorten|clarify|strengthen|deepen|plant|foreshadow|missing|lost)\s+(?:the|a|an|his|her|their|its|this|that|every|all|each|more|how|us)\b/i.test(text)) return true;
+    // Conversational/meta talk: story beats are third-person narration; anything
+    // first-person, hedged, or addressed to the assistant is writer conversation
+    // ("I think we're missing the cold open...") — enforce it, never paste it.
+    return /\b(?:i think|i'd|i would|i want|we're|we are|we've|we have|we need|please|can you|could you|let's|make sure|shall we|previous version)\b/i.test(text);
+}
+
+// General, project-agnostic gate for "is this prose brief a concrete content
+// request worth enforcing?" — replaces the old hardcoded keyword list, which
+// was I.M.A.G.I.N.E.-specific story vocabulary (kitchen/storm drain/dapple...):
+// enforcement silently never armed for any other project's briefs, so a
+// revision could skip the requested change and still report success
+// (observed 2026-07-17, "Dearly Beloved" cold-open request).
+function isConcreteContentRequest(text = '') {
+    const t = String(text || '').trim();
+    if (t.length <= 40) return false;
+    // Structural craft objects: placement/presence requests about concrete
+    // story furniture, valid across all projects.
+    if (/\b(cold open|flash[- ]?forward|flashback|prologue|epilogue|teaser|montage|bookend|framing device|time (?:jump|cut)|opening (?:image|scene|beat)|closing (?:image|scene|beat)|final image|ending line|midpoint|aftermath|dark night of the soul|beat|scene)\b/i.test(t)) return true;
+    // Quoted content ("the exact line ...") is by definition concrete.
+    if (/["“'‘][^"”'’\n]{3,}["”'’]/.test(t)) return true;
+    // A presence verb aimed at a named character/place (mid-sentence capital).
+    const presenceVerb = /\b(missing|add(?:ed)?|restore|reinstate|bring back|include|insert|open(?:s)? with|start(?:s)? with|begin(?:s)? with|end(?:s)? with|show(?:ing)?)\b/i.test(t);
+    const properNoun = /[^.!?:\n]\s[A-Z][a-z]{2,}\b/.test(t);
+    return presenceVerb && properNoun;
+}
+
 function buildRevisionChecklist(notes = '', maxItems = 12) {
     const text = normalizeRevisionBrief(notes);
     if (!text) return [];
@@ -158,9 +188,8 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
         return scopedPolishChecklistItems(text, maxItems).filter(item => !isFormatDirectiveChecklistItem(item));
     }
     if (!/\n/.test(text)) {
-        return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|surrender|aftermath|restore|midpoint|recogniz|dapple was mine|storm drain|quiet kingdom|source[- ]?faith|ending line|accountability|answer for what you did)\b/i.test(text)
-            && text.length > 40
-            ? [compactText(text, 800)]
+        return isConcreteContentRequest(text)
+            ? [compactText(stripConversationalFraming(text), 800)]
             : [];
     }
 
@@ -201,13 +230,20 @@ function buildRevisionChecklist(notes = '', maxItems = 12) {
             const body = lines.slice(1).join(' ');
             if (body.length > 20) items.push(compactText(`${header}: ${body}`, 800));
         }
-        if (lines.length === 1 && block.length > 40 && /\b(midpoint|recogniz|dapple was mine|source[- ]?faith|storm drain|quiet kingdom|ending line|accountability|answer for what you did)\b/i.test(block)) {
-            items.push(compactText(block, 800));
+        // A block ending in ":" is a header introducing the blocks that follow
+        // ("...please restore:"), not content in its own right.
+        if (lines.length === 1 && !/:\s*$/.test(block) && isConcreteContentRequest(block)) {
+            items.push(compactText(stripConversationalFraming(block), 800));
         }
         if (items.length >= maxItems) break;
     }
 
     return Array.from(new Set(items))
+        // Strip writer-to-assistant framing so every checklist item (from any
+        // build path) describes content, keeping coverage terms and the append
+        // eligibility judgment about the story rather than the conversation.
+        .map(item => stripConversationalFraming(item))
+        .filter(Boolean)
         .filter(item => !isFormatDirectiveChecklistItem(item))
         .slice(0, maxItems);
 }
@@ -271,11 +307,47 @@ const CHECKLIST_STOPWORDS = new Set([
     'three', 'through', 'visible', 'with', 'work', 'would'
 ]);
 
-function checklistTerms(item = '') {
-    const normalized = String(item || '').toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ');
-    return Array.from(new Set(normalized.split(/\s+/)
+// Strip writer-to-assistant framing from a prose brief so the checklist
+// obligation (and its coverage terms) describe the CONTENT, not the
+// conversation. "I think we're missing the cold open..." must not put
+// "think"/"previous"/"version" into the term set — those words will never
+// appear in a story beat, so coverage would fail even on a perfect revision.
+function stripConversationalFraming(text = '') {
+    return String(text || '')
+        .replace(/^(?:btw[,\s]+|honestly[,\s]+|also[,\s]+)?(?:i (?:think|believe|feel like|'d say)|maybe|perhaps)[,\s]+/i, '')
+        // Arrow-annotated writer asides ("--> this is still missing; please
+        // restore.") are commentary about the content, not content.
+        .replace(/\s*-+>\s*[^]*$/, '')
+        .replace(/\b(?:from|in) the (?:previous|old|earlier|last) (?:version|draft|outline)\b/gi, '')
+        .replace(/\bwe(?:'re| are| have|'ve)? (?:missing|lost|losing)\b/gi, 'missing')
+        .replace(/\b(?:please|kindly)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+// Naive suffix stemming so "running" matches "runs", "showing" matches
+// "shows", and hyphen removal so "flashforward" matches "flash-forward".
+// Coverage is a heuristic term-overlap check; without this, a perfectly
+// applied revision can still read as uncovered purely on inflection.
+function stemToken(token = '') {
+    let t = String(token || '');
+    if (t.length <= 4) return t;
+    t = t.replace(/(?:ings?|ed|es|s)$/, '');
+    t = t.replace(/([a-z])\1$/, '$1');
+    return t.length >= 3 ? t : String(token || '');
+}
+
+function coverageTokens(text = '') {
+    const normalized = String(text || '').toLowerCase().replace(/-/g, '').replace(/[^a-z0-9\s']/g, ' ');
+    return normalized.split(/\s+/)
         .map(token => token.replace(/^'+|'+$/g, ''))
-        .filter(token => token.length >= 4 && !CHECKLIST_STOPWORDS.has(token))));
+        .filter(Boolean);
+}
+
+function checklistTerms(item = '') {
+    return Array.from(new Set(coverageTokens(item)
+        .filter(token => token.length >= 4 && !CHECKLIST_STOPWORDS.has(token))
+        .map(stemToken)));
 }
 
 function outlineCoverageUnits(outlineResult = {}) {
@@ -394,7 +466,8 @@ function requiresBeatLevelCoverage(item = '') {
 
 function unitCoversChecklistItem(unit = '', terms = [], item = '') {
     if (!terms.length) return true;
-    const found = terms.filter(term => unit.includes(term)).length;
+    const unitStems = new Set(coverageTokens(unit).map(stemToken));
+    const found = terms.filter(term => unitStems.has(term) || unit.includes(term)).length;
     const required = requiresBeatLevelCoverage(item)
         ? Math.min(8, Math.max(4, Math.ceil(terms.length * 0.55)))
         : Math.min(7, Math.max(3, Math.ceil(terms.length * 0.45)));
@@ -1177,6 +1250,12 @@ function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
         // Defense-in-depth: even if a process directive slips through the
         // checklist build filter, never fabricate a story beat from it.
         if (isFormatDirectiveChecklistItem(item)) continue;
+        // Instruction-shaped items ("Update his backstory...", "Make the
+        // midpoint punchier") stay enforceable via the checklist, but pasting
+        // them verbatim would fabricate a beat. Skipping here lets the final
+        // coverage re-check throw STAGE2_CHECKLIST_UNMET instead — the writer
+        // gets an honest "couldn't apply" rather than junk in the outline.
+        if (isInstructionShapedChecklistItem(item)) continue;
         const sequence = finalOutlineSequence(outline, item);
         if (!Array.isArray(sequence.beats)) sequence.beats = [];
         sequence.beats.push({
@@ -1483,6 +1562,8 @@ module.exports = {
     outlineHasContent,
     buildRevisionChecklist,
     isFormatDirectiveChecklistItem,
+    isInstructionShapedChecklistItem,
+    isConcreteContentRequest,
     findUndercoveredChecklistItems,
     appendMissingChecklistBeats,
     extractExplicitSequenceReplacement,
