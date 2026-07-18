@@ -245,6 +245,40 @@ test('Stage 2 outline sanitizer removes leaked tone guidance beats', () => {
     }]);
 });
 
+test('Stage 2 sanitizer removes revision-brief items appended as beats (Dearly Beloved 2026-07-17)', () => {
+    const { isOutlineMetaBeat } = require('../utils/outline_sanitizer');
+    // The exact three brief items that leaked into the Dearly Beloved outline:
+    // bracketed "[Label] instruction" blocks appended verbatim as story beats.
+    const leaked = [
+        { beat_label: 'Sequence 2', description: 'The Arrival.** Logan Pierce arrives. Update his backstory: he is a disgraced "Robin Hood" con man who wants atonement.' },
+        { beat_label: "Elena's Stakes The Gallery Establish The Scream", description: '**Elena\'s Stakes & The Gallery.** Establish the "Scream" portraits of former Halloran women.' },
+        { beat_label: 'Preserve', description: '** The "Meeting in the Middle" arc, Barnaby\'s growth-as-anxiety, and the finale where Logan\'s free choice breaks the curse.' }
+    ];
+    for (const beat of leaked) {
+        assert.equal(isOutlineMetaBeat(beat), true, `should flag leaked brief item: ${beat.beat_label}`);
+    }
+    // Real story beats — including ones that use "establishes"/"updates"
+    // mid-sentence — must NOT be flagged (no over-catching connective prose).
+    const legit = [
+        { beat_label: 'Logan Works the Room', description: 'Logan Pierce arrives with flowers and a two-day plan to charm his way into the Halloran fortune.' },
+        { beat_label: 'Barnaby Chooses', description: 'Barnaby grows an inch as he establishes his blessing for the couple to leave.' },
+        { beat_label: 'Twice He Said Home', description: 'Her cold calculation updates into raw, panicked love as the trap closes.' }
+    ];
+    for (const beat of legit) {
+        assert.equal(isOutlineMetaBeat(beat), false, `should keep real story beat: ${beat.beat_label}`);
+    }
+});
+
+test('Stage 2 checklist guard refuses revision-brief directives, keeps real content requests', () => {
+    const { isFormatDirectiveChecklistItem } = require('../agents/agent_2_outline');
+    // Directive-shaped brief items must never be appended as beats.
+    assert.equal(isFormatDirectiveChecklistItem('Sequence 2: The Arrival.** Update his backstory: disgraced Robin Hood.'), true);
+    assert.equal(isFormatDirectiveChecklistItem('Preserve: ** the Meeting in the Middle arc.'), true);
+    assert.equal(isFormatDirectiveChecklistItem('Gallery: Establish the "Scream" portraits.'), true);
+    // A genuine content request (a beat the writer wants present) still passes.
+    assert.equal(isFormatDirectiveChecklistItem('Elena finds the crayon note on the windowsill and realizes her son is gone.'), false);
+});
+
 test('Stage 2 outline agent output filters leaked tone guidance beats before returning', async () => {
     const outlineResponse = {
         title: pitch.title,

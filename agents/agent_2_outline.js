@@ -124,6 +124,17 @@ function scopedPolishChecklistItems(text = '', maxItems = 12) {
 // "[Update Every Beat To Include] beat_name (Save the Cat)..." as a beat).
 function isFormatDirectiveChecklistItem(item = '') {
     const text = String(item || '');
+    // A brief item carrying markdown emphasis (**bold**) is the writer's
+    // formatted instruction, never clean story content to ensure-present or
+    // append as a beat (observed 2026-07-17, "Dearly Beloved": bracketed brief
+    // blocks like "[Preserve] **The ... arc**" leaked in as fabricated beats).
+    if (/\*\*/.test(text)) return true;
+    // An item phrased as an imperative directive to modify the outline
+    // ("Update his backstory...", "Establish the ... portraits", "Preserve the
+    // ... arc") is a directive to EXECUTE, not content to append. Anchored to a
+    // clause start (line start or after a "Label: " prefix) so story prose that
+    // merely contains these verbs mid-sentence is untouched.
+    if (/(?:^|:\s*)(?:update|preserve|establish|introduce|integrate|incorporate|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(text)) return true;
     if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b/i.test(text)) return true;
     // Craft vocabulary: story prose never says "Save the Cat" — only
     // annotation/format instructions do.
@@ -1471,6 +1482,7 @@ module.exports = {
     agent2Outline,
     outlineHasContent,
     buildRevisionChecklist,
+    isFormatDirectiveChecklistItem,
     findUndercoveredChecklistItems,
     appendMissingChecklistBeats,
     extractExplicitSequenceReplacement,

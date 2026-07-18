@@ -12,6 +12,21 @@ function isOutlineMetaBeat(beat = {}) {
     const description = String(beat.description || '').trim();
     if (!label || !description) return false;
 
+    // Markdown emphasis (**bold**) never appears in clean story prose — the model
+    // emits plain-text beat descriptions. Its presence means a formatted revision
+    // brief fragment leaked in as a beat (observed 2026-07-17, "Dearly Beloved":
+    // the writer's bracketed brief items were appended verbatim as three beats).
+    if (/\*\*/.test(description)) return true;
+
+    // Instruction-shaped label: a bare directive verb ("Preserve", "Establish",
+    // "Update", "Integrate", ...) is a revision directive, not a beat name.
+    if (/^(?:preserve|establish|update|introduce|integrate|incorporate|revise|rework|retain|reinstate)\b/.test(label)) return true;
+
+    // Description that opens with an imperative directive governing a story
+    // element ("Update his backstory...", "Establish the ... portraits",
+    // "Preserve the ... arc") is an instruction to EXECUTE, not narrated action.
+    if (/^(?:update|preserve|establish|introduce|integrate|incorporate|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(description)) return true;
+
     // Schema-field leakage: a real story beat never carries raw schema tokens
     // like "beat_name: 'Set-up'" in its description. These appear when format
     // instructions or per-beat annotations get emitted/appended as beats
