@@ -508,6 +508,15 @@ function applyStage2Operation(outline = {}, op = {}, options = {}) {
     }
 
     if (op.type === 'ensure_beat_present') {
+        // "Ensure present" is satisfied when the beat already exists ANYWHERE
+        // in the outline. Inserting another copy into the locally-chosen "best"
+        // sequence planted duplicates — a brief that merely mentioned
+        // [The House That Waits] as an insertion ANCHOR got a second copy of
+        // that beat appended to a different sequence (observed 2026-07-18).
+        if (!op.final && !op.finalLast) {
+            const exists = flattenOutlineBeats(outline).some(row => labelsEqual(row.label, op.newLabel));
+            if (exists) return { status: 'applied', changed: false };
+        }
         const beat = buildBeat(op.newLabel, op.newBody, { ...options, outline });
         const previous = JSON.stringify(sequence.beats || []);
         insertBeat(sequence, beat, { anchorLabel: op.anchorLabel, final: op.final || op.finalLast, protectedBeats: options.protectedBeats });

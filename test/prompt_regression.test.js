@@ -212,12 +212,24 @@ function assertSourceAwareCall(call, stageName) {
 
 function makeRecorder(responder) {
     const calls = [];
+    const verificationCalls = [];
     const generateContentFn = async request => {
+        // The semantic revision verifier spot-checks lexically-covered items.
+        // Answer neutrally ("no false successes found") and don't count these
+        // as content calls, so call-count assertions stay about generation and
+        // repair. Tests exercising the verifier itself use verificationResponder.
+        const text = collectText(request.contents);
+        if (/^REVISION VERIFICATION\./.test(text)) {
+            verificationCalls.push(request);
+            if (makeRecorder.verificationResponder) return makeRecorder.verificationResponder(request, verificationCalls.length);
+            return { text: JSON.stringify({ verdicts: [] }), usage: { inputTokens: 1, outputTokens: 1 } };
+        }
         calls.push(request);
         return responder(request, calls.length);
     };
-    return { calls, generateContentFn };
+    return { calls, verificationCalls, generateContentFn };
 }
+makeRecorder.verificationResponder = null;
 
 test('Stage 2 outline sanitizer removes leaked tone guidance beats', () => {
     const outline = {
@@ -328,6 +340,45 @@ test('Stage 2 scoped merge adopts brief-traceable added beats at position, drops
     assert.equal(result.outline.act_1[0].beats[0].beat_label, 'Cold Open — The Bride Runs', 'requested addition must land at its revised position');
     const allLabels = ['act_1', 'act_2', 'act_3'].flatMap(k => result.outline[k]).flatMap(s => (s.beats || []).map(b => b.beat_label));
     assert.ok(!allLabels.includes('The Frog Prophecy'), 'unrequested model-invented padding must be dropped');
+});
+
+test('Stage 2 semantic verification catches lexical false successes and forces repair', async () => {
+    // 2026-07-18 live failure: an anchor-heavy cold-open brief self-matched
+    // existing beats, so lexical coverage said "applied" while no cold-open
+    // beat existed and the assistant reported success. The semantic spot-check
+    // must flag it, force a repair pass, and only then accept the result.
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: The Perfect Mark', beats: [{ beat_label: 'The House That Waits', description: 'Elena watches the wedding preparations at the Halloran house as the walls run with quiet menace and the ceremony draws near.' }] }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H: Chosen Home', beats: [{ beat_label: 'A House That Lets You Go', description: 'The doors now genuinely open.' }] }]
+    };
+    const brief = 'Add a cold open flash-forward before [The House That Waits]: Elena flees her own wedding ceremony and runs back into the house. Smash cut to three weeks earlier.';
+    const withoutBeat = { title: 'DB', genre: 'x', logline: 'x', outline: currentOutline };
+    const withBeat = JSON.parse(JSON.stringify(withoutBeat));
+    withBeat.outline.act_1[0].beats.unshift({ beat_label: 'Cold Open — The Bride Runs', description: 'Elena flees her own wedding ceremony and runs back into the house. Smash cut to three weeks earlier.' });
+
+    let contentCall = 0;
+    const { calls, verificationCalls, generateContentFn } = makeRecorder(() => {
+        contentCall += 1;
+        // First revision pass "fakes it" (returns the outline unchanged);
+        // the repair pass actually applies the beat.
+        return { text: JSON.stringify(contentCall === 1 ? withoutBeat : withBeat), usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+    makeRecorder.verificationResponder = (request, n) => {
+        // Spot-check verdict: not applied on the first check, applied after repair.
+        const applied = n > 1;
+        return { text: JSON.stringify({ verdicts: [{ index: 1, applied, evidence: applied ? 'Cold Open — The Bride Runs' : 'No cold-open beat exists' }] }), usage: { inputTokens: 1, outputTokens: 1 } };
+    };
+    try {
+        const { result } = await agent2Outline({ title: 'DB' }, currentOutline, brief, null, {
+            model: 'gemini-test', geminiApiKey: 'k', generateContentFn, retryDelayMs: 0
+        });
+        assert.equal(calls.length, 2, 'false success must force a repair pass');
+        assert.ok(verificationCalls.length >= 2, 'semantic verification must run before and after repair');
+        assert.equal(result.outline.act_1[0].beats[0].beat_label, 'Cold Open — The Bride Runs');
+    } finally {
+        makeRecorder.verificationResponder = null;
+    }
 });
 
 test('Stage 2 append safety net skips instruction-shaped items so they fail honestly', () => {

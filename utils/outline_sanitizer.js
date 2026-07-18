@@ -39,7 +39,7 @@ function isOutlineMetaBeat(beat = {}) {
     // Outline-machinery talk: story prose never discusses "beat descriptions",
     // "sequence titles", "Save the Cat", or "lean outline language" — only
     // leaked process instructions do (observed 2026-07-13, rounds 3-4).
-    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
+    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline(?:'s)? (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
 
     // Outline-surgery instructions emitted as beats: "Remove the duplicate
     // 'Aftermath' beat...", "Change beats after the Midpoint ... from 'Fun and
@@ -51,6 +51,12 @@ function isOutlineMetaBeat(beat = {}) {
     // Beat Descriptions", "Preserve All Sequence Titles", etc.
     if (/^(update every beat|update all beats|include in every beat|schema update|format update|apply new format|new format)\b/.test(label)) return true;
     if (/^(tighten|preserve|keep|maintain|shorten|trim|condense|reformat|rephrase|retain) (all|every|each)\b/.test(label)) return true;
+
+    // Schema field names as beat labels ("Emotional Arc", "Pacing Notes") and
+    // cleanup directives ("Clean Up The Trailing 'Emotional Arc' Beat") are
+    // machinery leakage, never story beats (observed 2026-07-18).
+    if (/^(emotional arc|pacing notes?|genre (?:variation )?notes?|beat name)$/.test(label)) return true;
+    if (/^clean ?up\b/.test(label)) return true;
 
     const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);
     if (!metaLabel) return false;

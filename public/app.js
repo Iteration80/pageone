@@ -2667,10 +2667,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (/^(?:preserve|update|revise|rework|retain|reinstate)\b/.test(label)) return true;
         if (/^(?:update|preserve|revise|rework|retain|reinstate)\s+(?:the|his|her|their|a|an)\b/i.test(description)) return true;
         if (/\b(beat_name|emotional_arc|pacing_notes|genre_variation_notes|stc_genre_category)\b\s*[:=]/i.test(description)) return true;
-        if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
+        if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline(?:'s)? (?:language|format|prose|structure)|lean outline|word count|save the cat)\b/i.test(description)) return true;
         if (/^(?:remove|delete|rebalance|reorder|merge|swap|move|change|convert)\b[^.]{0,90}\b(?:duplicate|beats?|sequences?|annotations?|assignments?)\b/i.test(description)) return true;
         if (/^(update every beat|update all beats|include in every beat|schema update|format update|apply new format|new format)\b/.test(label)) return true;
         if (/^(tighten|preserve|keep|maintain|shorten|trim|condense|reformat|rephrase|retain) (all|every|each)\b/.test(label)) return true;
+        if (/^(emotional arc|pacing notes?|genre (?:variation )?notes?|beat name)$/.test(label)) return true;
+        if (/^clean ?up\b/.test(label)) return true;
         const metaLabel = /^(tone|style|tone style|format|formatting|notes?|revision notes?|writer notes?|author notes?|model notes?|ai notes?|cleanup|polish|guidance|instructions?|constraints?|reminders?)$/.test(label);
         return metaLabel && /\b(?:ensure|remove|avoid|do not|don't|keep|maintain|make sure|style|tone|jargon|ai[-\s]?style|likeability|architectural glitches|identity absorption)\b/i.test(description);
     }

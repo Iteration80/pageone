@@ -845,10 +845,17 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /Outline stream ended before the server sent a completion event/);
     assert.match(appJs, /'Accept': 'text\/event-stream'/);
     assert.match(appJs, /formData\.append\('stream', 'true'\)/);
-    assert.match(generationRoutes, /buildOutlineRevisionChecklist\(notesWithUpload\)/);
+    // Checklist enforcement is the AGENT's job (semantic verification + repair
+    // + honest STAGE2_CHECKLIST_UNMET). The route must not run a duplicate
+    // lexical re-check — it produced false failures on paraphrased-but-applied
+    // revisions (removed 2026-07-18).
+    const agent2Source = fs.readFileSync(path.join(__dirname, '..', 'agents', 'agent_2_outline.js'), 'utf8');
+    assert.match(agent2Source, /verifyChecklistApplied/);
+    assert.match(agent2Source, /semanticSpotCheck/);
+    assert.match(agent2Source, /STAGE2_CHECKLIST_UNMET/);
+    assert.doesNotMatch(generationRoutes, /findUndercoveredOutlineChecklistItems\(revisionChecklist/);
     assert.match(generationRoutes, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
     assert.match(generationRoutes, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
-    assert.match(generationRoutes, /appendMissingOutlineChecklistBeats\(outlineData, missingChecklistItems\)/);
     assert.ok(generationRoutes.indexOf('applyStageRevisionPlan({') < generationRoutes.indexOf('agent2Outline('));
     assert.match(generationRoutes, /createRevisionTransaction\({[\s\S]*stageId: 'stage2_outline'/);
     assert.match(generationRoutes, /createVerifiedGenerationRevision\({[\s\S]*label: 'Stage 2 outline'/);

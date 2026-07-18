@@ -285,7 +285,17 @@ function registerGenerationRoutes(app, deps) {
                         .join('; ');
                     throw new Error(`Stage 2 deterministic outline revision failed verification${failureList ? `: ${failureList}` : ''}`);
                 }
-                if (deterministicRevision?.receipt?.verified && deterministicRevision.plan?.canApplyDirectly) {
+                // Only early-return when the deterministic plan produced a REAL
+                // change. A verified plan whose ops are all no-ops (e.g.
+                // ensure-present for beats that already exist, triggered by a
+                // brief that merely MENTIONS a protected label + a word like
+                // "missing"/"keep") used to return success with `changed:true`
+                // while the outline stayed identical and the model was never
+                // consulted — the writer's actual request was silently swallowed
+                // (reproduced 2026-07-18 with the Dearly Beloved cold-open brief
+                // against a project with protected beats). No-op plans fall
+                // through to the full agent revision instead.
+                if (deterministicRevision?.receipt?.verified && deterministicRevision.plan?.canApplyDirectly && deterministicRevision.changed === true) {
                     abortTracker?.throwIfAborted();
                     const existingStage2 = projectData.data?.stage2_outline || {};
                     const outlineData = {
@@ -330,7 +340,7 @@ function registerGenerationRoutes(app, deps) {
 
                     const payload = {
                         result: outlineData,
-                        changed: deterministicRevision.changed || deterministicRevision.receipt.verified,
+                        changed: true, // branch is only reachable when deterministicRevision.changed === true
                         saveVerified: true,
                         revisionReceipt: deterministicRevision.receipt,
                         snapshotIds,
@@ -354,7 +364,11 @@ function registerGenerationRoutes(app, deps) {
             );
             abortTracker?.throwIfAborted();
             outlineData.protected_beats = activeProtectedBeats;
-            const revisionChecklist = notesWithUpload ? buildOutlineRevisionChecklist(notesWithUpload) : [];
+            // Checklist enforcement (semantic verification + repair + honest
+            // STAGE2_CHECKLIST_UNMET) lives inside agent2Outline — it is the
+            // single authority. The route-level lexical re-check that used to
+            // sit here produced false failures on paraphrased-but-applied
+            // revisions (removed 2026-07-18).
             const explicitSequenceReplacement = notesWithUpload ? extractExplicitOutlineSequenceReplacement(notesWithUpload) : null;
             if (explicitSequenceReplacement) {
                 applyExplicitOutlineSequenceReplacement(outlineData, explicitSequenceReplacement);
@@ -362,16 +376,6 @@ function registerGenerationRoutes(app, deps) {
             let structuralOutlinePatch = null;
             if (notesWithUpload && outlineData?.outline) {
                 structuralOutlinePatch = applyStructuralOutlinePatches(outlineData.outline, notesWithUpload);
-            }
-            let missingChecklistItems = revisionChecklist.length
-                ? findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData)
-                : [];
-            if (missingChecklistItems.length) {
-                appendMissingOutlineChecklistBeats(outlineData, missingChecklistItems);
-                missingChecklistItems = findUndercoveredOutlineChecklistItems(revisionChecklist, outlineData);
-            }
-            if (missingChecklistItems.length) {
-                throw new Error(`Stage 2 outline revision did not satisfy required checklist item(s): ${missingChecklistItems.map(item => `"${compactText(item, 180)}"`).join('; ')}`);
             }
             sanitizeOutlineMetaBeats(outlineData);
             const afterOutlineHash = sourcePlanDataHash(JSON.stringify(outlineData?.outline || {}));

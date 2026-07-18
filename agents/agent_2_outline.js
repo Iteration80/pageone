@@ -136,7 +136,7 @@ function isFormatDirectiveChecklistItem(item = '') {
     // Instructions about the outline's own machinery ("tighten all beat
     // descriptions", "preserve all sequence titles", "beat assignments") are
     // process directives, not story content.
-    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline (?:language|format|prose|structure)|lean outline|word count|beat order)\b/i.test(text)) return true;
+    if (/\b(beat descriptions?|beat labels?|beat (?:assignments?|names?)|sequence titles?|outline(?:'s)? (?:language|format|prose|structure)|lean outline|word count|beat order)\b/i.test(text)) return true;
     // Outline surgery ("remove the duplicate 'Aftermath' beat", "rebalance
     // Sequence C and D", "change beats ... from 'Fun and Games' to ...") must
     // be EXECUTED by the revision, never appended as a story beat.
@@ -154,7 +154,7 @@ function isFormatDirectiveChecklistItem(item = '') {
 function isInstructionShapedChecklistItem(item = '') {
     const text = String(item || '');
     // Imperative-led edits: "Update his backstory...", "Make the midpoint punchier".
-    if (/(?:^|:\s*)(?:add|make|ensure|show|open|start|begin|end|include|insert|restore|bring|give|keep|establish|introduce|update|preserve|integrate|incorporate|revise|rework|retain|reinstate|create|write|craft|depict|feature|highlight|emphasize|expand|extend|tighten|trim|cut|shorten|clarify|strengthen|deepen|plant|foreshadow|missing|lost)\s+(?:the|a|an|his|her|their|its|this|that|every|all|each|more|how|us)\b/i.test(text)) return true;
+    if (/(?:^|:\s*)(?:add|make|ensure|show|open|start|begin|end|include|insert|restore|bring|give|keep|maintain|leave|establish|introduce|update|preserve|integrate|incorporate|revise|rework|retain|reinstate|create|write|craft|depict|feature|highlight|emphasize|expand|extend|tighten|trim|cut|shorten|clarify|strengthen|deepen|plant|foreshadow|missing|lost)\s+(?:the|a|an|his|her|their|its|this|that|every|all|each|more|how|us)\b/i.test(text)) return true;
     // Conversational/meta talk: story beats are third-person narration; anything
     // first-person, hedged, or addressed to the assistant is writer conversation
     // ("I think we're missing the cold open...") — enforce it, never paste it.
@@ -342,6 +342,11 @@ function stripConversationalFraming(text = '') {
         .replace(/\b(?:from|in) the (?:previous|old|earlier|last) (?:version|draft|outline)\b/gi, '')
         .replace(/\bwe(?:'re| are| have|'ve)? (?:missing|lost|losing)\b/gi, 'missing')
         .replace(/\b(?:please|kindly)\b/gi, '')
+        // Scope clauses ("Keep/Maintain the rest of the outline unchanged",
+        // "Leave everything else as is") are instructions about what NOT to
+        // touch — never content to enforce or append (observed 2026-07-18:
+        // "Maintain The Rest Of The Outline's Structure" fabricated as a beat).
+        .replace(/(?:^|(?<=[.!?]\s))(?:maintain|keep|preserve|leave|retain)\s+(?:the\s+)?(?:rest|remainder|structure|everything\s+else|all\s+other)[^.!?]*[.!?]?/gi, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
@@ -455,7 +460,13 @@ function specialChecklistCoverage(item = '', outlineResult = {}) {
     const itemText = String(item || '').toLowerCase();
     const allText = outlineAllText(outlineResult);
     const deleteLabel = String(item || '').match(/\[([^\]]+)\]/)?.[1] || '';
-    const itemWithoutBracketedLabels = String(item || '').replace(/\[[^\]]+\]/g, ' ');
+    // Cinematic editing vocabulary is not a delete instruction: "smash cut to
+    // three weeks earlier" made a cold-open ADD brief read as "delete [anchor
+    // label]", so a perfectly applied revision was flagged unmet because the
+    // anchor beat (correctly) still existed (observed 2026-07-18).
+    const itemWithoutBracketedLabels = String(item || '')
+        .replace(/\[[^\]]+\]/g, ' ')
+        .replace(/\b(?:smash|hard|match|jump)\s+cuts?\b|\bcuts?\s+(?:to|back)\b/gi, ' ');
     if (deleteLabel && /\b(delete|remove|cut|omit|drop)\b/i.test(itemWithoutBracketedLabels)) {
         const matchingBeatCount = outlineCoverageUnits(outlineResult).beatUnits
             .filter(unit => new RegExp(`\\b${escapeRegExp(normalizedComparableLabel(deleteLabel)).replace(/\\ /g, '\\s+')}\\b`, 'i').test(normalizedComparableLabel(unit)))
@@ -525,6 +536,77 @@ function unitCoversChecklistItem(unit = '', terms = [], item = '', imagineProjec
         ? Math.min(8, Math.max(4, Math.ceil(terms.length * 0.55)))
         : Math.min(7, Math.max(3, Math.ceil(terms.length * 0.45)));
     return found >= required;
+}
+
+// --- Semantic revision verification ---
+// Lexical term-overlap coverage cannot judge whether a requested change was
+// actually APPLIED by a paraphrasing model: it passes when an anchor-heavy
+// brief self-matches existing beats (false success — observed 2026-07-18, the
+// cold open reported "applied" while no such beat existed), and it fails when
+// a perfectly-applied beat is worded differently from the brief. A compact
+// model call is the only reliable verdict. Fail-open: if the verification
+// call itself errors, fall back to the lexical verdict rather than blocking.
+const REVISION_VERIFICATION_SCHEMA = {
+    type: 'object',
+    properties: {
+        verdicts: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    index: { type: 'number' },
+                    applied: { type: 'boolean' },
+                    evidence: { type: 'string' }
+                },
+                required: ['index', 'applied', 'evidence']
+            }
+        }
+    },
+    required: ['verdicts']
+};
+
+async function verifyChecklistApplied({
+    checklist = [],
+    outlineResult = {},
+    generateContentFn,
+    model,
+    geminiApiKey,
+    anthropicApiKey,
+    retryDelayMs = 750
+}) {
+    if (!checklist.length) return { missing: [], verdicts: [] };
+    const outline = outlineResult?.outline || outlineResult || {};
+    const prompt = `REVISION VERIFICATION.
+You are auditing whether requested outline changes were ACTUALLY applied. For each numbered request below, decide if the outline VISIBLY contains what was requested — judged by meaning, not exact wording (a renamed or paraphrased beat that fulfills the request counts as applied). A request is NOT applied if the outline merely references it, gestures at it, or contains vocabulary from it without the requested content/structure actually being present.
+
+REQUESTS:
+${checklist.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+
+OUTLINE:
+${JSON.stringify(outline, null, 1)}
+
+For each request return { index (1-based), applied, evidence } where evidence names the beat label(s) that satisfy it or states what is missing.`;
+    const response = await callOutlineModel(generateContentFn, {
+        model, geminiApiKey, anthropicApiKey,
+        contents: [prompt],
+        config: {
+            temperature: 0.1,
+            maxOutputTokens: 16000
+        },
+        schema: REVISION_VERIFICATION_SCHEMA
+    }, {
+        label: 'Stage 2 revision verification',
+        retries: 1,
+        delayMs: retryDelayMs
+    });
+    const parsed = parseJsonWithRepair(response.text, { schema: REVISION_VERIFICATION_SCHEMA, label: 'Stage 2 revision verification response' });
+    const verdicts = Array.isArray(parsed?.verdicts) ? parsed.verdicts : [];
+    const missing = [];
+    checklist.forEach((item, index) => {
+        const verdict = verdicts.find(v => Number(v?.index) === index + 1);
+        if (verdict && verdict.applied === false) missing.push(item);
+    });
+    return { missing, verdicts, usage: response.usage };
 }
 
 function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
@@ -1550,7 +1632,41 @@ Please apply the note surgically (allowing for ripple effects) and return the fu
         }
         applyPostRevisionSafeguards(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
 
-        let missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+        // Hybrid enforcement: lexical term-overlap is a cheap first pass, but it
+        // cannot catch FALSE SUCCESSES — an anchor-heavy brief self-matches
+        // existing beats, so "covered" can mean "vocabulary present" while the
+        // requested beat doesn't exist (observed 2026-07-18: the cold open
+        // reported applied while no such beat existed). So every item lexical
+        // coverage calls covered gets a semantic spot-check by a model call.
+        // Fail-open: if the verification call errors, trust the lexical verdict.
+        const semanticSpotCheck = async (items) => {
+            if (!items.length) return [];
+            try {
+                const verification = await verifyChecklistApplied({
+                    checklist: items,
+                    outlineResult: parsed.result,
+                    generateContentFn,
+                    model,
+                    geminiApiKey,
+                    anthropicApiKey,
+                    retryDelayMs
+                });
+                if (verification.usage) parsed.usage = combineUsage(parsed.usage, verification.usage);
+                return verification.missing;
+            } catch (err) {
+                console.warn('Stage 2 revision verification unavailable, trusting lexical coverage:', err.message);
+                return [];
+            }
+        };
+        const checkMissing = async (items) => {
+            if (!items.length) return [];
+            const lexMissing = findUndercoveredChecklistItems(items, parsed.result);
+            const lexCovered = items.filter(item => !lexMissing.includes(item));
+            const falseSuccesses = await semanticSpotCheck(lexCovered);
+            return [...lexMissing, ...falseSuccesses];
+        };
+
+        let missingChecklistItems = await checkMissing(revisionChecklist);
         if (missingChecklistItems.length) {
             const repairPrompt = `${sourceBlock}MANDATORY CHECKLIST REPAIR:
 The previous outline revision changed the file, but it still appears to omit or underrepresent concrete requested checklist items.
@@ -1597,12 +1713,14 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
                 applyExplicitSequenceReplacement(parsed.result, explicitSequenceReplacement);
             }
             applyPostRevisionSafeguards(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
-            missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+            missingChecklistItems = await checkMissing(missingChecklistItems);
             if (missingChecklistItems.length) {
                 appendMissingChecklistBeats(parsed.result, missingChecklistItems);
                 restoreDroppedExistingBeats(parsed.result, currentOutline, postRevisionNotes, { explicitSequenceReplacement });
                 applyRecognitionAndAccountabilityPass(parsed.result, postRevisionNotes);
-                missingChecklistItems = findUndercoveredChecklistItems(revisionChecklist, parsed.result);
+                // Appended items are verbatim, so lexical coverage can see them —
+                // no third model call needed to confirm the append landed.
+                missingChecklistItems = findUndercoveredChecklistItems(missingChecklistItems, parsed.result);
             }
         }
 
