@@ -17,11 +17,19 @@ Each sequence must contain story beats. Each beat must include:
 * `beat_label` — a user-facing story title for the beat.
 * `beat_name` — the Save the Cat beat name or function this story beat satisfies.
 * `description` — active-present story action, capped at roughly 80 words. Sequence climaxes and major setpieces may run up to roughly 150 words (at most one or two such beats per sequence); the length budget buys more story turns, never dialogue blocks or staging.
-* `emotional_arc` — the emotional turn created by the beat.
-* `pacing_notes` — concise rhythm, pressure, or escalation guidance.
-* `genre_variation_notes` — optional genre-specific structural note when useful.
+* `emotional_arc` — a WORKING NOTE, not prose: name the character and state the concrete emotional change in the form "NAME: from STATE to STATE." Both states must be playable by an actor (afraid, resolved, humiliated, giddy) — never abstractions or imagery.
+* `pacing_notes` — an executable rhythm instruction a director could follow, 12 words or fewer (e.g. "fast comic beats, hard stop on the reveal").
+* `genre_variation_notes` — include only when it tells the downstream writer something actionable about how this beat plays the genre; omit otherwise.
 
 Also provide a top-level `stc_genre_category` string.
+
+### Annotation voice: working notes, never poetry
+These three fields are production machinery — they feed the Treatment's pacing, they are not reader-facing prose. Write them like margin notes from a script supervisor, not like a poster blurb. Banned constructions: em-dash aphorisms, "X laced with Y," "X braided with Y," paradox flourishes ("victory indistinguishable from doom"), and any metaphor in place of a named emotional state.
+
+* **Wrong:** `emotional_arc: "Curiosity laced with unease — a paradise that feels like a held breath."`
+* **Right:** `emotional_arc: "Audience: from curious to uneasy. Elena: composed, hiding dread."`
+* **Wrong:** `pacing_notes: "Slow, hypnotic establishing rhythm; let the wrongness simmer under polish."`
+* **Right:** `pacing_notes: "Slow establishing rhythm; end on one wrong detail."`
 
 ## 3. THE 8-SEQUENCE MACRO-STRUCTURE
 Divide the narrative into 8 distinct sequences. Every sequence acts as a self-contained mini-movie with its own objective, rising action, and sequence climax that propels the story into the next sequence.

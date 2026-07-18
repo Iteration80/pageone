@@ -198,6 +198,21 @@ test('Stage 2 outline meta guidance is filtered across generation, display, and 
     assert.match(skillSource, /No Meta Notes in Outline JSON/);
 });
 
+test('Stage 2 SOP demands working-note annotations, not prose-poetry', () => {
+    // 2026-07-17 Carsten feedback on the Dearly Beloved export: Arc lines like
+    // "Curiosity laced with unease — a paradise that feels like a held breath"
+    // read abstract and pretentious. The annotations are production machinery
+    // (they pace the Treatment), so the SOP must demand playable working notes.
+    const skillSource = fs.readFileSync(path.join(__dirname, '..', 'skills', 'skill_stage2_outline.md'), 'utf8');
+    assert.match(skillSource, /WORKING NOTE, not prose/);
+    assert.match(skillSource, /from STATE to STATE/);
+    assert.match(skillSource, /playable by an actor/);
+    assert.match(skillSource, /12 words or fewer/);
+    assert.match(skillSource, /working notes, never poetry/i);
+    assert.match(skillSource, /em-dash aphorisms/);
+    assert.match(skillSource, /X laced with Y/);
+});
+
 test('build fingerprint is exposed, cached, and stamped into exports', () => {
     const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
     const projectRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'projects.js'), 'utf8');

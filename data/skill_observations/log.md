@@ -35,7 +35,7 @@ Observations captured during Claude Code sessions. Each entry identifies a poten
 ---
 
 ### Observation 4: Stage 2 Arc/Pacing annotations read abstract and pretentious
-**Status:** OPEN
+**Status:** ACTIONED (2026-07-17 — SOP annotation contract rewritten to working notes: "NAME: from STATE to STATE" arcs, ≤12-word executable pacing notes, banned em-dash aphorisms/"X laced with Y", worked wrong/right examples added; guard test pins the contract. Carsten chose option 1, working notes; UI de-emphasis (option 2) not requested. Takes effect on the next generation/revision — existing saved annotations keep the old voice until regenerated.)
 **Date:** 2026-07-17
 **Skill:** skills/skill_stage2_outline.md
 **Signal:** Carsten, reviewing the Dearly Beloved outline export: "I'm not sure the 'Arc' descriptions are good. They read heavily 'abstract' and pretentious. Not convinced of their usefulness yet." Samples from the export: "Curiosity laced with unease — a paradise that feels like a held breath"; "Twin uncertainty — his hunger versus her guilt — circling one door"; "Grief and love braided together — an ally's gift that costs him everything." These are perfumed metaphor, not working notes. The annotations (emotional_arc/pacing_notes/genre_variation_notes) exist to carry the merged Beats-stage function into `stage4_beats` for downstream Treatment pacing — their VALUE is functional, but their VOICE is literary-poster copy.
