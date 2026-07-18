@@ -341,6 +341,124 @@ test('Stage 2 append safety net skips instruction-shaped items so they fail hone
     assert.equal(allBeats.length, 0, 'instruction-shaped items must never be pasted in as beats');
 });
 
+test('Stage 2 recognition/accountability pass never fires on non-I.M.A.G.I.N.E. projects', async () => {
+    // Pre-gate, "midpoint" + "recognize" in ANY project's notes appended
+    // "Rebecca understands the essential truth: Dapple was mine" to that
+    // project's midpoint beat, and an "accountability" item demanded the
+    // literal I.M.A.G.I.N.E. line "answer for what you did" in coverage.
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: Setup', beats: [{ beat_label: 'Opening', description: 'Mara cases the flooded arcade.' }] }],
+        act_2: [{
+            sequence_number_and_title: 'Sequence D: The Turn',
+            beats: [{ beat_label: 'Midpoint - The Truth', description: 'Mara confronts her mother in the pump room.' }]
+        }],
+        act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [{ beat_label: 'The Ending Line', description: 'Mara returns the blue key.' }] }]
+    };
+    const revised = {
+        title: pitch.title, genre: pitch.genre, logline: pitch.logline,
+        outline: JSON.parse(JSON.stringify(currentOutline))
+    };
+    revised.outline.act_2[0].beats[0].description = "At the midpoint Mara finally recognizes her mother's sacrifice. She doesn't consciously recognize it at the start of the scene, but by the end she does, and she breaks down in the pump room.";
+    revised.outline.act_3[0].beats[0].description = 'Her ending line lands with accountability: Mara owns what she did to her sister as she returns the blue key.';
+    const { calls, generateContentFn } = makeRecorder(() => ({ text: JSON.stringify(revised), usage: { inputTokens: 1, outputTokens: 1 } }));
+
+    const notes = `The midpoint should show Mara finally recognizing her mother's sacrifice. She doesn't consciously recognize it yet at the start of the scene, but by the end she does.
+
+Give the ending line more accountability: Mara must own what she did to her sister.`;
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test', geminiApiKey: 'test-key', generateContentFn
+    });
+
+    assert.equal(calls.length, 1, 'a fully applied revision must not trip the special-coverage repair loop');
+    const resultText = JSON.stringify(result.outline);
+    assert.doesNotMatch(resultText, /Dapple|Becky|imaginary friend|answer for what you did/i);
+    assert.match(resultText, /recognizes her mother's sacrifice/i);
+    assert.match(resultText, /owns what she did to her sister/i);
+});
+
+test('Stage 2 append fallback labels generic items from their own content, not I.M.A.G.I.N.E. conventions', () => {
+    const { appendMissingChecklistBeats } = require('../agents/agent_2_outline');
+    const outlineResult = { outline: { act_1: [], act_2: [], act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [] }] } };
+    appendMissingChecklistBeats(outlineResult, [
+        'Closing image: she frames the photo of her father on the mantel and finally smiles.'
+    ]);
+    const beats = outlineResult.outline.act_3[0].beats;
+    assert.equal(beats.length, 1);
+    assert.equal(beats[0].beat_label, 'Closing Image', 'generic photo/closing items must not be labeled Kitchen Closing Image');
+    assert.doesNotMatch(beats[0].description, /^In the kitchen/i);
+    assert.match(beats[0].description, /she frames the photo of her father/i);
+});
+
+test('Stage 2 known-ending restore never injects I.M.A.G.I.N.E. canon into another project', async () => {
+    // "Closing Image - The Photo on the Wall" is a label another project can
+    // legitimately use; a restore-phrased note without its own beat body used
+    // to swap in the hardcoded Rebecca/Becky/Dapple kitchen paragraph.
+    const currentOutline = {
+        act_1: [{ sequence_number_and_title: 'Sequence A: Setup', beats: [{ beat_label: 'Opening', description: 'Mara cases the flooded arcade.' }] }],
+        act_2: [],
+        act_3: [{
+            sequence_number_and_title: 'Sequence H: Resolution',
+            beats: [{ beat_label: 'Closing Image - The Photo on the Wall', description: 'A photo of Mara and June on the arcade wall catches the morning light as the story ends.' }]
+        }]
+    };
+    const unchanged = { title: pitch.title, genre: pitch.genre, logline: pitch.logline, outline: JSON.parse(JSON.stringify(currentOutline)) };
+    const { generateContentFn } = makeRecorder(() => ({ text: JSON.stringify(unchanged), usage: { inputTokens: 1, outputTokens: 1 } }));
+
+    const { result } = await agent2Outline(pitch, currentOutline, 'Please keep the Closing Image - The Photo on the Wall beat as the ending — restore it exactly as saved, with the photo of Mara and June on the arcade wall.', null, {
+        model: 'gemini-test', geminiApiKey: 'test-key', generateContentFn
+    });
+
+    const closing = result.outline.act_3[0].beats.at(-1);
+    assert.equal(closing.beat_label, 'Closing Image - The Photo on the Wall');
+    assert.match(closing.description, /Mara and June/);
+    assert.doesNotMatch(JSON.stringify(result.outline), /Dapple|Becky|Rebecca|Furdlegurr|visitor passes/i);
+});
+
+test('Stage 2 beatKind keeps structural kinds generic and scopes I.M.A.G.I.N.E. vocabulary to that story', () => {
+    const { beatKind } = require('../agents/agent_2_outline');
+    // Generic structural classification still works for any project.
+    assert.equal(beatKind({ beat_label: 'Midpoint - The Turn', description: 'Mara learns the truth.' }), 'midpoint');
+    assert.equal(beatKind({ beat_label: 'Climax - The Flood', description: 'The arcade floods.' }), 'climax');
+    assert.equal(beatKind({ beat_label: 'Closing Image', description: 'The arcade goes dark.' }), 'closing-image');
+    // Generic content no longer lands in I.M.A.G.I.N.E. roles.
+    assert.equal(beatKind({ beat_label: 'The Monkey Business', description: 'A heist goes sideways.' }), '');
+    assert.equal(beatKind({ beat_label: 'Late Shift', description: 'Two strangers share pie in a diner at 3 AM.' }), '');
+    assert.equal(beatKind({ beat_label: 'Visiting Day', description: 'Visitor passes are checked at the prison gate.' }), '');
+    assert.equal(beatKind({ beat_label: "Rebecca's Memory", description: 'Rebecca recalls the storm drain near her childhood home.' }), '');
+    // I.M.A.G.I.N.E. beats keep their roles.
+    assert.equal(beatKind({ beat_label: 'Aftermath - A Quiet Reckoning', description: "Rebecca confronts Dave: 'Why did Dapple know my name?'" }), 'diner');
+    assert.equal(beatKind({ beat_label: 'Climax - The Apology and the Key', description: "She doesn't fight Dapple. Protocol erasure aborts." }), 'climax');
+    assert.equal(beatKind({ beat_label: 'Morning After', description: 'Rebecca sets breakfast for three while Furdlegurr is visible; visitor passes for Dapple and Scott wait on the fridge.' }), 'closing-image');
+});
+
+test('Stage 2 structural delete survives the additions merge even when the note quotes the beat', async () => {
+    // A "delete [X]" note quotes X's own words, so the deleted beat reads as
+    // brief-traceable; the additions merge used to adopt it right back from
+    // the model output and the delete then failed checklist verification.
+    const currentOutline = {
+        act_1: [{
+            sequence_number_and_title: 'Sequence A: Setup',
+            beats: [
+                { beat_label: 'Opening', description: 'Mara cases the flooded arcade.' },
+                { beat_label: 'Editor Aside', description: 'This paragraph works but repeats itself.' }
+            ]
+        }],
+        act_2: [],
+        act_3: [{ sequence_number_and_title: 'Sequence H: Resolution', beats: [{ beat_label: 'Final Image', description: 'The arcade goes dark.' }] }]
+    };
+    const unchanged = { title: pitch.title, genre: pitch.genre, logline: pitch.logline, outline: JSON.parse(JSON.stringify(currentOutline)) };
+    const { calls, generateContentFn } = makeRecorder(() => ({ text: JSON.stringify(unchanged), usage: { inputTokens: 1, outputTokens: 1 } }));
+
+    const notes = `There's an accidental note left as a beat.
+The last paragraph is [Editor Aside] and says the paragraph works but repeats itself. Delete that entirely.`;
+    const { result } = await agent2Outline(pitch, currentOutline, notes, null, {
+        model: 'gemini-test', geminiApiKey: 'test-key', generateContentFn
+    });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(result.outline.act_1[0].beats.map(beat => beat.beat_label), ['Opening']);
+});
+
 test('Stage 2 outline agent output filters leaked tone guidance beats before returning', async () => {
     const outlineResponse = {
         title: pitch.title,

@@ -416,6 +416,24 @@ function outlineAllText(outlineResult = {}) {
         .toLowerCase();
 }
 
+// The I.M.A.G.I.N.E. project needed deterministic revision passes (recognition
+// midpoint rewrite, storm-drain memory swap, known ending restores) that carry
+// hardcoded story text. This module has no project-identity input, so the only
+// honest gate is the content itself: these anchor nouns exist in no other
+// story. Everything I.M.A.G.I.N.E.-specific must sit behind one of these
+// checks — two prior hardcodes that didn't (the checklist keyword gate and
+// notesAllowSequenceAdditions) silently broke revisions for every other
+// project (fixed 2026-07-17).
+const IMAGINE_STORY_VOCAB = /\b(?:dapple|pillermoss|furdlegurr|robotobob|blounder)\b/i;
+
+function isImagineStoryText(text = '') {
+    return IMAGINE_STORY_VOCAB.test(String(text || ''));
+}
+
+function isImagineOutline(outlineResult = {}) {
+    return isImagineStoryText(outlineAllText(outlineResult));
+}
+
 function outlineBeatText(outlineResult = {}, predicate = () => false) {
     const outline = outlineResult?.outline || outlineResult || {};
     const matches = [];
@@ -447,6 +465,13 @@ function specialChecklistCoverage(item = '', outlineResult = {}) {
         }
         return !new RegExp(escapeRegExp(deleteLabel), 'i').test(JSON.stringify(outlineResult || {}));
     }
+    // The remaining special cases verify I.M.A.G.I.N.E. story semantics against
+    // I.M.A.G.I.N.E. phrases. On any other project they triggered on generic
+    // craft words ("midpoint ... recognize", "accountability", "ending line")
+    // and then demanded story text that could never exist, so a perfectly
+    // applied revision failed with STAGE2_CHECKLIST_UNMET. Other projects fall
+    // through to the generic term-overlap coverage (return null).
+    if (!isImagineOutline(outlineResult)) return null;
     if (/\bmidpoint\b/.test(itemText) && /(doesn|does not|recogniz|should know|hello,\s*becky|dapple was mine|imaginary friend)/.test(itemText)) {
         const outline = outlineResult?.outline || outlineResult || {};
         const midpointTexts = [];
@@ -481,15 +506,22 @@ function specialChecklistCoverage(item = '', outlineResult = {}) {
     return null;
 }
 
-function requiresBeatLevelCoverage(item = '') {
-    return /\b(kitchen|closing image|final image|photo|breakfast|visitor pass|visitor passes|framed in the light)\b/i.test(item);
+// A closing/final image is a single-beat object, so its coverage must live in
+// one beat rather than be smeared across a sequence. The extra keyword list
+// (kitchen/photo/breakfast/visitor passes...) is I.M.A.G.I.N.E. restore-brief
+// vocabulary — on other projects those generic words ("photo") only raised the
+// coverage bar and produced false checklist failures, so they apply only when
+// the outline is that project.
+function requiresBeatLevelCoverage(item = '', imagineProject = false) {
+    if (/\b(closing image|final image)\b/i.test(item)) return true;
+    return imagineProject && /\b(kitchen|photo|breakfast|visitor pass|visitor passes|framed in the light)\b/i.test(item);
 }
 
-function unitCoversChecklistItem(unit = '', terms = [], item = '') {
+function unitCoversChecklistItem(unit = '', terms = [], item = '', imagineProject = false) {
     if (!terms.length) return true;
     const unitStems = new Set(coverageTokens(unit).map(stemToken));
     const found = terms.filter(term => unitStems.has(term) || unit.includes(term)).length;
-    const required = requiresBeatLevelCoverage(item)
+    const required = requiresBeatLevelCoverage(item, imagineProject)
         ? Math.min(8, Math.max(4, Math.ceil(terms.length * 0.55)))
         : Math.min(7, Math.max(3, Math.ceil(terms.length * 0.45)));
     return found >= required;
@@ -498,13 +530,14 @@ function unitCoversChecklistItem(unit = '', terms = [], item = '') {
 function findUndercoveredChecklistItems(checklist = [], outlineResult = {}) {
     if (!checklist.length) return [];
     const { beatUnits, sequenceUnits } = outlineCoverageUnits(outlineResult);
+    const imagineProject = isImagineOutline(outlineResult);
     return checklist.filter(item => {
         const specialCoverage = specialChecklistCoverage(item, outlineResult);
         if (specialCoverage !== null) return !specialCoverage;
         const terms = checklistTerms(item);
         if (terms.length < 4) return false;
-        const units = requiresBeatLevelCoverage(item) ? beatUnits : beatUnits.concat(sequenceUnits);
-        return !units.some(unit => unitCoversChecklistItem(unit, terms, item));
+        const units = requiresBeatLevelCoverage(item, imagineProject) ? beatUnits : beatUnits.concat(sequenceUnits);
+        return !units.some(unit => unitCoversChecklistItem(unit, terms, item, imagineProject));
     });
 }
 
@@ -666,18 +699,27 @@ function restoreDroppedExistingBeats(outlineResult = {}, currentOutlineInput = {
     return outlineResult;
 }
 
+// Classify a beat's structural role. Label-driven kinds (midpoint, climax,
+// closing image...) are valid for any project. The I.M.A.G.I.N.E.-vocabulary
+// routes only apply when the beat itself carries that story's anchor nouns —
+// without the gate, generic content ("a diner at 3 AM", "visitor passes" in a
+// prison drama, any label containing "key") got classified into I.M.A.G.I.N.E.
+// roles and mis-routed note targeting and beat matching.
 function beatKind(beat = {}) {
     const label = String(beat?.beat_label || beat?.beat || '');
     const description = String(beat?.description || '');
     const text = `${label} ${description}`;
+    const imagineBeat = isImagineStoryText(text);
     if (/\bmidpoint\b/i.test(label) || /hello,\s*becky/i.test(description)) return 'midpoint';
-    if (/quiet reckoning/i.test(label) || /\bdiner\b/i.test(description) || /why did dapple know my name|how long have you known/i.test(description)) return 'diner';
-    if (/Rebecca's (?:Realization|Memory)|Quiet Kingdom|Bonded Phrase/i.test(label) || /source-true|pillermoss|quiet kingdom|storm drain/i.test(description)) return 'rebecca-memory';
-    if (/false rescue/i.test(label) || /real dramatic question/i.test(description)) return 'false-rescue';
-    if (/climax|apology|key/i.test(label) || /protocol erasure aborts|doesn'?t fight dapple/i.test(description)) return 'climax';
+    if (/quiet reckoning/i.test(label) || (imagineBeat && /\bdiner\b/i.test(description)) || /why did dapple know my name|how long have you known he was mine/i.test(description)) return 'diner';
+    if (/Quiet Kingdom|Bonded Phrase/i.test(label) || /source-true|pillermoss|quiet kingdom/i.test(description)
+        || (imagineBeat && (/Rebecca's (?:Realization|Memory)/i.test(label) || /storm drain/i.test(description)))) return 'rebecca-memory';
+    if (/false rescue/i.test(label) || (imagineBeat && /real dramatic question/i.test(description))) return 'false-rescue';
+    if (/\bclimax\b/i.test(label) || /protocol erasure aborts|doesn'?t fight dapple/i.test(description)
+        || (imagineBeat && /apology|key/i.test(label))) return 'climax';
     if (/dapple/i.test(label) && /last choice|surrender|cuff/i.test(text)) return 'dapple-choice';
     if (/aftermath.+new order|new order/i.test(label)) return 'new-order';
-    if (/closing image|photo on the wall|kitchen closing image/i.test(label) || /breakfast for three|visitor passes?/i.test(description)) return 'closing-image';
+    if (/closing image|photo on the wall|kitchen closing image/i.test(label) || (imagineBeat && /breakfast for three|visitor passes?/i.test(description))) return 'closing-image';
     return '';
 }
 
@@ -870,10 +912,18 @@ function applyKnownEndingRestores(outlineResult = {}, notes = '') {
 
     for (const beat of KNOWN_ENDING_RESTORE_BEATS) {
         if (!notesRequestKnownEndingBeat(notes, beat.label)) continue;
+        const bodyFromNotes = knownEndingBodyFromNotes(notes, beat.label);
+        // The fallback description is I.M.A.G.I.N.E. canon. A brief from another
+        // project can legitimately use one of these generic-sounding labels
+        // ("Closing Image - The Photo on the Wall"); without a body of its own
+        // and without I.M.A.G.I.N.E. vocabulary in the notes, restoring here
+        // would inject a foreign story paragraph — skip and let the model plus
+        // checklist enforcement handle it instead.
+        if (!bodyFromNotes && !isImagineStoryText(notes)) continue;
         const hadBeat = (sequence.beats || []).some(existing => labelsEqual(existing?.beat_label || existing?.beat || '', beat.label));
         const restoreBeat = {
             ...beat,
-            description: knownEndingBodyFromNotes(notes, beat.label) || beat.description
+            description: bodyFromNotes || beat.description
         };
         insertKnownEndingBeat(sequence, restoreBeat);
         if (!hadBeat) {
@@ -981,6 +1031,15 @@ function applyScopedRevisionMerge(outlineResult = {}, currentOutlineInput = {}, 
             // The merge's job is to protect existing story text from unrequested
             // rewrites, never to destroy new content the writer asked for.
             (revisedSequence.beats || []).forEach((revisedBeat, position) => {
+                // A beat a structural op just deleted/replaced must not ride
+                // back in through the additions path: the model often still
+                // carries it, and a "delete [X]" note quotes X's own words, so
+                // it reads as brief-traceable.
+                const removedByStructuralOp = structuralPatch.operations.some(op => (
+                    (op.type === 'delete' || op.type === 'replace')
+                        && normalizedComparableLabel(op.oldLabel || '') === normalizedComparableLabel(revisedBeat?.beat_label || revisedBeat?.beat || '')
+                ));
+                if (removedByStructuralOp) return;
                 if (!sequenceHasEquivalentBeat(mergedSequence, revisedBeat) && beatTracesToNotes(revisedBeat, notes)) {
                     mergedSequence.beats.splice(Math.min(position, mergedSequence.beats.length), 0, cloneBeat(revisedBeat));
                     appliedScopedChange = true;
@@ -1036,6 +1095,12 @@ function replaceQuietKingdomMemory(description = '') {
 }
 
 function applyRecognitionAndAccountabilityPass(outlineResult = {}, notes = '') {
+    // This entire pass is hardcoded I.M.A.G.I.N.E. surgery (midpoint
+    // recognition rewrite, storm-drain memory swap, accountability line). Its
+    // triggers ride on generic craft words — "midpoint" + "recognize" alone
+    // used to append "Dapple was mine" text into ANY project's midpoint beat —
+    // so it only runs when the outline is verifiably that project.
+    if (!isImagineOutline(outlineResult)) return outlineResult;
     const request = String(notes || '');
     const wantsRecognition = /\bmidpoint\b/i.test(request)
         && (/\brecogniz/i.test(request) || /dapple was mine/i.test(request) || /doesn'?t consciously recognize|does not consciously recognize/i.test(request) || /hello,\s*becky/i.test(request));
@@ -1178,9 +1243,14 @@ function titleCaseLabel(value = '') {
         .join(' ') || 'Restored Beat';
 }
 
-function beatLabelForChecklistItem(item = '') {
+// The "Kitchen Closing Image" label and the "In the kitchen, ..." reframing
+// below are I.M.A.G.I.N.E. restore-brief conveniences (their closing image IS
+// a kitchen photo). Applied to another project they mislabeled any checklist
+// item mentioning a photo or breakfast and rewrote its content, so they only
+// run for that project; everyone else gets the generic label/description path.
+function beatLabelForChecklistItem(item = '', imagineProject = false) {
     const text = String(item || '');
-    if (/\b(?:kitchen|itchen|closing image|final image|photo|breakfast|visitor passes?)\b/i.test(text)) {
+    if (imagineProject && /\b(?:kitchen|itchen|closing image|final image|photo|breakfast|visitor passes?)\b/i.test(text)) {
         return 'Kitchen Closing Image';
     }
     const colon = text.match(/^([^:]{4,80}):/);
@@ -1188,7 +1258,7 @@ function beatLabelForChecklistItem(item = '') {
     return titleCaseLabel(text);
 }
 
-function beatDescriptionForChecklistItem(item = '') {
+function beatDescriptionForChecklistItem(item = '', imagineProject = false) {
     let text = String(item || '')
         .replace(/\s*-->[\s\S]*$/g, '')
         .replace(/\bthis is still missing\b[\s\S]*$/i, '')
@@ -1198,13 +1268,15 @@ function beatDescriptionForChecklistItem(item = '') {
     const colon = text.match(/^[^:]{4,80}:\s*([\s\S]+)$/);
     if (colon?.[1]) text = colon[1].trim();
 
-    const photoIndex = text.search(/\bphoto\b/i);
-    if (photoIndex > 0 && /\b(?:kitchen|itchen|closing image|final image)\b/i.test(item)) {
-        text = text.slice(photoIndex).trim();
-    }
-    if (/^photo of\b/i.test(text)) text = text.replace(/^photo of/i, 'a photo of');
-    if (/\b(?:kitchen|itchen|closing image)\b/i.test(item) && !/^in the kitchen\b/i.test(text)) {
-        text = `In the kitchen, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    if (imagineProject) {
+        const photoIndex = text.search(/\bphoto\b/i);
+        if (photoIndex > 0 && /\b(?:kitchen|itchen|closing image|final image)\b/i.test(item)) {
+            text = text.slice(photoIndex).trim();
+        }
+        if (/^photo of\b/i.test(text)) text = text.replace(/^photo of/i, 'a photo of');
+        if (/\b(?:kitchen|itchen|closing image)\b/i.test(item) && !/^in the kitchen\b/i.test(text)) {
+            text = `In the kitchen, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+        }
     }
     if (text && !/[.!?]$/.test(text)) text += '.';
     return text || compactText(item, 800);
@@ -1274,6 +1346,7 @@ function applyExplicitSequenceReplacement(outlineResult = {}, replacement = null
 function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
     if (!missingItems.length) return outlineResult;
     const outline = outlineResult?.outline || outlineResult || {};
+    const imagineProject = isImagineOutline(outlineResult);
     if (!outline.act_1) outline.act_1 = [];
     if (!outline.act_2) outline.act_2 = [];
     if (!outline.act_3) outline.act_3 = [];
@@ -1291,8 +1364,8 @@ function appendMissingChecklistBeats(outlineResult = {}, missingItems = []) {
         const sequence = finalOutlineSequence(outline, item);
         if (!Array.isArray(sequence.beats)) sequence.beats = [];
         sequence.beats.push({
-            beat_label: beatLabelForChecklistItem(item),
-            description: beatDescriptionForChecklistItem(item)
+            beat_label: beatLabelForChecklistItem(item, imagineProject),
+            description: beatDescriptionForChecklistItem(item, imagineProject)
         });
     }
     return outlineResult;
@@ -1592,6 +1665,7 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
 module.exports = {
     agent2Outline,
     outlineHasContent,
+    beatKind,
     buildRevisionChecklist,
     isFormatDirectiveChecklistItem,
     isInstructionShapedChecklistItem,
