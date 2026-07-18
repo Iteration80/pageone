@@ -432,7 +432,10 @@ function registerGenerationRoutes(app, deps) {
                 revisionReceipt: revisionTransaction?.receipt,
                 snapshotIds,
                 derivedStage4Beats,
-                checklistVerified: revisionChecklist.length > 0,
+                // Reaching this payload means agent2Outline's internal checklist
+                // enforcement already passed (it throws STAGE2_CHECKLIST_UNMET
+                // otherwise), so a revision here is verified by definition.
+                checklistVerified: !!notesWithUpload,
                 ...sourceResponseExtras(sourcePacket)
             };
             completeGenerationEndpoint({ res, streaming, send, payload });

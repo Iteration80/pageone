@@ -854,6 +854,13 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(agent2Source, /semanticSpotCheck/);
     assert.match(agent2Source, /STAGE2_CHECKLIST_UNMET/);
     assert.doesNotMatch(generationRoutes, /findUndercoveredOutlineChecklistItems\(revisionChecklist/);
+    // `revisionChecklist` was deleted with the route-level enforcement; a leftover
+    // reference to it in the response payload threw a ReferenceError AFTER a
+    // successful revision, so the outline was correctly revised but never saved
+    // and the user saw "system error" (regression 2026-07-18). Any bare use of
+    // the removed identifier must fail the suite. (buildOutlineRevisionChecklist
+    // has a capital R, so it does not match this case-sensitive word-boundary.)
+    assert.doesNotMatch(generationRoutes, /\brevisionChecklist\b/);
     assert.match(generationRoutes, /extractExplicitOutlineSequenceReplacement\(notesWithUpload\)/);
     assert.match(generationRoutes, /applyExplicitOutlineSequenceReplacement\(outlineData, explicitSequenceReplacement\)/);
     assert.ok(generationRoutes.indexOf('applyStageRevisionPlan({') < generationRoutes.indexOf('agent2Outline('));
