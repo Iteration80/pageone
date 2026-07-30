@@ -310,15 +310,25 @@ async function extractAttachmentText(attachment) {
 }
 
 // ─── Settings (BYOK + per-stage model config) ─────────────────────────────────
-let appSettings = {};
+// `const`, and never reassigned: route modules receive this object by reference at
+// registration time (registerProjectRoutes), which happens BEFORE loadSettings() runs
+// at startup. Rebinding this variable would leave those routes holding a stale empty
+// object — which silently blanked the Settings modal and made every Save rewrite all
+// ten stageModels to the client's hardcoded default. Mutate in place instead.
+const appSettings = {};
+
+function replaceAppSettings(next = {}) {
+    Object.keys(appSettings).forEach(key => delete appSettings[key]);
+    Object.assign(appSettings, next);
+}
 
 async function loadSettings() {
     try {
         const raw = await fs.readFile(SETTINGS_PATH, 'utf-8');
-        appSettings = JSON.parse(raw);
+        replaceAppSettings(JSON.parse(raw));
         console.log(`Settings loaded from ${SETTINGS_PATH}`);
     } catch {
-        appSettings = {}; // file doesn't exist yet — fall back to .env
+        replaceAppSettings({}); // file doesn't exist yet — fall back to .env
     }
 }
 
