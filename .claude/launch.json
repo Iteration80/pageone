@@ -4,7 +4,7 @@
     {
       "name": "pageone",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/carstenkurpanek/Documents/COWORK/ANTIGRAVITY/PageOne && PORT=3467 exec node server.js"],
+      "runtimeArgs": ["-c", "cd \"/Users/carstenkurpanek/Library/Mobile Documents/com~apple~CloudDocs/Documents/COWORK/ANTIGRAVITY/PageOne\" && PORT=3467 exec node server.js"],
       "port": 3467
     }
   ]

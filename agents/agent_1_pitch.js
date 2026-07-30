@@ -55,6 +55,8 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
             properties: {
                 pitch_options: {
                     type: 'array',
+                    minItems: 3,
+                    maxItems: 3,
                     items: pitchItemSchema
                 }
             },
