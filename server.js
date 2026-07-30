@@ -1981,7 +1981,17 @@ async function finalizeGeneratedStageArtifact({
     });
 
     projectData.data = projectData.data || {};
+    // The model's result carries no _meta, so assigning it wholesale drops the
+    // stage's provenance. Carry the prior _meta across; stampGenerated/stampRevised
+    // below then update it. Without this, a revision loses generated_at entirely
+    // (stampRevised spreads an already-empty _meta).
+    // (Array results such as stage6_scenes can't hold _meta at all — non-index
+    // array properties are dropped by JSON.stringify — so skip them.)
+    const priorStageMeta = projectData.data[stageKey]?._meta;
     projectData.data[stageKey] = result;
+    if (priorStageMeta && result && typeof result === 'object' && !Array.isArray(result) && !result._meta) {
+        projectData.data[stageKey]._meta = { ...priorStageMeta };
+    }
     if (beforeSave) await beforeSave(projectData);
 
     if (operation === 'revision') {
