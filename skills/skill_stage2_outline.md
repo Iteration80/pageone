@@ -12,6 +12,8 @@ Return exactly 8 sequences:
 * **Act II:** 4 sequences.
 * **Act III:** 2 sequences.
 
+**Each sequence must carry 4–6 story beats — roughly 40 across the full outline. This is a floor, not a target to skim.** Satisfying the 15 Save the Cat functions with 15 lean beats is NOT an acceptable outline: a feature has ~8 minutes of screen time per sequence-beat at that density, which is too coarse for the writer to review, revise, or build a Treatment from. The outline is the artifact the writer approves, so the story turns must be committed HERE — a downstream stage inventing material the outline never specified moves story decisions out of the writer's hands. Note this floor works WITH the ~80-word cap below, not against it: more beats, each still short. If you find yourself writing longer beats to add substance, split them into more beats instead.
+
 Each sequence must contain story beats. Each beat must include:
 
 * `beat_label` — a user-facing story title for the beat.
@@ -58,6 +60,8 @@ Distribute the 15 Save the Cat beats across the 8-sequence outline without chang
 15. Final Image
 
 Use `beat_name` for the STC function. Multiple story beats may share a sequence, and a single sequence may carry multiple STC functions, but every STC function must be represented across the full outline.
+
+**These 15 functions are a coverage requirement, NOT a beat count.** The outline carries ~40 beats (§2) against 15 STC functions, so most functions are served by several consecutive beats and the same `beat_name` will repeat — that is correct and expected. A long function like Fun and Games or Bad Guys Close In should span multiple beats rather than being compressed into one. Never emit a 15-beat outline on the grounds that there are 15 Save the Cat beats.
 
 Screenwriting terms are metaphors. Do not literally write scenes where characters save, rescue, feed, pet, or interact with animals, bugs, or pets to create empathy merely because of the phrase "Save the Cat." Empathy must come from human stakes, vulnerability, sacrifice, pressure, and choice.
 
