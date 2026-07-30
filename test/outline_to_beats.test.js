@@ -324,3 +324,39 @@ test('outlineToHybridBeatSheet accepts raw outline objects', () => {
     assert.equal(result.hybrid_beat_sheet[0].beats[0].beat_name, 'Final Image');
     assert.equal(result.hybrid_beat_sheet[0].beats[0].detailed_action, 'Mara returns the key.');
 });
+
+// A revision brief targeting a Save the Cat annotation ("change this beat's
+// pacing_notes to X") used to be structurally unsatisfiable: outlineCoverageUnits
+// built each beat's coverage text from sequence title + beat_label + description
+// only, so the annotation fields were invisible to the coverage scan. The checklist
+// item stayed "undercovered" no matter how correctly the model applied it, and
+// STAGE2_CHECKLIST_UNMET discarded the entire revision. Observed live 2026-07-30
+// on MIRAGE BEND (Sequence H / "Hard Truths"), where the same request failed twice.
+test('checklist coverage sees Save the Cat annotations, not just beat descriptions', () => {
+    const { findUndercoveredChecklistItems } = require('../agents/agent_2_outline.js');
+
+    const outlineWithAnnotationApplied = {
+        outline: {
+            act_1: [], act_2: [],
+            act_3: [{
+                sequence_number_and_title: 'Sequence H: The Reckoning at Ocotillo',
+                beats: [{
+                    beat_label: 'Hard Truths',
+                    beat_name: 'Final Image',
+                    description: 'Nora testifies as the reservoir drains behind her.',
+                    emotional_arc: 'Nora: from resolved to hollowed.',
+                    pacing_notes: 'Hold the last frame; cut hard to black.'
+                }]
+            }]
+        }
+    };
+
+    const item = 'In Sequence H ("The Reckoning at Ocotillo"), update the beat "Hard Truths" '
+        + 'by changing its pacing_notes to "Hold the last frame; cut hard to black."';
+
+    assert.deepEqual(
+        findUndercoveredChecklistItems([item], outlineWithAnnotationApplied),
+        [],
+        'an applied annotation edit must count as covered'
+    );
+});

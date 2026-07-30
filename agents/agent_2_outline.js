@@ -391,7 +391,14 @@ function outlineCoverageUnits(outlineResult = {}) {
                 const text = [
                     sequenceTitle,
                     beat?.beat_label || beat?.beat || '',
-                    beat?.description || ''
+                    beat?.description || '',
+                    // The Save the Cat annotations are revisable outline content, so they
+                    // must be part of the coverage corpus. Without them, a brief targeting
+                    // an annotation ("change this beat's pacing_notes to X") could never be
+                    // seen as covered no matter how correctly the model applied it — the
+                    // checklist stayed unmet and STAGE2_CHECKLIST_UNMET discarded the whole
+                    // revision, annotation edit included. Observed 2026-07-30 on MIRAGE BEND.
+                    ...OUTLINE_BEAT_ANNOTATION_KEYS.map(key => beat?.[key] || '')
                 ].join(' ').toLowerCase();
                 if (text.trim()) {
                     beatUnits.push(text);
