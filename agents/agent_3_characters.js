@@ -302,7 +302,63 @@ function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, n
     // unchanged, unless the revision brief explicitly asked to remove that character.
     // (2026-07-12: a brief containing the word "full" triggered the broad-intent
     // bypass, the model returned a partial cast, and 29 of 30 characters were lost.)
-    return preserveExistingCharacters(currentList, candidate, notes);
+    return preserveNonEmptyCharacterFields(
+        currentList,
+        preserveExistingCharacters(currentList, candidate, notes)
+    );
+}
+
+/**
+ * Field-level counterpart to preserveExistingCharacters.
+ *
+ * The list-level net above only asks "is this character still here?", so a model
+ * that returns every character but blanks their innards passes straight through —
+ * and namedItemDiffAdapter then marks each one a *verified* update, because it
+ * only tests whether the object differs, never whether the difference was asked
+ * for. (2026-07-30: a note targeting three fields on ONE character came back with
+ * 38 fields blanked across all nine, including both Tier 1 psychological cores and
+ * every Tier 3 cameo profile, and the assistant reported success.)
+ *
+ * So: any string field that held content before the revision and is empty or gone
+ * after it is restored. Deliberately one-directional — this only ever puts content
+ * back, never blocks or rewrites an edit the model actually made. The tradeoff is
+ * that a writer explicitly asking to CLEAR a field gets it preserved instead; that
+ * is a visible, correctable annoyance, whereas silent mass erasure is neither.
+ */
+function preserveNonEmptyCharacterFields(currentList = [], resultObj = {}) {
+    const resultCharacters = Array.isArray(resultObj?.characters) ? resultObj.characters : [];
+    if (!Array.isArray(currentList) || !currentList.length || !resultCharacters.length) return resultObj;
+
+    const nameKey = value => String(value || '').trim().toLowerCase();
+    const beforeByName = new Map(
+        currentList.map(character => [nameKey(character?.name), character]).filter(([key]) => key)
+    );
+
+    const restoreInto = (before, after) => {
+        if (!before || typeof before !== 'object' || Array.isArray(before)) return after;
+        if (!after || typeof after !== 'object' || Array.isArray(after)) return after;
+        for (const [key, beforeValue] of Object.entries(before)) {
+            const afterValue = after[key];
+            if (typeof beforeValue === 'string') {
+                if (beforeValue.trim() && !String(afterValue ?? '').trim()) after[key] = beforeValue;
+            } else if (beforeValue && typeof beforeValue === 'object' && !Array.isArray(beforeValue)) {
+                if (afterValue && typeof afterValue === 'object' && !Array.isArray(afterValue)) {
+                    restoreInto(beforeValue, afterValue);
+                } else if (afterValue === undefined || afterValue === null) {
+                    after[key] = JSON.parse(JSON.stringify(beforeValue));
+                }
+            }
+        }
+        return after;
+    };
+
+    return {
+        ...resultObj,
+        characters: resultCharacters.map(character => {
+            const before = beforeByName.get(nameKey(character?.name));
+            return before ? restoreInto(before, character) : character;
+        })
+    };
 }
 
 function preserveExistingCharacters(currentList = [], resultObj = {}, notes = '') {
@@ -862,13 +918,17 @@ function fillEmptyFieldsDeep(existing, replacement) {
     return existing;
 }
 
+// Must emit the canonical ai-client shape { model, inputTokens, outputTokens }:
+// trackUsage() drops any record without `model` and reads camelCase token counts,
+// so a snake_case/model-less merge silently erases the whole stage's spend.
 function combineUsage(a, b) {
     if (!a) return b || null;
     if (!b) return a;
     return {
-        input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0),
-        output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0)
+        model: a.model || b.model,
+        inputTokens: (a.inputTokens || 0) + (b.inputTokens || 0),
+        outputTokens: (a.outputTokens || 0) + (b.outputTokens || 0)
     };
 }
 
-module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };
+module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };

@@ -242,3 +242,69 @@ test('server startup does not force-seed project-specific tier overrides', () =>
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     assert.doesNotMatch(serverJs, /seedStage3TierOverridesForDirectory/, 'tier seeding is manual-only (CLI or maintenance endpoint)');
 });
+
+// ─── Layer 6: field-level erasure (2026-07-30 incident) ──────────────────────
+// A note targeting three fields on ONE character came back with 38 fields blanked
+// across all nine — both Tier 1 psychological cores and every Tier 3 cameo profile —
+// while the character COUNT was unchanged, so every list-level guard stayed quiet
+// and namedItemDiffAdapter marked each one a "verified" update.
+
+const { preserveNonEmptyCharacterFields } = require('../agents/agent_3_characters');
+
+function tier1(name) {
+    return {
+        name,
+        role: 'Protagonist',
+        profile_tier: 'Tier 1',
+        brief_summary: `${name} summary`,
+        backstory: { relevant_history: 'history', onscreen_relevance: 'relevance' },
+        psychological_core: { ghost_and_wound: 'ghost', the_lie: 'lie', fear: 'fear', desire: 'desire' },
+        voice_and_behavior: { voice_tag: 'Sparse & precise', speech_patterns: 'clipped' }
+    };
+}
+
+test('a revision may not silently blank fields it was not asked to touch', () => {
+    const before = [tier1('Nora Vance'), tier1('Arthur Vance')];
+    // Model returned the full cast — nothing to trip the list-level nets — but blanked
+    // the psychological core and voice fields on everyone.
+    const after = {
+        characters: [
+            { ...tier1('Nora Vance'), psychological_core: { ghost_and_wound: 'ghost', the_lie: 'lie', fear: '', desire: '' }, voice_and_behavior: { voice_tag: 'Sparse & precise', speech_patterns: '' } },
+            { ...tier1('Arthur Vance'), psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '' }, voice_and_behavior: {} }
+        ]
+    };
+    const guarded = preserveNonEmptyCharacterFields(before, after);
+    const [nora, arthur] = guarded.characters;
+    assert.strictEqual(nora.psychological_core.fear, 'fear', 'blanked field restored');
+    assert.strictEqual(nora.psychological_core.desire, 'desire');
+    assert.strictEqual(nora.voice_and_behavior.speech_patterns, 'clipped');
+    assert.strictEqual(arthur.psychological_core.ghost_and_wound, 'ghost', 'collateral character restored too');
+    assert.strictEqual(arthur.voice_and_behavior.speech_patterns, 'clipped', 'emptied nested object refilled');
+});
+
+test('field preservation never overwrites a real edit', () => {
+    const before = [tier1('Deputy Ray')];
+    const after = {
+        characters: [{
+            ...tier1('Deputy Ray'),
+            backstory: { relevant_history: 'took kickbacks from the reservoir contracts', onscreen_relevance: '' },
+            psychological_core: { ghost_and_wound: 'ghost', the_lie: 'lie', fear: 'fear', desire: 'desire' }
+        }]
+    };
+    const guarded = preserveNonEmptyCharacterFields(before, after);
+    const ray = guarded.characters[0];
+    assert.strictEqual(ray.backstory.relevant_history, 'took kickbacks from the reservoir contracts', 'the requested edit survives');
+    assert.strictEqual(ray.backstory.onscreen_relevance, 'relevance', 'the unrequested blanking does not');
+});
+
+test('field preservation runs on the real merge path, not just in isolation', () => {
+    const before = [tier1('Nora Vance')];
+    const notes = "Sharpen Nora's lie.";
+    const modelResult = {
+        characters: [{ ...tier1('Nora Vance'), psychological_core: { ghost_and_wound: 'ghost', the_lie: 'a sharper lie', fear: '', desire: '' } }]
+    };
+    const merged = applySurgicalCharacterMerge(before, modelResult, notes);
+    const nora = merged.characters.find(c => c.name === 'Nora Vance');
+    assert.strictEqual(nora.psychological_core.the_lie, 'a sharper lie', 'requested edit applied');
+    assert.strictEqual(nora.psychological_core.fear, 'fear', 'unrequested blanking reverted end-to-end');
+});
