@@ -487,6 +487,9 @@ function registerGenerationRoutes(app, deps) {
                 : (projectData.data?.stage3_characters?.tier_overrides || {});
             const beforeCharactersForRevision = parsedChars || projectData.data?.stage3_characters?.characters || [];
 
+            const uploadContext = await prepareGenerationUpload(projectData, uploadedFile, { stageId: 3, userMessage: notes || '', forceTextBlock: true });
+            const notesWithUpload = appendUploadedSourceBlock(notes, uploadContext);
+
             console.log("Generating Stage 3 Characters...");
             const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
             const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
