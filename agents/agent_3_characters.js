@@ -277,14 +277,28 @@ function explicitOnlyCharacterTargets(notes = '', currentList = []) {
         .filter(name => name && new RegExp(`\\b(?:only|just)\\s+(?:update|revise|change|adjust|rewrite|work on)\\s+(?:the\\s+)?${escapeRegExp(name)}\\b`, 'i').test(text));
 }
 
-function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false, tierOverrides = {} } = {}) {
+function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, notes = '', { legacyModernizationNeeded = false, tierOverrides = {}, partialReturn = false, restoredFields = [] } = {}) {
     const currentList = normalizeCurrentCharacters(currentCharacters, tierOverrides);
     let candidate = modelResult;
 
     if (!legacyModernizationNeeded && !isBroadRevisionIntent(notes)) {
         const revisedList = normalizeCurrentCharacters(modelResult, tierOverrides);
         if (currentList.length && revisedList.length) {
-            const targetLabels = explicitOnlyCharacterTargets(notes, currentList);
+            // When the model was asked to return ONLY what it changed, the returned
+            // names are the best available signal for what it touched, so they become
+            // the target list. Routing them through mergeSurgicalLabeledItems (rather
+            // than accepting the response as the new cast) keeps the base as the full
+            // saved cast in its original order — every returned character is swapped in
+            // place, and nothing can be dropped or reordered.
+            //
+            // But an EXPLICIT scope in the brief always outranks the model's account of
+            // itself. "Only update Mara" means only Mara, even if the model hands back a
+            // quietly rewritten June too — trusting the response there would convert the
+            // writer's narrowest instruction into the weakest guard we have.
+            const explicitTargets = explicitOnlyCharacterTargets(notes, currentList);
+            const targetLabels = explicitTargets.length
+                ? explicitTargets
+                : (partialReturn ? revisedList.map(character => character.name || '').filter(Boolean) : []);
             const merged = mergeSurgicalLabeledItems(currentList, revisedList, notes, {
                 targetLabels,
                 getLabel: character => character.name || '',
@@ -302,10 +316,20 @@ function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, n
     // unchanged, unless the revision brief explicitly asked to remove that character.
     // (2026-07-12: a brief containing the word "full" triggered the broad-intent
     // bypass, the model returned a partial cast, and 29 of 30 characters were lost.)
-    return preserveNonEmptyCharacterFields(
+    // A restore is the guard catching the model mid-erasure. Silence there would hide
+    // exactly the failure this function exists to stop — and worse, a restored field
+    // is indistinguishable on disk from a field the model simply declined to change,
+    // so without this line "the edit didn't land" and "the edit was blanked and put
+    // back" look identical when you diff the saved cast.
+    const guarded = preserveNonEmptyCharacterFields(
         currentList,
-        preserveExistingCharacters(currentList, candidate, notes)
+        preserveExistingCharacters(currentList, candidate, notes),
+        restoredFields
     );
+    if (restoredFields.length) {
+        console.log(`  Stage 3 field guard: restored ${restoredFields.length} field(s) the revision blanked without being asked — ${restoredFields.slice(0, 12).join(', ')}${restoredFields.length > 12 ? ', …' : ''}`);
+    }
+    return guarded;
 }
 
 /**
@@ -325,7 +349,7 @@ function applySurgicalCharacterMerge(currentCharacters = [], modelResult = {}, n
  * that a writer explicitly asking to CLEAR a field gets it preserved instead; that
  * is a visible, correctable annoyance, whereas silent mass erasure is neither.
  */
-function preserveNonEmptyCharacterFields(currentList = [], resultObj = {}) {
+function preserveNonEmptyCharacterFields(currentList = [], resultObj = {}, restoredPaths = []) {
     const resultCharacters = Array.isArray(resultObj?.characters) ? resultObj.characters : [];
     if (!Array.isArray(currentList) || !currentList.length || !resultCharacters.length) return resultObj;
 
@@ -334,18 +358,22 @@ function preserveNonEmptyCharacterFields(currentList = [], resultObj = {}) {
         currentList.map(character => [nameKey(character?.name), character]).filter(([key]) => key)
     );
 
-    const restoreInto = (before, after) => {
+    const restoreInto = (before, after, trail) => {
         if (!before || typeof before !== 'object' || Array.isArray(before)) return after;
         if (!after || typeof after !== 'object' || Array.isArray(after)) return after;
         for (const [key, beforeValue] of Object.entries(before)) {
             const afterValue = after[key];
             if (typeof beforeValue === 'string') {
-                if (beforeValue.trim() && !String(afterValue ?? '').trim()) after[key] = beforeValue;
+                if (beforeValue.trim() && !String(afterValue ?? '').trim()) {
+                    after[key] = beforeValue;
+                    restoredPaths.push(`${trail}${key}`);
+                }
             } else if (beforeValue && typeof beforeValue === 'object' && !Array.isArray(beforeValue)) {
                 if (afterValue && typeof afterValue === 'object' && !Array.isArray(afterValue)) {
-                    restoreInto(beforeValue, afterValue);
+                    restoreInto(beforeValue, afterValue, `${trail}${key}.`);
                 } else if (afterValue === undefined || afterValue === null) {
                     after[key] = JSON.parse(JSON.stringify(beforeValue));
+                    restoredPaths.push(`${trail}${key}.*`);
                 }
             }
         }
@@ -356,7 +384,7 @@ function preserveNonEmptyCharacterFields(currentList = [], resultObj = {}) {
         ...resultObj,
         characters: resultCharacters.map(character => {
             const before = beforeByName.get(nameKey(character?.name));
-            return before ? restoreInto(before, character) : character;
+            return before ? restoreInto(before, character, `${character?.name || '?'}.`) : character;
         })
     };
 }
@@ -518,19 +546,36 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
 
     // Revision Bypass Logic
     if (notes && normalizedCurrentCharacters.length > 0 && !fullRegenerationRequested) {
-        console.log("  Surgical Revision Mode: Updating characters...");
+        // A partial return is only correct where the surgical merge actually runs.
+        // Legacy modernization rewrites every record by definition, and a broad-intent
+        // brief bypasses the merge — both still need the whole cast back.
+        const partialReturn = !legacyModernizationNeeded && !isBroadRevisionIntent(notes);
+        console.log(`  Surgical Revision Mode: Updating characters... (${partialReturn ? 'changed-only return' : 'full-cast return'})`);
         const legacyInstruction = legacyModernizationNeeded
             ? '\n\nLEGACY MODERNIZATION: Some existing character records come from an older schema. Preserve their visible story intent, assign the appropriate profile_tier, and fill only the fields required by that tier. Tier 1 legacy records should receive the full psychological/voice/arc/_deep_profile treatment. Tier 2 records should receive functional_profile fields centered on narrative_function, emotional_truth, comic_or_tension_function, pressure_behavior, and voice_flavor. Tier 3 records should receive cameo_profile fields centered on scene_purpose, casting_energy, playable_behavior, and line_style_example. Preserve existing backstory when it has present-story value, but do not invent backstory just to fill a field. Do not preserve or invent wounds, lies, fears, psychological needs, moral needs, ticks, arcs, or personality typing for functional supporting or scene utility characters.'
             : '';
-        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. Leave all other character profiles 100% identical to the provided JSON. Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a tier-appropriate profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the character is Tier 1 and the user's note specifically addresses personality typing, voice, behavioral patterns, or missing Tier 1 deep-profile data. Preserve the \`backstory\` field exactly as provided unless the writer specifically asks to add, remove, or revise backstory, history, secrets, or past relationships. Do not create or regenerate \`_deep_profile\` for Tier 2 or Tier 3 characters unless the writer explicitly asks for hidden drafting guidance for that minor character. If a Tier 1 character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY Tier 1 character's core traits change, regenerate Tier 1 relationship_dynamics for all affected Tier 1 characters (relationships are bidirectional).${legacyInstruction}`;
+        const untouchedRule = partialReturn
+            ? 'OMIT every other character from your response entirely — do not echo them back. They are preserved from the saved cast automatically.'
+            : 'Leave all other character profiles 100% identical to the provided JSON.';
+        const revisionSystemInstruction = `${charactersSOP}\n\nROLE: Surgical Casting Director. Apply the user's note ONLY to the specific character(s) mentioned in the feedback. ${untouchedRule} Do not alter unmentioned traits. If the note describes or discusses a new character who is not in the existing list, create a tier-appropriate profile for them and add them to the cast. Maintain the exact same JSON schema.\n\nCRITICAL: Preserve the \`_deep_profile\` field exactly as provided for each character UNLESS the character is Tier 1 and the user's note specifically addresses personality typing, voice, behavioral patterns, or missing Tier 1 deep-profile data. Preserve the \`backstory\` field exactly as provided unless the writer specifically asks to add, remove, or revise backstory, history, secrets, or past relationships. Do not create or regenerate \`_deep_profile\` for Tier 2 or Tier 3 characters unless the writer explicitly asks for hidden drafting guidance for that minor character. If a Tier 1 character's core psychological traits (ghost_and_wound, the_lie, fear, desire, paradox) or voice tags change, regenerate their \`_deep_profile\` to stay consistent. If ANY Tier 1 character's core traits change, regenerate Tier 1 relationship_dynamics for all affected Tier 1 characters (relationships are bidirectional).${legacyInstruction}`;
 
         const sourceBlock = knowledgeContext ? `PROJECT SOURCE CANON:\n${knowledgeContext}\n\n` : '';
+        // Asking for the whole cast back made a three-field edit re-emit every profile.
+        // On a 9-character cast that is ~15KB of output to change ~200 bytes, and it is
+        // where gemini-3.1-pro reliably fell into a repetition loop: 123,178 characters
+        // in a single string, hard against maxOutputTokens, dying as "Unterminated
+        // string in JSON" — deterministically, same byte offset on every retry. The
+        // merge has always rebuilt from the saved cast rather than the model's copy of
+        // it, so the full list was never load-bearing; it was just a bigger target.
+        const returnInstruction = partialReturn
+            ? `Return ONLY the characters you actually changed, plus any character the note asks you to add. Omit every character you did not touch — they are preserved automatically from the saved cast, and re-sending them unchanged risks corrupting them. If the note changes nothing, return an empty characters array.`
+            : `Return the full updated character list in JSON format.`;
         const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
 
 EXISTING CHARACTERS:
 ${JSON.stringify(normalizedCurrentCharacters, null, 2)}
 
-Please apply the note surgically and return the full updated character list in JSON format.`;
+Apply the note surgically. ${returnInstruction}`;
 
         const response = await generateContentFn({
             model, geminiApiKey, anthropicApiKey,
@@ -544,13 +589,20 @@ Please apply the note surgically and return the full updated character list in J
         });
 
         const parsed = parseJsonWithRepair(response.text, { label: 'Stage 3 character revision response' });
+        // Fields the model blanked instead of rewriting. The guard puts the old value
+        // back so nothing is lost — but on disk a restored field is indistinguishable
+        // from one the model chose not to touch, so without reporting these the writer
+        // is told "done" about an edit that never happened. Surfacing them is what lets
+        // the assistant say which parts of the note did not land.
+        const restoredFields = [];
         return {
             result: normalizeCharacterResult(
-                applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded, tierOverrides: normalizedTierOverrides }),
+                applySurgicalCharacterMerge(normalizedCurrentCharacters, parsed, notes, { legacyModernizationNeeded, tierOverrides: normalizedTierOverrides, partialReturn, restoredFields }),
                 normalizedTierOverrides,
                 rawTierOverrides
             ),
-            usage: response.usage
+            usage: response.usage,
+            restoredFields
         };
     }
 

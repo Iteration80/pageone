@@ -308,3 +308,134 @@ test('field preservation runs on the real merge path, not just in isolation', ()
     assert.strictEqual(nora.psychological_core.the_lie, 'a sharper lie', 'requested edit applied');
     assert.strictEqual(nora.psychological_core.fear, 'fear', 'unrequested blanking reverted end-to-end');
 });
+
+// ─── Layer 7: protective language must not read as broad intent ──────────────
+// The sentence a writer adds to PROTECT the rest of the cast is exactly where a
+// universal quantifier shows up — "leave every other character untouched",
+// "preserve all other characters". A bare /all|every|full/ test classified those
+// as "revise broadly", which BYPASSES the surgical merge (2026-07-30: 38 fields
+// blanked across nine characters, reported as a verified success). The assistant's
+// own generated briefs end with such a sentence, so this fired near-universally.
+
+const { isBroadRevisionIntent } = require('../utils/revision_patch');
+
+test('scope-limiting language is not broad intent', () => {
+    for (const notes of [
+        'Update his emotional_truth and pressure_behavior. Leave every other character untouched.',
+        'Update Deputy Ray\'s profile.\nPreserve all other characters and their existing fields.',
+        'Sharpen Ray, but leave all the others alone.',
+        'Rewrite Ray\'s voice; keep the whole rest of the cast intact.',
+        'Change Ray only. Do not modify any of the other entries.'
+    ]) {
+        assert.strictEqual(isBroadRevisionIntent(notes), false, `must stay surgical: ${notes}`);
+    }
+});
+
+test('genuinely broad intent still registers, including alongside a protective clause', () => {
+    assert.strictEqual(isBroadRevisionIntent('Rewrite every character to be more morally compromised.'), true);
+    assert.strictEqual(isBroadRevisionIntent('Give the entire cast a harder edge.'), true);
+    // The 2026-07-12 incident brief must keep its classification — Layer 1 pins the
+    // preserve-net behaviour on exactly this path.
+    assert.strictEqual(isBroadRevisionIntent('Populate the full functional profiles for the Tier 2 figments and add the alias.'), true);
+    assert.strictEqual(isBroadRevisionIntent('Rewrite every character to be morally compromised. Preserve all existing names.'), true);
+});
+
+test('the protective brief now routes through the surgical merge and cannot touch bystanders', () => {
+    const before = [tier1('Nora Vance'), tier1('Arthur Vance'), tier1('Deputy Ray')];
+    const notes = "Change Deputy Ray's the_lie to self-interest. Leave every other character untouched.";
+    // Model returns the whole cast and blanks the bystanders — the 07-30 failure shape.
+    const modelResult = {
+        characters: [
+            { ...tier1('Nora Vance'), psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '' } },
+            { ...tier1('Arthur Vance'), psychological_core: { ghost_and_wound: '', the_lie: '', fear: '', desire: '' } },
+            { ...tier1('Deputy Ray'), psychological_core: { ghost_and_wound: 'ghost', the_lie: 'he is protecting his own skin', fear: 'fear', desire: 'desire' } }
+        ]
+    };
+    const merged = applySurgicalCharacterMerge(before, modelResult, notes);
+    const byName = Object.fromEntries(merged.characters.map(c => [c.name, c]));
+    assert.strictEqual(byName['Deputy Ray'].psychological_core.the_lie, 'he is protecting his own skin', 'target applied');
+    assert.strictEqual(byName['Nora Vance'].psychological_core.the_lie, 'lie', 'bystander untouched');
+    assert.strictEqual(byName['Arthur Vance'].psychological_core.ghost_and_wound, 'ghost', 'bystander untouched');
+});
+
+// ─── Layer 8: partial (changed-only) returns ─────────────────────────────────
+
+test('a changed-only return applies in place, preserving cast order', () => {
+    const before = [tier1('Nora Vance'), tier1('Arthur Vance'), tier1('Deputy Ray'), tier1('Jesse')];
+    const notes = 'Make Ray self-interested.';
+    const modelResult = {
+        characters: [{ ...tier1('Deputy Ray'), psychological_core: { ghost_and_wound: 'ghost', the_lie: 'his own skin', fear: 'fear', desire: 'desire' } }]
+    };
+    const merged = applySurgicalCharacterMerge(before, modelResult, notes, { partialReturn: true });
+    assert.deepStrictEqual(
+        merged.characters.map(c => c.name),
+        ['Nora Vance', 'Arthur Vance', 'Deputy Ray', 'Jesse'],
+        'full cast retained in original order'
+    );
+    assert.strictEqual(merged.characters[2].psychological_core.the_lie, 'his own skin', 'the returned edit applied in place');
+    assert.strictEqual(merged.characters[0].psychological_core.the_lie, 'lie', 'omitted characters untouched');
+});
+
+test('a changed-only return can still add a genuinely new character', () => {
+    const before = [tier1('Nora Vance')];
+    const modelResult = { characters: [tier1('Sheriff Blake')] };
+    const merged = applySurgicalCharacterMerge(before, modelResult, 'Add a sheriff who leans on Nora.', { partialReturn: true });
+    assert.deepStrictEqual(merged.characters.map(c => c.name), ['Nora Vance', 'Sheriff Blake']);
+});
+
+test('an empty changed-only return leaves the cast exactly as it was', () => {
+    const before = [tier1('Nora Vance'), tier1('Deputy Ray')];
+    const merged = applySurgicalCharacterMerge(before, { characters: [] }, 'No change needed.', { partialReturn: true });
+    assert.deepStrictEqual(merged.characters.map(c => c.name), ['Nora Vance', 'Deputy Ray']);
+    assert.strictEqual(merged.characters[0].psychological_core.fear, 'fear');
+});
+
+test('an explicit "only update X" scope outranks the model\'s changed-only self-report', () => {
+    const before = [tier1('Mara'), tier1('June')];
+    const notes = 'Only update Mara so she admits she needs June.';
+    // Model returns Mara (asked for) AND a quietly rewritten June (not asked for).
+    const modelResult = {
+        characters: [
+            { ...tier1('Mara'), brief_summary: 'Mara admits she needs June.' },
+            { ...tier1('June'), brief_summary: 'June accidentally rewritten.' }
+        ]
+    };
+    const merged = applySurgicalCharacterMerge(before, modelResult, notes, { partialReturn: true });
+    const byName = Object.fromEntries(merged.characters.map(c => [c.name, c]));
+    assert.match(byName['Mara'].brief_summary, /admits she needs June/, 'the named target applied');
+    assert.strictEqual(byName['June'].brief_summary, 'June summary', 'the unrequested rewrite rejected');
+});
+
+test('the field guard reports what it restored, so a blanked edit is not silently a no-op', () => {
+    const before = [tier1('Deputy Ray')];
+    // Model was told to REWRITE the_lie and returned it empty instead — the 2026-07-31
+    // shape. Restoring it prevents data loss but makes the failed instruction look on
+    // disk exactly like "the model chose not to change it".
+    const modelResult = {
+        characters: [{ ...tier1('Deputy Ray'), psychological_core: { ghost_and_wound: 'ghost', the_lie: '', fear: 'fear', desire: 'desire' } }]
+    };
+    const restoredFields = [];
+    const merged = applySurgicalCharacterMerge(before, modelResult, "Rewrite Ray's the_lie.", { partialReturn: true, restoredFields });
+    assert.strictEqual(merged.characters[0].psychological_core.the_lie, 'lie', 'value preserved');
+    assert.deepStrictEqual(restoredFields, ['Deputy Ray.psychological_core.the_lie'], 'and the restore is reported, not swallowed');
+});
+
+test('a clean revision reports no restored fields', () => {
+    const before = [tier1('Deputy Ray')];
+    const modelResult = {
+        characters: [{ ...tier1('Deputy Ray'), psychological_core: { ghost_and_wound: 'ghost', the_lie: 'a real new lie', fear: 'fear', desire: 'desire' } }]
+    };
+    const restoredFields = [];
+    applySurgicalCharacterMerge(before, modelResult, "Rewrite Ray's the_lie.", { partialReturn: true, restoredFields });
+    assert.deepStrictEqual(restoredFields, []);
+});
+
+// The tool-result projection in app.js is a WHITELIST — anything not named there is
+// invisible to the model, however carefully the server fills the receipt. That is
+// where unappliedBlankedFields was being dropped on 2026-07-31.
+test('the client tool-result projection forwards unapplied blanked fields to the model', () => {
+    const fs = require('node:fs');
+    const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
+    assert.match(appJs, /unappliedBlankedFields/, 'projection must read the receipt field');
+    assert.match(appJs, /partialFailure/, 'and state it in prose the model will act on');
+});

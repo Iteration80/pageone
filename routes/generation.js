@@ -493,7 +493,7 @@ function registerGenerationRoutes(app, deps) {
             console.log("Generating Stage 3 Characters...");
             const stage3KnowledgeSeed = `${JSON.stringify(pitchData, null, 2)}\n${JSON.stringify(beatsData, null, 2)}\n${parsedChars ? JSON.stringify(parsedChars, null, 2) : ''}\n${notesWithUpload}`;
             const sourcePacket = buildSourceGenerationPacket(projectData, 3, stage3KnowledgeSeed, { userMessage: notesWithUpload });
-            const { result: characterData, usage } = await agent3Characters(
+            const { result: characterData, usage, restoredFields } = await agent3Characters(
                 pitchData,
                 beatsData,
                 parsedChars,
@@ -533,7 +533,16 @@ function registerGenerationRoutes(app, deps) {
                 sourceReason: operation
             });
 
-            res.json({ result: characterData, changed, revisionReceipt: revisionTransaction?.receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
+            // Report fields the model blanked and the guard put back, so the assistant
+            // can name the parts of the note that did not land instead of claiming the
+            // whole revision succeeded.
+            const receipt = revisionTransaction?.receipt
+                ? (restoredFields?.length
+                    ? { ...revisionTransaction.receipt, unappliedBlankedFields: restoredFields }
+                    : revisionTransaction.receipt)
+                : revisionTransaction?.receipt;
+
+            res.json({ result: characterData, changed, revisionReceipt: receipt, snapshotIds, ...sourceResponseExtras(sourcePacket) });
         } catch (error) {
             console.error('Character Gen Error:', error);
             sendApiError(res, error, "Failed to generate characters");

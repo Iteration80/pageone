@@ -8618,10 +8618,21 @@ document.addEventListener('DOMContentLoaded', () => {
             revisionReceiptChanged(result) || (result && result.changed !== false)
         );
         const receiptSummary = result?.revisionReceipt?.summary || result?.receipt?.summary || undefined;
+        // Fields the model returned EMPTY instead of revising, whose previous values the
+        // Stage 3 guard put back. The revision as a whole still "changed", so without
+        // forwarding this the model closes the turn claiming every part of the note
+        // landed — which is how "his emotional truth has been adjusted" got said about a
+        // field that still holds its original sentence. Stated in prose, not just as an
+        // array, because this projection is the model's only view of the receipt.
+        const unapplied = result?.revisionReceipt?.unappliedBlankedFields || result?.receipt?.unappliedBlankedFields;
         return {
             changed,
             changedSceneNumbers: Array.isArray(result?.changedSceneNumbers) ? result.changedSceneNumbers : undefined,
             receiptSummary,
+            ...(Array.isArray(unapplied) && unapplied.length ? {
+                unappliedBlankedFields: unapplied,
+                partialFailure: `These fields were returned empty instead of revised, so their previous values were kept and the writer's instruction for them was NOT applied: ${unapplied.join(', ')}. Say so explicitly — name them and do not describe them as updated.`
+            } : {}),
             ...(!changed ? { error: receiptSummary || 'The revision engine returned no saved changes.' } : {})
         };
     }

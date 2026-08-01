@@ -400,8 +400,31 @@ function parseSequenceTargets(notes = '') {
     return targets;
 }
 
+// Clauses that RESTRICT a revision's scope rather than widening it: "leave every
+// other character untouched", "preserve all other characters", "keep the rest of
+// the outline intact". They are protective, and they are also where a writer most
+// naturally reaches for a universal quantifier — so a bare /all|every|full/ test
+// reads the sentence that asks for surgery as a demand for a rewrite.
+//
+// (2026-07-30: a brief ending "Leave every other character untouched" set broad
+// intent, which BYPASSES the surgical merge, so the model's whole-cast response was
+// accepted verbatim — 38 fields blanked across nine characters, reported as success.
+// The assistant's own generated briefs end "Preserve all other characters and their
+// existing fields", so this fired on essentially every Stage 3 revision.)
+const PRESERVATION_CLAUSE = /\b(leave|preserve|keep|retain|maintain|do\s+not\s+(?:change|modify|touch|alter|edit)|don'?t\s+(?:change|modify|touch|alter|edit))\b|\b(?:untouched|unchanged|intact|as[-\s]is|verbatim)\b/i;
+
+function stripPreservationClauses(text = '') {
+    return String(text || '')
+        // Split on sentence ends, newlines, semicolons, and on a comma/dash that
+        // introduces a preservation verb ("update Ray, but leave everyone else alone").
+        .split(/(?<=[.!?])\s+|[\n;]+|,\s*(?=(?:but\s+|and\s+|while\s+)?(?:leave|preserve|keep|retain|maintain|do\s+not|don'?t)\b)/i)
+        .filter(clause => !PRESERVATION_CLAUSE.test(clause))
+        .join(' ');
+}
+
 function isBroadRevisionIntent(notes = '') {
-    return /\b(all|every|entire|whole|full|global|throughout|across the board|from top to bottom)\b/i.test(String(notes || ''));
+    const scoped = stripPreservationClauses(notes);
+    return /\b(all|every|entire|whole|full|global|throughout|across the board|from top to bottom)\b/i.test(scoped);
 }
 
 // Does the revision brief explicitly ask for this named item to be removed?
