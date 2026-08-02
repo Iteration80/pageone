@@ -82,7 +82,7 @@ API auth is layered and each layer is dormant unless configured:
 
 Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. Deployed tester builds should keep `APP_SECRET` set even with Google enabled so maintenance scripts and recovery access still work. The public frontend reads `GET /api/auth-config` before booting so it can show either the Google button, the access-key form, or no auth overlay.
 
-⚠️ The `ANTHROPIC_API_KEY` currently in `.env` is dead (401). All stages run Gemini today; replace or remove that key before selecting any Claude model in Settings.
+⚠️ `ANTHROPIC_API_KEY` is **deliberately unset** in local `.env` (commented out 2026-08-02). The key that was there returned 401, so selecting any Claude model in Settings failed opaquely; with no key at all the failure is honest. All stages run Gemini. Add a working key to that line to re-enable the Claude models. Production sets its own key via Railway env vars — this note is about the local file.
 
 ### Process rule
 **One AI coding session per working tree at a time; commit between sessions.** Concurrent uncommitted edits to `server.js`/`public/app.js` caused the June 11 closure-scope collision.

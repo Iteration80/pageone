@@ -11,3 +11,8 @@ data/projects-manifest.json
 
 # Node
 node_modules/
+
+# Editor / OS cruft — these were tracked by accident and showed as deleted for weeks
+# after an iCloud sync moved them, which is noise on every `git status`.
+.DS_Store
+.vscode/
