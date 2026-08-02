@@ -1418,7 +1418,11 @@ test('frontend approval regen prompts require generated output in the next stage
     );
 
     assert.match(appJs, /function stageHasGeneratedOutput/);
-    assert.match(appJs, /\[btnStage5Regenerate, stageHasGeneratedOutput\(data, 5\)\]/);
+    assert.match(appJs, /\[btnStage5Regenerate, 5\]/);
+    // An EMPTY stage whose upstream is ready must still offer generation, or a failed
+    // auto-generation strands the writer with no in-UI retry (2026-08-02).
+    assert.match(appJs, /const UPSTREAM_STAGE = \{ 2: 1, 3: 2, 5: 3, 6: 5, 7: 6, 9: 8 \}/);
+    assert.match(appJs, /return \{ visible: hasOutput \|\| upstreamReady, hasOutput \}/);
     assert.match(appJs, /case 5:\s*\{[\s\S]*const treatment = d\.stage5_treatment \|\| \{};[\s\S]*Object\.entries\(treatment\)\.some\(\(\[key, value\]\) => key !== 'notes' && String\(value \|\| ''\)\.trim\(\)\);/);
     assert.match(stage3ApproveBlock, /shouldPromptForNextStage: stageHasGeneratedOutput\(window\.currentProjectData, 5\)/);
     assert.match(stage3ApproveBlock, /showStage3RegenModal\(\)/);

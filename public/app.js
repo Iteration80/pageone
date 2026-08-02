@@ -2037,18 +2037,46 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    // Internal stage → the stage whose output feeds it. Used to decide whether an
+    // EMPTY stage can be generated at all.
+    const UPSTREAM_STAGE = { 2: 1, 3: 2, 5: 3, 6: 5, 7: 6, 9: 8 };
+
+    // The button used to be hidden whenever the stage had no output, so generation was
+    // reachable ONLY by approving the stage upstream. When an auto-generation failed
+    // the writer was stranded with no in-UI retry — recovery meant going back and
+    // re-clicking Approve, which is not discoverable, and it is what made the 16-day
+    // Stage 3 outage look unrecoverable. Now an empty stage whose upstream is ready
+    // offers "Generate"; a populated one still offers "Regenerate".
+    function stageGenerateAffordance(data, stageNum) {
+        const hasOutput = stageHasGeneratedOutput(data, stageNum);
+        const upstream = UPSTREAM_STAGE[stageNum];
+        const upstreamReady = upstream ? stageHasGeneratedOutput(data, upstream) : false;
+        return { visible: hasOutput || upstreamReady, hasOutput };
+    }
+
+    // Rewrites only the button's leading text node, so Stage 6's dropdown chevron
+    // (and any other markup inside the button) survives the relabel.
+    function setStageGenerateLabel(button, hasOutput) {
+        const label = hasOutput ? 'Regenerate' : 'Generate';
+        const firstText = [...button.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+        if (firstText) firstText.textContent = firstText.textContent.replace(/Regenerate|Generate/, label);
+        else button.textContent = label;
+    }
+
     function updateStageRegenerateButtons(data = window.currentProjectData || {}) {
-        const controls = [
-            [btnStage2Regenerate, stageHasGeneratedOutput(data, 2)],
-            [btnStage3Regenerate, stageHasGeneratedOutput(data, 3)],
-            [btnStage5Regenerate, stageHasGeneratedOutput(data, 5)],
-            [btnStage6Regenerate, stageHasGeneratedOutput(data, 6)],
-            [btnStage7RegenerateHeader, stageHasGeneratedOutput(data, 7)],
-            [btnStage9Regenerate, stageHasGeneratedOutput(data, 9)]
-        ];
-        controls.forEach(([button, visible]) => {
-            button?.classList.toggle('hidden', !visible);
-        });
+        for (const [button, stageNum] of [
+            [btnStage2Regenerate, 2],
+            [btnStage3Regenerate, 3],
+            [btnStage5Regenerate, 5],
+            [btnStage6Regenerate, 6],
+            [btnStage7RegenerateHeader, 7],
+            [btnStage9Regenerate, 9]
+        ]) {
+            if (!button) continue;
+            const { visible, hasOutput } = stageGenerateAffordance(data, stageNum);
+            button.classList.toggle('hidden', !visible);
+            if (visible) setStageGenerateLabel(button, hasOutput);
+        }
     }
 
     function stageHasGeneratedOutput(data = window.currentProjectData || {}, stageNum) {
@@ -2393,7 +2421,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function regenerateGeneratedStage(stageNum, button, runner) {
         if (!activeProjectId || !runner) return;
         const label = STAGE_LABELS[stageNum] || `Stage ${stageNum}`;
-        if (!await confirmDialog({
+        // An empty stage has nothing to overwrite and nothing to snapshot, so there is
+        // no destructive choice to confirm — asking anyway would put a scary dialog in
+        // front of the writer's only recovery path from a failed auto-generation.
+        const hasOutput = stageHasGeneratedOutput(window.currentProjectData || {}, stageNum);
+        if (hasOutput && !await confirmDialog({
             title: `Regenerate ${label}?`,
             message: 'The current version will be saved to Version History first, so you can restore it later.',
             confirmLabel: 'Regenerate'
@@ -2403,7 +2435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (button) {
                 button.disabled = true;
-                button.textContent = 'Regenerating...';
+                button.textContent = hasOutput ? 'Regenerating...' : 'Generating...';
             }
             await saveStageSnapshotBeforeGenericRegenerate(stageNum);
             switchStage(stageNum);
@@ -2422,7 +2454,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function regenerateCoverage(button) {
         if (!activeProjectId) return;
-        if (!await confirmDialog({
+        // Nothing to overwrite on an empty stage — see regenerateGeneratedStage.
+        const hasOutput = stageHasGeneratedOutput(window.currentProjectData || {}, 9);
+        if (hasOutput && !await confirmDialog({
             title: 'Regenerate Coverage?',
             message: 'The current report will be saved to Version History first, so you can restore it later.',
             confirmLabel: 'Regenerate'
@@ -2431,7 +2465,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (button) {
                 button.disabled = true;
-                button.textContent = 'Regenerating...';
+                button.textContent = hasOutput ? 'Regenerating...' : 'Generating...';
             }
             await saveStageSnapshotBeforeGenericRegenerate(9);
             const response = await fetch(`/api/projects/${activeProjectId}`, {
@@ -6176,19 +6210,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeProjectId) return;
 
         const manual = action === 'fresh-manual';
+        // With no blueprint yet there is nothing to overwrite and nothing to snapshot,
+        // so don't promise a Version History entry that won't exist — and don't put a
+        // "this will replace your work" dialog in front of a first generation.
+        const hasBlueprint = stageHasGeneratedOutput(window.currentProjectData || {}, 6);
+        const historyNote = hasBlueprint ? ' The current blueprint will be saved to Version History first.' : '';
         if (!await confirmDialog({
-            title: manual ? 'Generate one sequence at a time?' : 'Create a fresh Scene Blueprint?',
+            title: manual
+                ? 'Generate one sequence at a time?'
+                : (hasBlueprint ? 'Create a fresh Scene Blueprint?' : 'Generate the Scene Blueprint?'),
             message: manual
-                ? 'This starts a fresh blueprint and generates Sequence 1 only, so you can review it before continuing. The current blueprint will be saved to Version History first.'
-                : 'It will be rebuilt from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment. The current blueprint will be saved to Version History first.',
-            confirmLabel: manual ? 'Start' : 'Regenerate'
+                ? `This ${hasBlueprint ? 'starts a fresh blueprint and generates' : 'generates'} Sequence 1 only, so you can review it before continuing.${historyNote}`
+                : `It will be built from the approved Pitch, Characters, Outline-derived beat sheet, and Treatment.${historyNote}`,
+            confirmLabel: manual ? 'Start' : (hasBlueprint ? 'Regenerate' : 'Generate')
         })) return;
 
-        const originalText = btnStage6Regenerate?.textContent;
         try {
             if (btnStage6Regenerate) {
                 btnStage6Regenerate.disabled = true;
-                btnStage6Regenerate.textContent = manual ? 'Starting...' : 'Regenerating...';
+                btnStage6Regenerate.textContent = manual ? 'Starting...' : (hasBlueprint ? 'Regenerating...' : 'Generating...');
             }
             await saveStage6SnapshotBeforeRegenerate();
             await generateStage6({ isRegenerate: true, throwOnError: true, mode: manual ? 'manual' : 'auto' });
@@ -6199,10 +6239,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnStage6Regenerate) {
                 btnStage6Regenerate.disabled = false;
                 btnStage6Regenerate.innerHTML = 'Regenerate <span class="stage-regenerate-chevron">⌄</span>';
-                if (originalText && originalText.includes('Regenerate')) {
-                    btnStage6Regenerate.innerHTML = 'Regenerate <span class="stage-regenerate-chevron">⌄</span>';
-                }
             }
+            // Restores "Generate" if the run failed and the stage is still empty.
+            updateStageRegenerateButtons(window.currentProjectData || {});
         }
     }
 
