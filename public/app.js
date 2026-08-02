@@ -1532,6 +1532,18 @@ document.addEventListener('DOMContentLoaded', () => {
         7: 'stage7_style', 8: 'stage7_approved', 9: 'stage8_coverage', 10: 'stage9_rewrites'
     };
 
+    // Mirrors readStageMeta() in utils/stageMetadata.js — keep the two in step.
+    // `stage6_scenes` is a bare ARRAY, and JSON.stringify drops an array's non-index
+    // properties, so the blueprint's stamp lives in the `stage_meta` sibling map
+    // rather than inline. Reading only `data[key]._meta` meant visible Stage 5 could
+    // never show a stale badge or banner, however out of date it actually was.
+    function stageMetaOf(data, stageKey) {
+        if (!data || !stageKey) return undefined;
+        const value = data[stageKey];
+        if (value && typeof value === 'object' && !Array.isArray(value) && value._meta) return value._meta;
+        return data.stage_meta?.[stageKey];
+    }
+
     function handleHashChange() {
         const hash = window.location.hash;
         if (hash.startsWith('#project-')) {
@@ -1975,7 +1987,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = currentIndex - 1; i >= 0; i--) {
             const upstreamStageId = PIPELINE_STAGE_IDS[i];
             const key = STAGE_DATA_KEYS[upstreamStageId];
-            if (key && d[key]?._meta?.manually_revised_at) {
+            if (key && stageMetaOf(d, key)?.manually_revised_at) {
                 return displayStageLabel(upstreamStageId);
             }
         }
@@ -2079,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Stale stage indicator
             const stageKey = STAGE_DATA_KEYS[stageId];
-            const isStale = stageKey && data[stageKey]?._meta?.stale === true;
+            const isStale = stageKey && stageMetaOf(data, stageKey)?.stale === true;
             if (navItems[stageId]) {
                 navItems[stageId].classList.toggle('stage-stale', !!isStale);
             }
@@ -2167,7 +2179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show stale banner if this stage is outdated
         const stageKey = STAGE_DATA_KEYS[stageNum];
         const stageData = stageKey && window.currentProjectData?.[stageKey];
-        if (stageData?._meta?.stale === true && activeWorkspace) {
+        if (stageMetaOf(window.currentProjectData, stageKey)?.stale === true && activeWorkspace) {
             // Find which upstream stage was revised
             const upstreamLabel = findRevisedUpstream(stageNum);
             const banner = document.createElement('div');

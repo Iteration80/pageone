@@ -24,17 +24,53 @@ const STAGE_ORDER = [
     'stage9_rewrites',
 ];
 
+// Sibling map for stages whose value cannot carry an inline `_meta`.
+//
+// `stage6_scenes` (visible Stage 5, Scene Blueprint) is stored as a bare ARRAY of
+// sequences, and JSON.stringify serializes only an array's INDEX properties — so
+// `blueprint._meta = {...}` is set in memory and silently dropped on the very next
+// save. Every stamp for the blueprint was being thrown away, which meant visible
+// Stage 5 could never be marked stale: revise the Outline, Characters or Treatment
+// after building a blueprint and the writer got no nav badge and no banner, while
+// every other stage got both. It is also the most expensive artifact to rebuild,
+// so it is the worst one to let go quietly out of date. (Found 2026-08-01.)
+//
+// Reads prefer the inline `_meta` so existing projects keep working untouched;
+// only array-valued stages take the sibling path, so there is no migration.
+const STAGE_META_SIBLING_KEY = 'stage_meta';
+
+function canHoldInlineMeta(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readStageMeta(projectData, stageKey) {
+    const value = projectData?.data?.[stageKey];
+    if (canHoldInlineMeta(value) && value._meta) return value._meta;
+    return projectData?.data?.[STAGE_META_SIBLING_KEY]?.[stageKey];
+}
+
+function writeStageMeta(projectData, stageKey, meta) {
+    const value = projectData?.data?.[stageKey];
+    if (value === undefined || value === null) return;
+    if (canHoldInlineMeta(value)) {
+        value._meta = meta;
+        return;
+    }
+    if (!projectData.data[STAGE_META_SIBLING_KEY]) projectData.data[STAGE_META_SIBLING_KEY] = {};
+    projectData.data[STAGE_META_SIBLING_KEY][stageKey] = meta;
+}
+
 /**
  * Call this when a stage is first generated (auto or manual trigger).
  * Stamps _meta.generated_at and clears stale/revised flags.
  */
 function stampGenerated(projectData, stageKey) {
     if (!projectData.data[stageKey]) return;
-    projectData.data[stageKey]._meta = {
+    writeStageMeta(projectData, stageKey, {
         generated_at: Date.now(),
         manually_revised_at: null,
         stale: false,
-    };
+    });
 }
 
 /**
@@ -45,12 +81,12 @@ function stampGenerated(projectData, stageKey) {
 function stampRevised(projectData, stageKey) {
     if (!projectData.data[stageKey]) return;
 
-    const meta = projectData.data[stageKey]._meta || {};
-    projectData.data[stageKey]._meta = {
+    const meta = readStageMeta(projectData, stageKey) || {};
+    writeStageMeta(projectData, stageKey, {
         ...meta,
         manually_revised_at: Date.now(),
         stale: false, // the revised stage itself is not stale — it's the new truth
-    };
+    });
 
     // Mark all downstream stages as stale
     const revisedIdx = STAGE_ORDER.indexOf(stageKey);
@@ -59,11 +95,11 @@ function stampRevised(projectData, stageKey) {
     for (let i = revisedIdx + 1; i < STAGE_ORDER.length; i++) {
         const downstreamKey = STAGE_ORDER[i];
         if (projectData.data[downstreamKey]) {
-            const downMeta = projectData.data[downstreamKey]._meta || {};
-            projectData.data[downstreamKey]._meta = {
+            const downMeta = readStageMeta(projectData, downstreamKey) || {};
+            writeStageMeta(projectData, downstreamKey, {
                 ...downMeta,
                 stale: true,
-            };
+            });
         }
     }
 }
@@ -80,7 +116,7 @@ function getRevisedUpstreamStages(projectData, targetStageKey) {
     if (targetIdx === -1) return [];
 
     return STAGE_ORDER.slice(0, targetIdx).filter(key => {
-        const meta = projectData.data[key]?._meta;
+        const meta = readStageMeta(projectData, key);
         return meta?.manually_revised_at != null;
     });
 }
@@ -141,5 +177,8 @@ module.exports = {
     stampRevised,
     buildSourceAuthorityBlock,
     getRevisedUpstreamStages,
+    readStageMeta,
+    writeStageMeta,
+    STAGE_META_SIBLING_KEY,
     STAGE_ORDER,
 };

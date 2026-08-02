@@ -421,7 +421,7 @@ const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
 } = require('./agents/memory_contract');
-const { stampGenerated, stampRevised, buildSourceAuthorityBlock } = require('./utils/stageMetadata');
+const { stampGenerated, stampRevised, buildSourceAuthorityBlock, readStageMeta, writeStageMeta } = require('./utils/stageMetadata');
 const {
     createRevisionTransaction,
     outlineRevisionAdapter,
@@ -1985,12 +1985,14 @@ async function finalizeGeneratedStageArtifact({
     // stage's provenance. Carry the prior _meta across; stampGenerated/stampRevised
     // below then update it. Without this, a revision loses generated_at entirely
     // (stampRevised spreads an already-empty _meta).
-    // (Array results such as stage6_scenes can't hold _meta at all — non-index
-    // array properties are dropped by JSON.stringify — so skip them.)
-    const priorStageMeta = projectData.data[stageKey]?._meta;
+    // (Array results such as stage6_scenes can't hold an inline _meta — non-index
+    // array properties are dropped by JSON.stringify — so their metadata lives in the
+    // `stage_meta` sibling map instead. read/writeStageMeta pick the right home; the
+    // sibling entry survives the reassignment below on its own.)
+    const priorStageMeta = readStageMeta(projectData, stageKey);
     projectData.data[stageKey] = result;
-    if (priorStageMeta && result && typeof result === 'object' && !Array.isArray(result) && !result._meta) {
-        projectData.data[stageKey]._meta = { ...priorStageMeta };
+    if (priorStageMeta && !readStageMeta(projectData, stageKey)) {
+        writeStageMeta(projectData, stageKey, { ...priorStageMeta });
     }
     if (beforeSave) await beforeSave(projectData);
 
