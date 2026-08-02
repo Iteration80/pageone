@@ -1,6 +1,7 @@
 const { execFile } = require('child_process');
 const modulePath = require('path');
 const { readStage1Draft, applyStage1DraftPatch, clearStage1Draft } = require('../utils/stage1_draft');
+const { artifactHash } = require('../utils/artifact_snapshots');
 
 function registerProjectRoutes(app, deps) {
     const {
@@ -320,6 +321,27 @@ function registerProjectRoutes(app, deps) {
                     }
                 }
 
+                // A stage PUT replaces the whole stage object, and `_meta` is
+                // server-owned provenance the client does not always echo back — so
+                // re-saving a stage silently dropped its `generated_at` and staleness
+                // with it. This was invisible while every such PUT also called
+                // stampRevised (which rebuilt a `_meta` from scratch); the moment that
+                // stamp became conditional, the loss showed up as no metadata at all.
+                // Carry the previous stamp forward unless the client sent a new one.
+                if (updates.data) {
+                    for (const key of Object.keys(updates.data)) {
+                        const nextValue = mergedData[key];
+                        const previousMeta = previousData[key]?._meta;
+                        if (
+                            previousMeta
+                            && nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+                            && !nextValue._meta
+                        ) {
+                            mergedData[key] = { ...nextValue, _meta: previousMeta };
+                        }
+                    }
+                }
+
                 const nextProject = { ...projectData, ...updates, data: mergedData };
                 delete nextProject.restoreVersionId;
                 delete nextProject.skipSnapshots;
@@ -328,6 +350,16 @@ function registerProjectRoutes(app, deps) {
                     && Object.prototype.hasOwnProperty.call(updates.data, 'stage2_outline')
                     && updates.data.stage2_outline?.outline
                 );
+
+                // Approving Stage 2 PUTs the outline back unchanged, and that used to be
+                // stamped `manually_revised_at` just for showing up — so a project that was
+                // only ever generated and approved told every downstream stage it had been
+                // hand-revised, and each one got a SOURCE_AUTHORITY block asserting a
+                // revision that never happened. The signal could never distinguish
+                // "revised" from "approved". Compare the content instead.
+                const outlineActuallyChanged = shouldDeriveStage4Beats
+                    && artifactHash(updates.data.stage2_outline.outline)
+                        !== artifactHash(previousData.stage2_outline?.outline);
 
                 if (updates.data && !Array.isArray(updates.data.versionHistory) && !updates.skipSnapshots) {
                     const operation = updates.restoreVersionId ? 'restore' : 'manual_update';
@@ -350,7 +382,7 @@ function registerProjectRoutes(app, deps) {
                     stampRevised(nextProject, updates.stampRevisedStage);
                     delete nextProject.stampRevisedStage; // Don't persist the flag itself
                 }
-                if (shouldDeriveStage4Beats && updates.stampRevisedStage !== 'stage2_outline') {
+                if (outlineActuallyChanged && updates.stampRevisedStage !== 'stage2_outline') {
                     stampRevised(nextProject, 'stage2_outline');
                 }
                 if (shouldDeriveStage4Beats) {
