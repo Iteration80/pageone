@@ -1516,6 +1516,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else {
+                // No pitch selected yet — restore the Stage 1 draft, so a generation
+                // the writer already paid for survives leaving and reopening.
+                const draft = projectDetails.data?.stage1_draft;
+                if (typeof draft?.idea === 'string' && draft.idea) {
+                    promptInput.value = draft.idea;
+                    requestAnimationFrame(() => autoResize(promptInput));
+                }
+                if (Array.isArray(draft?.pitch_options) && draft.pitch_options.length) {
+                    renderPitches(draft.pitch_options);
+                }
                 updateStageNav(projectDetails.data);
             }
             await refreshProjectKnowledgeSummary().catch(err => console.warn('Source readiness refresh skipped:', err.message));
@@ -1606,6 +1616,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stage3FileNameDisplay) stage3FileNameDisplay.textContent = file ? file.name : '';
     });
 
+    // --- Stage 1 draft persistence ---
+    // Stage 1 was the only stage that could bill the writer and then lose the work:
+    // the idea box and the three generated pitches lived in browser memory until one
+    // was selected, so Home / refresh / crash threw away a paid generation. The idea
+    // is saved debounced as it's typed; the options are saved server-side the moment
+    // /api/execute returns; both are restored on reopen and dropped on selection.
+    let stage1DraftTimer = null;
+    function saveStage1Draft(patch, { immediate = false } = {}) {
+        clearTimeout(stage1DraftTimer);
+        if (!activeProjectId) return;
+        const projectId = activeProjectId; // pinned: the writer may navigate before this fires
+        const send = () => fetch(`/api/projects/${projectId}/stage1-draft`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch)
+        }).catch(err => console.error('Failed to save Stage 1 draft:', err));
+
+        if (immediate) return send();
+        stage1DraftTimer = setTimeout(send, 800);
+    }
+
+    promptInput.addEventListener('input', () => saveStage1Draft({ idea: promptInput.value }));
+
     generateBtn.addEventListener('click', async () => {
         const prompt = promptInput.value.trim();
         const pdfFile = pdfUpload.files[0];
@@ -1638,6 +1671,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (pitches && Array.isArray(pitches)) {
                 renderPitches(pitches);
+                // /api/execute has already persisted these; mirror them locally so
+                // client state matches what is now on disk.
+                if (window.currentProjectData) {
+                    window.currentProjectData.stage1_draft = { idea: prompt, pitch_options: pitches };
+                }
             } else {
                 noticeDialog({ message: "Unexpected response format from server." });
                 console.error("Data received:", data);
@@ -1722,6 +1760,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             }).catch(err => console.error('Failed to save selected pitch:', err));
+
+            // The draft has served its purpose — this pitch is now the stage artifact.
+            // Also cancels any debounced idea save still in flight.
+            if (window.currentProjectData) delete window.currentProjectData.stage1_draft;
+            saveStage1Draft({ clear: true }, { immediate: true });
         }
 
         // Clear the other two cards from the screen

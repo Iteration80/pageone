@@ -1,3 +1,5 @@
+const { applyStage1DraftPatch } = require('../utils/stage1_draft');
+
 function registerGenerationRoutes(app, deps) {
     const {
         requireAuth,
@@ -161,6 +163,19 @@ function registerGenerationRoutes(app, deps) {
                 recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(result, null, 2), 'pitch_generation');
                 await writeJSONQueued(getProjectFilePath(projectId), projectData);
                 trackUsage(projectId, usage);
+            }
+            // Persist the options the moment they exist. Until 2026-08-02 they were
+            // held in browser memory until the writer selected one, so a generation
+            // that was already billed and logged in apiUsage could be lost to a
+            // click on Home. Failing to save must not fail the response — the
+            // pitches are in hand either way.
+            if (projectId) {
+                await updateProjectJSON(projectId, (project) => applyStage1DraftPatch(project, {
+                    idea: typeof prompt === 'string' ? prompt : '',
+                    attachmentName: uploadContext?.attachment?.name || null,
+                    pitchOptions: result?.pitch_options,
+                    generatedAt: new Date().toISOString()
+                })).catch(err => console.error('Failed to persist Stage 1 draft:', err.message));
             }
             res.json({ result, ...sourceResponseExtras(sourcePacket) });
         } catch (error) {

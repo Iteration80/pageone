@@ -1,5 +1,6 @@
 const { execFile } = require('child_process');
 const modulePath = require('path');
+const { readStage1Draft, applyStage1DraftPatch, clearStage1Draft } = require('../utils/stage1_draft');
 
 function registerProjectRoutes(app, deps) {
     const {
@@ -370,6 +371,28 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error("Error updating project:", error);
             sendApiError(res, error, 'Failed to update project');
+        }
+    });
+
+    // PUT the Stage 1 draft — the typed story idea and the generated pitch options,
+    // held before the writer selects one. Merged server-side per key so the debounced
+    // idea save and the post-generation options save never overwrite each other;
+    // `{ clear: true }` drops it once a pitch has been promoted to stage1_pitch.
+    app.put('/api/projects/:id/stage1-draft', requireAuth, async (req, res) => {
+        try {
+            const { id } = req.params;
+            assertValidProjectId(id);
+            await assertProjectExists(id);
+
+            const patch = req.body || {};
+            const updated = await updateProjectJSON(id, (project) => (
+                patch.clear ? clearStage1Draft(project) : applyStage1DraftPatch(project, patch)
+            ));
+
+            res.json({ success: true, stage1_draft: readStage1Draft(updated.data) });
+        } catch (error) {
+            console.error("Error saving Stage 1 draft:", error);
+            sendApiError(res, error, 'Failed to save Stage 1 draft');
         }
     });
 
