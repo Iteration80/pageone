@@ -49,6 +49,52 @@ function normalizeTierOverrides(overrides = {}) {
     }, {});
 }
 
+// An explicit tier statement — "Tier 1", "a full profile", "a cameo". Ordered most
+// specific first so "Tier 1" never falls through to the looser Tier 2 wording.
+function explicitTierFromPhrase(text = '') {
+    const t = String(text).toLowerCase();
+    if (/\btier\s*1\b|\bfull\s+(?:profile|arc)\b|\barc[- ]bearing\b/.test(t)) return PROFILE_TIERS.FULL;
+    if (/\btier\s*2\b|\bfunctional\s+(?:profile|character|supporting)\b|\bsupporting\s+(?:profile|character)\b/.test(t)) return PROFILE_TIERS.FUNCTIONAL;
+    if (/\btier\s*3\b|\bcameo\b|\bscene[- ]utility\b/.test(t)) return PROFILE_TIERS.CAMEO;
+    return null;
+}
+
+// A verb that means the writer is CHANGING the tiering, not just describing it.
+// The SOP says saved tier assignments are honored "unless the writer's notes
+// explicitly change a character's tiering" — so a bare mention isn't enough.
+const TIER_CHANGE_INTENT = /\b(?:make|promote|demote|upgrade|downgrade|bump|move|turn|treat|change|set|give|should\s+be|needs?\s+to\s+be|deserves)\b/i;
+
+/**
+ * Tier changes the writer stated in their notes, keyed by character name.
+ *
+ * The pinned tier overrides (`data.stage3_characters.tier_overrides`, set with the
+ * Stage 3 tier buttons) used to win unconditionally in normalizeProfileTier — so a
+ * note reading "promote Ray to Tier 1" was obeyed by the model and then silently
+ * stomped back to the pin by the normalizer. The SOP has always promised the
+ * opposite. This restores that precedence by letting a note-stated tier replace the
+ * pin for that character, for this run. (Found 2026-07-30, fixed 2026-08-02.)
+ *
+ * Scoped per SENTENCE, not per character window: "Promote Ray to Tier 1. Separately,
+ * sharpen Nora's dialogue." must retier Ray and leave Nora alone, and a fixed-width
+ * window around each name reaches across the full stop and retiers both.
+ */
+function explicitTierChangesFromNotes(notes = '', characterNames = []) {
+    const text = String(notes || '');
+    if (!text.trim()) return {};
+    const names = characterNames.map(name => String(name || '').trim()).filter(Boolean);
+    if (!names.length) return {};
+
+    const changes = {};
+    for (const sentence of text.split(/(?<=[.!?;])\s+|\n+/)) {
+        const tier = explicitTierFromPhrase(sentence);
+        if (!tier || !TIER_CHANGE_INTENT.test(sentence)) continue;
+        for (const name of names) {
+            if (new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i').test(sentence)) changes[name] = tier;
+        }
+    }
+    return changes;
+}
+
 function hasMeaningfulProfileData(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     return Object.values(value).some(entry => {
@@ -533,9 +579,25 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         generateContentFn = generateContent,
         tierOverrides = {}
     } = modelConfig;
-    const rawTierOverrides = tierOverrides && typeof tierOverrides === 'object' && !Array.isArray(tierOverrides)
+    const pinnedTierOverrides = tierOverrides && typeof tierOverrides === 'object' && !Array.isArray(tierOverrides)
         ? tierOverrides
         : {};
+    // The SOP promises saved tier assignments are honored "unless the writer's notes
+    // explicitly change a character's tiering" — but normalizeProfileTier applied the
+    // pin unconditionally, so the model would correctly obey "promote Ray to Tier 1"
+    // and the normalizer would put Ray straight back to his pinned tier. A tier the
+    // writer states in their notes now replaces the pin, and is persisted as the new
+    // pin, exactly as if they had clicked the tier button.
+    const castNames = (Array.isArray(currentCharacters)
+        ? currentCharacters
+        : (Array.isArray(currentCharacters?.characters) ? currentCharacters.characters : []))
+        .map(character => String(character?.name || '').trim())
+        .filter(Boolean);
+    const notedTierChanges = explicitTierChangesFromNotes(notes, castNames);
+    if (Object.keys(notedTierChanges).length) {
+        console.log(`  Stage 3 tiering: the writer's notes retier ${Object.entries(notedTierChanges).map(([name, tier]) => `${name} → ${tier}`).join(', ')} (overriding the pinned tier).`);
+    }
+    const rawTierOverrides = { ...pinnedTierOverrides, ...notedTierChanges };
     const normalizedTierOverrides = normalizeTierOverrides(rawTierOverrides);
 
     const charactersSOP = loadSkill('skill_stage3_characters');
@@ -983,4 +1045,4 @@ function combineUsage(a, b) {
     };
 }
 
-module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, PROFILE_REPAIR_SCHEMA };
+module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, explicitTierChangesFromNotes, PROFILE_REPAIR_SCHEMA };

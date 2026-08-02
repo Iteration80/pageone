@@ -124,6 +124,48 @@ function outlineRevisionAdapter({ before, after, notes = '', structuralPatch = n
     };
 }
 
+function escapeRegExp(value = '') {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Words that identify a role rather than a person. Matching on these would make
+// "the deputy" name every deputy in the cast.
+const LABEL_STOPWORDS = new Set([
+    'the', 'and', 'her', 'his', 'their', 'mrs', 'miss', 'doctor', 'deputy', 'sheriff',
+    'mayor', 'officer', 'detective', 'captain', 'sergeant', 'father', 'mother', 'uncle',
+    'aunt', 'sister', 'brother', 'young', 'old', 'man', 'woman', 'boy', 'girl', 'lady',
+    'guy', 'kid', 'inspector', 'agent', 'nurse'
+]);
+
+function labelTokens(label = '') {
+    return String(label)
+        .split(/[^A-Za-z0-9']+/)
+        .map(token => token.trim())
+        .filter(token => token.length >= 3 && !LABEL_STOPWORDS.has(token.toLowerCase()));
+}
+
+/**
+ * Which saved items does this brief actually name?
+ *
+ * Matching is deliberately GENEROUS — any distinctive word of a name counts, so
+ * "Ray" finds "Deputy Ray". Over-matching is the safe direction here: the check
+ * below only requires that ONE named item changed, so naming extra items can only
+ * ever make it more lenient. Under-matching would silently disable the check.
+ */
+function namedTargetLabels(notes = '', items = [], labelKey = 'name') {
+    const text = String(notes || '');
+    if (!text.trim()) return [];
+    const named = [];
+    for (const item of (Array.isArray(items) ? items : [])) {
+        const label = String(item?.[labelKey] || '').trim();
+        const tokens = labelTokens(label);
+        if (!tokens.length) continue;
+        const pattern = new RegExp(`\\b(?:${tokens.map(escapeRegExp).join('|')})\\b`, 'i');
+        if (pattern.test(text)) named.push(label);
+    }
+    return named;
+}
+
 function namedItemDiffAdapter({
     before = [],
     after = [],
@@ -131,6 +173,7 @@ function namedItemDiffAdapter({
     itemType = 'item',
     notes = '',
     guardDeletions = false,
+    checkNamedTargets = false,
     massShrinkRatio = 0.7,
     massShrinkMinCount = 5
 }) {
@@ -174,17 +217,62 @@ function namedItemDiffAdapter({
         });
     }
 
+    // A revision that NAMES someone must actually touch someone it named.
+    //
+    // Every check above asks only "did this object change?", never "did the change
+    // land on the item the brief asked about". So a brief naming Deputy Ray three
+    // times, which left Ray untouched and rewrote Nora Vance instead, produced
+    // `operations: [{type: update, label: "Nora Vance", status: verified}]` and the
+    // summary "1/1 character operation(s) verified" — and the assistant told the
+    // writer it was done. (2026-07-30, Bug 8.) It is the same false-success family
+    // as the July cold-open saga, and it is what let the 38-field erasure be
+    // reported as a success too.
+    //
+    // The rule is deliberately the weakest one that catches this: fail only when
+    // NONE of the named items changed. A brief that mentions Ray while asking for a
+    // change to Nora still passes, because Nora is named and Nora changed.
+    const namedTargets = checkNamedTargets ? namedTargetLabels(notes, beforeItems, labelKey) : [];
+    const touchedLabels = new Set(operations.map(op => normalizePatchLabel(op.label)));
+    const missedTargets = namedTargets.filter(label => !touchedLabels.has(normalizePatchLabel(label)));
+    const missedEveryTarget = namedTargets.length > 0 && missedTargets.length === namedTargets.length;
+    if (missedEveryTarget) {
+        failures.push({
+            type: 'target_missed',
+            itemType,
+            label: `brief named ${namedTargets.join(', ')} — none of them changed`,
+            status: 'unverified'
+        });
+    }
+
+    const changedElsewhere = operations.map(op => op.label).filter(Boolean);
+    // ⚠️ The client's tool-result projection is a WHITELIST (changed / changedSceneNumbers
+    // / receiptSummary / error), so anything not in the summary never reaches the model,
+    // however carefully the server fills the rest of the receipt in.
+    const summary = missedEveryTarget
+        ? `FAILED: the brief named ${namedTargets.join(', ')}, but ${namedTargets.length > 1 ? 'none of them were' : 'that ' + itemType + ' was not'} changed.`
+            + (changedElsewhere.length ? ` What changed instead: ${changedElsewhere.join(', ')}.` : ' Nothing was changed.')
+            + ' Report this as a failure — do not tell the writer the edit was applied.'
+        : (operations.length
+            ? `${operations.length - failures.filter(f => f.type !== 'mass_shrink').length}/${operations.length} ${itemType} operation(s) verified.`
+            : `No ${itemType} operations detected.`);
+
     return {
         operations: operations.slice(0, 24),
         failures: failures.slice(0, 12),
-        summary: operations.length
-            ? `${operations.length - failures.filter(f => f.type !== 'mass_shrink').length}/${operations.length} ${itemType} operation(s) verified.`
-            : `No ${itemType} operations detected.`
+        summary
     };
 }
 
 function characterRevisionAdapter({ before, after, notes = '' }) {
-    return namedItemDiffAdapter({ before, after, labelKey: 'name', itemType: 'character', notes, guardDeletions: true });
+    return namedItemDiffAdapter({
+        before,
+        after,
+        labelKey: 'name',
+        itemType: 'character',
+        notes,
+        guardDeletions: true,
+        checkNamedTargets: true
+    });
 }
 
 function treatmentRevisionAdapter({ before = {}, after = {} }) {
