@@ -24,6 +24,8 @@ All chat surfaces (internal stages 1, 2, 3, 5, 6, 7, 8, 10, and the projectless 
 - **Streaming disconnects:** stages 2/5/6 generation attach a close-aware abort tracker; `agents/ai-client.js` propagates abort signals to both providers and normalizes them as `CLIENT_DISCONNECTED` (never retried).
 - **Skill loading:** always `loadSkill('skill_name')` from `utils/skills_cache.js` (memoized). Never `readFileSync` a skill directly.
 - **Model output parsing:** use `agents/json_parse.js::parseJsonWithRepair(text, { schema, label })` — never raw `JSON.parse` on model output.
+- **Numeric contracts must live in the schema, not only the prompt.** A count stated to the model and never enforced in code has produced four separate bugs (Stage 1's three pitches, Stage 6 `total_estimated_pages`, `stage4_beats`, Stage 3's silently-dropped profile fields). When a prompt or SOP names a count, an enum, or a required field, put it in the schema too.
+  ⚠️ **Gemini rejects `minItems`/`maxItems` on an array whose ITEMS schema itself contains an array** — bare `INVALID_ARGUMENT` at request time, and the whole request fails, not just the bound. Measured 2026-08-03: `pitch_options` and Stage 2 `beats` (flat items) accept it; Stage 2 `act_1/2/3` and Stage 3 `characters` (items contain arrays) do not. **Always verify a schema edit with one real request** — this class cannot be caught by any local test.
 - **Model config:** `getAssistantModelConfig(stageN)` for chat, `getModelConfig(stageN)` for generation; per-stage models + BYOK keys live in `data/settings.json` (gitignored), `.env` as fallback.
 - Build fingerprint: `/health` (+ UI footer, Settings modal, DOCX metadata) via `utils/build_info.js` — check it first when "the server isn't running my code".
 

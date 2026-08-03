@@ -477,7 +477,15 @@ const CHARACTER_SCHEMA = {
                 properties: {
                     name: { type: 'string' },
                     role: { type: 'string', description: "e.g., Protagonist, Antagonist, Catalyst, Adjuster, Supporting" },
-                    profile_tier: { type: 'string', description: "Use exactly one of: Tier 1, Tier 2, Tier 3. Tier 1 = major arc-bearing full profile. Tier 2 = functional recurring/supporting profile. Tier 3 = cameo / scene utility profile." },
+                    // "Use exactly one of" was a description, which is a suggestion.
+                    // normalizeTierValue mops up the variants it knows ("Tier 2",
+                    // "supporting", "2"), but anything outside that list silently
+                    // defaults the character to Tier 1 and hands them a full
+                    // psychological profile they should not have. An enum is the
+                    // contract the description already claimed. (Same class as the
+                    // Stage 2 counts below — a rule stated to the model and never
+                    // enforced in code.)
+                    profile_tier: { type: 'string', enum: ['Tier 1', 'Tier 2', 'Tier 3'], description: "Tier 1 = major arc-bearing full profile. Tier 2 = functional recurring/supporting profile. Tier 3 = cameo / scene utility profile." },
                     brief_summary: { type: 'string', description: "A punchy, 1-2 sentence bio encapsulating who they are and their exact narrative function. Keep Tier 3 summaries brief." },
                     backstory: {
                         type: 'object',
@@ -507,9 +515,12 @@ const CHARACTER_SCHEMA = {
                     // 7/7. Prompt wording alone did nothing. (2026-08-03.)
                     //
                     // ⚠️ `maxItems` on the `characters` array would be the obvious
-                    // companion fix for the runaway described in json_parse.js — the
-                    // API rejects it in this position with a bare INVALID_ARGUMENT.
-                    // Don't re-add it without testing a real request.
+                    // companion fix for the runaway described in json_parse.js, and it
+                    // cannot be done: Gemini rejects minItems/maxItems on an array
+                    // whose ITEMS schema itself contains an array, with a bare
+                    // `INVALID_ARGUMENT` at request time — and characters[] items
+                    // contain arrays. Flat-item arrays (pitch_options, Stage 2 beats)
+                    // take the bound fine. See agent_2_outline.js for the measurement.
                     functional_profile: {
                         type: 'object',
                         properties: {
