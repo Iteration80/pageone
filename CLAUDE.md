@@ -85,6 +85,8 @@ API auth is layered and each layer is dormant unless configured:
 2. `APP_SECRET` remains the break-glass/admin credential even when Google auth is primary. API requests can use `X-Api-Key: <APP_SECRET>` or `Authorization: Bearer <APP_SECRET>`.
 3. If neither Google auth nor `APP_SECRET` is configured, local development runs open.
 
+Split by kind, not by sensitivity: `utils/auth.js` owns every decision about whether a request is authenticated (config gating, session signing/verification, cookie parsing, the live allowlist check); `routes/auth.js` only wires those decisions to URLs. Route-level coverage is `test/auth_routes.test.js`.
+
 Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. Deployed tester builds should keep `APP_SECRET` set even with Google enabled so maintenance scripts and recovery access still work. The public frontend reads `GET /api/auth-config` before booting so it can show either the Google button, the access-key form, or no auth overlay.
 
 ⚠️ `ANTHROPIC_API_KEY` is **deliberately unset** in local `.env` (commented out 2026-08-02). The key that was there returned 401, so selecting any Claude model in Settings failed opaquely; with no key at all the failure is honest. All stages run Gemini. Add a working key to that line to re-enable the Claude models. Production sets its own key via Railway env vars — this note is about the local file.

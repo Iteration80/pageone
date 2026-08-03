@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const auth = require('../utils/auth');
+const { registerAuthRoutes } = require('../routes/auth');
 
 const SECRET = 'test-session-secret';
 
@@ -84,7 +85,7 @@ function captureAuthRoutes({ appSecret = '' } = {}) {
         };
     };
     const app = { get: register('GET'), post: register('POST') };
-    auth.registerAuthRoutes(app, { APP_SECRET: appSecret });
+    registerAuthRoutes(app, { APP_SECRET: appSecret });
     return routes;
 }
 

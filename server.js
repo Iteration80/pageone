@@ -454,7 +454,8 @@ const { registerKnowledgeRoutes } = require('./routes/knowledge');
 const { registerProjectRoutes } = require('./routes/projects');
 const { registerRewriteRoutes } = require('./routes/rewrite');
 const { registerStyleRoutes } = require('./routes/styles');
-const { isGoogleAuthEnabled, getSessionEmail, registerAuthRoutes } = require('./utils/auth');
+const { isGoogleAuthEnabled, getSessionEmail } = require('./utils/auth');
+const { registerAuthRoutes } = require('./routes/auth');
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
@@ -3828,7 +3829,8 @@ app.use((req, res, next) => {
 });
 
 // ─── Authentication ───────────────────────────────────────────────────────────
-// Layered, each layer dormant unless configured (see utils/auth.js):
+// Layered, each layer dormant unless configured (decisions in utils/auth.js,
+//   routes in routes/auth.js):
 //   1. Google sign-in — when GOOGLE_CLIENT_ID/SECRET + ALLOWED_EMAILS are set,
 //      a signed session cookie from an allowlisted Google account grants access.
 //   2. Shared secret (break-glass) — when APP_SECRET is set, an X-Api-Key /
