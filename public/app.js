@@ -161,6 +161,38 @@ function stage6AuditLabel(flag = {}) {
     return String(flag.type || 'FLAG').replace(/_/g, ' ').toUpperCase();
 }
 
+// ─── Visible stage numbering ──────────────────────────────────────────────────
+// Internal stage ids don't match the visible 1-9 pipeline (see CLAUDE.md's legacy
+// data-key trap), so anything shown to the writer goes through these.
+//
+// ⚠️ TOP-LEVEL BY DESIGN. These lived inside the DOMContentLoaded handler from
+// 2026-07-12 (`06d2fd0`, the beats-into-outline renumbering) until 2026-08-03, while
+// the Settings modal — which is defined AFTER that handler closes — called
+// displayStageNumber() to label its per-stage model rows. The call threw
+// `ReferenceError: displayStageNumber is not defined` and the modal never opened, so
+// Settings was dead for three weeks. It was silent because the click handler is an
+// `async` function: the throw became an unhandled promise rejection, which prints
+// nothing an ordinary console error listener would catch.
+//
+// This is the SECOND time a helper trapped in this handler has killed the gear icon
+// (the June closure-scope incident is the first). A helper called from anywhere must
+// be declared here, not inside the handler.
+const DISPLAY_STAGE_NUMBERS = { 1: 1, 2: 2, 3: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9 };
+const DISPLAY_STAGE_LABELS = {
+    1: 'Pitch',
+    2: 'Outline',
+    3: 'Characters',
+    5: 'Treatment',
+    6: 'Scene Blueprint',
+    7: 'Style',
+    8: 'Draft',
+    9: 'Coverage',
+    10: 'Rewrite'
+};
+const displayStageNumber = stageId => DISPLAY_STAGE_NUMBERS[Number(stageId)] || Number(stageId);
+const displayStageLabel = stageId => DISPLAY_STAGE_LABELS[Number(stageId)] || `Stage ${stageId}`;
+const displayStageName = stageId => `Stage ${displayStageNumber(stageId)} ${displayStageLabel(stageId)}`;
+
 document.addEventListener('DOMContentLoaded', () => {
     let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
@@ -440,21 +472,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItems = {};
     const workspaces = {};
     const PIPELINE_STAGE_IDS = [1, 2, 3, 5, 6, 7, 8, 9, 10];
-    const DISPLAY_STAGE_NUMBERS = { 1: 1, 2: 2, 3: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9 };
-    const DISPLAY_STAGE_LABELS = {
-        1: 'Pitch',
-        2: 'Outline',
-        3: 'Characters',
-        5: 'Treatment',
-        6: 'Scene Blueprint',
-        7: 'Style',
-        8: 'Draft',
-        9: 'Coverage',
-        10: 'Rewrite'
-    };
-    const displayStageNumber = stageId => DISPLAY_STAGE_NUMBERS[Number(stageId)] || Number(stageId);
-    const displayStageLabel = stageId => DISPLAY_STAGE_LABELS[Number(stageId)] || `Stage ${stageId}`;
-    const displayStageName = stageId => `Stage ${displayStageNumber(stageId)} ${displayStageLabel(stageId)}`;
     for (let i = 1; i <= 10; i++) {
         // Handle inconsistent ID patterns (nav-stage-X vs nav-stageX)
         navItems[i] = document.getElementById(`nav-stage-${i}`) || document.getElementById(`nav-stage${i}`);
@@ -10978,6 +10995,7 @@ async function loadBuildInfo() {
 
     const MODEL_OPTIONS = [
         { value: 'gemini-3.1-pro-preview',    label: 'Gemini 3.1 Pro' },
+        { value: 'gemini-3.6-flash',          label: 'Gemini 3.6 Flash' },
         { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash' },
         { value: 'claude-fable-5',            label: 'Claude Fable 5' },
         { value: 'claude-opus-4-8',           label: 'Claude Opus 4.8' },
@@ -10998,7 +11016,21 @@ async function loadBuildInfo() {
         select.id = `settings-model-stage${stageNum}`;
         select.className = 'modal-input';
         select.style.cssText = 'flex:1;padding:4px 8px';
-        MODEL_OPTIONS.forEach(opt => {
+
+        // A saved model that isn't in the list gets an option of its own, so the modal
+        // always shows what is actually configured.
+        //
+        // ⚠️ Without this the select silently displays its FIRST option instead, and
+        // Save then writes that back — so opening Settings and saving would have
+        // rewritten every stage to whatever happened to be first. Found 2026-08-03
+        // with all ten stages reading "Gemini 3.1 Pro" while nine of them were running
+        // `gemini-3.6-flash`, which had been dropped from this list by `d965963`.
+        // A dropdown is a claim about current state; it must never misreport one.
+        const options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
+            ? MODEL_OPTIONS
+            : [{ value: currentModel, label: `${currentModel} (saved)` }, ...MODEL_OPTIONS];
+
+        options.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
