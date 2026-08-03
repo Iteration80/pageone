@@ -205,7 +205,20 @@ function normalizeCurrentCharacters(currentCharacters, tierOverrides = {}) {
     const list = Array.isArray(currentCharacters)
         ? currentCharacters
         : (Array.isArray(currentCharacters?.characters) ? currentCharacters.characters : []);
-    return list.map(character => normalizeLegacyCharacter(character, tierOverrides));
+    // First occurrence of each name wins. gemini-3.1-pro can re-emit the same
+    // character until it runs out of tokens (93 copies of one character, observed
+    // 2026-08-03); closeTruncatedJson now salvages those responses instead of failing
+    // them, and this is what stops the duplicates reaching the cast. Unnamed entries
+    // are left alone — deduping those would silently merge distinct characters.
+    const seen = new Set();
+    const deduped = list.filter(character => {
+        const key = String(character?.name || '').trim().toLowerCase();
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+    return deduped.map(character => normalizeLegacyCharacter(character, tierOverrides));
 }
 
 function needsCharacterModernization(characters = []) {
@@ -479,6 +492,24 @@ const CHARACTER_SCHEMA = {
                             why_they_matter_now: { type: 'string', description: "Tier 2/3 only when needed: why that past context matters in the current story moment." }
                         }
                     },
+                    // ⚠️ `required` on these two is load-bearing, not decoration. A
+                    // property that is not required is OPTIONAL to the model, and
+                    // gemini-3.1-pro exercises that: asked to revise two fields of one
+                    // Tier 2 character it returned a functional_profile holding only
+                    // narrative_function and voice_flavor, dropping emotional_truth and
+                    // comic_or_tension_function on 5 runs out of 5. A dropped field is
+                    // indistinguishable from a cleared one, so the field guard restores
+                    // the old value and the writer's edit silently does not land. This
+                    // is the real cause of what was recorded as "pro will not rewrite
+                    // emotional_truth" — it is a schema gap, not a model refusal.
+                    // Requiring the keys costs a few empty strings on the tiers that
+                    // don't use the object, and took the same edit from 0/5 landing to
+                    // 7/7. Prompt wording alone did nothing. (2026-08-03.)
+                    //
+                    // ⚠️ `maxItems` on the `characters` array would be the obvious
+                    // companion fix for the runaway described in json_parse.js — the
+                    // API rejects it in this position with a bare INVALID_ARGUMENT.
+                    // Don't re-add it without testing a real request.
                     functional_profile: {
                         type: 'object',
                         properties: {
@@ -487,7 +518,8 @@ const CHARACTER_SCHEMA = {
                             comic_or_tension_function: { type: 'string', description: "Tier 2 only: what kind of comedy, friction, or tension they reliably bring." },
                             pressure_behavior: { type: 'string', description: "Tier 2 only: one temptation, choice, or pressure behavior that matters on screen. Not a stress-arrow or arc mechanic." },
                             voice_flavor: { type: 'string', description: "Tier 2 only: broad playable voice flavor without rigid psychological typing or a binding dialogue fingerprint." }
-                        }
+                        },
+                        required: ['narrative_function', 'emotional_truth', 'comic_or_tension_function', 'pressure_behavior', 'voice_flavor']
                     },
                     cameo_profile: {
                         type: 'object',
@@ -496,7 +528,8 @@ const CHARACTER_SCHEMA = {
                             casting_energy: { type: 'string', description: "Tier 3 only: fast casting/actor energy." },
                             playable_behavior: { type: 'string', description: "Tier 3 only: one active, playable behavior." },
                             line_style_example: { type: 'string', description: "Tier 3 only: a short line style / dialogue flavor note if useful." }
-                        }
+                        },
+                        required: ['scene_purpose', 'casting_energy', 'playable_behavior', 'line_style_example']
                     },
                     psychological_core: {
                         type: 'object',
@@ -629,8 +662,19 @@ const agent3Characters = async (pitchData, beatsData, currentCharacters = null, 
         // string in JSON" — deterministically, same byte offset on every retry. The
         // merge has always rebuilt from the saved cast rather than the model's copy of
         // it, so the full list was never load-bearing; it was just a bigger target.
+        // ⚠️ The omit-what-you-didn't-touch rule is per CHARACTER. The model will
+        // generalize it to FIELDS unless stopped, and an omitted field is
+        // indistinguishable from a cleared one, so the field guard restores the old
+        // value and the writer's edit silently doesn't land.
+        //
+        // The prose below is belt-and-braces only — measured on gemini-3.1-pro
+        // (2026-08-03) it changed nothing on its own. What actually fixed it was
+        // marking the profile fields `required` in CHARACTER_SCHEMA; see the note
+        // there. Kept because it also covers objects the schema does not constrain.
         const returnInstruction = partialReturn
-            ? `Return ONLY the characters you actually changed, plus any character the note asks you to add. Omit every character you did not touch — they are preserved automatically from the saved cast, and re-sending them unchanged risks corrupting them. If the note changes nothing, return an empty characters array.`
+            ? `Return ONLY the characters you actually changed, plus any character the note asks you to add. Omit every character you did not touch — they are preserved automatically from the saved cast, and re-sending them unchanged risks corrupting them. If the note changes nothing, return an empty characters array.
+
+For every character you DO return, reproduce its profile objects IN FULL: copy unchanged fields back verbatim and write new text only where the note asks for it. Omitting a field is read as an instruction to erase it, not as "unchanged".`
             : `Return the full updated character list in JSON format.`;
         const revisionPrompt = `${sourceBlock}USER NOTE: ${notes}
 
@@ -647,6 +691,10 @@ Apply the note surgically. ${returnInstruction}`;
                 temperature: 0.3,
                 maxOutputTokens: 32000,
             },
+            // On a revision the cast size is known, so bound the array to it rather
+            // than the global ceiling: a surgical edit returning more characters than
+            // exist is already a runaway, and stopping it early is the difference
+            // between a clean result and a 32k-token dead response.
             schema: CHARACTER_SCHEMA
         });
 
@@ -1045,4 +1093,4 @@ function combineUsage(a, b) {
     };
 }
 
-module.exports = { agent3Characters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, explicitTierChangesFromNotes, PROFILE_REPAIR_SCHEMA };
+module.exports = { agent3Characters, normalizeCurrentCharacters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, explicitTierChangesFromNotes, PROFILE_REPAIR_SCHEMA };
