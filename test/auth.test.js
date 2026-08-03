@@ -68,10 +68,22 @@ async function withEnvAsync(vars, fn) {
 
 function captureAuthRoutes({ appSecret = '' } = {}) {
     const routes = {};
-    const app = {
-        get(path, handler) { routes[`GET ${path}`] = handler; },
-        post(path, handler) { routes[`POST ${path}`] = handler; }
+    // Routes may be registered with middleware in front of the handler
+    // (`app.get(path, limiter, handler)`), so collapse the chain into one callable
+    // that runs each link in order and stops at the first one that doesn't call next.
+    // Registering only the last argument silently skipped the middleware; registering
+    // the first ran the limiter AS the handler.
+    const register = (method) => (path, ...chain) => {
+        routes[`${method} ${path}`] = async (req, res) => {
+            for (const link of chain) {
+                let advanced = false;
+                await link(req, res, () => { advanced = true; });
+                if (!advanced) return res;
+            }
+            return res;
+        };
     };
+    const app = { get: register('GET'), post: register('POST') };
     auth.registerAuthRoutes(app, { APP_SECRET: appSecret });
     return routes;
 }

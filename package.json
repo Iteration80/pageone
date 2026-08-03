@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test 'test/*.test.js'",
     "test:knowledge": "node --test test/knowledge.test.js test/knowledge_review.test.js test/memory_contract.test.js test/prompt_regression.test.js",
     "start": "node server.js",
     "migrate:stage3-tiers": "node scripts/seed-stage3-tier-overrides.js",

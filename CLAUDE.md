@@ -63,10 +63,13 @@ User feedback and quality signals are stored in `data/projects/*.json`:
 
 ## Testing
 ```sh
-node --test 'test/*.test.js'      # all suites (assistant tool loop, prompt regression, knowledge, memory)
+npm test                          # all suites (route harness, assistant tool loop, prompt regression, knowledge, memory)
 npm run test:knowledge
 ```
-(Note: bare `node --test test/` fails with an opaque single "test failed" on this Node version — use the glob form.)
+(Note: bare `node --test test/` fails with an opaque single "test failed" on this Node version — `npm test` uses the glob form.)
+
+**Route-invocation harness — `test/helpers/route_harness.js`.** `startTestServer({ env })` boots the real app (server.js exports `app` and only listens under `require.main === module`) on an ephemeral port against a throwaway `DATA_ROOT`, and returns a `request()` client that makes real HTTP calls. It re-requires the first-party module graph per call, so env captured at module load (`APP_SECRET`, `DATA_ROOT`) can differ per test — that is what lets one file exercise open / secret / google mode. **Reach for this whenever a change touches a route.** Source-string tests have missed three production bugs (`794c332`, `f923414`, the Stage 1 pitch loss); all three would have been caught by one real request. `test/auth_routes.test.js` is the worked example.
+
 All suites must stay green. After frontend changes, also do a browser pass — the June gear-icon bug was invisible to syntax checks and curl; drive the real UI.
 
 ---
