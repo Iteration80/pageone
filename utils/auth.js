@@ -79,6 +79,20 @@ function verifySession(token, secret) {
     return data.email;
 }
 
+/**
+ * Hand-rolled cookie parsing, so the rules it follows are worth stating.
+ *
+ * FIRST occurrence of a name wins. A browser can legitimately send two cookies with
+ * the same name — one set for `.example.com` and one for `app.example.com`, say —
+ * and RFC 6265 orders the more specific path first. Taking the last would let a
+ * cookie set on a broader scope shadow the right one. Forging a session that way is
+ * not possible (the HMAC still has to verify), but it would knock a signed-in writer
+ * out of their own session with no way to see why. Express's own cookie parser is
+ * first-wins; matching it removes a difference nobody would think to look for.
+ *
+ * A quoted value (`name="abc"`, also legal per RFC 6265) has its quotes stripped —
+ * otherwise the token verifies against a signature computed over different bytes.
+ */
 function parseCookies(req) {
     const raw = req.headers?.cookie || '';
     const out = {};
@@ -86,8 +100,11 @@ function parseCookies(req) {
         const i = part.indexOf('=');
         if (i < 0) continue;
         const k = part.slice(0, i).trim();
-        if (!k) continue;
-        const rawValue = part.slice(i + 1).trim();
+        if (!k || Object.prototype.hasOwnProperty.call(out, k)) continue;
+        let rawValue = part.slice(i + 1).trim();
+        if (rawValue.length >= 2 && rawValue.startsWith('"') && rawValue.endsWith('"')) {
+            rawValue = rawValue.slice(1, -1);
+        }
         try {
             out[k] = decodeURIComponent(rawValue);
         } catch {
@@ -114,16 +131,34 @@ function requestBaseUrl(req) {
     return `${proto}://${host}`;
 }
 
+/**
+ * Whether to mark cookies `secure`.
+ *
+ * `x-forwarded-proto` is the only signal behind a TLS-terminating proxy, and if it
+ * is ever missing the session cookie would be issued without `secure` on an HTTPS
+ * site. `OAUTH_BASE_URL` is the operator's own statement of the public origin, so
+ * an https base URL settles it regardless of what the proxy did or didn't send.
+ */
 function isSecureRequest(req) {
+    if ((process.env.OAUTH_BASE_URL || '').startsWith('https://')) return true;
     const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
     return proto === 'https' || Boolean(req.secure);
 }
 
 function registerAuthRoutes(app, deps = {}) {
     const APP_SECRET = deps.APP_SECRET;
+    // No-op unless the caller supplies one — keeps this module usable standalone.
+    const oauthLimiter = deps.oauthLimiter || ((_req, _res, next) => next());
     const cfg = config();
     if (cfg.enabled && !cfg.sessionSecret) {
         console.warn('[auth] Google sign-in is enabled but no SESSION_SECRET / APP_SECRET is set — sessions cannot be signed. Set SESSION_SECRET.');
+    }
+    if (cfg.enabled && !process.env.OAUTH_BASE_URL) {
+        // Both legs of the handshake derive redirect_uri from the request. If they
+        // ever resolve differently — a proxy that sets x-forwarded-host on one leg
+        // and not the other — Google rejects the token exchange with an error of its
+        // own, which surfaces here as a generic failure with no obvious cause.
+        console.warn('[auth] Google sign-in is enabled but OAUTH_BASE_URL is not set — redirect_uri will be derived from request headers, which is proxy-dependent. Set OAUTH_BASE_URL to the public origin.');
     }
 
     // Public: lets the frontend render the correct login UI (google | secret | open).
@@ -139,7 +174,7 @@ function registerAuthRoutes(app, deps = {}) {
         res.json({ email });
     });
 
-    app.get('/auth/google', (req, res) => {
+    app.get('/auth/google', oauthLimiter, (req, res) => {
         const c = config();
         if (!c.enabled) return res.status(404).send('Google sign-in is not configured.');
         const redirectUri = `${requestBaseUrl(req)}/auth/google/callback`;
@@ -149,9 +184,24 @@ function registerAuthRoutes(app, deps = {}) {
         res.redirect(client.generateAuthUrl({ scope: ['openid', 'email', 'profile'], state, prompt: 'select_account' }));
     });
 
-    app.get('/auth/google/callback', async (req, res) => {
+    // Rate-limited because it is the one unauthenticated route that makes an
+    // outbound call on our credentials: anyone can fetch /auth/google to obtain a
+    // state cookie, then replay /auth/google/callback with junk codes, and each
+    // attempt spends a real request against our Google token endpoint quota.
+    app.get('/auth/google/callback', oauthLimiter, async (req, res) => {
         const c = config();
         if (!c.enabled) return res.status(404).send('Google sign-in is not configured.');
+        if (!c.sessionSecret) {
+            // Without a signing secret signSession produces a token verifySession
+            // will always reject, so the writer would complete the whole Google
+            // handshake, be handed a cookie, and land back on a login screen with
+            // no indication why. Fail here, where the cause is knowable.
+            console.error('[auth] callback refused: Google sign-in is enabled but SESSION_SECRET / APP_SECRET is unset, so sessions cannot be signed.');
+            // A distinct code, not `error`: this is a server misconfiguration the
+            // writer cannot fix by trying again, and telling them to retry would
+            // send them round the loop forever.
+            return res.redirect('/?auth=misconfigured');
+        }
         try {
             const { code, state } = req.query;
             const cookieState = parseCookies(req)[STATE_COOKIE];

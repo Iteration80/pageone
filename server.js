@@ -3862,6 +3862,17 @@ const strictLimiter = rateLimit({
     legacyHeaders: false,
     handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
 });
+// The OAuth handshake is unauthenticated by necessity, and /auth/google/callback
+// spends a real request against our Google token quota on every attempt with a
+// matching state cookie — which anyone can obtain by first fetching /auth/google.
+// Generous enough that a writer retrying a failed sign-in never hits it.
+const oauthLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => res.status(429).send('Too many sign-in attempts — wait a minute and try again.'),
+});
 
 // Middleware
 app.use((req, res, next) => {
@@ -3875,7 +3886,7 @@ app.use(express.json({ limit: '20mb' }));
 
 // Auth routes (/auth/google, /api/me, /api/auth-config, /auth/logout) — public,
 // must precede the /api catch-all. Google sign-in stays dormant until configured.
-registerAuthRoutes(app, { APP_SECRET });
+registerAuthRoutes(app, { APP_SECRET, oauthLimiter });
 
 registerGenerationRoutes(app, {
     requireAuth,

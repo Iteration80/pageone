@@ -303,6 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (me && me.ok) { hideAuthOverlay(); return; }
             showAuthOverlay(
                 denied === 'denied' ? 'That Google account is not on the access list. Ask the admin to add your email.'
+                // Retrying cannot fix a server that has no session-signing secret, so
+                // don't send the writer round the loop telling them to try again.
+                : denied === 'misconfigured' ? 'Sign-in is misconfigured on the server (no session secret set). Contact the admin — retrying will not help.'
                 : denied === 'error' ? 'Sign-in failed. Please try again.'
                 : 'Sign in to continue.'
             );
