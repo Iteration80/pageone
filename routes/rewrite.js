@@ -55,6 +55,8 @@ function registerRewriteRoutes(app, deps) {
             }
 
             let fullScriptText;
+            // Coverage needs to know how much of the script exists, not just its text.
+            let draftScope = null;
 
             // When triggered from Stage 10 loopback, use the rewritten working copy
             if (source === 'stage10' && projectData.data?.stage9_rewrites?.working) {
@@ -78,10 +80,12 @@ function registerRewriteRoutes(app, deps) {
                 }
                 allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-                fullScriptText = allScenes
+                const draftedTexts = allScenes
                     .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
-                    .filter(Boolean)
-                    .join('\n\n');
+                    .filter(Boolean);
+
+                fullScriptText = draftedTexts.join('\n\n');
+                draftScope = { draftedScenes: draftedTexts.length, totalScenes: allScenes.length };
             }
 
             if (!fullScriptText) {
@@ -101,9 +105,13 @@ function registerRewriteRoutes(app, deps) {
             console.log(`Generating Stage 9 Coverage for project ${projectId}...`);
             const coverageKnowledgeSeed = `${JSON.stringify(projectContext, null, 2)}\n${auditBlock}\n${compactText(fullScriptText, 24_000)}`;
             const sourcePacket = buildSourceGenerationPacket(projectData, 9, coverageKnowledgeSeed, { userMessage: 'Generate screenplay coverage against approved project memory.' });
+            if (draftScope) {
+                console.log(`Coverage scope: ${draftScope.draftedScenes}/${draftScope.totalScenes} scenes drafted.`);
+            }
             const { result: coverageResult, usageList } = await agent8Coverage(fullScriptText, projectContext, {
                 ...getModelConfigWithSourcePacket(9, sourcePacket),
-                stage6AuditBlock: auditBlock
+                stage6AuditBlock: auditBlock,
+                draftScope
             });
             const snapshotEntries = recordArtifactMutation(projectData, {
                 projectId,

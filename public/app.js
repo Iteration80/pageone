@@ -618,6 +618,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Approving the Draft clears coverage and immediately starts a 3-pass coverage run
+    // on whatever is written. With most scenes still blank that analysis cannot be
+    // meaningful, and the report it produces looks identical to a real one — so the
+    // writer has to be told the shape of what they are about to buy. Returns false to
+    // abort the approval.
+    async function confirmIncompleteDraftBeforeCoverage() {
+        const scenes = (window.currentProjectData?.stage6_scenes || [])
+            .flatMap(seq => seq?.scenes || []);
+        const total = scenes.length;
+        const drafted = scenes.filter(s => s?.humanized_draft_text || s?.draft_text).length;
+        if (!total || drafted >= total) return true;
+
+        return await confirmDialog({
+            title: `${drafted} of ${total} scenes are drafted`,
+            message: `Coverage reads only the pages that exist. With ${total - drafted} scene${total - drafted === 1 ? '' : 's'} still unwritten it will rate what it can and mark the rest "Not assessable" rather than grade the whole script. Approve the draft and run coverage on the ${drafted} drafted scene${drafted === 1 ? '' : 's'}?`,
+            confirmLabel: 'Run coverage anyway',
+            cancelLabel: 'Keep drafting'
+        });
+    }
+
     async function stage8FlushEditor({ requireSaved = false } = {}) {
         clearTimeout(stage8SaveTimer);
         if (!stage8Editor || (!stage8Editor.isDirty() && !stage8LastSaveError)) return true;
@@ -2563,7 +2583,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } = config;
             const approveButton = typeof button === 'function' ? button() : button;
             if (!activeProjectId) return;
-            if (beforeGuard) await beforeGuard();
+            // A guard that cannot stop the thing it guards is decoration. The result was
+            // being awaited and discarded, so `stage8FlushEditor` returning false on a
+            // failed save still approved the draft — despite this config's own error
+            // message reading "Retry the save before approving". Abort on an explicit
+            // `false` only: existing guards return true / a promise / undefined, and
+            // treating those as an abort would block approval everywhere.
+            if (beforeGuard && (await beforeGuard()) === false) return;
             if (!(await runApprovalSourceGuard(stageId, approveButton))) return;
 
             const originalText = approveButton?.textContent;
@@ -6881,7 +6907,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStage8Approve.addEventListener('click', createStageApproveHandler({
             stageId: 8,
             button: btnStage8Approve,
-            beforeGuard: () => stage8FlushEditor({ requireSaved: true }), // Save any pending manual edits
+            beforeGuard: async () => {
+                // Save any pending manual edits
+                if ((await stage8FlushEditor({ requireSaved: true })) === false) return false;
+                return await confirmIncompleteDraftBeforeCoverage();
+            },
             stageKey: 'stage7_approved',
             stageName: 'Draft',
             getSnapshot: () => true,

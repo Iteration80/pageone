@@ -17,14 +17,22 @@ const coverageSchema = {
         title:  { type: "string" },
         genre:  { type: "string" },
         logline: { type: "string" },
+        // "Not assessable" exists because every field here is `required` against a
+        // closed enum, and a required judgement is a judgement the model MUST invent
+        // when the evidence is absent. Measured 2026-08-05: on a draft of 2 scenes out
+        // of 70 — containing no dialogue at all — coverage returned dialogue "Good",
+        // structure "Good" and a CONSIDER grade, then Stage 10 built a rewrite plan on
+        // top of it. The model was not free-associating; the schema left it no legal
+        // way to abstain. A rating scale with no "insufficient evidence" value does not
+        // measure quality, it manufactures it.
         evaluation_grid: {
             type: "object",
             properties: {
-                concept:          { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
-                structure:        { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
-                characterization: { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
-                pacing:           { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
-                dialogue:         { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
+                concept:          { type: "string", enum: ["Excellent", "Good", "Fair", "Poor", "Not assessable"] },
+                structure:        { type: "string", enum: ["Excellent", "Good", "Fair", "Poor", "Not assessable"] },
+                characterization: { type: "string", enum: ["Excellent", "Good", "Fair", "Poor", "Not assessable"] },
+                pacing:           { type: "string", enum: ["Excellent", "Good", "Fair", "Poor", "Not assessable"] },
+                dialogue:         { type: "string", enum: ["Excellent", "Good", "Fair", "Poor", "Not assessable"] },
             },
             required: ["concept", "structure", "characterization", "pacing", "dialogue"]
         },
@@ -100,7 +108,7 @@ const coverageSchema = {
         recommendation: {
             type: "object",
             properties: {
-                grade:         { type: "string", enum: ["PASS", "CONSIDER", "RECOMMEND"] },
+                grade:         { type: "string", enum: ["PASS", "CONSIDER", "RECOMMEND", "NOT ASSESSABLE"] },
                 justification: { type: "string" }
             },
             required: ["grade", "justification"]
@@ -140,10 +148,13 @@ const runSingleCoverage = async (prompt, sop, modelConfig = {}) => {
  * Consolidates 2–3 coverage results into a single consensus report.
  * Always uses the fast Gemini flash model — intentional cost optimization.
  */
-const consolidateCoverage = async (results, geminiApiKey, sourceContext = '') => {
+const consolidateCoverage = async (results, geminiApiKey, sourceContext = '', scopeNote = '') => {
     const consolidatorSop = loadSkill('skill_coverage_consolidator');
     const sourceBlock = buildMemorySourcePromptBlock(sourceContext, 'Stage 9 Coverage Consolidation');
-    const prompt = `${sourceBlock ? `${sourceBlock}\n\n---\n\n` : ''}Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions. Preserve source-alignment findings when multiple reports flag them or when a finding concerns an approved project lock.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
+    // Abstention has to survive the merge. Consensus logic naturally prefers a
+    // confident rating over "Not assessable", which would quietly reinstate the
+    // fabricated grade the three passes were right to withhold.
+    const prompt = `${sourceBlock ? `${sourceBlock}\n\n---\n\n` : ''}${scopeNote ? `${scopeNote}\n\n---\n\n` : ''}Here are ${results.length} independent coverage reports for the same screenplay. Synthesize them into a single consensus report following your instructions. Preserve source-alignment findings when multiple reports flag them or when a finding concerns an approved project lock.\n\nIf any report rates a category "Not assessable" or grades "NOT ASSESSABLE", treat that as a claim about the EVIDENCE, not an opinion to be outvoted: keep the abstention unless another report demonstrates the material actually exists in the draft. Never merge two abstentions into a rating.\n\n${results.map((r, i) => `## REPORT ${i + 1}\n${JSON.stringify(r, null, 2)}`).join('\n\n')}`;
 
     const consolidateAi = new GoogleGenAI({ apiKey: geminiApiKey || process.env.GEMINI_API_KEY });
     const response = await consolidateAi.models.generateContent({
@@ -208,6 +219,33 @@ const agent8Coverage = async (fullScriptText, projectContext, modelConfig = {}) 
         }).join('\n')}`
         : '';
 
+    // How much of the script actually exists. Without this the prompt handed over a
+    // synopsis, every character profile and a header reading "FULL SCREENPLAY" — enough
+    // to reconstruct the whole movie — while the body held whatever happened to be
+    // drafted. The model has no other way to tell a planned scene from a written one.
+    const { draftedScenes = null, totalScenes = null } = modelConfig.draftScope || {};
+    const isPartial = Number.isFinite(draftedScenes) && Number.isFinite(totalScenes) && draftedScenes < totalScenes;
+    const scriptHeading = isPartial
+        ? `## SCREENPLAY PAGES DRAFTED SO FAR (${draftedScenes} of ${totalScenes} planned scenes)`
+        : '## FULL SCREENPLAY';
+    const scopeSection = isPartial
+        ? `
+---
+
+## ⚠️ DRAFT SCOPE — READ BEFORE ANALYSING
+This screenplay is **INCOMPLETE**. Only **${draftedScenes} of ${totalScenes}** planned scenes have been written. The text below is the entire draft that exists — everything else is unwritten.
+
+The synopsis, character profiles and project memory above describe the story as PLANNED. They are background so you understand where the drafted pages sit. **They are not evidence of what is on the page, and you must not review them as if they were.**
+
+Binding rules for this report:
+* Judge **only the drafted pages below**. Never describe, praise, or criticise the craft of a scene that is not in that text — no matter how confidently the synopsis implies it exists.
+* Where the drafted pages give you too little to judge a category honestly, rate it **"Not assessable"**. That is the correct answer, not a hedge. Rating structure or pacing off a fraction of a script is a guess wearing a grade.
+* Set \`recommendation.grade\` to **"NOT ASSESSABLE"** and say plainly in the justification how much of the script exists. A verdict on an unfinished script is not a verdict.
+* Every \`macro_todo\` and \`micro_todo\` item must be actionable **on a scene that is already drafted**. Do not issue notes on unwritten scenes.
+* Say what you cannot yet see. Naming the gap is more useful to the writer than filling it.
+`
+        : '';
+
     const prompt = `
 ## PROJECT CONTEXT
 Title: ${projectContext.title || 'Untitled'}
@@ -217,11 +255,11 @@ Logline: ${projectContext.logline || 'Not provided'}
 Synopsis:
 ${projectContext.synopsis || 'Not provided'}${charSection}${auditFlagSection}
 
-${sourceSection ? `---\n\n${sourceSection}\n` : ''}
+${sourceSection ? `---\n\n${sourceSection}\n` : ''}${scopeSection}
 
 ---
 
-## FULL SCREENPLAY
+${scriptHeading}
 
 ${fullScriptText}
     `;
@@ -253,7 +291,14 @@ ${fullScriptText}
     }
 
     console.log(`Coverage: ${successes.length} runs succeeded — consolidating...`);
-    const consolidated = await consolidateCoverage(successes.map(s => s.parsed), modelConfig.geminiApiKey || process.env.GEMINI_API_KEY, modelConfig.knowledgeContext || '');
+    const consolidated = await consolidateCoverage(
+        successes.map(s => s.parsed),
+        modelConfig.geminiApiKey || process.env.GEMINI_API_KEY,
+        modelConfig.knowledgeContext || '',
+        isPartial
+            ? `SCOPE: this screenplay is INCOMPLETE — ${draftedScenes} of ${totalScenes} planned scenes are drafted. Abstentions in the reports below are expected and correct.`
+            : ''
+    );
     usageList.push(consolidated.usage);
     return { result: consolidated.parsed, usageList };
 };

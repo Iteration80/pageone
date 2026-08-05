@@ -1460,7 +1460,11 @@ test('frontend Stage 6 chat uses the tool assistant and guards no-op revisions',
     assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentCharacters\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(data\)[\s\S]*JSON\.stringify\(currentBeats\) !== JSON\.stringify/);
     assert.match(appJs, /revisionReceiptChanged\(completeEvent\)[\s\S]*JSON\.stringify\(comparableCurrentData\) !== JSON\.stringify/);
-    assert.match(appJs, /return \{ \.\.\.data, changed: true \}/);
+    // Style was the odd one out in this list: every other executor derives `changed`
+    // from a real before/after comparison, while this one hardcoded `changed: true`,
+    // so a refine that moved nothing still reported as applied. It now reads the
+    // server's section-level receipt like the rest.
+    assert.match(appJs, /return \{ \.\.\.data, changed: data\.styleReceipt \? data\.styleReceipt\.changed !== false : true \}/);
     assert.match(appJs, /stage8LoadEditor\(data\.result\)[\s\S]*return data;/);
     assert.match(appJs, /toolResultFromExecution\(call, rev\)/);
     assert.doesNotMatch(appJs, /chat\.history\.push\(\{ role: 'user', content: '\[Revision applied successfully/);
@@ -1502,7 +1506,13 @@ test('frontend Stage 8 auto-save failures are visible and block navigation', () 
     assert.match(appJs, /function showStage8AutosaveError/);
     assert.match(appJs, /btnStage8RetrySave\.addEventListener\('click', async \(\) =>/);
     assert.match(appJs, /await stage8FlushEditor\(\{ requireSaved: true \}\);[\s\S]*Mark the current scene as locked/);
-    assert.match(appJs, /beforeGuard: \(\) => stage8FlushEditor\(\{ requireSaved: true \}\)/);
+    // The approve path must still flush with requireSaved, AND a failed flush must
+    // actually stop the approval. This assertion used to pin the old one-liner
+    // `beforeGuard: () => stage8FlushEditor({ requireSaved: true })`, which satisfied
+    // the test's own title ("block navigation") only in appearance: the runner awaited
+    // beforeGuard and discarded the result, so a false return approved the draft anyway.
+    assert.match(appJs, /if \(\(await stage8FlushEditor\(\{ requireSaved: true \}\)\) === false\) return false;/);
+    assert.match(appJs, /if \(beforeGuard && \(await beforeGuard\(\)\) === false\) return;/);
     assert.match(appJs, /window\.selectDraftScene = async function/);
     assert.doesNotMatch(appJs, /Stage 8 auto-save failed:', err\)\)/);
 });
