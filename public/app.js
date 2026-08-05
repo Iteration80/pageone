@@ -798,6 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (options.display !== undefined) button.style.display = options.display;
     }
 
+    const authorInput = document.getElementById('authorInput');
     const cancelRenameBtn = document.getElementById('cancelRenameBtn');
     const saveRenameBtn = document.getElementById('saveRenameBtn');
 
@@ -806,9 +807,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
     // --- Modal Logic ---
-    function openRenameModal(id, currentTitle) {
+    function openRenameModal(id, currentTitle, currentAuthor = '') {
         targetProjectId = id;
         renameInput.value = currentTitle;
+        if (authorInput) authorInput.value = currentAuthor || '';
         renameModal.classList.remove('hidden');
         renameInput.focus();
     }
@@ -816,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeRenameModal() {
         targetProjectId = null;
         renameInput.value = '';
+        if (authorInput) authorInput.value = '';
         renameModal.classList.add('hidden');
     }
 
@@ -842,7 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetch(`/api/projects/${targetProjectId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: newTitle })
+                    body: JSON.stringify({ title: newTitle, data: { author: (authorInput?.value || '').trim() } })
                 });
                 closeRenameModal();
                 initHub();
@@ -899,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent card from opening
-                openRenameModal(project.id, project.title);
+                openRenameModal(project.id, project.title, project.author);
             });
 
             // Handle Delete

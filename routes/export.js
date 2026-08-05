@@ -83,7 +83,7 @@ function registerExportRoutes(app, deps) {
                 const scenes = (data.stage6_scenes || []).flatMap(seq => seq.scenes || []);
                 const drafted = scenes.filter(s => s.draft_text || s.humanized_draft_text);
                 if (!drafted.length) throw new BadRequestError('No drafted scenes found');
-                buf = await generateDraftDocx(drafted, title);
+                buf = await generateDraftDocx(drafted, title, data.author);
                 filename = `${safeName}_draft.docx`;
 
             } else if (stage === 'rewrite') {
@@ -91,7 +91,7 @@ function registerExportRoutes(app, deps) {
                 if (!working) throw new BadRequestError('No rewrite data found');
                 // Convert working object to scene-like array for draft export
                 const fakescenes = Object.entries(working).map(([, txt]) => ({ humanized_draft_text: txt }));
-                buf = await generateDraftDocx(fakescenes, title);
+                buf = await generateDraftDocx(fakescenes, title, data.author);
                 filename = `${safeName}_rewrite.docx`;
 
             } else {
@@ -138,7 +138,7 @@ function registerExportRoutes(app, deps) {
 
             if (!scenes.length) throw new BadRequestError('No scenes to export');
 
-            const buf = await generateScreenplayPdf(scenes, title);
+            const buf = await generateScreenplayPdf(scenes, title, data.author);
             const filename = `${safeName}_${stage}.pdf`;
             const exportStage = exportStageNumber(stage);
             if (exportStage) {

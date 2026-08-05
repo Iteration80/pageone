@@ -691,7 +691,7 @@ function parseFountain(text) {
     return elements;
 }
 
-async function generateScreenplayPdf(scenes, projectTitle) {
+async function generateScreenplayPdf(scenes, projectTitle, author = '') {
     return new Promise((resolve, reject) => {
         const PDFDocument = require('pdfkit');
 
@@ -772,11 +772,16 @@ async function generateScreenplayPdf(scenes, projectTitle) {
             wrappedLines.forEach(l => writeLine(l, x, maxW, opts));
         }
 
-        // Title page
+        // Title page. The author line is omitted entirely when no author is set —
+        // this used to read "Written by PageOne", which put the tool's name on the
+        // writer's finished script. A blank credit is a blank the writer can fill;
+        // a wrong credit is one they have to notice first.
         doc.font('Courier-Bold').fontSize(14)
            .text((projectTitle || 'SCREENPLAY').toUpperCase(), 0, PH / 2 - 40, { width: PW, align: 'center' });
-        doc.font('Courier').fontSize(FONT_SIZE)
-           .text('Written by PageOne', 0, PH / 2 + 10, { width: PW, align: 'center' });
+        if (author && String(author).trim()) {
+            doc.font('Courier').fontSize(FONT_SIZE)
+               .text(`Written by ${String(author).trim()}`, 0, PH / 2 + 10, { width: PW, align: 'center' });
+        }
 
         addPage();
 
@@ -849,7 +854,7 @@ async function generateScreenplayPdf(scenes, projectTitle) {
 // Stage 8: Draft → .docx  (formatted screenplay in Word)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateDraftDocx(scenes, projectTitle) {
+async function generateDraftDocx(scenes, projectTitle, author = '') {
     const flatText = scenes.map(s => (s.humanized_draft_text || s.draft_text || '').trim()).join('\n\n');
     const elements = parseFountain(flatText);
 
@@ -859,11 +864,12 @@ async function generateDraftDocx(scenes, projectTitle) {
             alignment: AlignmentType.CENTER,
             spacing: { after: 120 }
         }),
-        new Paragraph({
-            children: [new TextRun({ text: 'Written by PageOne', size: 22, font: 'Courier New' })],
+        // Omitted entirely when unset — see generateScreenplayPdf's title page.
+        ...(author && String(author).trim() ? [new Paragraph({
+            children: [new TextRun({ text: `Written by ${String(author).trim()}`, size: 22, font: 'Courier New' })],
             alignment: AlignmentType.CENTER,
             spacing: { after: 480 }
-        }),
+        })] : []),
         new Paragraph({ children: [new PageBreak()] }),
     ];
 

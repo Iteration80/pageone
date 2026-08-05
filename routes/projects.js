@@ -204,7 +204,7 @@ function registerProjectRoutes(app, deps) {
                     const filePath = path.join(DATA_DIR, file);
                     const content = await fs.readFile(filePath, 'utf-8');
                     const projectData = JSON.parse(content);
-                    projects.push({ id: projectData.id, title: projectData.title });
+                    projects.push({ id: projectData.id, title: projectData.title, author: projectData.data?.author || '' });
                 }
             }
 
