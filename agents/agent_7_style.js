@@ -25,7 +25,8 @@ const generateDirective = async (input, modelConfig = {}) => {
     const {
         description = '',
         sceneSummaries = '',
-        conversationHistory = []
+        conversationHistory = [],
+        previousDirective = ''
     } = input;
 
     let prompt = `${styleSop}\n\n`;
@@ -49,10 +50,26 @@ const generateDirective = async (input, modelConfig = {}) => {
         prompt += `## STORY CONTEXT (Stage 6 Scene Summaries)\n${sceneSummaries}\n\n`;
     }
 
+    // Refining used to regenerate from scratch with only the chat history for
+    // continuity, which is why "loosen one dialogue rule, leave everything else
+    // exactly as it is" came back with all six sections paraphrased. The current
+    // directive has to be in the prompt as the thing being EDITED, not as a memory.
+    if (previousDirective) {
+        prompt += `## CURRENT STYLE DIRECTIVE (the file you are editing)\n${previousDirective}\n\n`;
+    }
+
     prompt += `## INSTRUCTIONS
-Generate the style directive now. Translate named references into neutral craft behaviors. Do not tell the draft agent to imitate, clone, or copy any specific writer, studio, franchise, or protected work.
+${previousDirective
+    ? `You are REVISING the existing directive above, not writing a new one.
+
+Apply ONLY the change the writer just asked for. Reproduce every other section **verbatim, character for character** — same sentences, same examples, same order. Do not tighten, re-word, re-order, modernise or "improve" anything you were not asked to change; an unrequested improvement is a regression here, because the writer approved the text that is already there.
+
+Keep \`name\`, \`slug\` and \`tonal_summary\` from the current file unless the writer explicitly asked to change them. If the requested change genuinely forces an edit in another section, make the smallest one that works and keep the rest of that section intact.
+
+`
+    : ''}Generate the style directive now. Translate named references into neutral craft behaviors. Do not tell the draft agent to imitate, clone, or copy any specific writer, studio, franchise, or protected work.
 Output the complete file including YAML front matter and all six sections (Scene Construction, Action Lines, Dialogue, Tone, Signature Moves, Avoid).
-Use imperative voice throughout. Keep within 400-600 words (excluding front matter).
+Use imperative voice throughout, including in the Avoid list. Keep within 400-600 words (excluding front matter).
 The YAML front matter MUST include these fields: name, slug, created, tier: "conversational", source: "conversation", artifact_type: "directive", tonal_summary, word_count.
 Output ONLY the file content — no introductory text, no code blocks.`;
 
@@ -258,4 +275,36 @@ function parseStyleFile(content) {
     return { meta, body: fmMatch[2].trim() };
 }
 
-module.exports = { generateStyleFile, generateDirective, generateTrainedStyle, parseStyleFile };
+/**
+ * Set/overwrite fields in a style file's YAML front matter, server-side.
+ *
+ * Front-matter values the model authors are only ever a suggestion: `slug` is
+ * decided here (uniqueStyleSlug renames on collision, and the model's line then
+ * disagrees with the real filename), and `project_id` is an ownership marker that
+ * would be worthless if the model could write it. Adds front matter if absent so a
+ * malformed generation still ends up addressable.
+ */
+function stampStyleFrontMatter(content, fields = {}) {
+    const entries = Object.entries(fields).filter(([, v]) => v !== undefined && v !== null);
+    if (!entries.length) return content;
+
+    const text = String(content || '');
+    const match = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+
+    const format = (key, value) => `${key}: "${String(value).replace(/"/g, '\\"')}"`;
+
+    if (!match) {
+        const block = entries.map(([k, v]) => format(k, v)).join('\n');
+        return `---\n${block}\n---\n\n${text.trim()}\n`;
+    }
+
+    const lines = match[1].split('\n');
+    for (const [key, value] of entries) {
+        const idx = lines.findIndex(line => line.slice(0, line.indexOf(':')).trim() === key);
+        if (idx === -1) lines.push(format(key, value));
+        else lines[idx] = format(key, value);
+    }
+    return `---\n${lines.join('\n')}\n---\n${match[2].startsWith('\n') ? '' : '\n'}${match[2]}`;
+}
+
+module.exports = { generateStyleFile, generateDirective, generateTrainedStyle, parseStyleFile, stampStyleFrontMatter };

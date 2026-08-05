@@ -416,7 +416,8 @@ const { humanizeDraft } = require('./agents/agent_humanizer');
 const { runContinuityCheck, applyCheckResult, buildContinuityContext, clearSceneFacts, resolveError } = require('./agents/agent_continuity');
 const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
-const { generateStyleFile, generateTrainedStyle, parseStyleFile } = require('./agents/agent_7_style');
+const { generateStyleFile, generateTrainedStyle, parseStyleFile, stampStyleFrontMatter } = require('./agents/agent_7_style');
+const { diffStyleSections } = require('./utils/style_diff');
 const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
@@ -4085,6 +4086,8 @@ registerStyleRoutes(app, {
     generateStyleFile,
     generateTrainedStyle,
     parseStyleFile,
+    stampStyleFrontMatter,
+    diffStyleSections,
     uniqueStyleSlug,
     atomicWriteFile,
     recordArtifactMutation,

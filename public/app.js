@@ -8720,11 +8720,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (call.name === 'generate_style') {
             const changed = result?.changed !== false && Boolean(result?.slug || result?.directive || result?.content);
+            // Without the diff the model has nothing to be honest WITH: it closes the
+            // turn from its own intent, which is how "Every other constraint remains
+            // exactly as it was" got said about a rewrite that touched all six sections.
+            // Spelled out in prose as well as arrays because this projection is the
+            // model's only view of the receipt.
+            const receipt = result?.styleReceipt;
+            const changedSections = receipt?.changedSections || [];
+            const unchangedSections = receipt?.unchangedSections || [];
+            const removedSections = receipt?.removedSections || [];
+            const isRefine = receipt?.mode === 'refined-in-place';
             return {
                 changed,
                 styleSlug: result?.slug,
                 styleName: result?.meta?.name || result?.name || result?.slug,
                 ...(result?.tier && { tier: result.tier }),
+                ...(receipt ? { styleMode: receipt.mode } : {}),
+                ...(isRefine ? {
+                    changedSections,
+                    unchangedSections,
+                    removedSections,
+                    styleDiffSummary: changedSections.length || removedSections.length
+                        ? `You edited the saved style in place. Sections actually rewritten: ${[...changedSections, ...removedSections].join(', ') || 'none'}. Sections left byte-identical: ${unchangedSections.join(', ') || 'none'}. Report this honestly — do NOT claim a section was preserved unless it is in the byte-identical list, and if a section was rewritten that the writer asked you to leave alone, say so plainly.`
+                        : 'You edited the saved style in place and no section changed. Tell the writer the requested change did not land rather than describing it as applied.'
+                } : {}),
+                ...(receipt?.mode === 'new-style-created' ? {
+                    styleDiffSummary: 'This created a NEW style in the library rather than editing the existing one (the previous style is a preset or was not created for this project, so it cannot be edited in place). Tell the writer a new style was made and the old one is untouched.'
+                } : {}),
                 ...(!changed ? { error: 'The style generator did not return a saved style.' } : {})
             };
         }
@@ -9358,8 +9380,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stage7-no-style')?.classList.add('hidden');
         document.getElementById('stage7-loading')?.classList.add('hidden');
         if (btnApprove) {
-            // If already approved, show green state
-            if (window.currentProjectData?.stage7_style) {
+            // Only show Approved if the next stage (Draft) has data — same test every
+            // other stage uses (2 gates on stage3_characters, 3 on stage5_treatment,
+            // 5 on stage6_scenes). This used to test `stage7_style`, i.e. this stage's
+            // OWN artifact, which is written by generation itself: so the button went
+            // green and DISABLED the moment a style existed, on every reload, whether
+            // or not the writer ever approved. That is not just a wrong label — the
+            // disabled button makes stage7ApproveStyle() unreachable, and with it
+            // offerStageMemoryCuration(7), which is what writes
+            // knowledge.stage_handoffs.stage7 into the memory snapshot that Draft,
+            // Coverage and Rewrite all read. Approving is idempotent, so erring toward
+            // showing "Approve →" costs a click; erring the other way costs the handoff.
+            const styleWasApproved = (window.currentProjectData?.stage6_scenes || [])
+                .some(seq => (seq?.scenes || []).some(sc => sc?.draft_text || sc?.humanized_draft_text));
+            if (styleWasApproved) {
                 setApproveButtonState(btnApprove, 'approved');
             } else {
                 setApproveButtonState(btnApprove, 'ready', { text: 'Approve →' });
@@ -9395,7 +9429,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7] });
             if (window.currentProjectData) window.currentProjectData.stage7_style = data.slug;
             updateStageNav(window.currentProjectData);
-            return { ...data, changed: true };
+            // A refine that moved nothing is a failed revision, not a successful one —
+            // hardcoding changed:true here would let the honest-failure machinery pass
+            // a no-op through as applied.
+            return { ...data, changed: data.styleReceipt ? data.styleReceipt.changed !== false : true };
         } catch (err) {
             console.error('Style generation error:', err);
             if (loadingEl) loadingEl.classList.add('hidden');
@@ -9540,6 +9577,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             previewText.textContent = data.previewText;
             previewPanel.classList.remove('hidden');
+            // The panel renders below the whole style library — un-hiding it is not
+            // enough, the writer is left looking at an unchanged screen after a paid
+            // generation. Every sibling control here (Describe, Saved styles) scrolls.
+            previewPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             await handleSourceGenerationResult(7, data, { chat: stageChatWindows[7], postGenerationCheck: false });
         } catch (err) {
             console.error('Preview error:', err);

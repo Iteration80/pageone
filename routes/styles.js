@@ -22,6 +22,8 @@ function registerStyleRoutes(app, deps) {
         generateStyleFile,
         generateTrainedStyle,
         parseStyleFile,
+        stampStyleFrontMatter,
+        diffStyleSections,
         uniqueStyleSlug,
         atomicWriteFile,
         recordArtifactMutation,
@@ -68,7 +70,31 @@ function registerStyleRoutes(app, deps) {
                 }
             }
 
-            console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}...`);
+            // Is this a refine of a style this project owns, or a new style?
+            //
+            // The style library is GLOBAL: presets ship with the app and a style made
+            // for one project can be selected by another. Overwriting on the strength of
+            // "this project points at it" would let a refine here silently rewrite the
+            // style another project is drafting with, or corrupt a bundled preset for
+            // everyone. So in-place editing requires proof of ownership: a `project_id`
+            // this server stamped into the front matter at generation time. Anything
+            // without that stamp — every preset, every pre-existing style — falls
+            // through to minting a new slug, which is the old behaviour and always safe.
+            const previousSlug = projectData?.data?.stage7_style || null;
+            let previousDirective = '';
+            let ownsPreviousStyle = false;
+            if (previousSlug && projectId && isValidSlug(previousSlug)) {
+                try {
+                    previousDirective = await fs.readFile(path.join(STYLES_DIR, `${previousSlug}-directive.md`), 'utf-8');
+                    const { meta: prevMeta } = parseStyleFile(previousDirective);
+                    ownsPreviousStyle = String(prevMeta.tier).toLowerCase() !== 'preset'
+                        && String(prevMeta.project_id || '') === String(projectId);
+                } catch {
+                    previousDirective = '';
+                }
+            }
+
+            console.log(`Generating Stage 7 Style${projectId ? ` for project ${projectId}` : ' (standalone)'}${ownsPreviousStyle ? ` — refining ${previousSlug} in place` : ''}...`);
             const styleKnowledgeSeed = `${description || ''}\n${sceneSummaries}\n${conversationHistory.map(m => m.content).join('\n')}`;
             const sourcePacket = projectData
                 ? buildSourceGenerationPacket(projectData, 7, styleKnowledgeSeed, { userMessage: description || '' })
@@ -76,15 +102,34 @@ function registerStyleRoutes(app, deps) {
             const styleModelConfig = projectData
                 ? getModelConfigWithSourcePacket(7, sourcePacket)
                 : getModelConfig(7);
-            const { result: styleContent, usage } = await generateStyleFile({
+            const { result: rawStyleContent, usage } = await generateStyleFile({
                 description: description || '',
                 sceneSummaries,
-                conversationHistory
+                conversationHistory,
+                previousDirective: ownsPreviousStyle ? previousDirective : ''
             }, styleModelConfig);
 
             // Parse the generated style to extract metadata
+            const { meta: rawMeta } = parseStyleFile(rawStyleContent);
+            const slug = ownsPreviousStyle
+                ? previousSlug
+                : await uniqueStyleSlug(rawMeta.slug || rawMeta.name || 'custom-style');
+
+            // The slug is decided here, not by the model, so the front matter has to be
+            // corrected to match: `uniqueStyleSlug` renames on collision and the model's
+            // own `slug:` line then disagrees with the real filename. `project_id` is
+            // what makes the next refine editable in place, and it must be server-stamped
+            // — a model-authored ownership marker is not evidence of anything.
+            const styleContent = stampStyleFrontMatter(rawStyleContent, {
+                slug,
+                ...(projectId ? { project_id: String(projectId) } : {})
+            });
             const { meta } = parseStyleFile(styleContent);
-            const slug = await uniqueStyleSlug(meta.slug || meta.name || 'custom-style');
+
+            // What actually changed, for the assistant to report instead of guessing.
+            const styleReceipt = ownsPreviousStyle
+                ? { ...diffStyleSections(previousDirective, styleContent), mode: 'refined-in-place', slug }
+                : { mode: previousSlug ? 'new-style-created' : 'first-style-created', slug, changed: true };
 
             // Save as directive file (new naming convention)
             await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), styleContent);
@@ -95,9 +140,13 @@ function registerStyleRoutes(app, deps) {
                 snapshotEntries = recordArtifactMutation(projectData, {
                     projectId,
                     stage: 7,
-                    before: projectData.data?.stage7_style || null,
-                    after: slug,
-                    operation: 'generation',
+                    // Snapshot the directive TEXT, not the slug. Refining in place means
+                    // the slug no longer changes, so a slug-only history would record
+                    // "desert-standoff -> desert-standoff" and the previous wording — the
+                    // only thing worth restoring — would be gone for good.
+                    before: previousDirective || projectData.data?.stage7_style || null,
+                    after: styleContent,
+                    operation: ownsPreviousStyle ? 'revision' : 'generation',
                     note: description || ''
                 });
                 projectData.data = projectData.data || {};
@@ -108,7 +157,7 @@ function registerStyleRoutes(app, deps) {
                 if (projectId) trackUsage(projectId, usage);
             }
 
-            res.json({ slug, content: styleContent, meta, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
+            res.json({ slug, content: styleContent, meta, styleReceipt, snapshotIds: snapshotEntries.map(entry => entry.id), ...sourceResponseExtras(sourcePacket) });
         } catch (error) {
             console.error('generate-stage7-style error:', error.message);
             sendApiError(res, error, 'Failed to generate style');
