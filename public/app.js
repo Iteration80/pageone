@@ -645,7 +645,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const scene = scenes.find(s => s.scene_number === currentDraftSceneNumber);
         if (!scene) return true;
         const newText = stage8Editor.toFountain();
+        // Write BOTH fields. The editor is loaded from `humanized_draft_text ||
+        // draft_text` (and so is the PDF, the DOCX, coverage, and the Stage 10 working
+        // copy) — but a manual edit used to land in `draft_text` alone. The save then
+        // succeeded, the editor marked clean, and every reader went on returning the
+        // stale humanized text: the writer's own edits to their screenplay vanished
+        // from the page they were typed on and from every export. Verified 2026-08-05
+        // by appending a marker to draft_text and finding it absent from the PDF.
+        //
+        // Both fields rather than clearing the humanized one, so the widely-used
+        // `humanized_draft_text || draft_text` idiom keeps working untouched. Writing
+        // the writer's text into the humanized slot is also the honest meaning of that
+        // field: the humanizer strips AI tells, and prose typed by a person has none to
+        // strip — their version IS the most human one.
         scene.draft_text = newText;
+        scene.humanized_draft_text = newText;
 
         if (!activeProjectId || !window.currentProjectData?.stage6_scenes) {
             stage8Editor.markClean();
@@ -7099,12 +7113,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnDownloadDraft) {
         btnDownloadDraft.addEventListener('click', () => {
             const scenes = getFlatScenes();
-            const drafted = scenes.filter(s => s.draft_text);
+            const drafted = scenes.filter(s => s.humanized_draft_text || s.draft_text);
             if (drafted.length === 0) {
                 noticeDialog({ message: 'No scenes have been drafted yet.' });
                 return;
             }
-            const fountainText = drafted.map(s => s.draft_text.trim()).join('\n\n');
+            // Prefer the humanized pass, exactly like every other consumer of a scene's
+            // text (the PDF and DOCX exports, coverage assembly, the Stage 10 planner).
+            // This button alone read raw `draft_text`, so .fountain and "Export PDF" —
+            // two controls side by side in the same header — handed the writer two
+            // different scripts, and .fountain handed them the one still carrying the
+            // AI tells the humanizer exists to strip.
+            const fountainText = drafted.map(s => (s.humanized_draft_text || s.draft_text).trim()).join('\n\n');
             const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
             const blob = new Blob([fountainText], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
