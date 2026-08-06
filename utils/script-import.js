@@ -183,7 +183,36 @@ async function parsePdfScript(pdfBuffer, modelConfig = {}) {
     const pdfParse = require('pdf-parse');
     const { generateContent } = require('../agents/ai-client');
 
-    const pdfData = await pdfParse(pdfBuffer);
+    // ⚠️ `pdf-parse` (bundling pdf.js v1.10.100) intermittently throws "bad XRef entry"
+    // on a PDF it can read perfectly well. Measured 2026-08-06: the SAME upload failed
+    // twice and then succeeded on a third attempt inside one server process, while the
+    // identical bytes parsed 8/8 in a standalone process. The buffer reaching us is
+    // byte-perfect (md5-checked against the file on disk), so the input is not the
+    // problem — and it is NOT the pooled-ArrayBuffer view multer hands over either:
+    // parsing an own-ArrayBuffer copy and a deliberately pooled view both passed 8/8
+    // out of process. **The root cause is unidentified and lives inside the dependency.**
+    //
+    // Retrying is therefore evidence-based rather than superstitious: a repeat attempt
+    // on the same bytes is directly observed to succeed. Parsing is local and cheap, so
+    // the retries cost nothing — the expensive model call happens once, after this.
+    let pdfData;
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            pdfData = await pdfParse(Buffer.from(pdfBuffer));
+            break;
+        } catch (error) {
+            lastError = error;
+            console.warn(`PDF parse attempt ${attempt}/3 failed: ${error.message}`);
+            if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 150 * attempt));
+        }
+    }
+    if (!pdfData) {
+        // Name the failing component. "Failed to import script" told the writer nothing
+        // about whether their file was wrong or ours was.
+        throw new Error(`Could not read this PDF (${lastError?.message || 'unknown parser error'}). The file may use an unsupported encoding — exporting it again, or importing the .fountain or .fdx instead, usually works.`);
+    }
+
     const rawText = pdfData.text;
 
     if (!rawText || rawText.trim().length < 100) {
@@ -216,11 +245,34 @@ async function parsePdfScript(pdfBuffer, modelConfig = {}) {
         required: ['title', 'scenes']
     };
 
+    // The rest of this app treats a scene's text as FOUNTAIN — the editor parses it,
+    // the PDF and DOCX exporters lay it out from it, and blank lines are what make a
+    // line a character cue rather than action. `pdf-parse` returns the page's hard
+    // line-wraps with no blank lines at all, and the old prompt asked only for "the
+    // full text", so an imported script came back as one run-on block: re-exporting it
+    // rendered ARTHUR, NORA and (grins) flush left as action, and every dialogue block
+    // as a paragraph. Measured 2026-08-06 on a round trip through this app's own PDF
+    // export — 23 blocks in, 1 block out. Extracting the words is only half the job;
+    // the structure has to survive too.
     const response = await generateContent({
         model, geminiApiKey, anthropicApiKey,
-        contents: `Parse this screenplay text into individual scenes. For each scene, extract the scene heading (slugline) and the full text of that scene including the heading. Number scenes sequentially starting from 1. Also extract the title if present.\n\nSCREENPLAY TEXT:\n${rawText}`,
+        contents: `Parse this screenplay text into individual scenes. Number scenes sequentially starting from 1. Also extract the title if present.
+
+For each scene return the scene heading (slugline) and the scene's full text INCLUDING the heading, reconstructed as valid Fountain.
+
+The source text comes from a PDF, so it carries the page's hard line-wraps and has lost its blank lines. Restore the structure:
+
+* Rejoin lines that a page break or margin split mid-sentence, so each action paragraph is ONE line of text.
+* Separate every element with a BLANK LINE — heading, each action paragraph, each character cue block, each transition.
+* A character cue is the speaker's name ALONE on its own line in UPPERCASE (keep "(CONT'D)" / "(V.O.)" / "(O.S.)" if present), with its dialogue on the following line(s) and no blank line between the cue and its dialogue.
+* A parenthetical goes on its own line in (parentheses) between the cue and the dialogue.
+* Transitions (CUT TO:, FADE OUT., DISSOLVE TO:) go on their own line in uppercase.
+* Do NOT rewrite, summarize, condense or improve any wording. Reproduce the writer's words exactly — you are restoring layout, not editing prose.
+
+SCREENPLAY TEXT:
+${rawText}`,
         config: {
-            systemInstruction: 'You are a screenplay parser. Extract scene boundaries from raw text. Scene headings typically start with INT., EXT., I/E., or EST. Return valid JSON only.',
+            systemInstruction: 'You are a screenplay parser. Extract scene boundaries from raw text and return each scene as correctly formatted Fountain, preserving the original wording verbatim. Scene headings typically start with INT., EXT., I/E., or EST. Return valid JSON only.',
             temperature: 0.1,
         },
         schema
