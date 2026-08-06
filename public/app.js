@@ -2718,12 +2718,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const confirmed = await confirmDialog({
             title: `Restore Version ${version.version}?`,
-            message: `Stage ${version.stage} (${version.stageName}) will reload with this version. You can review and re-approve from there.`,
+            // `version.stage` is the INTERNAL id — this dialog said "Stage 7 (Style)"
+            // while the list header directly above it said "STAGE 6: STYLE". Anything
+            // shown to the writer goes through displayStageName (see the mapping note at
+            // the top of this file); a 2026-07-30 round-trip was lost to exactly this.
+            message: `${displayStageName(version.stage)} will reload with this version. You can review and re-approve from there.`,
             confirmLabel: 'Restore'
         });
         if (!confirmed) return;
 
         try {
+            // Style is the one stage whose project field is a POINTER, not the artifact:
+            // `data.stage7_style` holds a slug, while the snapshot holds the directive's
+            // full text (it has to — once a refine edits the file in place the slug stops
+            // changing, so a slug-only history would record "desert-standoff ->
+            // desert-standoff" and the previous wording, the only restorable thing, would
+            // be gone). Assigning the snapshot straight into the stage key would set the
+            // project's style pointer to 4KB of markdown and quietly unset its style.
+            // So restore the FILE and leave the pointer alone.
+            if (version.stageKey === 'stage7_style' && typeof version.snapshot === 'string' && version.snapshot.includes('---')) {
+                const slugMatch = version.snapshot.match(/^\s*---[\s\S]*?\bslug:\s*"?([a-z0-9_-]+)"?/);
+                const slug = slugMatch?.[1];
+                if (!slug) throw new Error('That style version has no slug recorded, so it cannot be restored automatically.');
+                const styleRes = await fetch(`/api/styles/${slug}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: version.snapshot })
+                });
+                if (!styleRes.ok) {
+                    const err = await styleRes.json().catch(() => ({}));
+                    throw new Error(err.error || `Could not write style "${slug}".`);
+                }
+                const pointerRes = await fetch(`/api/projects/${activeProjectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ restoreVersionId: version.id, data: { stage7_style: slug } })
+                });
+                if (!pointerRes.ok) throw new Error('Style file restored, but the project could not be updated.');
+                const restored = await pointerRes.json();
+                setCurrentProjectData(restored.data);
+                updateStageNav(restored.data);
+                rerenderStageAfterRestore(version.stage);
+                switchStage(version.stage);
+                return;
+            }
+
             const res = await fetch(`/api/projects/${activeProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
