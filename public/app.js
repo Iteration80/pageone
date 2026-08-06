@@ -8742,11 +8742,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function toolResultFromExecution(call = {}, result = {}) {
         if (call.name === 'generate_rewrite_plan') {
             const scenes = Array.isArray(result?.affected_scenes) ? result.affected_scenes : [];
+            const notDrafted = Array.isArray(result?.scenes_not_drafted) ? result.scenes_not_drafted : [];
             const changed = Boolean(result?.rewrite_strategy || scenes.length || result?.plan);
             return {
                 changed,
                 rewriteStrategy: result?.rewrite_strategy,
                 affectedSceneNumbers: scenes.map(scene => scene.scene_number).filter(n => n !== undefined),
+                // Scenes the planner wanted but that have no prose yet. Forwarded in
+                // prose because this projection is the model's only view: dropping them
+                // silently would let the assistant present a shortened plan as if it
+                // covered the writer's whole note.
+                ...(notDrafted.length ? {
+                    scenesNotDrafted: notDrafted.map(s => s.scene_number),
+                    prerequisiteNote: `These scenes were part of the plan but have not been drafted yet, so they were removed and NOT rewritten: ${notDrafted.map(s => `${s.scene_number}${s.slugline ? ` (${s.slugline})` : ''}`).join(', ')}. Tell the writer they need drafting in Stage 7 first — do not describe them as handled.`
+                } : {}),
                 ...(result?.sourceMemory && { sourceMemory: result.sourceMemory }),
                 ...(!changed ? { error: 'The rewrite planner did not return a usable plan.' } : {})
             };
@@ -10334,6 +10343,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     continue;
                 }
                 const data = await res.json();
+                // A scene the server refused because it has no prose yet. Checked before
+                // the source-memory handler because a skipped response carries no source
+                // packet — and `modified` is false, so nothing is staged either way. Say
+                // it out loud, or the run just appears to skip a scene the writer
+                // watched it announce.
+                if (data.skipped === 'not_drafted') {
+                    if (stage10Chat) stage10Chat.append('system', `Scene ${s.scene_number} skipped — not drafted yet, so there is nothing to rewrite.`);
+                    continue;
+                }
                 await handleSourceGenerationResult(10, data, { chat: stage10Chat, refreshKnowledge: false });
                 if (data.modified) {
                     stage10SetPending(data.scene_number, data.proposed_text, { serverSaved: true });

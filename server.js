@@ -2987,13 +2987,28 @@ Rules:
 - If revision notes ask for a change, apply them inside this scene without breaking the previous/next handoff.`, 8_500);
 }
 
+// Every scene in the blueprint is listed here, drafted or not — the planner needs the
+// whole shape of the film to place a change. But an UNDRAFTED scene used to render as
+// a full `Blueprint:` line above a silently empty `Draft excerpt:`, and an empty field
+// reads as a truncation, not as an absence. Asked to strengthen a through-line on a
+// 2-of-70 draft, the planner returned 5 scenes of which 4 had no prose at all
+// (2026-08-05). Naming the absence is the whole fix on the prompt side; the routes
+// refuse to rewrite an empty scene regardless, because a label can be argued with.
+function stage10SceneHasDraft(scene = {}, working = {}) {
+    return Boolean(
+        (working[scene.scene_number] || scene.humanized_draft_text || scene.draft_text || '').trim()
+    );
+}
+
 function buildStage10PlannerSceneList(allScenes = [], working = {}) {
     return allScenes.map(scene => {
         const sceneText = working[scene.scene_number] || scene.humanized_draft_text || scene.draft_text || '';
+        const drafted = Boolean(sceneText.trim());
         return `SCENE ${scene.scene_number} - ${scene.scene_heading || scene.slugline || ''}
+Status: ${drafted ? 'DRAFTED — prose exists, can be rewritten' : 'NOT DRAFTED — no prose exists yet, CANNOT be rewritten'}
 Blueprint: ${compactText(scene.narrative_action || '', 320)}
 Function: ${compactText(scene.dramaturgical_function || '', 220)}
-Draft excerpt: ${compactText(sceneText, 420)}`;
+Draft excerpt: ${drafted ? compactText(sceneText, 420) : '(none — this scene has not been written)'}`;
     }).join('\n\n');
 }
 
@@ -4025,6 +4040,7 @@ registerRewriteRoutes(app, {
     sourceResponseExtras,
     compactText,
     buildStage10PlannerSceneList,
+    stage10SceneHasDraft,
     loadSkill,
     loadProjectStyle,
     buildStage10RewritePlanPrompt,
@@ -4257,6 +4273,8 @@ if (require.main === module) {
 
 module.exports = {
     app,
+    buildStage10PlannerSceneList,
+    stage10SceneHasDraft,
     buildStage10RewritePlanPrompt,
     buildStage10RewritePlannerSystemInstruction,
     buildKnowledgeSnapshot,

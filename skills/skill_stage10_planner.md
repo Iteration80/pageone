@@ -12,6 +12,11 @@ The Scene List may include scene headings, approved blueprint summaries, dramatu
 - The draft excerpt tells you whether the current written pages actually contain the problem.
 - Do not mark a scene affected merely because its approved blueprint is related to the topic; mark it only when the rewrite task requires a change to the current scene or when the blueprint lock must be protected while nearby text changes.
 
+## ⚠️ ONLY DRAFTED SCENES CAN BE REWRITTEN
+Every scene carries a **Status** line. `NOT DRAFTED` means no prose exists for it yet — only a blueprint plan. **Never put a NOT DRAFTED scene in `affected_scenes`.** There is no text there to revise, and a rewrite of nothing is a first draft in disguise: it bypasses Stage 7, where the humanizer and continuity checks run.
+
+A rich blueprint on an undrafted scene is the trap — it reads like substance because it describes what the scene will do, and none of it is written. If the rewrite task genuinely depends on a scene that has not been drafted, say so in `rationale` ("this task cannot be fully addressed until scenes 12–14 are drafted") and plan only the drafted scenes you can actually change. Naming the prerequisite is the useful answer; inventing pages is not.
+
 If yes, include the scene in `affected_scenes` with:
 - **scene_number**: The scene's number as written
 - **slugline**: The scene heading (e.g., "INT. LUXURY BROKERAGE — LATER")

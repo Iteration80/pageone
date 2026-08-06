@@ -26,6 +26,7 @@ function registerRewriteRoutes(app, deps) {
         sourceResponseExtras,
         compactText,
         buildStage10PlannerSceneList,
+        stage10SceneHasDraft,
         loadSkill,
         loadProjectStyle,
         buildStage10RewritePlanPrompt,
@@ -319,6 +320,26 @@ function registerRewriteRoutes(app, deps) {
 
             const plan = safeParse(response.text, null);
             if (!plan) throw new Error('Stage 10 rewrite plan response was not valid JSON');
+
+            // Split the plan by what can actually be executed. A scene with no prose
+            // cannot be rewritten — asking the rewrite agent to do it produces a first
+            // draft wearing a revision's clothes, skipping the humanizer and continuity
+            // passes every drafted scene gets. These are surfaced as prerequisites
+            // instead of being silently dropped: "scene 26 needs drafting first" is a
+            // useful answer, and quietly shortening the list is how a plan comes to
+            // look complete while the writer's actual note goes unaddressed.
+            const draftedByNumber = new Map(allScenes.map(s => [s.scene_number, stage10SceneHasDraft(s, working)]));
+            const planned = Array.isArray(plan.affected_scenes) ? plan.affected_scenes : [];
+            plan.affected_scenes = planned.filter(s => draftedByNumber.get(s.scene_number));
+            const notDrafted = planned.filter(s => !draftedByNumber.get(s.scene_number));
+            if (notDrafted.length) {
+                plan.scenes_not_drafted = notDrafted.map(s => ({
+                    scene_number: s.scene_number,
+                    slugline: s.slugline,
+                    reason: 'This scene has not been drafted yet, so there is nothing to rewrite. Draft it in Stage 7 first.'
+                }));
+                console.log(`Stage 10 plan: dropped ${notDrafted.length} undrafted scene(s) from the executable plan: ${notDrafted.map(s => s.scene_number).join(', ')}`);
+            }
             console.log(`Stage 10 plan: ${plan.affected_scenes.length} scenes affected.`);
             recordSourceGenerationUsage(projectData, sourcePacket, JSON.stringify(plan, null, 2), 'rewrite_plan');
             await writeJSONQueued(filePath, projectData);
@@ -352,10 +373,26 @@ function registerRewriteRoutes(app, deps) {
             }
             allScenes.sort((a, b) => a.scene_number - b.scene_number);
 
-            // Filter to only affected scenes if planner provided a list
-            const scopedScenes = affectedSceneNumbers?.length
+            // Filter to only affected scenes if planner provided a list, then drop any
+            // that were never drafted — same guard as rewrite-single-scene, and for the
+            // same reason: an empty original makes the rewrite agent write a new scene
+            // and call it a modification. Reported back rather than silently omitted.
+            const requestedScenes = affectedSceneNumbers?.length
                 ? allScenes.filter(s => affectedSceneNumbers.includes(s.scene_number))
                 : allScenes;
+            const scopedScenes = requestedScenes.filter(s => stage10SceneHasDraft(s, working));
+            const skippedScenes = requestedScenes
+                .filter(s => !stage10SceneHasDraft(s, working))
+                .map(s => ({
+                    scene_number: s.scene_number,
+                    original_text: '',
+                    proposed_text: '',
+                    modified: false,
+                    skipped: 'not_drafted'
+                }));
+            if (skippedScenes.length) {
+                console.log(`Stage 10: skipping ${skippedScenes.length} undrafted scene(s): ${skippedScenes.map(s => s.scene_number).join(', ')}`);
+            }
 
             const { styleContent, referenceContent } = await loadProjectStyle(projectData);
             console.log(`Stage 10: rewriting ${scopedScenes.length} scene(s) for task: "${priorityTask.slice(0, 60)}..."${referenceContent ? ' [with style compliance]' : ''}`);
@@ -395,7 +432,7 @@ function registerRewriteRoutes(app, deps) {
             await writeJSONQueued(filePath, projectData);
             trackUsage(projectId, usages);
 
-            res.json({ scenes, ...sourceResponseExtras(sourcePacket) });
+            res.json({ scenes: [...scenes, ...skippedScenes], ...sourceResponseExtras(sourcePacket) });
         } catch (error) {
             console.error('rewrite-for-priority error:', error.message);
             sendApiError(res, error, 'Failed to rewrite scenes for priority');
@@ -421,6 +458,24 @@ function registerRewriteRoutes(app, deps) {
 
             const sceneText = working[sceneNum] || sceneMeta?.humanized_draft_text || sceneMeta?.draft_text || '';
             const slugline = sceneMeta?.slugline || sceneMeta?.scene_heading || '';
+
+            // Refuse to "rewrite" a scene that was never written. Handing the agent an
+            // empty original and a blueprint yields a brand-new scene reported as
+            // modified:true — measured 0 -> 1,628 chars on 2026-08-05 — which both
+            // misrepresents a first draft as a revision AND routes around Stage 7,
+            // where the humanizer and continuity check live. Deterministic on purpose:
+            // the prompt-side label tells the planner not to ask, this makes it so.
+            if (!sceneText.trim()) {
+                console.log(`Stage 10: refusing to rewrite scene ${sceneNum} — not drafted.`);
+                return res.json({
+                    scene_number: sceneNum,
+                    original_text: '',
+                    proposed_text: '',
+                    modified: false,
+                    skipped: 'not_drafted',
+                    error: `Scene ${sceneNum}${slugline ? ` (${slugline})` : ''} has not been drafted yet, so there is nothing to rewrite. Draft it in Stage 7 first.`
+                });
+            }
 
             // Short-circuit: if the plan says to delete/remove/omit this scene, skip the LLM
             const deletionPattern = /\b(delete|remove|omit|cut|eliminate)\b.*\b(scene|entirely|completely)\b/i;
