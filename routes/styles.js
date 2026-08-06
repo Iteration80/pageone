@@ -87,7 +87,16 @@ function registerStyleRoutes(app, deps) {
                 try {
                     previousDirective = await fs.readFile(path.join(STYLES_DIR, `${previousSlug}-directive.md`), 'utf-8');
                     const { meta: prevMeta } = parseStyleFile(previousDirective);
-                    ownsPreviousStyle = String(prevMeta.tier).toLowerCase() !== 'preset'
+                    const tier = String(prevMeta.tier).toLowerCase();
+                    // Presets are shared library assets. TRAINED styles are excluded for a
+                    // different reason: their directive is a DISTILLATION of a paired
+                    // reference built from uploaded screenplays. Regenerating that directive
+                    // from a chat brief would leave `paired_with` and `tier: trained`
+                    // asserting a provenance the file no longer has — the artifact would
+                    // claim to be derived from an analysis it had just been divorced from.
+                    // Both fall through to minting a new style, which is the old behaviour.
+                    ownsPreviousStyle = tier !== 'preset'
+                        && tier !== 'trained'
                         && String(prevMeta.project_id || '') === String(projectId);
                 } catch {
                     previousDirective = '';
@@ -371,22 +380,37 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             const { meta: refMeta } = parseStyleFile(reference);
             const slug = await uniqueStyleSlug(refMeta.slug || refMeta.name || styleName || 'trained-style');
 
+            // Same server-side stamping the conversational path does: the slug is decided
+            // here (uniqueStyleSlug renames on collision, leaving the model's own `slug:`
+            // line pointing at a filename that does not exist), and `project_id` is the
+            // ownership marker that lets a later refine edit in place instead of minting
+            // a duplicate. Without it a trained style is permanently un-refinable — safe,
+            // since it falls through to creating a new style, but needlessly so.
+            // `paired_with` has to follow the corrected slug or the directive points at
+            // the wrong reference file.
+            const stampFields = { slug, ...(projectId ? { project_id: String(projectId) } : {}) };
+            const stampedReference = stampStyleFrontMatter(reference, stampFields);
+            const stampedDirective = stampStyleFrontMatter(directive, { ...stampFields, paired_with: `${slug}-reference` });
+
             // Save both files atomically
-            await atomicWriteFile(path.join(STYLES_DIR, `${slug}-reference.md`), reference);
-            await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), directive);
+            await atomicWriteFile(path.join(STYLES_DIR, `${slug}-reference.md`), stampedReference);
+            await atomicWriteFile(path.join(STYLES_DIR, `${slug}-directive.md`), stampedDirective);
 
             // Update project if within project context
             if (projectData && filePath) {
                 projectData.data = projectData.data || {};
                 projectData.data.stage7_style = slug;
                 stampGenerated(projectData, 'stage7_style');
-                recordSourceGenerationUsage(projectData, sourcePacket, directive, 'trained_style_generation');
+                recordSourceGenerationUsage(projectData, sourcePacket, stampedDirective, 'trained_style_generation');
+                // A trained style is a real style choice — clear the import-time skip so
+                // the stage stops behaving as though the writer opted out of styling.
+                projectData.data.stage7_style_skipped = false;
                 await writeJSONQueued(filePath, projectData);
                 trackUsage(projectId, usageList);
             }
 
-            const { meta } = parseStyleFile(directive);
-            res.json({ slug, content: directive, directive, reference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
+            const { meta } = parseStyleFile(stampedDirective);
+            res.json({ slug, content: stampedDirective, directive: stampedDirective, reference: stampedReference, meta, tier: 'trained', ...sourceResponseExtras(sourcePacket) });
         } catch (error) {
             console.error('generate-trained-style error:', error.message);
             sendApiError(res, error, 'Failed to generate trained style');

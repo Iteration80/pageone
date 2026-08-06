@@ -129,3 +129,51 @@ test('stampStyleFrontMatter creates front matter when the model omitted it', () 
 test('stampStyleFrontMatter with no fields is a no-op', () => {
     assert.strictEqual(stampStyleFrontMatter(DIRECTIVE_V1, {}), DIRECTIVE_V1);
 });
+
+// The stamper originally required the file to begin with EXACTLY `---\n`. Everything
+// else was read as "this file has no front matter", so it synthesised a fresh block
+// holding only the stamped fields and pushed the model's real name/tier/tonal_summary
+// down into the body. Found 2026-08-05 on a trained style that lost `tier` — which then
+// defeated the guard that reads `tier` to protect trained styles from in-place rewrites.
+// One brittle regex, three consequences.
+const MESSY_VARIANTS = {
+    'a leading blank line': '\n' + DIRECTIVE_V1,
+    'leading indentation': '  ' + DIRECTIVE_V1,
+    'CRLF line endings': DIRECTIVE_V1.replace(/\n/g, '\r\n'),
+    'trailing space after the opening ---': DIRECTIVE_V1.replace(/^---/, '--- '),
+    'a wrapping code fence': '```markdown\n' + DIRECTIVE_V1 + '```\n',
+    'a UTF-8 BOM': '﻿' + DIRECTIVE_V1
+};
+
+for (const [label, variant] of Object.entries(MESSY_VARIANTS)) {
+    test(`front matter survives ${label}`, () => {
+        const { meta, body } = parseStyleFile(variant);
+        assert.strictEqual(meta.name, 'Desert Standoff', 'name must survive');
+        assert.strictEqual(meta.tier, 'conversational', 'tier must survive — a guard reads it');
+        assert.strictEqual(meta.tonal_summary, 'Lean, sun-scorched, high-stakes tension');
+        assert.match(body, /^## Scene Construction/);
+    });
+
+    test(`stamping preserves existing front matter despite ${label}`, () => {
+        const stamped = stampStyleFrontMatter(variant, { slug: 'new-slug', project_id: '123' });
+        const { meta, body } = parseStyleFile(stamped);
+        // The stamped fields land...
+        assert.strictEqual(meta.slug, 'new-slug');
+        assert.strictEqual(meta.project_id, '123');
+        // ...without costing the ones the model wrote.
+        assert.strictEqual(meta.tier, 'conversational');
+        assert.strictEqual(meta.name, 'Desert Standoff');
+        assert.strictEqual(meta.tonal_summary, 'Lean, sun-scorched, high-stakes tension');
+        // And the body is still the directive, not the old front matter re-homed into it.
+        assert.match(body, /^## Scene Construction/);
+        assert.doesNotMatch(body, /tonal_summary/, 'front matter must not be pushed into the body');
+        assert.strictEqual(Object.keys(parseStyleSections(stamped)).length, 6);
+    });
+}
+
+test('a file with genuinely no front matter still gets one, keeping its body', () => {
+    const stamped = stampStyleFrontMatter('## Tone\nDry.\n', { slug: 'x' });
+    const { meta, body } = parseStyleFile(stamped);
+    assert.strictEqual(meta.slug, 'x');
+    assert.match(body, /^## Tone/);
+});

@@ -251,9 +251,32 @@ Output ONLY the directive file content — no introductory text, no code blocks.
  * Returns { meta: {name, slug, created, tier, source, artifact_type, paired_with,
  *   screenplays_analyzed, references, tonal_summary, word_count}, body: string }
  */
+/**
+ * Normalize model output before looking for front matter.
+ *
+ * The old `^---\n` match required the file to begin with EXACTLY that. Four things the
+ * model does routinely defeat it: a leading blank line or indent, CRLF endings, a
+ * trailing space after a `---`, and wrapping the whole file in a ``` fence despite
+ * being told not to. On a read that degraded quietly (empty meta), but once
+ * `stampStyleFrontMatter` started rewriting front matter it became destructive: no
+ * match meant "this file has none", so it synthesised a new block containing only the
+ * stamped fields and pushed the model's real `name`, `tier` and `tonal_summary` down
+ * into the body. Measured 2026-08-05 on a trained style whose directive lost `tier`,
+ * which in turn defeated the guard that reads it.
+ */
+function normalizeStyleSource(content) {
+    let text = String(content || '').replace(/^﻿/, '').replace(/\r\n/g, '\n');
+    // Strip a wrapping code fence, opening and closing.
+    text = text.replace(/^\s*```[a-zA-Z]*\n/, '').replace(/\n```\s*$/, '');
+    return text.replace(/^\s*\n/, '').replace(/^[ \t]+(?=---)/, '');
+}
+
+// Tolerates trailing whitespace on either delimiter.
+const STYLE_FRONT_MATTER_RE = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*\n?([\s\S]*)$/;
+
 function parseStyleFile(content) {
-    const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-    if (!fmMatch) return { meta: {}, body: content };
+    const fmMatch = normalizeStyleSource(content).match(STYLE_FRONT_MATTER_RE);
+    if (!fmMatch) return { meta: {}, body: normalizeStyleSource(content) };
 
     const meta = {};
     for (const line of fmMatch[1].split('\n')) {
@@ -288,8 +311,10 @@ function stampStyleFrontMatter(content, fields = {}) {
     const entries = Object.entries(fields).filter(([, v]) => v !== undefined && v !== null);
     if (!entries.length) return content;
 
-    const text = String(content || '');
-    const match = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+    // Normalize first, so a leading newline or CRLF never gets mistaken for "this file
+    // has no front matter" — that mistake discards everything the model wrote.
+    const text = normalizeStyleSource(content);
+    const match = text.match(STYLE_FRONT_MATTER_RE);
 
     const format = (key, value) => `${key}: "${String(value).replace(/"/g, '\\"')}"`;
 
