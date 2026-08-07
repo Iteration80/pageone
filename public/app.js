@@ -11334,7 +11334,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnPdf) {
             btnPdf.onclick = () => {
                 if (!stage10State) { noticeDialog({ message: 'No rewrite data available.' }); return; }
-                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnPdf);
+                // Clean draft — marks explicitly off.
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite&marks=0`, btnPdf);
+            };
+        }
+
+        // Starred draft: every revised line carries an asterisk in the right margin,
+        // so a producer or 1st AD can see what moved without rereading the script.
+        const btnStarred = document.getElementById('btnDownloadStarredPdf');
+        if (btnStarred) {
+            btnStarred.onclick = () => {
+                if (!stage10State) { noticeDialog({ message: 'No rewrite data available.' }); return; }
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=rewrite`, btnStarred);
             };
         }
 

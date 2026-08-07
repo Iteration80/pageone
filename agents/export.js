@@ -691,7 +691,15 @@ function parseFountain(text) {
     return elements;
 }
 
-async function generateScreenplayPdf(scenes, projectTitle, author = '') {
+/**
+ * @param {object} opts
+ * @param {Array|null} opts.revisionBaseline - the PREVIOUS version of `scenes`. When
+ *   supplied, every printed line whose element differs from that version is marked
+ *   with an asterisk in the right margin — a "starred draft", which is what
+ *   production asks for after a rewrite pass so a reader can see what moved without
+ *   rereading. Omit it for a clean draft.
+ */
+async function generateScreenplayPdf(scenes, projectTitle, author = '', opts = {}) {
     return new Promise((resolve, reject) => {
         const PDFDocument = require('pdfkit');
 
@@ -745,12 +753,20 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '') {
             if (y + needed > BOTTOM) addPage();
         }
 
-        function writeLine(text, x, maxW, opts = {}) {
+        // Set while drawing a revised element, so every wrapped line it produces gets
+        // its own mark — the asterisk is per PRINTED line, not per paragraph.
+        let markRevised = false;
+
+        function writeLine(text, x, maxW, lineOpts = {}) {
             checkPageBreak(LINE_H);
-            const options = { width: maxW, lineBreak: false, align: opts.align || 'left' };
-            doc.font(opts.font || 'Courier')
+            const options = { width: maxW, lineBreak: false, align: lineOpts.align || 'left' };
+            doc.font(lineOpts.font || 'Courier')
                .fontSize(FONT_SIZE)
                .text(text, x, y, options);
+            if (markRevised) {
+                doc.font('Courier').fontSize(FONT_SIZE)
+                   .text('*', RIGHT + 12, y, { width: 12, align: 'left', lineBreak: false });
+            }
             y += LINE_H;
         }
 
@@ -793,9 +809,38 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '') {
         }
 
         const elements = parseFountain(flatText);
+
+        // Which elements are revised, for the starred draft.
+        //
+        // Both versions are flattened and parsed by the SAME code path here rather
+        // than diffed upstream, so the marks cannot drift from what is actually
+        // printed. Blank elements are excluded from the comparison for the reason
+        // learned in the Stage 9 diff: they are all identical, so letting them into
+        // the LCS lets it match any blank to any blank and drag the real prose out of
+        // correspondence.
+        const revisedElements = new Set();
+        if (Array.isArray(opts.revisionBaseline)) {
+            const { computeLineDiff } = require('../public/script-diff');
+            const baselineFlat = opts.revisionBaseline
+                .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
+                .filter(Boolean).join('\n\n');
+            const key = (el) => `${el.type} ${(el.text || '').trim()}`;
+            const baseKeys = parseFountain(baselineFlat).filter(e => e.type !== 'blank').map(key);
+            const currIdx = [];
+            const currKeys = [];
+            elements.forEach((el, i) => {
+                if (el.type === 'blank') return;
+                currIdx.push(i);
+                currKeys.push(key(el));
+            });
+            const { rightAnnotations } = computeLineDiff(baseKeys.join('\n'), currKeys.join('\n'));
+            rightAnnotations.forEach((ann, n) => { if (ann === 'added') revisedElements.add(currIdx[n]); });
+        }
+
         let prevType = null;
 
-        elements.forEach(el => {
+        elements.forEach((el, elIndex) => {
+            markRevised = revisedElements.has(elIndex);
             switch (el.type) {
                 case 'blank':
                     y += LINE_H * 0.5;
@@ -841,7 +886,8 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '') {
             prevType = el.type;
         });
 
-        // Final FADE OUT
+        // Final FADE OUT — never a revision, it is furniture the exporter adds.
+        markRevised = false;
         y += LINE_H;
         checkPageBreak(LINE_H);
         writeLine('FADE OUT.', LEFT, CONTENT_W, { align: 'right' });

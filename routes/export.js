@@ -138,7 +138,22 @@ function registerExportRoutes(app, deps) {
 
             if (!scenes.length) throw new BadRequestError('No scenes to export');
 
-            const buf = await generateScreenplayPdf(scenes, title, data.author);
+            // Starred draft: mark every revised line with an asterisk in the right
+            // margin, so a reader can see what moved without rereading the script.
+            // That is the artifact production asks for after a rewrite pass, and
+            // PageOne already knows exactly what changed — it just used to throw the
+            // information away at export. Only meaningful for the rewrite, whose
+            // baseline is the approved Stage 7 draft; a first draft has nothing to
+            // star. `?marks=0` gives the clean draft for wider circulation.
+            let revisionBaseline = null;
+            if (stage === 'rewrite' && req.query.marks !== '0') {
+                const drafted = (data.stage6_scenes || [])
+                    .flatMap(seq => seq.scenes || [])
+                    .filter(s => s.draft_text || s.humanized_draft_text);
+                if (drafted.length) revisionBaseline = drafted;
+            }
+
+            const buf = await generateScreenplayPdf(scenes, title, data.author, { revisionBaseline });
             const filename = `${safeName}_${stage}.pdf`;
             const exportStage = exportStageNumber(stage);
             if (exportStage) {
