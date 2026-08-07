@@ -3432,3 +3432,36 @@ textarea.synopsis-input {
     background: #2563eb;
     color: #fff;
 }
+
+/* ─── Stage 9 word-level diff ────────────────────────────────────────────────
+   A line-level wash tells you THAT a paragraph changed; these spans tell you
+   which words. When word spans are present the block highlight is dropped to a
+   thin rail, or it would drown out the very distinction it exists to show. */
+.diff-line-reworded {
+    border-radius: 4px;
+    box-shadow: inset 3px 0 0 rgba(148, 163, 184, 0.5);
+    padding-left: 8px;
+}
+
+.diff-word-added {
+    background: rgba(34, 197, 94, 0.28);
+    border-radius: 3px;
+    padding: 0 2px;
+    box-shadow: 0 1px 0 rgba(34, 197, 94, 0.5);
+}
+
+.diff-word-removed {
+    background: rgba(239, 68, 68, 0.26);
+    border-radius: 3px;
+    padding: 0 2px;
+    text-decoration: line-through;
+    text-decoration-color: rgba(239, 68, 68, 0.8);
+}
+
+/* Brief pulse when jumping to a change, so the eye lands on it. */
+.diff-change-focus {
+    outline: 2px solid rgba(59, 130, 246, 0.85);
+    outline-offset: 2px;
+    border-radius: 4px;
+    transition: outline-color 0.6s ease;
+}

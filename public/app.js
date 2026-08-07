@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.width = '100%';
     }
 
-    function formatFountainToHTML(rawText, annotations = null) {
+    function formatFountainToHTML(rawText, annotations = null, wordSpans = null) {
         const lines = rawText.split('\n');
         let html = '';
         let inDialogueBlock = false;
@@ -397,68 +397,132 @@ document.addEventListener('DOMContentLoaded', () => {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        /**
+         * Render a line's content, marking the individual words that changed when a
+         * word diff is available. A line-level highlight says THAT the paragraph
+         * changed; this says WHICH words — the difference between reading a diff and
+         * eye-diffing two paragraphs.
+         */
+        function renderContent(line, idx, kind) {
+            const spans = wordSpans ? wordSpans[idx] : null;
+            if (!spans) return esc(line.trim());
+            const cls = kind === 'removed' ? 'diff-word-removed' : 'diff-word-added';
+            return spans.map(tok => {
+                const safe = esc(tok.text);
+                return tok.kind === 'same' ? safe : `<span class="${cls}">${safe}</span>`;
+            }).join('').trim();
+        }
+
         lines.forEach((line, idx) => {
             const tLine = line.trim();
             const ann = annotations ? annotations[idx] : null;
-            const diffBg = ann === 'removed' ? ' bg-red-900/40 rounded' : ann === 'added' ? ' bg-green-900/40 rounded' : '';
+            // When words are marked individually, drop the whole-line wash — otherwise
+            // the block highlight hides the very distinction it is meant to reveal.
+            const hasWords = !!(wordSpans && wordSpans[idx]);
+            const diffBg = hasWords
+                ? ' diff-line-reworded'
+                : ann === 'removed' ? ' bg-red-900/40 rounded' : ann === 'added' ? ' bg-green-900/40 rounded' : '';
+            const anchorAttr = ann ? ` data-diff-line="${idx}"` : '';
+            const body = renderContent(line, idx, ann);
 
             if (tLine === '') {
-                html += `<div class="h-3${diffBg}"></div>`;
+                html += `<div class="h-3${diffBg}"${anchorAttr}></div>`;
                 inDialogueBlock = false;
             } else if (/^(INT\.|EXT\.|I\/E\.|EST\.)/i.test(tLine) && tLine === tLine.toUpperCase()) {
-                html += `<div class="font-bold uppercase mt-6 mb-2 text-left${diffBg}">${esc(tLine)}</div>`;
+                html += `<div class="font-bold uppercase mt-6 mb-2 text-left${diffBg}"${anchorAttr}>${body}</div>`;
                 inDialogueBlock = false;
             } else if (tLine === tLine.toUpperCase() && !inDialogueBlock && !/^(INT\.|EXT\.)/i.test(tLine)) {
-                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide${diffBg}">${esc(tLine)}</div>`;
+                html += `<div class="ml-[30%] uppercase mt-4 mb-0 font-semibold tracking-wide${diffBg}"${anchorAttr}>${body}</div>`;
                 inDialogueBlock = true;
             } else if (inDialogueBlock && tLine.startsWith('(') && tLine.endsWith(')')) {
-                html += `<div class="ml-[25%] mb-0 italic${diffBg}">${esc(tLine)}</div>`;
+                html += `<div class="ml-[25%] mb-0 italic${diffBg}"${anchorAttr}>${body}</div>`;
             } else if (inDialogueBlock) {
-                html += `<div class="ml-[15%] w-[70%] mb-0${diffBg}">${esc(tLine)}</div>`;
+                html += `<div class="ml-[15%] w-[70%] mb-0${diffBg}"${anchorAttr}>${body}</div>`;
             } else {
-                html += `<div class="text-left mb-2 w-full${diffBg}">${esc(tLine)}</div>`;
+                html += `<div class="text-left mb-2 w-full${diffBg}"${anchorAttr}>${body}</div>`;
             }
         });
 
         return html;
     }
 
-    // Returns per-line diff annotations for left (removed) and right (added) panels
-    function computeLineDiff(origText, proposedText) {
-        const origLines = origText.split('\n');
-        const newLines = proposedText.split('\n');
-        const m = origLines.length, n = newLines.length;
+    // ─── Stage 9 change navigation + synced scrolling ────────────────────────
+    // Two independently scrolling panes lose alignment on the first scroll of any
+    // real scene, and without a jump control the writer hunts for highlights by
+    // eye. Both are what turn a diff you can see into a diff you can work through.
+    let stage10Changes = [];
+    let stage10ChangeIdx = -1;
 
-        // LCS via DP (trim lines for comparison to avoid whitespace false-positives)
-        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-        for (let i = 1; i <= m; i++) {
-            for (let j = 1; j <= n; j++) {
-                if (origLines[i - 1].trim() === newLines[j - 1].trim()) {
-                    dp[i][j] = dp[i - 1][j - 1] + 1;
-                } else {
-                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-                }
-            }
+    function stage10SetChangeAnchors(diff) {
+        stage10Changes = diff ? diff.anchors : [];
+        stage10ChangeIdx = -1;
+        const nav = document.getElementById('stage10-change-nav');
+        const counter = document.getElementById('stage10-change-counter');
+        if (!nav || !counter) return;
+        if (!stage10Changes.length) {
+            nav.classList.add('hidden');
+            nav.classList.remove('flex');
+            return;
         }
-
-        // Backtrack
-        const leftAnnotations = new Array(m).fill(null);
-        const rightAnnotations = new Array(n).fill(null);
-        let i = m, j = n;
-        while (i > 0 || j > 0) {
-            if (i > 0 && j > 0 && origLines[i - 1].trim() === newLines[j - 1].trim()) {
-                i--; j--;
-            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-                rightAnnotations[j - 1] = 'added';
-                j--;
-            } else {
-                leftAnnotations[i - 1] = 'removed';
-                i--;
-            }
-        }
-
-        return { leftAnnotations, rightAnnotations };
+        nav.classList.remove('hidden');
+        nav.classList.add('flex');
+        counter.textContent = `${stage10Changes.length} change${stage10Changes.length === 1 ? '' : 's'}`;
     }
+
+    function stage10GotoChange(step) {
+        if (!stage10Changes.length) return;
+        stage10ChangeIdx = (stage10ChangeIdx + step + stage10Changes.length) % stage10Changes.length;
+        const anchor = stage10Changes[stage10ChangeIdx];
+        const counter = document.getElementById('stage10-change-counter');
+        if (counter) counter.textContent = `${stage10ChangeIdx + 1} of ${stage10Changes.length}`;
+
+        // Scroll whichever pane actually has that line, and let the sync mirror it.
+        for (const id of ['stage10-right-panel-view', 'stage10-left-panel']) {
+            const pane = document.getElementById(id);
+            const target = pane?.querySelector(`[data-diff-line="${anchor.right}"], [data-diff-line="${anchor.left}"]`);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.add('diff-change-focus');
+                setTimeout(() => target.classList.remove('diff-change-focus'), 1200);
+                return;
+            }
+        }
+    }
+
+    function initStage10DiffNav() {
+        document.getElementById('stage10-next-change')?.addEventListener('click', () => stage10GotoChange(1));
+        document.getElementById('stage10-prev-change')?.addEventListener('click', () => stage10GotoChange(-1));
+
+        // ⌥↓ / ⌥↑ — Alt rather than plain arrows so the editor keeps its own keys.
+        document.addEventListener('keydown', (e) => {
+            if (!e.altKey || document.getElementById('stage-10-view')?.classList.contains('hidden')) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); stage10GotoChange(1); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); stage10GotoChange(-1); }
+        });
+
+        // Proportional scroll sync. Proportional rather than pixel-for-pixel because
+        // the two panes hold different amounts of text once lines are added or cut.
+        const left = document.getElementById('stage10-left-panel');
+        const right = document.getElementById('stage10-right-panel-view');
+        if (!left || !right) return;
+        let syncing = false;
+        const mirror = (from, to) => {
+            if (syncing) return;
+            syncing = true;
+            const range = from.scrollHeight - from.clientHeight;
+            const ratio = range > 0 ? from.scrollTop / range : 0;
+            to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
+            requestAnimationFrame(() => { syncing = false; });
+        };
+        left.addEventListener('scroll', () => mirror(left, right));
+        right.addEventListener('scroll', () => mirror(right, left));
+    }
+
+    // Line/word diffing lives in public/script-diff.js so it can be unit-tested
+    // without a DOM (test/script_diff.test.js). Kept as thin local aliases so every
+    // existing call site keeps working.
+    const computeLineDiff = (a, b) => window.ScriptDiff.computeLineDiff(a, b);
+    const computeScriptDiff = (a, b) => window.ScriptDiff.computeScriptDiff(a, b);
 
     // --- DOM Elements ---
     const projectsHub = document.getElementById('projectsHub');
@@ -10597,6 +10661,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedH = parseInt(localStorage.getItem('stage10SplitH') || '280');
             chatEl.style.height = `${savedH}px`;
             initChatCollapse(10, chatEl, hsplit);
+            initStage10DiffNav();
             hsplit.addEventListener('mousedown', e => {
                 e.preventDefault();
                 hsplit.classList.add('dragging');
@@ -10900,20 +10965,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const editorMount  = document.getElementById('stage10-editor-mount');
         const rightView    = document.getElementById('stage10-right-panel-view');
 
-        // Left panel: show original with diff highlights if there are pending changes
+        // Both panels render from ONE diff pass, so their annotations and word spans
+        // are guaranteed to describe the same comparison.
         if (stage10Pending[n] !== undefined) {
-            const { leftAnnotations } = computeLineDiff(origText, proposedText);
-            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, leftAnnotations);
+            const d = computeScriptDiff(origText, proposedText);
+            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, d.leftAnnotations, d.leftWords);
+            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, d.rightAnnotations, d.rightWords);
+            stage10SetChangeAnchors(d);
         } else {
             if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText);
-        }
-
-        // Right panel: default to preview (diff) view
-        if (stage10Pending[n] !== undefined) {
-            const { rightAnnotations } = computeLineDiff(origText, proposedText);
-            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
-        } else {
             if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText);
+            stage10SetChangeAnchors(null);
         }
 
         // Ensure editor is loaded (for Edit mode, lazily created)

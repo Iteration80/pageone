@@ -1007,8 +1007,17 @@
                     <div class="flex flex-1 overflow-hidden">
                         <!-- Left: Previous State (read-only, rendered Fountain) -->
                         <div id="stage10-left-container" class="flex flex-col border-r border-white/10 overflow-hidden" style="flex-basis:50%">
-                            <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0">
+                            <div class="px-4 py-2 border-b border-white/10 bg-gray-950 shrink-0 flex items-center justify-between gap-3">
                                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous State</span>
+                                <!-- Change navigation: without it a long scene means hunting
+                                     for the highlights by scrolling. -->
+                                <div id="stage10-change-nav" class="hidden items-center gap-1">
+                                    <button id="stage10-prev-change" title="Previous change (⌥↑)"
+                                        class="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors">▲</button>
+                                    <span id="stage10-change-counter" class="text-[11px] text-gray-500 tabular-nums select-none">—</span>
+                                    <button id="stage10-next-change" title="Next change (⌥↓)"
+                                        class="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors">▼</button>
+                                </div>
                             </div>
                             <div id="stage10-left-panel"
                                 class="flex-1 overflow-y-auto bg-gray-950 text-gray-500 text-sm font-mono leading-relaxed px-8 py-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
@@ -1252,6 +1261,7 @@
         </div>
     </div>
 
+    <script src="script-diff.js"></script>
     <script src="fountain-editor.js"></script>
     <script src="app.js"></script>
 </body>
