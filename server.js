@@ -3925,6 +3925,7 @@ registerGenerationRoutes(app, {
     appendUploadedSourceBlock,
     buildSourceGenerationPacket,
     getModelConfig,
+    generateContent,
     getModelConfigWithSourcePacket,
     withAbortSignal,
     sourceResponseExtras,

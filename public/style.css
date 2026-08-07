@@ -3465,3 +3465,73 @@ textarea.synopsis-input {
     border-radius: 4px;
     transition: outline-color 0.6s ease;
 }
+
+/* ─── Selection-scoped AI editing ────────────────────────────────────────────
+   Floats on <body> so it is never clipped by the editor's overflow. */
+.sel-ai {
+    position: absolute;
+    z-index: 1300;
+    width: min(560px, calc(100vw - 32px));
+    background: #12151d;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+    padding: 10px;
+}
+
+.sel-ai.hidden { display: none; }
+
+.sel-ai-row { display: flex; align-items: center; gap: 8px; }
+
+.sel-ai-input {
+    flex: 1;
+    background: #0b0e14;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: #e5e7eb;
+    font-size: 0.82rem;
+}
+.sel-ai-input:focus { outline: none; border-color: #2563eb; }
+
+.sel-ai-go, .sel-ai-accept, .sel-ai-reject, .sel-ai-close {
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease;
+}
+.sel-ai-go, .sel-ai-accept { background: #2563eb; color: #fff; }
+.sel-ai-go:hover, .sel-ai-accept:hover { background: #1d4ed8; }
+.sel-ai-reject { background: rgba(255, 255, 255, 0.07); color: #d1d5db; }
+.sel-ai-reject:hover { background: rgba(255, 255, 255, 0.13); }
+.sel-ai-close { background: transparent; color: #6b7280; padding: 6px 8px; }
+.sel-ai-close:hover { color: #e5e7eb; }
+
+.sel-ai-status { margin-top: 8px; font-size: 0.78rem; color: #9ca3af; }
+
+.sel-ai-diff {
+    margin-top: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #0b0e14;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #d1d5db;
+}
+.sel-ai-line { white-space: pre-wrap; }
+.sel-ai-line-changed { box-shadow: inset 3px 0 0 rgba(148, 163, 184, 0.5); padding-left: 8px; }
+
+.sel-ai-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* The passage the AI is about to act on — shown before anything is sent, so the
+   writer sees the real scope (whole elements) rather than their raw drag. */
+.fe-selection-scope {
+    background: rgba(37, 99, 235, 0.16);
+    box-shadow: inset 3px 0 0 #2563eb;
+    border-radius: 3px;
+}

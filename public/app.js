@@ -833,6 +833,157 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editor?.setSmartTypeLists) editor.setSmartTypeLists(buildSmartTypeLists());
     }
 
+    // ─── Selection-scoped AI editing ─────────────────────────────────────────
+    // Select a passage, say what you want, see a word-level diff, accept or reject.
+    //
+    // This is the one thing a dedicated screenwriting app structurally cannot do,
+    // and it reuses machinery that already exists: the editor's element-granular
+    // selection API, the Stage 9 word diff, and the project's own style directive.
+    // Nothing is saved until Accept — a bad suggestion costs a click, not a save.
+    function initSelectionEditing(editor, { getSceneNumber, onApplied }) {
+        if (!editor || editor.readOnly) return null;
+
+        let scope = null;          // { startIndex, endIndex, text }
+        let proposal = null;       // revised fountain awaiting a decision
+        const bar = document.createElement('div');
+        bar.className = 'sel-ai hidden';
+        bar.innerHTML = `
+            <div class="sel-ai-row">
+                <input type="text" class="sel-ai-input" placeholder="Tighten this, make her colder, cut the last beat…">
+                <button class="sel-ai-go">Revise</button>
+                <button class="sel-ai-close" title="Dismiss">✕</button>
+            </div>
+            <div class="sel-ai-status hidden"></div>
+            <div class="sel-ai-diff hidden"></div>
+            <div class="sel-ai-actions hidden">
+                <button class="sel-ai-reject">Reject</button>
+                <button class="sel-ai-accept">Accept</button>
+            </div>`;
+        document.body.appendChild(bar);
+
+        const $ = (s) => bar.querySelector(s);
+        const input = $('.sel-ai-input');
+        const status = $('.sel-ai-status');
+        const diffBox = $('.sel-ai-diff');
+        const actions = $('.sel-ai-actions');
+
+        function hide() {
+            bar.classList.add('hidden');
+            editor.clearHighlight();
+            scope = null; proposal = null;
+            input.value = '';
+            diffBox.classList.add('hidden'); diffBox.innerHTML = '';
+            actions.classList.add('hidden');
+            status.classList.add('hidden'); status.textContent = '';
+        }
+
+        function showFor(range) {
+            scope = range;
+            editor.highlightRange(range.startIndex, range.endIndex);
+            const first = editor.surface.children[range.startIndex].getBoundingClientRect();
+            const last = editor.surface.children[range.endIndex].getBoundingClientRect();
+            bar.classList.remove('hidden');
+            // Flip above the selection when there is no room below — a selection near
+            // the bottom of the pane otherwise puts the whole panel off-screen, which
+            // is where most selections are once you are a few paragraphs in.
+            const barH = bar.offsetHeight || 120;
+            const below = window.innerHeight - last.bottom;
+            const top = below > barH + 24
+                ? last.bottom + window.scrollY + 8
+                : Math.max(12 + window.scrollY, first.top + window.scrollY - barH - 8);
+            bar.style.top = `${top}px`;
+            bar.style.left = `${Math.max(12, Math.min(first.left + window.scrollX, window.innerWidth - bar.offsetWidth - 12))}px`;
+            diffBox.classList.add('hidden');
+            actions.classList.add('hidden');
+            input.focus();
+        }
+
+        async function revise() {
+            const instruction = input.value.trim();
+            if (!instruction || !scope) return;
+            status.textContent = 'Revising the selected passage…';
+            status.classList.remove('hidden');
+            diffBox.classList.add('hidden');
+            actions.classList.add('hidden');
+            try {
+                const res = await fetch('/api/revise-selection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: activeProjectId,
+                        sceneNumber: getSceneNumber ? getSceneNumber() : null,
+                        selectionText: scope.text,
+                        instruction
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Revision failed');
+
+                if (!data.changed) {
+                    // Report a no-op as a no-op. The alternative — showing an empty
+                    // diff under an Accept button — reads as "done".
+                    status.textContent = 'That instruction produced no change to this passage. Try naming what should be different.';
+                    return;
+                }
+                proposal = data.revised;
+                status.classList.add('hidden');
+                diffBox.innerHTML = renderSelectionDiff(scope.text, proposal);
+                diffBox.classList.remove('hidden');
+                actions.classList.remove('hidden');
+            } catch (err) {
+                status.textContent = `Could not revise: ${err.message}`;
+            }
+        }
+
+        function renderSelectionDiff(before, after) {
+            const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const beforeLines = before.split('\n');
+            const afterLines = after.split('\n');
+            const rows = [];
+            const max = Math.max(beforeLines.length, afterLines.length);
+            for (let i = 0; i < max; i++) {
+                const b = beforeLines[i] || '', a = afterLines[i] || '';
+                if (b.trim() === a.trim()) { rows.push(`<div class="sel-ai-line">${esc(a)}</div>`); continue; }
+                const wd = window.ScriptDiff.computeWordDiff(b, a);
+                const html = wd.right.map(t => t.kind === 'added'
+                    ? `<span class="diff-word-added">${esc(t.text)}</span>` : esc(t.text)).join('');
+                rows.push(`<div class="sel-ai-line sel-ai-line-changed">${html || '<em>(removed)</em>'}</div>`);
+            }
+            return rows.join('');
+        }
+
+        $('.sel-ai-go').addEventListener('click', revise);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); revise(); }
+            if (e.key === 'Escape') { e.preventDefault(); hide(); }
+        });
+        $('.sel-ai-close').addEventListener('click', hide);
+        $('.sel-ai-reject').addEventListener('click', hide);
+        $('.sel-ai-accept').addEventListener('click', async () => {
+            if (!proposal || !scope) return hide();
+            editor.replaceRange(scope.startIndex, scope.endIndex, proposal);
+            hide();
+            if (onApplied) await onApplied();
+        });
+
+        // Offer the bar when a selection settles inside the editor. mouseup rather
+        // than selectionchange so it does not flicker while dragging.
+        editor.surface.addEventListener('mouseup', () => {
+            setTimeout(() => {
+                if (!bar.classList.contains('hidden')) return;
+                const range = editor.getSelectionRange();
+                if (range) showFor(range);
+            }, 10);
+        });
+        // Clicking away dismisses, but never while interacting with the bar itself.
+        document.addEventListener('mousedown', (e) => {
+            if (bar.contains(e.target)) return;
+            if (!bar.classList.contains('hidden') && !editor.surface.contains(e.target)) hide();
+        });
+
+        return { hide };
+    }
+
     function stage8LoadEditor(fountainText) {
         if (!draftEditorMount) return;
         if (!stage8Editor) {
@@ -845,6 +996,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, 2000);
                 },
                 externalToolbarSlot: toolbarSlot
+            });
+            initSelectionEditing(stage8Editor, {
+                getSceneNumber: () => currentDraftSceneNumber,
+                onApplied: () => stage8FlushEditor({ requireSaved: true }).catch(() => {})
             });
         }
         applySmartTypeLists(stage8Editor);

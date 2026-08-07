@@ -20,6 +20,7 @@ function registerGenerationRoutes(app, deps) {
         appendUploadedSourceBlock,
         buildSourceGenerationPacket,
         getModelConfig,
+        generateContent,
         getModelConfigWithSourcePacket,
         withAbortSignal,
         sourceResponseExtras,
@@ -1107,6 +1108,84 @@ function registerGenerationRoutes(app, deps) {
         } catch (error) {
             console.error('Stage 8 Draft Generation Error:', error.message);
             sendApiError(res, error, "Failed to generate scene draft");
+        }
+    });
+
+    /**
+     * Revise ONE SELECTED PASSAGE, not a whole scene.
+     *
+     * This is the thing a dedicated screenwriting app structurally cannot do:
+     * select a paragraph, say "tighten this" or "make her colder", and get back
+     * that passage rewritten in the project's own style and character voices.
+     *
+     * Deliberately narrow. It receives only the selected fragment plus the rest of
+     * the scene as read-only context, and is told to return the fragment alone.
+     * Nothing here writes to the project — the client shows a diff and the writer
+     * accepts or rejects, so a bad suggestion costs a click rather than a save.
+     */
+    app.post('/api/revise-selection', requireAuth, aiLimiter, async (req, res) => {
+        try {
+            const { projectId, sceneNumber, selectionText, instruction } = req.body;
+            const sceneNum = parseInt(sceneNumber, 10);
+            if (!isValidProjectId(projectId) || !selectionText?.trim() || !instruction?.trim()) {
+                throw new BadRequestError('Missing projectId, selectionText or instruction');
+            }
+
+            const projectData = await readProjectJSONById(projectId);
+            const sceneMeta = Number.isFinite(sceneNum) ? findProjectScene(projectData, sceneNum) : null;
+            const sceneText = sceneMeta ? (sceneMeta.humanized_draft_text || sceneMeta.draft_text || '') : '';
+            const pitch = projectData.data?.stage1_pitch?.pitch;
+            const { styleContent } = await loadProjectStyle(projectData);
+
+            const characters = normalizeStage3CharactersForPipeline(projectData.data?.stage3_characters || {});
+            const voiceBlock = characters.length
+                ? `\n## CHARACTER VOICES\n${characters.map(c => {
+                    const v = c.voice_and_behavior || {};
+                    const f = c.functional_profile || {};
+                    return `- ${c.name}: ${c.brief_summary || ''}${v.voice_tag ? ` | voice=${v.voice_tag}` : ''}${f.voice_flavor ? ` | voice=${f.voice_flavor}` : ''}`;
+                }).join('\n')}\n`
+                : '';
+
+            const prompt = `You are revising ONE PASSAGE of a screenplay at the writer's request.
+
+## THE WRITER'S INSTRUCTION
+${instruction.trim()}
+
+## THE PASSAGE TO REVISE
+${selectionText}
+
+## THE REST OF THE SCENE (context only — do NOT return any of it)
+${compactText(sceneText, 6000) || '(not available)'}
+${pitch ? `\n## PROJECT\nTitle: ${pitch.title || ''}\nGenre: ${pitch.genre || ''}\nLogline: ${pitch.logline || ''}\n` : ''}${voiceBlock}${styleContent ? `\n## STYLE DIRECTIVE (binding craft instructions)\n${styleContent}\n` : ''}
+
+## RULES
+* Return ONLY the revised passage, as Fountain. No preamble, no commentary, no code fences.
+* Revise ONLY what the instruction asks for. Everything the instruction does not touch must come back **word for word identical** — an unrequested improvement is a regression, because the writer approved the text that is already there.
+* Keep the same screenplay elements in the same order unless the instruction requires otherwise: a scene heading stays a scene heading, a character cue keeps its character, dialogue stays under its cue.
+* Do NOT add or remove scene headings, and do not continue past the end of the passage.
+* Match the established voice of any character who speaks.
+* If the instruction cannot be carried out on this passage, return the passage unchanged rather than inventing a different edit.`;
+
+            const mc = getModelConfig(8);
+            console.log(`Revising selection in scene ${sceneNum || '?'}: "${instruction.trim().slice(0, 60)}..."`);
+            const response = await generateContent({
+                model: mc.model, geminiApiKey: mc.geminiApiKey, anthropicApiKey: mc.anthropicApiKey,
+                contents: prompt,
+                config: { temperature: 0.6 }
+            });
+
+            const revised = String(response.text || '')
+                .replace(/^\s*```[a-zA-Z]*\n/, '').replace(/\n```\s*$/, '')
+                .trim();
+            if (!revised) throw new Error('The model returned an empty revision.');
+
+            trackUsage(projectId, response.usage);
+            // `changed` is computed here rather than trusted from the model, so a no-op
+            // is reported as a no-op instead of being presented as an applied edit.
+            res.json({ revised, changed: revised.trim() !== selectionText.trim() });
+        } catch (error) {
+            console.error('revise-selection error:', error.message);
+            sendApiError(res, error, 'Failed to revise the selection');
         }
     });
 

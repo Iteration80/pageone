@@ -348,6 +348,110 @@ class FountainEditor {
         };
     }
 
+    /**
+     * The elements the current selection touches, as whole elements.
+     *
+     * Deliberately element-granular rather than character-granular. A screenplay
+     * element is the smallest thing that can be revised and spliced back with valid
+     * formatting — half an action paragraph rewritten in isolation cannot be
+     * reassembled without guessing where the sentence boundary went, and a partial
+     * character cue is not a thing at all. Selecting mid-paragraph therefore expands
+     * to the whole paragraph, and the caller highlights what it is about to act on so
+     * the writer sees the real scope before committing.
+     *
+     * @returns {{startIndex:number, endIndex:number, text:string, elements:{type:string,text:string}[]}|null}
+     */
+    getSelectionRange() {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+
+        const owner = (node) => {
+            let n = node;
+            while (n && n.parentElement !== this.surface) n = n.parentElement;
+            return (n && n.parentElement === this.surface) ? n : null;
+        };
+        const startEl = owner(sel.anchorNode);
+        const endEl = owner(sel.focusNode);
+        if (!startEl || !endEl) return null;
+
+        const children = Array.from(this.surface.children);
+        let a = children.indexOf(startEl);
+        let b = children.indexOf(endEl);
+        if (a === -1 || b === -1) return null;
+        if (a > b) [a, b] = [b, a];
+
+        const elements = children.slice(a, b + 1).map(div => ({
+            type: div.getAttribute('data-element') || 'action',
+            text: div.textContent || ''
+        }));
+        // Nothing to revise if the writer only grabbed blank lines.
+        if (!elements.some(e => e.text.trim())) return null;
+
+        return { startIndex: a, endIndex: b, elements, text: this._elementsToFountain(elements) };
+    }
+
+    /** Serialize a slice of elements the same way toFountain() serializes the whole. */
+    _elementsToFountain(elements) {
+        const scratch = document.createElement('div');
+        for (const el of elements) {
+            const div = this._createElementDiv(el.type, el.text);
+            scratch.appendChild(div);
+        }
+        // Reuse toFountain by temporarily pointing it at the scratch surface, so the
+        // fragment and the document can never drift in how they serialize.
+        const realSurface = this.surface;
+        this.surface = scratch;
+        let out;
+        try { out = this.toFountain(); } finally { this.surface = realSurface; }
+        return out;
+    }
+
+    /** Paint the elements an operation is about to affect. */
+    highlightRange(startIndex, endIndex) {
+        this.clearHighlight();
+        const children = Array.from(this.surface.children);
+        for (let i = startIndex; i <= endIndex && i < children.length; i++) {
+            children[i].classList.add('fe-selection-scope');
+        }
+    }
+
+    clearHighlight() {
+        this.surface.querySelectorAll('.fe-selection-scope')
+            .forEach(el => el.classList.remove('fe-selection-scope'));
+    }
+
+    /**
+     * Replace elements [startIndex..endIndex] with the parsed contents of `fountainText`.
+     * Undoable like any other structural edit.
+     */
+    replaceRange(startIndex, endIndex, fountainText) {
+        const children = Array.from(this.surface.children);
+        if (startIndex < 0 || startIndex >= children.length) return false;
+        const end = Math.min(endIndex, children.length - 1);
+
+        this._endTypingRun();
+        this._pushHistory();
+
+        const parsed = parseFountainToElements(fountainText || '');
+        const fragment = document.createDocumentFragment();
+        for (const el of parsed) {
+            const div = this._createElementDiv(el.type === 'blank' ? 'action' : el.type, el.text);
+            if (el.type === 'blank') div.innerHTML = '<br>';
+            fragment.appendChild(div);
+        }
+
+        // Capture the node AFTER the range as the insertion point before removing
+        // anything — anchoring on the first removed node would leave nowhere to insert.
+        const insertBefore = children[end + 1] || null;
+        for (let i = startIndex; i <= end; i++) children[i].remove();
+        this.surface.insertBefore(fragment, insertBefore);
+
+        this.clearHighlight();
+        this._onInput();
+        this._updateToolbar();
+        return true;
+    }
+
     undo() {
         // Snapshots are taken BEFORE each operation, so the live document is normally
         // one step ahead of the top of the stack. Capture it now — otherwise undo
