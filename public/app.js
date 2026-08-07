@@ -984,11 +984,76 @@ document.addEventListener('DOMContentLoaded', () => {
         return { hide };
     }
 
+    // ─── Continuous script view ("continuous read, scoped edit") ─────────────
+    //
+    // The whole drafted script renders as one scrolling document; the scene you are
+    // in is editable in place and the rest surrounds it as context. Reading across a
+    // scene boundary is where pacing, transitions and act turns live, and a script
+    // shown one scene at a time hides exactly that.
+    //
+    // Deliberately NOT one editor over all scenes with a re-split on save. Data is
+    // one text blob per scene, and a re-split is a mechanism whose failure mode is
+    // text silently migrating between scenes — the family this project has already
+    // paid for four times. Here the editable region always has exactly one owner, so
+    // there is nothing to re-split and no path for a scene to absorb another's text.
+    // The cost is a selection that spans two scenes; restructuring lives in Stage 5.
+    const stage8EditorHost = document.createElement('div');
+    stage8EditorHost.id = 'stage8-editor-host';
+
+    function stage8DraftedScenes() {
+        return getFlatScenes()
+            .filter(s => s.humanized_draft_text || s.draft_text)
+            .sort((a, b) => a.scene_number - b.scene_number);
+    }
+
+    function stage8RenderContinuous() {
+        if (!draftEditorMount) return;
+        const scenes = stage8DraftedScenes();
+        // Nothing drafted yet — leave the editor alone on its own, as before.
+        if (!scenes.length) {
+            if (stage8EditorHost.parentElement !== draftEditorMount) {
+                draftEditorMount.innerHTML = '';
+                draftEditorMount.appendChild(stage8EditorHost);
+            }
+            return;
+        }
+
+        // Detach the live editor BEFORE clearing, or wiping the container would
+        // destroy it along with its undo history and listeners.
+        if (stage8EditorHost.parentElement) stage8EditorHost.remove();
+        draftEditorMount.innerHTML = '';
+
+        const frag = document.createDocumentFragment();
+        for (const scene of scenes) {
+            const block = document.createElement('div');
+            block.className = 'cv-scene';
+            block.setAttribute('data-scene', String(scene.scene_number));
+
+            if (scene.scene_number === currentDraftSceneNumber) {
+                block.classList.add('cv-scene-active');
+                // Move the live editor into this slot. Moving the node keeps the
+                // editor instance, its undo history and its listeners intact.
+                block.appendChild(stage8EditorHost);
+            } else {
+                block.classList.add('cv-scene-read');
+                const text = scene.humanized_draft_text || scene.draft_text || '';
+                block.innerHTML = formatFountainToHTML(text);
+                block.title = 'Click to edit this scene';
+                block.addEventListener('click', () => {
+                    if (typeof window.selectDraftScene === 'function') window.selectDraftScene(scene.scene_number);
+                });
+            }
+            frag.appendChild(block);
+        }
+
+        draftEditorMount.appendChild(frag);
+    }
+
     function stage8LoadEditor(fountainText) {
         if (!draftEditorMount) return;
         if (!stage8Editor) {
             const toolbarSlot = document.getElementById('stage8-toolbar-slot');
-            stage8Editor = new FountainEditor(draftEditorMount, {
+            stage8Editor = new FountainEditor(stage8EditorHost, {
                 onDirty: () => {
                     clearTimeout(stage8SaveTimer);
                     stage8SaveTimer = setTimeout(() => {
@@ -1005,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applySmartTypeLists(stage8Editor);
         stage8Editor.loadFountain(fountainText);
         stage8Editor.resetHistory();
+        stage8RenderContinuous();
         clearStage8AutosaveError();
     }
 

@@ -3535,3 +3535,51 @@ textarea.synopsis-input {
     box-shadow: inset 3px 0 0 #2563eb;
     border-radius: 3px;
 }
+
+/* ─── Continuous script view ─────────────────────────────────────────────────
+   The whole drafted script is one document; the active scene is editable in
+   place and the rest is context. Read-only scenes are dimmed rather than boxed,
+   so the page still reads as a screenplay rather than a stack of cards. */
+.cv-scene {
+    position: relative;
+    scroll-margin-top: 24px;
+}
+
+.cv-scene-read {
+    padding: 10px 56px 10px 56px;
+    color: #8b93a1;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    cursor: text;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.cv-scene-read:hover {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* A quiet affordance that the surrounding pages are editable too. */
+.cv-scene-read::after {
+    content: "Click to edit";
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4b5563;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+.cv-scene-read:hover::after { opacity: 1; }
+
+/* The scene being written gets the full-contrast page. */
+.cv-scene-active {
+    background: rgba(255, 255, 255, 0.025);
+    box-shadow: inset 3px 0 0 #2563eb;
+    border-radius: 3px;
+}
