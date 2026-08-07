@@ -3,8 +3,8 @@
 **Date:** 2026-08-06
 **Scope:** visible Stage 7 (Draft) and Stage 9 (Rewrite) — the two surfaces where the writer
 actually writes. Benchmark: Final Draft 13, Arc Studio Pro, Fade In.
-**Status:** **built and deployed 2026-08-07**, except item 6 (pagination). See the
-implementation record at the bottom.
+**Status:** **built and deployed 2026-08-07**, except items 6 (pagination) and 7 (per-change
+accept/reject in Stage 9). See the implementation record at the bottom.
 
 ---
 
@@ -259,6 +259,7 @@ app before its commit, and every commit verified on prod via `/health` plus a gr
 | 2 | SmartType (characters / locations / times / transitions) | `8e845ce` | Consulted before Tab and Enter, so it never fights element cycling |
 | 3 | Undo/redo over **structural** edits | `8e845ce` | Snapshots the element list, not just text — element-type changes are undoable |
 | 4 | Word-level diff, synced scroll, next/prev change nav | `e967814` | `public/script-diff.js` + 12 tests |
+| 7 | Per-change accept/reject in Stage 9 + restore-from-left | — | **Not built.** Partly overtaken: item 9 ships accept/reject for *selection* edits in Stage 7, but Stage 9's whole-scene rewrite is still all-or-nothing |
 | 9 | Selection-scoped AI editing | `8eb9940` | Editor selection API + `POST /api/revise-selection`; returns a fragment, `changed` computed server-side |
 | 8 | Starred-draft export with revision marks | `101f009` | Reuses `computeLineDiff`; `?marks=0` gives the clean draft |
 | 5 | **Continuous read, scoped edit** | `0d9146a` | This document's decision. `test/continuous_view.test.js` |
