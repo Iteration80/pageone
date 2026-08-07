@@ -3,7 +3,8 @@
 **Date:** 2026-08-06
 **Scope:** visible Stage 7 (Draft) and Stage 9 (Rewrite) — the two surfaces where the writer
 actually writes. Benchmark: Final Draft 13, Arc Studio Pro, Fade In.
-**Status:** proposal. Nothing here is built. Two decisions at the end need Carsten.
+**Status:** **built and deployed 2026-08-07**, except item 6 (pagination). See the
+implementation record at the bottom.
 
 ---
 
@@ -243,6 +244,44 @@ than predicted now.
 word-level diff, then this. Order of record: **Tier 1 → 4 → 9 → 8 → 5**. Items 4, 9 and 8
 compound — they reuse the same diff-and-accept machinery — and item 9 is the one a competitor
 cannot copy quickly.
+
+---
+
+## Implementation record — 2026-08-07
+
+Built in the order of record (Tier 1 → 4 → 9 → 8 → 5). Every item verified against the running
+app before its commit, and every commit verified on prod via `/health` plus a grep of the
+**served** asset — not the local file.
+
+| # | Item | Commit | Notes |
+|---|---|---|---|
+| 1 | Assistant collapsed by default in Stage 7/9 | `8e845ce` | `DEFAULT_COLLAPSED_STAGES = [8, 10]` (internal ids) |
+| 2 | SmartType (characters / locations / times / transitions) | `8e845ce` | Consulted before Tab and Enter, so it never fights element cycling |
+| 3 | Undo/redo over **structural** edits | `8e845ce` | Snapshots the element list, not just text — element-type changes are undoable |
+| 4 | Word-level diff, synced scroll, next/prev change nav | `e967814` | `public/script-diff.js` + 12 tests |
+| 9 | Selection-scoped AI editing | `8eb9940` | Editor selection API + `POST /api/revise-selection`; returns a fragment, `changed` computed server-side |
+| 8 | Starred-draft export with revision marks | `101f009` | Reuses `computeLineDiff`; `?marks=0` gives the clean draft |
+| 5 | **Continuous read, scoped edit** | `0d9146a` | This document's decision. `test/continuous_view.test.js` |
+| 6 | Pagination + page numbers | — | **Not built.** Depends on 5. See below. |
+
+**The one thing item 4 cost, worth recording.** The Stage 9 diff took four attempts. A forward
+walk over a prefix-LCS table marked every line changed (a unit test caught it); position-based
+pairing broke on a 13-vs-9 rewrite; the real cause was **blank lines being diffed as content**,
+which let the LCS match any blank to any blank and pair paragraph 6 against paragraph 2. Each
+fix made the screenshot look better while the pairing was still wrong. What finally exposed it
+was printing both annotated sequences from the real saved data — not looking at the rendering.
+
+**Item 5's guard held.** Verified live on a 70-scene project: editing one scene left all 69
+others byte-identical on disk. The test project was restored to its pre-test snapshot
+afterwards.
+
+**Item 6 (pagination) when it is picked up:** on-screen page numbers must be computed with the
+**same math the exporter uses**, not an independent estimate. Two page counts that disagree are
+worse than one page count that is missing — the writer would have no way to know which one the
+reader will see.
+
+**The falsification trigger above is now live.** It needs a week of Carsten's real drafting to
+answer, and it is the only open question in this plan.
 
 ---
 
