@@ -143,6 +143,28 @@ class FountainEditor {
         this._dirty = false;
         this._lastCleanText = '';
 
+        // ─── Undo/redo ───────────────────────────────────────────────────────
+        // The browser's native contenteditable undo only covers typing INSIDE a
+        // block. Every structural operation here — Tab retype, Enter split,
+        // Backspace merge, type change, multi-line paste — rewrites the DOM
+        // directly, which either bypasses that stack or corrupts it. In a tool
+        // people write in for hours, undo you cannot trust is a correctness
+        // problem, not a convenience one. So we keep our own: a snapshot of the
+        // the element structure plus caret position, taken BEFORE each structural op and
+        // on the first keystroke of a typing run (so a burst of typing collapses
+        // into one undo step rather than one per character).
+        this._history = [];
+        this._historyIndex = -1;
+        this._typingRun = false;
+        this._maxHistory = 200;
+
+        // ─── SmartType ───────────────────────────────────────────────────────
+        // Populated by the host via setSmartTypeLists(). The editor deliberately
+        // knows nothing about projects — it is handed plain string lists.
+        this._smartLists = { characters: [], locations: [], times: [], transitions: [] };
+        this._suggestions = [];
+        this._suggestionIndex = 0;
+
         // Build DOM
         this.container.innerHTML = '';
 
@@ -169,7 +191,8 @@ class FountainEditor {
             this.surface.addEventListener('input', () => this._onInput());
             this.surface.addEventListener('keydown', (e) => this._onKeydown(e));
             this.surface.addEventListener('paste', (e) => this._onPaste(e));
-            this.surface.addEventListener('click', () => this._updateToolbar());
+            this.surface.addEventListener('click', () => { this._hideSuggestions(); this._updateToolbar(); });
+            this.surface.addEventListener('blur', () => setTimeout(() => this._hideSuggestions(), 120));
             this.surface.addEventListener('keyup', () => this._updateToolbar());
 
             // Close dropdown on outside click
@@ -200,6 +223,15 @@ class FountainEditor {
         this._dirty = false;
         this._lastCleanText = this.toFountain();
         this._updateToolbar();
+    }
+
+    /** Called by the host after loadFountain to start a clean undo history. */
+    resetHistory() {
+        const elements = this._snapshotElements();
+        this._history = [{ elements, key: this._snapshotKey(elements), caret: null }];
+        this._historyIndex = 0;
+        this._typingRun = false;
+        this._savedText = this._lastCleanText;
     }
 
     toFountain() {
@@ -277,6 +309,10 @@ class FountainEditor {
     setElementType(type) {
         const active = this.getActiveElement();
         if (!active) return;
+        // Toolbar/dropdown path needs its own snapshot. The ⌘1-6 and Tab paths have
+        // already pushed one; _pushHistory dedupes identical text, so that collapses
+        // to a single undo step rather than two.
+        this._pushHistory();
         const oldType = active.type;
         const text = active.el.textContent;
 
@@ -294,6 +330,56 @@ class FountainEditor {
         this._updateToolbar();
     }
 
+    /**
+     * Hand the editor the lists SmartType completes from. Plain strings only —
+     * the editor stays ignorant of where they came from.
+     * @param {{characters?:string[], locations?:string[], times?:string[], transitions?:string[]}} lists
+     */
+    setSmartTypeLists(lists = {}) {
+        const clean = (arr) => [...new Set((arr || [])
+            .map(s => String(s || '').trim())
+            .filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b));
+        this._smartLists = {
+            characters: clean(lists.characters),
+            locations: clean(lists.locations),
+            times: clean(lists.times),
+            transitions: clean(lists.transitions),
+        };
+    }
+
+    undo() {
+        // Snapshots are taken BEFORE each operation, so the live document is normally
+        // one step ahead of the top of the stack. Capture it now — otherwise undo
+        // steps back past the edit you actually wanted to reverse, and redo has
+        // nothing to return to. (Measured: type "NO", accept a SmartType completion,
+        // ⌘Z — without this the document jumped all the way back to the loaded text.)
+        this._captureLiveState();
+        if (this._historyIndex <= 0) return false;
+        this._historyIndex--;
+        this._restoreSnapshot(this._history[this._historyIndex]);
+        return true;
+    }
+
+    /** Record the current document as a history entry if it has drifted past the top. */
+    _captureLiveState() {
+        const elements = this._snapshotElements();
+        const key = this._snapshotKey(elements);
+        const top = this._history[this._historyIndex];
+        if (top && top.key === key) return;
+        this._history = this._history.slice(0, this._historyIndex + 1);
+        this._history.push({ elements, key, caret: this._caretPosition() });
+        if (this._history.length > this._maxHistory) this._history.shift();
+        this._historyIndex = this._history.length - 1;
+    }
+
+    redo() {
+        if (this._historyIndex < 0 || this._historyIndex >= this._history.length - 1) return false;
+        this._historyIndex++;
+        this._restoreSnapshot(this._history[this._historyIndex]);
+        return true;
+    }
+
     isDirty() {
         return this._dirty;
     }
@@ -301,9 +387,11 @@ class FountainEditor {
     markClean() {
         this._dirty = false;
         this._lastCleanText = this.toFountain();
+        this._savedText = this._lastCleanText;
     }
 
     destroy() {
+        if (this._suggestBox) { this._suggestBox.remove(); this._suggestBox = null; }
         this.container.innerHTML = '';
         if (this.externalToolbarSlot) {
             this.externalToolbarSlot.innerHTML = '';
@@ -373,6 +461,223 @@ class FountainEditor {
         }
     }
 
+    // ─── Undo/redo internals ─────────────────────────────────────────────────
+
+    /** Where the caret is, as (element index, character offset) — survives a reload. */
+    _caretPosition() {
+        const active = this.getActiveElement();
+        if (!active) return null;
+        const index = Array.from(this.surface.children).indexOf(active.el);
+        const sel = window.getSelection();
+        let offset = 0;
+        if (sel.rangeCount) {
+            const range = sel.getRangeAt(0).cloneRange();
+            range.selectNodeContents(active.el);
+            range.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
+            offset = range.toString().length;
+        }
+        return { index, offset };
+    }
+
+    _setCaret(pos) {
+        if (!pos) return;
+        const el = this.surface.children[Math.min(pos.index, this.surface.children.length - 1)];
+        if (!el) return;
+        const node = el.firstChild || el.appendChild(document.createTextNode(''));
+        const range = document.createRange();
+        const max = (node.textContent || '').length;
+        try {
+            range.setStart(node, Math.min(pos.offset, max));
+        } catch { range.setStart(el, 0); }
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    /**
+     * A snapshot is the element STRUCTURE — [{type, text}] — not serialized Fountain.
+     *
+     * Fountain is lossy for element type: a lone uppercase line is a character cue
+     * only if a blank line precedes it and a non-blank line follows, so round-tripping
+     * an in-progress edit through toFountain()/parse can silently reclassify it.
+     * Measured: typing a new character cue, accepting a SmartType completion and
+     * pressing ⌘Z produced a document with no character element at all. Undo must
+     * restore what the writer had, not what the serializer could express.
+     */
+    _snapshotElements() {
+        return Array.from(this.surface.children).map(div => ({
+            type: div.getAttribute('data-element') || 'action',
+            text: div.textContent || ''
+        }));
+    }
+
+    _snapshotKey(elements) {
+        return elements.map(e => `${e.type}\u0000${e.text}`).join('\u0001');
+    }
+
+    _restoreElements(elements) {
+        this.surface.innerHTML = '';
+        for (const el of elements) {
+            const div = this._createElementDiv(el.type, el.text);
+            if (!el.text) div.innerHTML = '<br>';
+            this.surface.appendChild(div);
+        }
+    }
+
+    /**
+     * Record the state BEFORE a change. Called by every structural operation and
+     * by the first keystroke of a typing run. Anything after the current index is
+     * discarded — the normal branch-on-new-edit behaviour.
+     */
+    _pushHistory() {
+        const elements = this._snapshotElements();
+        const snapshot = { elements, key: this._snapshotKey(elements), caret: this._caretPosition() };
+        // Don't stack identical states (e.g. Tab pressed twice with no text change).
+        const prev = this._history[this._historyIndex];
+        if (prev && prev.key === snapshot.key) {
+            prev.caret = snapshot.caret;
+            return;
+        }
+        this._history = this._history.slice(0, this._historyIndex + 1);
+        this._history.push(snapshot);
+        if (this._history.length > this._maxHistory) this._history.shift();
+        this._historyIndex = this._history.length - 1;
+    }
+
+    /** Snapshot once per typing run, so a burst collapses into a single undo step. */
+    _beginTypingRun() {
+        if (this._typingRun) return;
+        this._typingRun = true;
+        this._pushHistory();
+    }
+
+    _endTypingRun() {
+        this._typingRun = false;
+    }
+
+    _restoreSnapshot(snapshot) {
+        if (!snapshot) return;
+        this._restoreElements(snapshot.elements);
+        this._setCaret(snapshot.caret);
+        this._dirty = this.toFountain() !== this._lastCleanTextForDirty();
+        if (this.onDirty) this.onDirty();
+        this._updateToolbar();
+        this._hideSuggestions();
+    }
+
+    /** The text the host last considered saved — undo must not report "clean" wrongly. */
+    _lastCleanTextForDirty() {
+        return this._savedText !== undefined ? this._savedText : this._lastCleanText;
+    }
+
+    // ─── SmartType internals ─────────────────────────────────────────────────
+
+    /**
+     * Which list applies to the element being typed in, and what prefix to match.
+     * Scene headings are two-part: the location, then the time after the final " - ".
+     */
+    _suggestionContextFor(active) {
+        if (!active) return null;
+        const raw = (active.el.textContent || '');
+        const text = raw.trimStart();
+
+        if (active.type === 'character') {
+            return { pool: this._smartLists.characters, prefix: text, replaceFrom: 0 };
+        }
+        if (active.type === 'transition') {
+            return { pool: this._smartLists.transitions, prefix: text, replaceFrom: 0 };
+        }
+        if (active.type === 'scene-heading') {
+            // After the last " - " we're choosing a time of day; before it, a location.
+            const sep = raw.lastIndexOf(' - ');
+            if (sep !== -1) {
+                return { pool: this._smartLists.times, prefix: raw.slice(sep + 3), replaceFrom: sep + 3 };
+            }
+            const intExt = raw.match(/^\s*(INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)\s*/i);
+            if (intExt) {
+                return { pool: this._smartLists.locations, prefix: raw.slice(intExt[0].length), replaceFrom: intExt[0].length };
+            }
+            return { pool: ['INT. ', 'EXT. ', 'INT./EXT. '], prefix: raw, replaceFrom: 0 };
+        }
+        return null;
+    }
+
+    _refreshSuggestions() {
+        const active = this.getActiveElement();
+        const ctx = this._suggestionContextFor(active);
+        if (!ctx || !ctx.pool.length) return this._hideSuggestions();
+
+        const prefix = ctx.prefix.trim().toUpperCase();
+        // An empty prefix offers the whole list — that is the point on a fresh
+        // character cue, where retyping the name is the most repetitive act in the app.
+        const matches = ctx.pool
+            .filter(v => v.toUpperCase().startsWith(prefix))
+            .filter(v => v.toUpperCase() !== prefix)
+            .slice(0, 8);
+
+        if (!matches.length) return this._hideSuggestions();
+        this._suggestions = matches;
+        this._suggestionIndex = 0;
+        this._suggestionCtx = { el: active.el, replaceFrom: ctx.replaceFrom };
+        this._renderSuggestions(active.el);
+    }
+
+    _renderSuggestions(anchorEl) {
+        if (!this._suggestBox) {
+            this._suggestBox = document.createElement('div');
+            this._suggestBox.className = 'fe-smarttype';
+            document.body.appendChild(this._suggestBox);
+        }
+        const box = this._suggestBox;
+        box.innerHTML = '';
+        this._suggestions.forEach((s, i) => {
+            const item = document.createElement('div');
+            item.className = 'fe-smarttype-item' + (i === this._suggestionIndex ? ' fe-smarttype-active' : '');
+            item.textContent = s;
+            item.addEventListener('mousedown', (e) => { e.preventDefault(); this._acceptSuggestion(i); });
+            box.appendChild(item);
+        });
+        const rect = anchorEl.getBoundingClientRect();
+        box.style.top = `${rect.bottom + window.scrollY + 2}px`;
+        box.style.left = `${rect.left + window.scrollX}px`;
+        box.classList.remove('hidden');
+    }
+
+    _hideSuggestions() {
+        this._suggestions = [];
+        this._suggestionCtx = null;
+        if (this._suggestBox) this._suggestBox.classList.add('hidden');
+    }
+
+    _suggestionsOpen() {
+        return this._suggestions.length > 0 && this._suggestBox && !this._suggestBox.classList.contains('hidden');
+    }
+
+    _acceptSuggestion(index) {
+        const value = this._suggestions[index != null ? index : this._suggestionIndex];
+        const ctx = this._suggestionCtx;
+        if (!value || !ctx) return this._hideSuggestions();
+
+        this._pushHistory();
+        const el = ctx.el;
+        const head = (el.textContent || '').slice(0, ctx.replaceFrom);
+        el.textContent = head + value;
+        this._hideSuggestions();
+
+        // Caret to end of the completed text.
+        const node = el.firstChild || el.appendChild(document.createTextNode(''));
+        const range = document.createRange();
+        range.setStart(node, (node.textContent || '').length);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        this._onInput();
+        this._updateToolbar();
+    }
+
     // ─── DOM Helpers ─────────────────────────────────────────────────────────
 
     _createElementDiv(type, text) {
@@ -394,6 +699,9 @@ class FountainEditor {
     // ─── Event Handlers ──────────────────────────────────────────────────────
 
     _onInput() {
+        // First keystroke of a run gets the snapshot; the rest of the burst rides on it.
+        this._beginTypingRun();
+
         const currentText = this.toFountain();
         if (currentText !== this._lastCleanText) {
             this._dirty = true;
@@ -410,17 +718,64 @@ class FountainEditor {
                 this._applyType(child, newType);
             }
         }
+
+        this._refreshSuggestions();
     }
 
     _onKeydown(e) {
+        // ⌘Z / ⌘⇧Z (⌃ on Windows) — checked before everything else so nothing
+        // downstream can swallow it.
+        if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+            e.preventDefault();
+            this._endTypingRun();
+            if (e.shiftKey) this.redo(); else this.undo();
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || e.key === 'Y')) {
+            e.preventDefault();
+            this._endTypingRun();
+            this.redo();
+            return;
+        }
+
+        // SmartType owns the arrows, Enter, Tab and Escape WHILE its list is open —
+        // it must be consulted before the Tab/Enter handlers below, or accepting a
+        // completion would instead retype the element or split the line.
+        if (this._suggestionsOpen()) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const n = this._suggestions.length;
+                this._suggestionIndex = (this._suggestionIndex + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+                this._renderSuggestions(this._suggestionCtx.el);
+                return;
+            }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                this._acceptSuggestion();
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this._hideSuggestions();
+                return;
+            }
+        }
+
         // Cmd/Ctrl + 1-6: set element type
         if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
             const num = parseInt(e.key);
             if (num >= 1 && num <= 6) {
                 e.preventDefault();
+                this._endTypingRun();
+                this._pushHistory();
                 this.setElementType(FE_SHORTCUT_KEYS[num]);
                 return;
             }
+        }
+
+        // Any structural key ends the current typing run and gets its own undo step.
+        if (e.key === 'Tab' || e.key === 'Enter' || e.key === 'Backspace') {
+            this._endTypingRun();
         }
 
         // Tab: cycle element type
@@ -428,6 +783,7 @@ class FountainEditor {
             e.preventDefault();
             const active = this.getActiveElement();
             if (!active) return;
+            this._pushHistory();
             const currentType = active.type;
 
             if (e.shiftKey) {
@@ -448,6 +804,7 @@ class FountainEditor {
         // Enter: create new line with auto-advanced type
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
+            this._pushHistory();
             const active = this.getActiveElement();
             const currentType = active ? active.type : 'action';
             const nextType = FE_ENTER_NEXT[currentType] || 'action';
@@ -501,6 +858,7 @@ class FountainEditor {
             if (text === '' && active.type !== 'action') {
                 // First backspace on empty non-action: reset to action
                 e.preventDefault();
+                this._pushHistory();
                 this._applyType(active.el, 'action');
                 this._onInput();
                 this._updateToolbar();
@@ -510,6 +868,7 @@ class FountainEditor {
             if (text === '' && active.type === 'action' && active.el.previousElementSibling) {
                 // Second backspace on empty action: delete the line, move cursor to end of previous
                 e.preventDefault();
+                this._pushHistory();
                 const prev = active.el.previousElementSibling;
                 active.el.remove();
                 // Place cursor at end of previous element
@@ -532,6 +891,7 @@ class FountainEditor {
             // Backspace at start of non-empty line: merge with previous
             if (atStart && active.el.previousElementSibling) {
                 e.preventDefault();
+                this._pushHistory();
                 const prev = active.el.previousElementSibling;
                 const prevText = prev.textContent || '';
                 const curText = active.el.textContent || '';
@@ -556,6 +916,8 @@ class FountainEditor {
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData).getData('text/plain');
         if (!text) return;
+        this._endTypingRun();
+        this._pushHistory();
 
         // If pasting multi-line content, parse it as Fountain and insert elements
         const lines = text.split('\n');

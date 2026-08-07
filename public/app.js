@@ -711,6 +711,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * SmartType source lists, built from what the project already knows.
+     *
+     * Final Draft maintains these lists as you type; PageOne has them for free —
+     * character names are the approved Stage 3 cast, and locations and times come
+     * from the scene headings the blueprint already produced. Nothing is fetched
+     * and no model is called.
+     *
+     * Times are filtered against a known vocabulary on purpose: parsing the current
+     * project's headings yields "DAY, NIGHT, CONTINUOUS … EXT, INT, TOWN SQUARE",
+     * because some sluglines are malformed. Feeding those back as suggestions would
+     * teach the writer the malformed shape.
+     */
+    const SMARTTYPE_TIMES = [
+        'DAY', 'NIGHT', 'CONTINUOUS', 'LATER', 'MOMENTS LATER', 'DAWN', 'DUSK',
+        'MORNING', 'AFTERNOON', 'EVENING', 'SAME TIME', 'MAGIC HOUR'
+    ];
+    const SMARTTYPE_TRANSITIONS = [
+        'CUT TO:', 'SMASH CUT TO:', 'MATCH CUT TO:', 'DISSOLVE TO:', 'FADE TO:',
+        'FADE IN:', 'FADE OUT.', 'FADE TO BLACK.', 'INTERCUT WITH:'
+    ];
+
+    function buildSmartTypeLists(data = window.currentProjectData || {}) {
+        const characters = (data.stage3_characters?.characters || [])
+            .map(c => String(c?.name || '').toUpperCase())
+            .filter(Boolean);
+
+        const headings = [];
+        for (const seq of (data.stage6_scenes || [])) {
+            for (const sc of (seq?.scenes || [])) {
+                const h = String(sc?.scene_heading || sc?.slugline || '').trim();
+                if (h) headings.push(h.toUpperCase());
+            }
+        }
+
+        const locations = headings.map(h => h
+            .replace(/^(INT\.\/EXT\.|I\/E\.|INT\.|EXT\.)\s*/, '')
+            .replace(new RegExp(`\\s*-\\s*(${SMARTTYPE_TIMES.join('|')})\\s*$`), '')
+            .trim()
+        ).filter(Boolean);
+
+        const times = [...new Set(
+            headings.map(h => (h.split(' - ').pop() || '').trim())
+                .filter(t => SMARTTYPE_TIMES.includes(t))
+        )];
+
+        return {
+            characters,
+            locations,
+            times: times.length ? [...new Set([...times, ...SMARTTYPE_TIMES])] : SMARTTYPE_TIMES,
+            transitions: SMARTTYPE_TRANSITIONS
+        };
+    }
+
+    function applySmartTypeLists(editor) {
+        if (editor?.setSmartTypeLists) editor.setSmartTypeLists(buildSmartTypeLists());
+    }
+
     function stage8LoadEditor(fountainText) {
         if (!draftEditorMount) return;
         if (!stage8Editor) {
@@ -725,7 +783,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 externalToolbarSlot: toolbarSlot
             });
         }
+        applySmartTypeLists(stage8Editor);
         stage8Editor.loadFountain(fountainText);
+        stage8Editor.resetHistory();
         clearStage8AutosaveError();
     }
 
@@ -9833,7 +9893,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (save) localStorage.setItem(key, collapsed ? '1' : '0');
         }
 
-        if (localStorage.getItem(key) === '1') setCollapsed(true, false);
+        // On the two WRITING stages — Draft (internal 8) and Rewrite (internal 10) —
+        // the assistant starts collapsed. Expanded, the drawer takes roughly 45% of
+        // the height and leaves the script about 30%, which makes the writing surface
+        // the smallest panel on screen in an app whose purpose is writing. Every
+        // reference tool (Final Draft, Arc Studio, Fade In) gives the page the window
+        // and docks everything else around it. Collapsing is one click, the choice is
+        // remembered per stage, and an explicit choice always wins over this default.
+        const DEFAULT_COLLAPSED_STAGES = [8, 10];
+        const stored = localStorage.getItem(key);
+        const collapsed = stored === null
+            ? DEFAULT_COLLAPSED_STAGES.includes(Number(stageNum))
+            : stored === '1';
+        if (collapsed) setCollapsed(true, false);
 
         header.addEventListener('click', () => setCollapsed(!chatEl.classList.contains('collapsed')));
     }
@@ -10865,7 +10937,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        if (stage10Editor) stage10Editor.loadFountain(proposedText);
+        if (stage10Editor) {
+            applySmartTypeLists(stage10Editor);
+            stage10Editor.loadFountain(proposedText);
+            stage10Editor.resetHistory();
+        }
 
         // Default to preview view
         stage10ViewMode = 'preview';
@@ -10921,7 +10997,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (mode === 'formatted') {
                 editorMount.classList.remove('hidden');
-                if (stage10Editor) stage10Editor.loadFountain(proposedText);
+                if (stage10Editor) {
+                    applySmartTypeLists(stage10Editor);
+                    stage10Editor.loadFountain(proposedText);
+                    stage10Editor.resetHistory();
+                }
             } else {
                 // Preview mode (default)
                 rightView.classList.remove('hidden');

@@ -3393,3 +3393,42 @@ textarea.synopsis-input {
 .style-tier-badge.trained { background: #065f46; color: #6ee7b7; }
 .style-tier-badge.conversational { background: #1e3a5f; color: #93c5fd; }
 .style-tier-badge.preset { background: #4c1d95; color: #ddd6fe; }
+
+/* ─── SmartType autocomplete ─────────────────────────────────────────────────
+   Final Draft's SmartType, on PageOne's own data: character names come from
+   Stage 3, locations and times are parsed out of the scene headings already in
+   the blueprint. Floats on <body> rather than inside the editor so it is never
+   clipped by the editor's own overflow. */
+.fe-smarttype {
+    position: absolute;
+    z-index: 1200;
+    min-width: 220px;
+    max-width: 420px;
+    background: #1a1d27;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    padding: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.82rem;
+    overflow: hidden;
+}
+
+.fe-smarttype.hidden { display: none; }
+
+.fe-smarttype-item {
+    padding: 6px 10px;
+    border-radius: 5px;
+    color: #d1d5db;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fe-smarttype-item:hover { background: rgba(255, 255, 255, 0.06); }
+
+.fe-smarttype-active {
+    background: #2563eb;
+    color: #fff;
+}
