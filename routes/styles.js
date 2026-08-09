@@ -129,8 +129,14 @@ function registerStyleRoutes(app, deps) {
             // own `slug:` line then disagrees with the real filename. `project_id` is
             // what makes the next refine editable in place, and it must be server-stamped
             // — a model-authored ownership marker is not evidence of anything.
+            // `created` is server-stamped for the same reason: the model has no clock
+            // and invents plausible dates (a style generated 2026-08-09 arrived stamped
+            // "2026-03-30"; presets carry "2024-05-24"). A refine keeps the original date.
             const styleContent = stampStyleFrontMatter(rawStyleContent, {
                 slug,
+                created: ownsPreviousStyle
+                    ? (parseStyleFile(previousDirective).meta.created || new Date().toISOString().slice(0, 10))
+                    : new Date().toISOString().slice(0, 10),
                 ...(projectId ? { project_id: String(projectId) } : {})
             });
             const { meta } = parseStyleFile(styleContent);
@@ -388,7 +394,12 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             // since it falls through to creating a new style, but needlessly so.
             // `paired_with` has to follow the corrected slug or the directive points at
             // the wrong reference file.
-            const stampFields = { slug, ...(projectId ? { project_id: String(projectId) } : {}) };
+            const stampFields = {
+                slug,
+                // Server clock, not the model's guess — see the conversational path.
+                created: new Date().toISOString().slice(0, 10),
+                ...(projectId ? { project_id: String(projectId) } : {})
+            };
             const stampedReference = stampStyleFrontMatter(reference, stampFields);
             const stampedDirective = stampStyleFrontMatter(directive, { ...stampFields, paired_with: `${slug}-reference` });
 

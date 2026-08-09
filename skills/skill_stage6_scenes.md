@@ -62,6 +62,21 @@ Use EXACTLY these marker labels:
 * `PAYS OFF: <what, planted where>` — optional, but include it when the scene resolves an earlier plant.
 * `UNIQUE JOB: <one sentence — the dramatic work no other scene does>`.
 
+The marker format is a hard contract, identical in EVERY scene of EVERY sequence. The blueprint is generated in 8 sequential calls, and the format must not drift after the first call: each marker starts its own line inside `dramaturgical_function`, in ALL CAPS exactly as listed above, followed by a colon and a space. Never restyle the labels as prose ("Value Shift:", "Layered Conflict —") — downstream detection is line-start and exact-vocabulary, and a restyled label is invisible to it.
+
+Worked example — the exact shape every scene's `dramaturgical_function` must use:
+
+```
+Structural Purpose: The town watches the inspector hesitate for the first time.
+Layered Micro-Conflict: External — the mayor stalls her; Interpersonal — her father deflects; Internal — loyalty vs. duty.
+Triangle of Knowledge: The audience knows the ledger is forged; she does not.
+VALUE SHIFT: guarded confidence (+) to exposed doubt (-)
+SETS UP: the falsified ledger, paid off in Sequence 6
+UNIQUE JOB: The only scene where the town sees her doubt in public.
+```
+
+A quiet scene replaces the `VALUE SHIFT:` line with its quiet function, same line-start caps format: `QUIET FUNCTION: aftermath`.
+
 Quiet functions are legitimate dramatic work:
 
 * `aftermath` — characters process consequences immediately after a major turn.

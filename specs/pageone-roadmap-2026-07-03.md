@@ -98,7 +98,19 @@ scar tissue is exactly this kind of drift).
    summarizing the June refactor with a pointer to the two spec files.
 3. Cosmetic while in there: rename `getBrainstormModelConfig()` → `getAssistantModelConfig()`.
 
-### R6 — Live conversational shakedown (Carsten, no code)
+### R6 — Live conversational shakedown — ✅ CLOSED 2026-08-09
+Every surface below was exercised live during the 2026-07-30 → 2026-08-06 full-app
+shakedown (see CLAUDE.md Recent Changes and the session notes for that window) except the
+projectless global style creator, which was exercised live on 2026-08-09: an exploratory
+message correctly produced editorial discussion without generating; an explicit "yes,
+generate it" produced a saved directive with intact front matter (name/tier/tonal_summary),
+and the honest-reporting contract held. One real bug found and fixed in the process: the
+`created` front-matter date was model-authored fiction (a fresh style arrived stamped
+"2026-03-30" on 2026-08-09; two presets carry "2024-05-24") — now server-stamped alongside
+`slug` on both the conversational and trained paths, with a refine preserving the original
+date. Test pins the stamp.
+
+*Original scope, for the record:*
 Codex itself flagged that stages beyond 5 had routing + unit coverage but no live
 conversational smoke. Spend one session across real projects: Stage 1 pitch refine via chat,
 Stage 4 (its deterministic bypasses now live in `/api/assistant`), Stage 6 revise, Stage 7

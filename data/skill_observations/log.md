@@ -16,7 +16,7 @@ Observations captured during Claude Code sessions. Each entry identifies a poten
 ---
 
 ### Observation 2: Necessity-contract markers drift in format across sequences
-**Status:** OPEN
+**Status:** ACTIONED (2026-08-09 — both suggested fixes applied: skill_stage6_scenes.md §6.1 now carries a hard-contract format rule plus a worked example of the exact `dramaturgical_function` shape, and agent_6_scenes.js re-injects a compact MARKER FORMAT rule into every per-sequence prompt so the format cannot drift after the first of the 8 sequential calls. Takes effect on the next blueprint generation; existing blueprints keep their saved text.)
 **Date:** 2026-07-16
 **Skill:** skills/skill_stage6_scenes.md
 **Signal:** In a full 82-scene I.M.A.G.I.N.E. blueprint regeneration, Sequence 1 (scenes 1–11) wrote the necessity-contract declarations as ALL-CAPS inline markers ("VALUE SHIFT:", "TRIANGLE OF KNOWLEDGE:", "MICRO-CONFLICT:"), while Sequences 2–8 expressed the same content as prose-case labels ("Value Shift:", "Triangle of Knowledge:", "Layered Conflict —"). Because the blueprint is generated sequence-by-sequence (8 sequential model calls), the marker format drifted after the first call. The dramaturgical audit's nominators are case-insensitive with a phrase-level backstop, so this did NOT cause false filler flags — but it's a document-consistency signal and the audit's more precise `QUIET FUNCTION:` detection (line-start, exact-vocabulary) only reliably fires on the first-sequence format.
@@ -25,7 +25,7 @@ Observations captured during Claude Code sessions. Each entry identifies a poten
 ---
 
 ### Observation 3: Revision brief written as bracketed instructions leaks in as fabricated beats
-**Status:** OPEN
+**Status:** ACTIONED (2026-08-09 — the remaining SOP half applied; the structural half was closed in code `d486b92` on 2026-07-17. skill_assistant_core.md now states that `changed: true` is not proof every requested edit landed — unverifiable edits must be reported honestly — and that bracketed brief blocks are targets + instructions, never literal content. skill_stage2_outline.md carries the worked example: `[Sequence 2] Update his backstory…` becomes a rewritten beat inside Sequence 2, never a beat that says "Update his backstory".)
 **Date:** 2026-07-17
 **Skill:** skills/skill_stage2_outline.md (+ skills/skill_assistant_core.md)
 **Signal:** On the "Dearly Beloved" outline, the writer's revision brief was structured as bracketed instruction blocks — `[Sequence 2] Update his backstory: disgraced Robin Hood...`, `[Elena's Stakes & The Gallery] Establish the "Scream" portraits...`, `[Preserve] The "Meeting in the Middle" arc...`. `buildRevisionChecklist` parses bracketed `[Label] body` blocks as content-to-ensure-present; when the model didn't apply them, `appendMissingChecklistBeats` appended all three verbatim as story beats, AND the actual changes (cold-open flashforward, Logan's on-page backstory, a Building Inspector beat) were never applied — yet the assistant reported full success. This is the 5th phrasing of the beat-fabrication class; the positive-class filter didn't cover content-imperative directives ("Update/Establish/Preserve the X") or markdown-emphasis (`**`) fragments. Filter fix shipped (`aeb59fd`), but two deeper gaps remain unaddressed: (a) the revision silently skipped the requested edits, (b) the assistant claimed success anyway.

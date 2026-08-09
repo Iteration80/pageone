@@ -506,6 +506,8 @@ ${previousSequenceClimax}
 
 OBJECTIVE: Break down Sequence ${i} into 8 to 12 scenes. Your first scene must seamlessly continue from the <previous_sequence_climax> above. Focus on detailed, physical Narrative Action.
 
+MARKER FORMAT (identical in every scene of every sequence): inside dramaturgical_function, the necessity-contract markers are line-start ALL CAPS exactly — VALUE SHIFT: / QUIET FUNCTION: / SETS UP: / PAYS OFF: / UNIQUE JOB:. Do not restyle them as prose labels ("Value Shift:", "Layered Conflict —"); the format from Sequence 1 is the format for all 8.
+
 FIDELITY CHECK BEFORE YOU RESPOND:
 - Preserve every concrete event, character placement, prop path, discovery mechanism, named gag/payoff, body/identity rule, backstory reveal, family count, death/survival state, and sequence endpoint from the CURRENT SEQUENCE NARRATIVE EXPANSION and CURRENT SEQUENCE CONTINUITY CONTRACT.
 - You may invent connective blocking, minor obstacles, scene headings, and visual texture only when they do not replace, relocate, omit, or contradict approved treatment content.

@@ -177,3 +177,15 @@ test('a file with genuinely no front matter still gets one, keeping its body', (
     assert.strictEqual(meta.slug, 'x');
     assert.match(body, /^## Tone/);
 });
+
+test('a server-stamped created date replaces the model\'s invented one', () => {
+    // The model has no clock and writes plausible fiction into `created` —
+    // measured live 2026-08-09: a fresh style arrived stamped "2026-03-30",
+    // and two presets carry "2024-05-24". The route stamps `created` from the
+    // server clock alongside `slug`; this pins that the stamp actually wins.
+    const modelOutput = '---\nname: "X"\nslug: "x"\ncreated: "2024-05-24"\ntier: "conversational"\n---\n\n## Tone\nDry.\n';
+    const stamped = stampStyleFrontMatter(modelOutput, { slug: 'x', created: '2026-08-09' });
+    const { meta } = parseStyleFile(stamped);
+    assert.strictEqual(meta.created, '2026-08-09');
+    assert.strictEqual(meta.name, 'X', 'other model-authored fields survive');
+});
