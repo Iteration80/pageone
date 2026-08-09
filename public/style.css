@@ -3466,6 +3466,42 @@ textarea.synopsis-input {
     transition: outline-color 0.6s ease;
 }
 
+/* Per-change review controls in the compare view. Small and quiet on purpose —
+   they sit inside the script text, and the change highlight is the loud part. */
+.diff-hunk-controls {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 2px;
+}
+
+.diff-hunk-keep, .diff-hunk-reject, .diff-hunk-restore {
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 5px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.diff-hunk-keep { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+.diff-hunk-keep:hover { background: rgba(34, 197, 94, 0.3); }
+
+.diff-hunk-reject { background: rgba(239, 68, 68, 0.14); color: #f87171; }
+.diff-hunk-reject:hover { background: rgba(239, 68, 68, 0.28); }
+
+.diff-hunk-restore { background: rgba(148, 163, 184, 0.14); color: #94a3b8; }
+.diff-hunk-restore:hover { background: rgba(148, 163, 184, 0.3); color: #e2e8f0; }
+
+.diff-hunk-kept {
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 5px;
+    color: rgba(74, 222, 128, 0.75);
+    background: rgba(34, 197, 94, 0.08);
+}
+
 /* ─── Selection-scoped AI editing ────────────────────────────────────────────
    Floats on <body> so it is never clipped by the editor's overflow. */
 .sel-ai {

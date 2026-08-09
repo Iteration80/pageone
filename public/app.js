@@ -10536,9 +10536,142 @@ document.addEventListener('DOMContentLoaded', () => {
     let stage10PendingSaveTimers = {};
     let stage10PendingSaveInFlight = {};
     let stage10PendingSaveErrors = {};
+    let stage10AcceptedHunks = {};   // sceneKey -> Set of kept-change signatures (review aid, session-only)
 
     function stage10PendingKey(sceneNumber) {
         return String(sceneNumber);
+    }
+
+    // ─── Per-change accept / reject in the compare view ─────────────────────
+    // The unit of review is the hunk — the same contiguous run the change nav
+    // steps through. Keep marks a hunk reviewed and leaves the text alone;
+    // Reject reverts exactly that hunk to the original via ScriptDiff.mergeHunks,
+    // which carries each restored line's blank-line spacing with it (in Fountain
+    // a blank line is what makes the next line a character cue, so a raw splice
+    // would corrupt formatting). The left pane's Restore is the same operation
+    // offered from the block it brings back — including blocks the rewrite
+    // deleted outright, which have nothing to click on the right.
+    // Kept-marks are content-keyed and session-only: the text is the record, the
+    // marks are the writer's place in reviewing it.
+    function stage10HunkBaseSig(hunk) {
+        return `${hunk.removedText}\u0000${hunk.addedText}`;
+    }
+
+    function stage10RenderCompare(n) {
+        const origText = stage10State.working[n] || '';
+        const proposedText = stage10Pending[n] !== undefined ? stage10Pending[n] : origText;
+        const leftPanel = document.getElementById('stage10-left-panel');
+        const rightView = document.getElementById('stage10-right-panel-view');
+        // Both panels render from ONE diff pass, so their annotations and word
+        // spans are guaranteed to describe the same comparison.
+        if (stage10Pending[n] !== undefined) {
+            const d = computeScriptDiff(origText, proposedText);
+            if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, d.leftAnnotations, d.leftWords);
+            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, d.rightAnnotations, d.rightWords);
+            stage10SetChangeAnchors(d);
+            stage10DecorateHunks(n, origText, proposedText);
+        } else {
+            if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText);
+            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText);
+            stage10SetChangeAnchors(null);
+        }
+    }
+
+    function stage10DecorateHunks(n, origText, proposedText) {
+        const leftPanel = document.getElementById('stage10-left-panel');
+        const rightView = document.getElementById('stage10-right-panel-view');
+        if (!leftPanel || !rightView) return;
+        const hunks = window.ScriptDiff.computeHunks(origText, proposedText);
+        const accepted = stage10AcceptedHunks[stage10PendingKey(n)] || new Set();
+        const occurrences = new Map();
+        let keptCount = 0;
+
+        hunks.forEach((hunk, k) => {
+            // Signatures are content + occurrence, so they survive re-renders and
+            // index shifts after a rejection, and go stale harmlessly if a new
+            // proposal replaces the pending text.
+            const base = stage10HunkBaseSig(hunk);
+            const occ = occurrences.get(base) || 0;
+            occurrences.set(base, occ + 1);
+            const sig = `${base}\u0000${occ}`;
+            const isKept = accepted.has(sig);
+            if (isKept) keptCount++;
+
+            // Right pane: Keep / Reject on the revised block.
+            if (hunk.added.length) {
+                const host = rightView.querySelector(`[data-diff-line="${hunk.added[0]}"]`);
+                if (host) {
+                    const controls = document.createElement('div');
+                    controls.className = 'diff-hunk-controls';
+                    if (isKept) {
+                        controls.innerHTML = '<span class="diff-hunk-kept">✓ Kept</span>';
+                    } else {
+                        const keep = document.createElement('button');
+                        keep.className = 'diff-hunk-keep';
+                        keep.textContent = '✓ Keep';
+                        keep.title = 'Mark this change reviewed and keep the revised version';
+                        keep.addEventListener('click', () => stage10AcceptHunk(n, sig));
+                        const rej = document.createElement('button');
+                        rej.className = 'diff-hunk-reject';
+                        rej.textContent = '✕ Reject';
+                        rej.title = 'Put the previous version back for this change only';
+                        rej.addEventListener('click', () => stage10RejectHunk(n, k));
+                        controls.append(keep, rej);
+                    }
+                    rightView.insertBefore(controls, host);
+                }
+            }
+
+            // Left pane: Restore on the block the rewrite removed or replaced.
+            // For a block deleted outright this is the change's only handle.
+            if (hunk.removed.length && !isKept) {
+                const host = leftPanel.querySelector(`[data-diff-line="${hunk.removed[0]}"]`);
+                if (host) {
+                    const controls = document.createElement('div');
+                    controls.className = 'diff-hunk-controls';
+                    const btn = document.createElement('button');
+                    btn.className = 'diff-hunk-restore';
+                    btn.textContent = '↩ Restore';
+                    btn.title = hunk.added.length
+                        ? 'Put this original block back in place of the revised version'
+                        : 'Put this deleted block back';
+                    btn.addEventListener('click', () => stage10RejectHunk(n, k));
+                    controls.appendChild(btn);
+                    leftPanel.insertBefore(controls, host);
+                }
+            }
+        });
+
+        // Reviewed progress in the counter, so a long scene's review has an end.
+        const counter = document.getElementById('stage10-change-counter');
+        if (counter && hunks.length && keptCount) {
+            counter.textContent = `${hunks.length} change${hunks.length === 1 ? '' : 's'} · ${keptCount} kept`;
+        }
+    }
+
+    function stage10AcceptHunk(n, sig) {
+        const key = stage10PendingKey(n);
+        if (!stage10AcceptedHunks[key]) stage10AcceptedHunks[key] = new Set();
+        stage10AcceptedHunks[key].add(sig);
+        stage10RenderCompare(n);
+    }
+
+    function stage10RejectHunk(n, k) {
+        const origText = stage10State.working[n] || '';
+        const proposedText = stage10Pending[n];
+        if (proposedText === undefined) return;
+        const merged = window.ScriptDiff.mergeHunks(origText, proposedText, [k]);
+        stage10SetPending(n, merged);
+        stage10QueuePendingSave(n);
+        resetStage10ApproveBtn();
+        // Keep the hidden editor in step, or switching to Edit would resurrect
+        // the rejected text from its stale buffer.
+        if (stage10Editor && stage10CurrentScene === n) {
+            stage10Editor.loadFountain(merged);
+            stage10Editor.resetHistory();
+        }
+        stage10RenderCompare(n);
+        renderStage10SceneList();
     }
 
     function stage10SetPending(sceneNumber, text, { serverSaved = false } = {}) {
@@ -10813,6 +10946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.assign(stage10State.working, stage10Pending);
             Object.keys(stage10Pending).forEach(n => { stage10ApprovedScenes[parseInt(n)] = true; });
             stage10Pending = {};
+            stage10AcceptedHunks = {};
             stage10ClearPendingSaveState();
             stage10State.priority_idx = newIdx;
             window.stage10CurrentPlan = null;
@@ -11182,22 +11316,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const origText     = stage10State.working[n] || '';
         const proposedText = stage10Pending[n] !== undefined ? stage10Pending[n] : origText;
-        const leftPanel    = document.getElementById('stage10-left-panel');
         const editorMount  = document.getElementById('stage10-editor-mount');
         const rightView    = document.getElementById('stage10-right-panel-view');
 
-        // Both panels render from ONE diff pass, so their annotations and word spans
-        // are guaranteed to describe the same comparison.
-        if (stage10Pending[n] !== undefined) {
-            const d = computeScriptDiff(origText, proposedText);
-            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText, d.leftAnnotations, d.leftWords);
-            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText, d.rightAnnotations, d.rightWords);
-            stage10SetChangeAnchors(d);
-        } else {
-            if (leftPanel)  leftPanel.innerHTML  = formatFountainToHTML(origText);
-            if (rightView) rightView.innerHTML = formatFountainToHTML(proposedText);
-            stage10SetChangeAnchors(null);
-        }
+        stage10RenderCompare(n);
 
         // Ensure editor is loaded (for Edit mode, lazily created)
         if (!stage10Editor && editorMount) {
@@ -11286,18 +11408,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage10Editor.resetHistory();
                 }
             } else {
-                // Preview mode (default)
+                // Preview mode (default) — full compare render, word spans,
+                // change anchors and per-change controls included.
                 rightView.classList.remove('hidden');
-                if (stage10Pending[stage10CurrentScene] !== undefined) {
-                    const { rightAnnotations } = computeLineDiff(origText, proposedText);
-                    rightView.innerHTML = formatFountainToHTML(proposedText, rightAnnotations);
-                } else {
-                    rightView.innerHTML = formatFountainToHTML(proposedText);
-                }
+                if (stage10CurrentScene !== null) stage10RenderCompare(stage10CurrentScene);
             }
 
-            // Update left panel diff
-            if (stage10CurrentScene !== null && stage10Pending[stage10CurrentScene] !== undefined) {
+            // Update left panel diff (edit mode only — preview just re-rendered both)
+            if (mode === 'formatted' && stage10CurrentScene !== null && stage10Pending[stage10CurrentScene] !== undefined) {
                 const { leftAnnotations } = computeLineDiff(origText, proposedText);
                 const leftPanel = document.getElementById('stage10-left-panel');
                 if (leftPanel) leftPanel.innerHTML = formatFountainToHTML(origText, leftAnnotations);
@@ -11344,6 +11462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 Object.assign(stage10State.working, stage10Pending);
                 stage10Pending = {};
+                stage10AcceptedHunks = {};
                 stage10ClearPendingSaveState();
             }
             await fetch('/api/finalize-stage10', {

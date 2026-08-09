@@ -46,12 +46,12 @@ function lineSimilarity(a, b) {
 }
 
 /**
- * Line-level diff. Returns per-line annotations plus the changed regions paired up,
- * so a caller can run a word diff inside each pair.
- *
- * @returns {{leftAnnotations:(string|null)[], rightAnnotations:(string|null)[], pairs:{left:number,right:number}[]}}
+ * Shared line-level alignment: split both texts, filter blanks, LCS the rest and
+ * return the edit script in document order. Everything downstream — annotations,
+ * word-diff pairing, hunks, hunk rejection — reads from this one walk, so they can
+ * never disagree about what "a change" is.
  */
-function computeLineDiff(origText, proposedText) {
+function diffOps(origText, proposedText) {
     const allOrig = String(origText || '').split('\n');
     const allNew = String(proposedText || '').split('\n');
 
@@ -64,7 +64,7 @@ function computeLineDiff(origText, proposedText) {
     // Measured on a real rewrite (13 lines vs 9): two blanks were marked "removed"
     // and paragraph 6 was paired against paragraph 2 — two completely unrelated
     // pieces of prose — so a light polish rendered as a wholesale replacement.
-    // Indices below are into the FILTERED sequence and mapped back at the end.
+    // Op indices are into the FILTERED sequences; map back through origIdx/newIdx.
     const origIdx = [], newIdx = [];
     allOrig.forEach((l, i) => { if (l.trim()) origIdx.push(i); });
     allNew.forEach((l, i) => { if (l.trim()) newIdx.push(i); });
@@ -72,9 +72,6 @@ function computeLineDiff(origText, proposedText) {
     const newLines = newIdx.map(i => allNew[i]);
 
     const dp = lcsTable(origLines, newLines, sameLine);
-
-    const leftAnnotations = new Array(allOrig.length).fill(null);
-    const rightAnnotations = new Array(allNew.length).fill(null);
 
     // Backtrack from the end — the table holds PREFIX lengths, so a forward walk
     // cannot decide moves from it. (Doing exactly that marked every line in the
@@ -86,12 +83,30 @@ function computeLineDiff(origText, proposedText) {
         if (i > 0 && j > 0 && sameLine(origLines[i - 1], newLines[j - 1])) {
             ops.push({ kind: 'same', i: i - 1, j: j - 1 }); i--; j--;
         } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-            rightAnnotations[newIdx[j - 1]] = 'added'; ops.push({ kind: 'added', j: j - 1 }); j--;
+            ops.push({ kind: 'added', j: j - 1 }); j--;
         } else {
-            leftAnnotations[origIdx[i - 1]] = 'removed'; ops.push({ kind: 'removed', i: i - 1 }); i--;
+            ops.push({ kind: 'removed', i: i - 1 }); i--;
         }
     }
     ops.reverse();
+    return { allOrig, allNew, origIdx, newIdx, origLines, newLines, ops };
+}
+
+/**
+ * Line-level diff. Returns per-line annotations plus the changed regions paired up,
+ * so a caller can run a word diff inside each pair.
+ *
+ * @returns {{leftAnnotations:(string|null)[], rightAnnotations:(string|null)[], pairs:{left:number,right:number}[]}}
+ */
+function computeLineDiff(origText, proposedText) {
+    const { allOrig, allNew, origIdx, newIdx, origLines, newLines, ops } = diffOps(origText, proposedText);
+
+    const leftAnnotations = new Array(allOrig.length).fill(null);
+    const rightAnnotations = new Array(allNew.length).fill(null);
+    for (const op of ops) {
+        if (op.kind === 'added') rightAnnotations[newIdx[op.j]] = 'added';
+        else if (op.kind === 'removed') leftAnnotations[origIdx[op.i]] = 'removed';
+    }
 
     // Within each contiguous changed run, work out which removed line corresponds to
     // which added line — that correspondence is what a "reworded paragraph" is.
@@ -128,6 +143,94 @@ function computeLineDiff(origText, proposedText) {
     }
 
     return { leftAnnotations, rightAnnotations, pairs };
+}
+
+/**
+ * Change hunks: each contiguous run of non-same ops, with FULL line indices into
+ * the original and proposed texts. This is the unit the writer accepts or rejects
+ * in the Stage 9 compare view — the same runs the change navigation steps through.
+ *
+ * @returns {{removed:number[], added:number[], removedText:string, addedText:string}[]}
+ */
+function computeHunks(origText, proposedText) {
+    const { allOrig, allNew, origIdx, newIdx, ops } = diffOps(origText, proposedText);
+    const hunks = [];
+    let k = 0;
+    while (k < ops.length) {
+        if (ops[k].kind === 'same') { k++; continue; }
+        const removed = [], added = [];
+        while (k < ops.length && ops[k].kind !== 'same') {
+            if (ops[k].kind === 'removed') removed.push(origIdx[ops[k].i]);
+            else added.push(newIdx[ops[k].j]);
+            k++;
+        }
+        hunks.push({
+            removed,
+            added,
+            removedText: removed.map(i => allOrig[i]).join('\n'),
+            addedText: added.map(i => allNew[i]).join('\n')
+        });
+    }
+    return hunks;
+}
+
+/**
+ * Rebuild the proposed text with the given hunks (indices into computeHunks' order)
+ * reverted to the original's lines. This is "reject this change" / "restore from
+ * the left pane" as one text operation.
+ *
+ * Splicing raw line ranges is NOT safe here: blank lines are excluded from the
+ * diff (see diffOps) but in Fountain a blank line is load-bearing — it is what
+ * makes the next line a character cue rather than more action. So each emitted
+ * line carries the blank-line gap that preceded it in ITS OWN source: kept lines
+ * keep the proposed text's spacing, restored lines bring the original's spacing
+ * back with them.
+ */
+function mergeHunks(origText, proposedText, rejectedHunkIndices) {
+    const { allOrig, allNew, origIdx, newIdx, ops } = diffOps(origText, proposedText);
+    const rejected = new Set(rejectedHunkIndices || []);
+
+    // Blank lines between a filtered line and its predecessor, per source.
+    const gapOrig = origIdx.map((v, f) => (f ? v - origIdx[f - 1] - 1 : 0));
+    const gapNew = newIdx.map((v, f) => (f ? v - newIdx[f - 1] - 1 : 0));
+
+    const out = []; // { line, gap }
+    // A gap is only meaningful measured against the line's predecessor IN ITS OWN
+    // source. An unchanged line normally takes the proposed text's spacing, but
+    // when the line just emitted was restored from the original, the proposed-side
+    // predecessor no longer exists in the output — use the original's gap, whose
+    // predecessor is exactly the restored line.
+    let prevSource = null;
+    const emit = (line, gap, source) => { out.push({ line, gap }); prevSource = source; };
+    let k = 0, hunkNo = 0;
+    while (k < ops.length) {
+        if (ops[k].kind === 'same') {
+            const op = ops[k];
+            const gap = prevSource === 'orig' ? gapOrig[op.i] : gapNew[op.j];
+            emit(allNew[newIdx[op.j]], gap, 'new');
+            k++;
+            continue;
+        }
+        const removed = [], added = [];
+        while (k < ops.length && ops[k].kind !== 'same') {
+            if (ops[k].kind === 'removed') removed.push(ops[k].i);
+            else added.push(ops[k].j);
+            k++;
+        }
+        if (rejected.has(hunkNo)) {
+            for (const f of removed) emit(allOrig[origIdx[f]], gapOrig[f], 'orig');
+        } else {
+            for (const f of added) emit(allNew[newIdx[f]], gapNew[f], 'new');
+        }
+        hunkNo++;
+    }
+
+    let text = '';
+    out.forEach((entry, idx) => {
+        if (idx === 0) { text = entry.line; return; }
+        text += '\n'.repeat(entry.gap + 1) + entry.line;
+    });
+    return text;
 }
 
 /** Split into words while keeping the whitespace, so rejoining reproduces the line. */
@@ -226,8 +329,8 @@ function computeScriptDiff(origText, proposedText) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { computeLineDiff, computeWordDiff, computeScriptDiff, tokenizeWords };
+    module.exports = { computeLineDiff, computeWordDiff, computeScriptDiff, tokenizeWords, computeHunks, mergeHunks };
 }
 if (typeof window !== 'undefined') {
-    window.ScriptDiff = { computeLineDiff, computeWordDiff, computeScriptDiff, tokenizeWords };
+    window.ScriptDiff = { computeLineDiff, computeWordDiff, computeScriptDiff, tokenizeWords, computeHunks, mergeHunks };
 }

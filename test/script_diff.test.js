@@ -148,3 +148,77 @@ test('computeLineDiff keeps its original annotation contract', () => {
     assert.strictEqual(leftAnnotations[1], 'removed');
     assert.strictEqual(rightAnnotations[1], 'added');
 });
+
+// ─── Hunks + per-change rejection (Stage 9 accept/reject, restore-from-left) ──
+
+const { computeHunks, mergeHunks } = require('../public/script-diff');
+
+test('computeHunks reports one hunk per contiguous change, with full line indices', () => {
+    const hunks = computeHunks(ORIG, REWRITE);
+    assert.strictEqual(hunks.length, 1);
+    assert.deepStrictEqual(hunks[0].removed, [2]);
+    assert.deepStrictEqual(hunks[0].added, [2]);
+    assert.match(hunks[0].removedText, /^Asphalt cuts/);
+    assert.match(hunks[0].addedText, /^A narrow strip/);
+});
+
+test('rejecting a reworded paragraph restores the original text byte-identically', () => {
+    assert.strictEqual(mergeHunks(ORIG, REWRITE, [0]), ORIG);
+});
+
+test('rejecting no hunks reproduces the proposed text byte-identically', () => {
+    assert.strictEqual(mergeHunks(ORIG, REWRITE, []), REWRITE);
+});
+
+test('rejecting one of two separated changes keeps the other', () => {
+    const a = 'one\n\nkeep\n\ntwo';
+    const b = 'ONE\n\nkeep\n\nTWO';
+    const hunks = computeHunks(a, b);
+    assert.strictEqual(hunks.length, 2);
+    assert.strictEqual(mergeHunks(a, b, [0]), 'one\n\nkeep\n\nTWO');
+    assert.strictEqual(mergeHunks(a, b, [1]), 'ONE\n\nkeep\n\ntwo');
+    assert.strictEqual(mergeHunks(a, b, [0, 1]), a);
+});
+
+test('restoring a deleted paragraph brings its blank-line separation back with it', () => {
+    // The blank line is what makes the next line a character cue in Fountain —
+    // splicing the paragraph back without it would glue it onto its neighbour.
+    const orig = 'EXT. ROAD - DAY\n\nThe engine ticks.\n\nNORA\nWe walk from here.';
+    const cut  = 'EXT. ROAD - DAY\n\nNORA\nWe walk from here.';
+    const hunks = computeHunks(orig, cut);
+    assert.strictEqual(hunks.length, 1);
+    assert.deepStrictEqual(hunks[0].added, []);
+    assert.strictEqual(mergeHunks(orig, cut, [0]), orig);
+});
+
+test('rejecting a pure insertion removes it without leaving doubled blank lines', () => {
+    const orig = 'EXT. ROAD - DAY\n\nNora drives.';
+    const ins  = 'EXT. ROAD - DAY\n\nRain streaks the glass.\n\nNora drives.';
+    assert.strictEqual(mergeHunks(orig, ins, [0]), orig);
+});
+
+test('restoring a deleted FIRST paragraph re-separates it from what follows', () => {
+    // The follower is the first non-blank line of the proposed text, so its own
+    // source has no predecessor to measure a gap against — the gap must come from
+    // the original, or the restored paragraph glues onto the line after it.
+    const orig = 'Thunder rolls in the distance.\n\nEXT. ROAD - DAY\n\nNora drives.';
+    const cut  = 'EXT. ROAD - DAY\n\nNora drives.';
+    assert.strictEqual(mergeHunks(orig, cut, [0]), orig);
+});
+
+test('rejection keeps dialogue blocks intact (no blank line invented inside them)', () => {
+    const orig = 'NORA\n(quietly)\nWe walk from here.';
+    const rew  = 'NORA\n(flat)\nWe walk. Now.';
+    const hunks = computeHunks(orig, rew);
+    assert.strictEqual(mergeHunks(orig, rew, hunks.map((_, k) => k)), orig);
+});
+
+test('mergeHunks and computeHunks agree on hunk numbering', () => {
+    // Reject via indices from computeHunks; every hunk rejected must equal the
+    // original for any mix of edits, insertions and deletions.
+    const orig = 'SLUG\n\nalpha\n\nbravo\n\nNORA\nline one\n\ncharlie';
+    const rew  = 'SLUG\n\nALPHA reworded\n\nNORA\nline one changed\n\ncharlie\n\nnew tail';
+    const hunks = computeHunks(orig, rew);
+    assert.ok(hunks.length >= 2, `expected multiple hunks, got ${hunks.length}`);
+    assert.strictEqual(mergeHunks(orig, rew, hunks.map((_, k) => k)), orig);
+});
