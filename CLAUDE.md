@@ -99,6 +99,11 @@ Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. D
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
 
+### 2026-08-09 — Stage 9 per-change accept/reject + restore-from-left (editor plan item 7)
+The compare view's whole-scene rewrite is no longer all-or-nothing (`7144757`). Every change hunk — the same contiguous run the change navigation steps through — carries **✓ Keep / ✕ Reject** in the proposed pane, and the previous-state pane offers **↩ Restore** on each removed or replaced block (a deletion's only handle, since it has nothing to click on the right). Keep marks the hunk reviewed (counter shows `N changes · M kept`; content-keyed, session-only). Reject/Restore rebuild the pending text via new `ScriptDiff.mergeHunks`, write it through `stage10SetPending` + the pending-save queue, and reload the hidden editor so Edit mode can't resurrect the rejected text. `test/stage9_hunk_review.test.js` pins that chain structurally.
+
+⚠️ **Rejecting a hunk must go through `mergeHunks`, never a raw line splice.** Blank lines are excluded from the diff but are load-bearing in Fountain; `mergeHunks` emits each line with the blank-line gap from *its own source*, and an unchanged line takes the original's gap when the previously emitted line was restored. `diffOps` in `script-diff.js` is now the single alignment used by annotations, word-diff pairing, hunks and merging — they cannot disagree about what "a change" is.
+
 ### 2026-08-07 — Stage 7/9 editor UX: the whole plan built except pagination
 Implemented `specs/pageone-editor-ux-plan-2026-08-06.md` end to end. Assistant collapsed by default on the writing stages, **SmartType** (characters/locations/times/transitions, consulted before the Tab/Enter handlers), **undo/redo over structural edits** (`8e845ce`); **word-level diff + synced scroll + next/prev change nav** in Stage 9 via new `public/script-diff.js` (`e967814`); **selection-scoped AI editing** — select a passage, instruct it, diff, Accept/Reject — via the editor selection API and `POST /api/revise-selection` (`8eb9940`); **starred-draft export** with right-margin revision marks, `?marks=0` for the clean draft (`101f009`); and the **continuous script view** (`0d9146a`).
 

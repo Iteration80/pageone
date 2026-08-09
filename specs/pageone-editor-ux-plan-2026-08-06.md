@@ -3,8 +3,8 @@
 **Date:** 2026-08-06
 **Scope:** visible Stage 7 (Draft) and Stage 9 (Rewrite) — the two surfaces where the writer
 actually writes. Benchmark: Final Draft 13, Arc Studio Pro, Fade In.
-**Status:** **built and deployed 2026-08-07**, except items 6 (pagination) and 7 (per-change
-accept/reject in Stage 9). See the implementation record at the bottom.
+**Status:** **built and deployed** — everything except item 6 (pagination). Item 7 (per-change
+accept/reject) followed on 2026-08-09. See the implementation record at the bottom.
 
 ---
 
@@ -259,7 +259,7 @@ app before its commit, and every commit verified on prod via `/health` plus a gr
 | 2 | SmartType (characters / locations / times / transitions) | `8e845ce` | Consulted before Tab and Enter, so it never fights element cycling |
 | 3 | Undo/redo over **structural** edits | `8e845ce` | Snapshots the element list, not just text — element-type changes are undoable |
 | 4 | Word-level diff, synced scroll, next/prev change nav | `e967814` | `public/script-diff.js` + 12 tests |
-| 7 | Per-change accept/reject in Stage 9 + restore-from-left | — | **Not built.** Partly overtaken: item 9 ships accept/reject for *selection* edits in Stage 7, but Stage 9's whole-scene rewrite is still all-or-nothing |
+| 7 | Per-change accept/reject in Stage 9 + restore-from-left | `7144757` | Built 2026-08-09. The review unit is the hunk — the same run the change nav steps through. Keep marks reviewed (counter shows `N changes · M kept`); Reject reverts that hunk via `ScriptDiff.mergeHunks`; the left pane's Restore is the same operation offered from the block it brings back, incl. outright deletions |
 | 9 | Selection-scoped AI editing | `8eb9940` | Editor selection API + `POST /api/revise-selection`; returns a fragment, `changed` computed server-side |
 | 8 | Starred-draft export with revision marks | `101f009` | Reuses `computeLineDiff`; `?marks=0` gives the clean draft |
 | 5 | **Continuous read, scoped edit** | `0d9146a` | This document's decision. `test/continuous_view.test.js` |
@@ -275,6 +275,18 @@ was printing both annotated sequences from the real saved data — not looking a
 **Item 5's guard held.** Verified live on a 70-scene project: editing one scene left all 69
 others byte-identical on disk. The test project was restored to its pre-test snapshot
 afterwards.
+
+**Item 7's one mechanism worth recording (added 2026-08-09).** Rejection cannot splice raw
+line ranges: blank lines are excluded from the diff, but in Fountain a blank line is what
+makes the next line a character cue. `mergeHunks` therefore emits every line with the
+blank-line gap that preceded it *in its own source* — kept lines keep the rewrite's spacing,
+restored lines bring the original's back — and an unchanged line takes the original's gap when
+the line emitted before it was restored (otherwise restoring a deleted first paragraph glues
+onto its follower). Kept-marks are content-keyed and session-only; the text is the record.
+Verified live on a throwaway copy of MIRAGE BEND: keep/reject/restore persisted byte-exactly
+to pending, all 70 working scenes untouched. One accepted cost, deliberate: rejecting a hunk
+is not ⌘Z-reversible — the compare panes are not an editor, and the rewrite text a rejection
+discards is regenerable. Revisit only if real use shows mis-clicks on Reject.
 
 **Item 6 (pagination) when it is picked up:** on-screen page numbers must be computed with the
 **same math the exporter uses**, not an independent estimate. Two page counts that disagree are
