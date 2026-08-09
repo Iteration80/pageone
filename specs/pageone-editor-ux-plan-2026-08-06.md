@@ -3,8 +3,8 @@
 **Date:** 2026-08-06
 **Scope:** visible Stage 7 (Draft) and Stage 9 (Rewrite) — the two surfaces where the writer
 actually writes. Benchmark: Final Draft 13, Arc Studio Pro, Fade In.
-**Status:** **built and deployed** — everything except item 6 (pagination). Item 7 (per-change
-accept/reject) followed on 2026-08-09. See the implementation record at the bottom.
+**Status:** **FULLY BUILT AND DEPLOYED — all 9 items.** Items 1–5, 8, 9 on 2026-08-07; items 7
+and 6 followed on 2026-08-09. See the implementation record at the bottom.
 
 ---
 
@@ -263,7 +263,7 @@ app before its commit, and every commit verified on prod via `/health` plus a gr
 | 9 | Selection-scoped AI editing | `8eb9940` | Editor selection API + `POST /api/revise-selection`; returns a fragment, `changed` computed server-side |
 | 8 | Starred-draft export with revision marks | `101f009` | Reuses `computeLineDiff`; `?marks=0` gives the clean draft |
 | 5 | **Continuous read, scoped edit** | `0d9146a` | This document's decision. `test/continuous_view.test.js` |
-| 6 | Pagination + page numbers | — | **Not built.** Depends on 5. See below. |
+| 6 | Pagination + page numbers | `1955a2a` | Built 2026-08-09. "p. N" chip per scene, boundary rules, live total — all from new shared `public/screenplay-layout.js`, which the PDF exporter now also draws from (see below) |
 
 **The one thing item 4 cost, worth recording.** The Stage 9 diff took four attempts. A forward
 walk over a prefix-LCS table marked every line changed (a unit test caught it); position-based
@@ -288,10 +288,18 @@ to pending, all 70 working scenes untouched. One accepted cost, deliberate: reje
 is not ⌘Z-reversible — the compare panes are not an editor, and the rewrite text a rejection
 discards is regenerable. Revisit only if real use shows mis-clicks on Reject.
 
-**Item 6 (pagination) when it is picked up:** on-screen page numbers must be computed with the
-**same math the exporter uses**, not an independent estimate. Two page counts that disagree are
-worse than one page count that is missing — the writer would have no way to know which one the
-reader will see.
+**Item 6's rule, and how it was enforced (built 2026-08-09).** On-screen page numbers must be
+computed with the **same math the exporter uses**, not an independent estimate — two page
+counts that disagree are worse than one page count that is missing. Enforced structurally
+rather than by discipline: `parseFountain` and the entire page-layout walk moved to a shared
+`public/screenplay-layout.js`, and `generateScreenplayPdf` now just draws the ops that
+`layoutScreenplay` returns, so there is no second implementation to drift. The refactor was
+verified against the pre-refactor exporter on a 74-scene / 118-page real script: every drawn
+text op byte-identical except the page-number labels, which changed *deliberately* — the title
+page is no longer counted, so the first content page is page 1 (unnumbered, the Final Draft
+convention) instead of printing "2.". One honest approximation: a page that turns on a wrapped
+continuation of a long paragraph gets its on-screen rule at that paragraph's line, at worst a
+few printed lines early — the number itself is exact.
 
 **The falsification trigger above is now live.** It needs a week of Carsten's real drafting to
 answer, and it is the only open question in this plan.
