@@ -11744,7 +11744,7 @@ async function loadBuildInfo() {
         { value: 'gemini-3.6-flash',          label: 'Gemini 3.6 Flash' },
         { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash' },
         { value: 'claude-fable-5',            label: 'Claude Fable 5' },
-        { value: 'claude-opus-4-8',           label: 'Claude Opus 4.8' },
+        { value: 'claude-opus-5',             label: 'Claude Opus 5' },
         { value: 'claude-sonnet-5',           label: 'Claude Sonnet 5' },
         { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ];
@@ -11895,10 +11895,11 @@ async function loadBuildInfo() {
         'gemini-2.0-flash':            { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
         'gemini-2.0-flash-001':        { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
         'claude-fable-5':              { input: 10.0 / 1e6, output: 50.0 / 1e6, label: 'Claude Fable 5' },
-        'claude-opus-4-8':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.8' },
-        'claude-sonnet-5':             { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 5' }, // TODO: verify Sonnet 5 list price
+        'claude-opus-5':               { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 5' },
+        'claude-sonnet-5':             { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 5' },
         'claude-haiku-4-5-20251001':   { input: 1.0 / 1e6,  output: 5.0 / 1e6,  label: 'Claude Haiku 4.5' },
         // Retained for historical spend on projects that used superseded models:
+        'claude-opus-4-8':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.8' },
         'claude-opus-4-7':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.7' },
         'claude-opus-4-6':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.6' },
         'claude-sonnet-4-6':           { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 4.6' },

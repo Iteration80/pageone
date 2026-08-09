@@ -151,9 +151,9 @@ function extractJsonFromText(text, schema) {
 }
 
 // Models that have removed the temperature parameter (sending it → 400).
-// Applies to Opus 4.7+ and the entire Claude 5 family (Fable 5, Sonnet 5).
+// Applies to Opus 4.7+ and the entire Claude 5 family (Fable 5, Opus 5, Sonnet 5).
 // Haiku 4.5 and Opus/Sonnet 4.6 still accept temperature and are intentionally absent.
-const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7', 'claude-opus-4-8', 'claude-fable-5', 'claude-sonnet-5'];
+const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7', 'claude-opus-4-8', 'claude-opus-5', 'claude-fable-5', 'claude-sonnet-5'];
 
 async function callClaude({ model, anthropicApiKey, contents, config = {}, schema }) {
     const signal = config?.abortSignal;
@@ -189,7 +189,12 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
 
     // Some long Claude calls, especially Opus with large max_tokens, must use
     // streaming even when the caller only needs a final accumulated response.
-    const shouldStream = maxTokens >= 32000 || model === 'claude-opus-4-7';
+    // Opus 5 and Fable 5 think by default and can run minutes on a hard turn,
+    // so they stream regardless of max_tokens to stay under HTTP timeouts.
+    const shouldStream = maxTokens >= 32000
+        || model === 'claude-opus-4-7'
+        || model === 'claude-opus-5'
+        || model === 'claude-fable-5';
     const requestOptions = signal ? { signal } : undefined;
     try {
         if (shouldStream) {
