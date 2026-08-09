@@ -3619,3 +3619,42 @@ textarea.synopsis-input {
     box-shadow: inset 3px 0 0 #2563eb;
     border-radius: 3px;
 }
+
+/* ─── Live pagination (exporter's math — see stage8RenderPagination) ───────── */
+
+/* The page a scene starts on, pinned to its left margin. */
+.cv-page-chip {
+    position: absolute;
+    top: 8px;
+    left: 14px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    color: #4b5563;
+    pointer-events: none;
+}
+
+/* A page boundary inside a scene: hairline plus the number of the page that
+   starts here. Position can sit a few printed lines early when a page turns on
+   a wrapped continuation of a long paragraph; the number itself is exact. */
+.cv-page-marker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    pointer-events: none;
+}
+
+.cv-page-marker::before {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed rgba(148, 163, 184, 0.25);
+}
+
+.cv-page-marker span {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    white-space: nowrap;
+}

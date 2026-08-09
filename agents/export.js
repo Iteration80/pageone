@@ -18,6 +18,9 @@ const {
     hasMeaningfulBackstory,
     normalizeCharacterBackstory
 } = require('../utils/character_backstory');
+// Fountain parsing + the page layout walk live in public/ so the browser runs
+// the IDENTICAL code (Stage 7 on-screen pagination) — same pattern as script-diff.
+const { LAYOUT, parseFountain, layoutScreenplay } = require('../public/screenplay-layout');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -604,92 +607,7 @@ async function generateTreatmentDocx(treatment, projectTitle) {
 // Stage 8 / 10: Screenplay → .pdf  (Fountain parser + pdfkit)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function parseFountain(text) {
-    const lines = text.split('\n');
-    const elements = [];
-
-    let i = 0;
-    while (i < lines.length) {
-        const raw = lines[i];
-        const line = raw.trimEnd();
-        const trimmed = line.trim();
-
-        // Blank line
-        if (!trimmed) {
-            elements.push({ type: 'blank' });
-            i++;
-            continue;
-        }
-
-        // Forced scene heading: .INT...
-        if (trimmed.startsWith('.') && !trimmed.startsWith('..')) {
-            elements.push({ type: 'scene', text: trimmed.slice(1).trim() });
-            i++;
-            continue;
-        }
-
-        // Scene heading: INT./EXT.
-        if (/^(INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)/i.test(trimmed)) {
-            elements.push({ type: 'scene', text: trimmed });
-            i++;
-            continue;
-        }
-
-        // Transition: ends with TO: or specific keywords
-        if (/^(FADE\s+IN:|FADE\s+OUT\.|FADE\s+TO:|SMASH\s+CUT\s+TO:|CUT\s+TO:)$/i.test(trimmed) ||
-            trimmed.endsWith(' TO:') || trimmed === 'FADE OUT.') {
-            elements.push({ type: 'transition', text: trimmed });
-            i++;
-            continue;
-        }
-
-        // Forced transition: > at start
-        if (trimmed.startsWith('>') && !trimmed.endsWith('<')) {
-            elements.push({ type: 'transition', text: trimmed.slice(1).trim() });
-            i++;
-            continue;
-        }
-
-        // Centered text: > text <
-        if (trimmed.startsWith('>') && trimmed.endsWith('<')) {
-            elements.push({ type: 'centered', text: trimmed.slice(1, -1).trim() });
-            i++;
-            continue;
-        }
-
-        // Character cue: all caps (possibly with extensions like (V.O.), (O.S.))
-        // Must be preceded by blank line (or start of document), not followed by blank
-        const prevIsBlank = i === 0 || !lines[i - 1].trim();
-        const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
-        const isAllCaps = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed) && !trimmed.startsWith('!');
-        // Strip extension for the caps check
-        const cueBase = trimmed.replace(/\s*\([^)]*\)\s*$/, '').trim();
-        const cueIsAllCaps = cueBase === cueBase.toUpperCase() && /[A-Z]/.test(cueBase);
-
-        if (cueIsAllCaps && prevIsBlank && nextLine) {
-            elements.push({ type: 'character', text: trimmed });
-            i++;
-            // Collect dialogue / parentheticals
-            while (i < lines.length) {
-                const dline = lines[i].trim();
-                if (!dline) break;
-                if (dline.startsWith('(') && dline.endsWith(')')) {
-                    elements.push({ type: 'parenthetical', text: dline });
-                } else {
-                    elements.push({ type: 'dialogue', text: dline });
-                }
-                i++;
-            }
-            continue;
-        }
-
-        // Action (default)
-        elements.push({ type: 'action', text: trimmed });
-        i++;
-    }
-
-    return elements;
-}
+// parseFountain moved to public/screenplay-layout.js (shared with the browser).
 
 /**
  * @param {object} opts
@@ -714,79 +632,13 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '', opts = {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        // Page dimensions
-        const PW = 612;  // 8.5"
-        const PH = 792;  // 11"
-
-        // Standard screenplay margins (in points)
-        const LEFT    = 108;  // 1.5"
-        const RIGHT   = 540;  // 7.5" (1" right margin)
-        const TOP     = 72;   // 1"
-        const BOTTOM  = 720;  // 10"
-
-        const CONTENT_W  = RIGHT - LEFT;  // 6"
-        const CHAR_X     = 266;           // 3.7" from left edge
-        const DIAL_X     = 180;           // 2.5"
-        const DIAL_W     = 252;           // 3.5"
-        const PAREN_X    = 223;           // 3.1"
-        const PAREN_W    = 180;           // 2.5"
-        const LINE_H     = 14;            // ~1 line at 12pt Courier
-        const FONT_SIZE  = 12;
+        // All page geometry (margins, line height, wrap estimate, break lookaheads)
+        // lives in public/screenplay-layout.js, which the browser also runs for the
+        // Stage 7 on-screen pagination. This function only DRAWS the ops that
+        // layoutScreenplay returns, so the two page counts cannot disagree.
+        const { PW, PH, RIGHT, TOP, FONT_SIZE } = LAYOUT;
 
         doc.font('Courier').fontSize(FONT_SIZE);
-
-        let pageNum = 1;
-        let y = TOP;
-
-        function addPage() {
-            doc.addPage({ size: 'LETTER', margin: 0 });
-            pageNum++;
-            y = TOP;
-            // Page number top-right (starting page 2)
-            if (pageNum > 1) {
-                doc.font('Courier').fontSize(FONT_SIZE)
-                   .text(`${pageNum}.`, RIGHT - 30, TOP - 20, { width: 36, align: 'right' });
-            }
-        }
-
-        function checkPageBreak(needed = LINE_H) {
-            if (y + needed > BOTTOM) addPage();
-        }
-
-        // Set while drawing a revised element, so every wrapped line it produces gets
-        // its own mark — the asterisk is per PRINTED line, not per paragraph.
-        let markRevised = false;
-
-        function writeLine(text, x, maxW, lineOpts = {}) {
-            checkPageBreak(LINE_H);
-            const options = { width: maxW, lineBreak: false, align: lineOpts.align || 'left' };
-            doc.font(lineOpts.font || 'Courier')
-               .fontSize(FONT_SIZE)
-               .text(text, x, y, options);
-            if (markRevised) {
-                doc.font('Courier').fontSize(FONT_SIZE)
-                   .text('*', RIGHT + 12, y, { width: 12, align: 'left', lineBreak: false });
-            }
-            y += LINE_H;
-        }
-
-        function writeWrapped(text, x, maxW, opts = {}) {
-            // Estimate wrapped lines
-            const charsPerLine = Math.floor(maxW / 7.2); // Courier 12pt ~7.2pt per char
-            const words = text.split(' ');
-            let line = '';
-            const wrappedLines = [];
-            words.forEach(w => {
-                if ((line + ' ' + w).trim().length > charsPerLine) {
-                    wrappedLines.push(line.trim());
-                    line = w;
-                } else {
-                    line = (line + ' ' + w).trim();
-                }
-            });
-            if (line) wrappedLines.push(line);
-            wrappedLines.forEach(l => writeLine(l, x, maxW, opts));
-        }
 
         // Title page. The author line is omitted entirely when no author is set —
         // this used to read "Written by PageOne", which put the tool's name on the
@@ -798,8 +650,6 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '', opts = {
             doc.font('Courier').fontSize(FONT_SIZE)
                .text(`Written by ${String(author).trim()}`, 0, PH / 2 + 10, { width: PW, align: 'center' });
         }
-
-        addPage();
 
         // Collect all fountain text
         const flatText = scenes.map(s => (s.humanized_draft_text || s.draft_text || '').trim()).join('\n\n');
@@ -837,60 +687,35 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '', opts = {
             rightAnnotations.forEach((ann, n) => { if (ann === 'added') revisedElements.add(currIdx[n]); });
         }
 
-        let prevType = null;
+        // The walk itself (spacing, wraps, page breaks, the closing FADE OUT) is
+        // layoutScreenplay's; drawing is a dumb loop over its ops.
+        const { ops } = layoutScreenplay(elements);
 
-        elements.forEach((el, elIndex) => {
-            markRevised = revisedElements.has(elIndex);
-            switch (el.type) {
-                case 'blank':
-                    y += LINE_H * 0.5;
-                    break;
-
-                case 'scene':
-                    // Extra space before scene heading
-                    if (prevType && prevType !== 'blank') y += LINE_H;
-                    checkPageBreak(LINE_H * 3);
-                    doc.font('Courier-Bold').fontSize(FONT_SIZE);
-                    writeLine(el.text.toUpperCase(), LEFT, CONTENT_W, { font: 'Courier-Bold' });
-                    y += LINE_H * 0.5;
-                    break;
-
-                case 'action':
-                    writeWrapped(el.text, LEFT, CONTENT_W);
-                    break;
-
-                case 'character':
-                    y += LINE_H * 0.5;
-                    checkPageBreak(LINE_H * 3);
-                    writeLine(el.text.toUpperCase(), CHAR_X, CONTENT_W - (CHAR_X - LEFT));
-                    break;
-
-                case 'parenthetical':
-                    writeLine(el.text, PAREN_X, PAREN_W);
-                    break;
-
-                case 'dialogue':
-                    writeWrapped(el.text, DIAL_X, DIAL_W);
-                    break;
-
-                case 'transition':
-                    y += LINE_H * 0.5;
-                    writeLine(el.text.toUpperCase(), LEFT, CONTENT_W, { align: 'right' });
-                    y += LINE_H * 0.5;
-                    break;
-
-                case 'centered':
-                    writeLine(el.text, LEFT, CONTENT_W, { align: 'center' });
-                    break;
+        let currentPage = 0; // content pages — the title page is front matter, not counted
+        for (const op of ops) {
+            while (currentPage < op.page) {
+                doc.addPage({ size: 'LETTER', margin: 0 });
+                currentPage++;
+                // Page number top-right from page 2. Screenplay convention: the
+                // title page is unnumbered and uncounted, and page 1 carries no
+                // number. (Previously the title page was counted, so the first
+                // content page printed "2." — nonstandard, and it would have put
+                // an off-by-one between the print and the on-screen numbers.)
+                if (currentPage > 1) {
+                    doc.font('Courier').fontSize(FONT_SIZE)
+                       .text(`${currentPage}.`, RIGHT - 30, TOP - 20, { width: 36, align: 'right' });
+                }
             }
-            prevType = el.type;
-        });
-
-        // Final FADE OUT — never a revision, it is furniture the exporter adds.
-        markRevised = false;
-        y += LINE_H;
-        checkPageBreak(LINE_H);
-        writeLine('FADE OUT.', LEFT, CONTENT_W, { align: 'right' });
+            doc.font(op.font).fontSize(FONT_SIZE)
+               .text(op.text, op.x, op.y, { width: op.width, lineBreak: false, align: op.align });
+            // The asterisk is per PRINTED line, not per paragraph; ops carry their
+            // element index so every wrapped line of a revised element gets one.
+            // The layout's FADE OUT furniture is elIndex -1 — never a revision.
+            if (op.elIndex >= 0 && revisedElements.has(op.elIndex)) {
+                doc.font('Courier').fontSize(FONT_SIZE)
+                   .text('*', RIGHT + 12, op.y, { width: 12, align: 'left', lineBreak: false });
+            }
+        }
 
         doc.end();
     });

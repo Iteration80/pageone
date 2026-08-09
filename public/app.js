@@ -1047,6 +1047,107 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         draftEditorMount.appendChild(frag);
+        stage8RenderPagination();
+    }
+
+    // ─── Live pagination (plan item 6) ───────────────────────────────────────
+    //
+    // Page numbers come from window.ScreenplayLayout — the SAME module the PDF
+    // exporter draws from — never from an independent estimate. Two page counts
+    // that disagree are worse than one that is missing, because the writer can't
+    // tell which one the reader will see.
+    //
+    // Granularity: parseFountain emits one element per source line, and
+    // formatFountainToHTML renders one div per source line, so elements map 1:1
+    // onto a read-only scene block's children. A page that starts on a wrapped
+    // continuation of a long paragraph gets its marker at that paragraph's div —
+    // the position is at worst a few printed lines early; the NUMBER is exact.
+    let stage8PaginationTimer = null;
+
+    function stage8QueuePaginationUpdate() {
+        clearTimeout(stage8PaginationTimer);
+        stage8PaginationTimer = setTimeout(stage8RenderPagination, 800);
+    }
+
+    function stage8RenderPagination() {
+        if (!draftEditorMount || !window.ScreenplayLayout) return;
+        const totalEl = document.getElementById('stage8-page-total');
+        const scenes = stage8DraftedScenes();
+        if (!scenes.length) {
+            if (totalEl) totalEl.textContent = '';
+            return;
+        }
+
+        // The active scene reads from the live editor buffer, not the last save —
+        // that is what makes the count "live", and it equals what the next save
+        // (and therefore the export) will contain.
+        const texts = scenes.map(s => (s.scene_number === currentDraftSceneNumber && stage8Editor)
+            ? stage8Editor.toFountain()
+            : (s.humanized_draft_text || s.draft_text || ''));
+
+        // Mirror the exporter's document construction exactly: trimmed scene texts
+        // joined by '\n\n', i.e. one blank element between consecutive scenes.
+        // The read-only blocks render the UNTRIMMED text one div per line, so a
+        // scene's marker targets are offset by however many leading blank lines
+        // the trim removed.
+        const combined = [];
+        const origin = []; // combined element index -> { sceneIdx, lineIdx into the trimmed text }
+        const sceneFirstEl = [];
+        const leadLines = [];
+        texts.forEach((text, sceneIdx) => {
+            if (sceneIdx > 0) { combined.push({ type: 'blank' }); origin.push(null); }
+            sceneFirstEl.push(combined.length);
+            const raw = String(text);
+            const strippedPrefix = raw.slice(0, raw.length - raw.trimStart().length);
+            leadLines.push((strippedPrefix.match(/\n/g) || []).length);
+            window.ScreenplayLayout.parseFountain(raw.trim()).forEach((el, lineIdx) => {
+                combined.push(el);
+                origin.push({ sceneIdx, lineIdx });
+            });
+        });
+        const layout = window.ScreenplayLayout.layoutScreenplay(combined);
+
+        if (totalEl) totalEl.textContent = `${layout.pageCount} page${layout.pageCount === 1 ? '' : 's'}`;
+
+        draftEditorMount.querySelectorAll('.cv-page-marker, .cv-page-chip').forEach(n => n.remove());
+
+        const blocks = new Map(); // sceneIdx -> block element
+        Array.from(draftEditorMount.children).forEach(block => {
+            const n = Number(block.getAttribute('data-scene'));
+            const idx = scenes.findIndex(s => s.scene_number === n);
+            if (idx !== -1) blocks.set(idx, block);
+        });
+
+        // "p. N" chip on every scene block: the page its first printed line lands on.
+        blocks.forEach((block, sceneIdx) => {
+            const from = sceneFirstEl[sceneIdx];
+            const to = sceneIdx + 1 < sceneFirstEl.length ? sceneFirstEl[sceneIdx + 1] : combined.length;
+            let page = null;
+            for (let k = from; k < to && page === null; k++) page = layout.pageOfElement[k];
+            if (page === null) return;
+            const chip = document.createElement('div');
+            chip.className = 'cv-page-chip';
+            chip.textContent = `p. ${page}`;
+            block.appendChild(chip);
+        });
+
+        // Page-boundary rules inside read-only blocks. Resolve every target BEFORE
+        // inserting — insertions shift child indices within a block.
+        const inserts = [];
+        layout.pageStarts.forEach(({ page, elIndex }) => {
+            const o = origin[elIndex];
+            if (!o) return;
+            const block = blocks.get(o.sceneIdx);
+            if (!block || block.classList.contains('cv-scene-active')) return;
+            const target = block.children[o.lineIdx + leadLines[o.sceneIdx]];
+            if (target) inserts.push({ block, target, page });
+        });
+        inserts.forEach(({ block, target, page }) => {
+            const marker = document.createElement('div');
+            marker.className = 'cv-page-marker';
+            marker.innerHTML = `<span>p. ${page}</span>`;
+            block.insertBefore(marker, target);
+        });
     }
 
     function stage8LoadEditor(fountainText) {
@@ -1059,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     stage8SaveTimer = setTimeout(() => {
                         stage8FlushEditor().catch(() => {});
                     }, 2000);
+                    stage8QueuePaginationUpdate();
                 },
                 externalToolbarSlot: toolbarSlot
             });
