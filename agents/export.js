@@ -824,7 +824,7 @@ async function generateScreenplayPdf(scenes, projectTitle, author = '', opts = {
             const baselineFlat = opts.revisionBaseline
                 .map(s => (s.humanized_draft_text || s.draft_text || '').trim())
                 .filter(Boolean).join('\n\n');
-            const key = (el) => `${el.type} ${(el.text || '').trim()}`;
+            const key = (el) => `${el.type}\u0000${(el.text || '').trim()}`;
             const baseKeys = parseFountain(baselineFlat).filter(e => e.type !== 'blank').map(key);
             const currIdx = [];
             const currKeys = [];
