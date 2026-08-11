@@ -78,14 +78,19 @@ All suites must stay green. After frontend changes, also do a browser pass — t
 
 ## Deployment Notes
 
-### Authentication (Google session + `APP_SECRET`)
+### Authentication (Google session + access tokens + `APP_SECRET`)
 API auth is layered and each layer is dormant unless configured:
 
 1. Google sign-in is active only when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ALLOWED_EMAILS` are set. The server issues a signed `pageone_session` cookie after a successful Google OAuth callback, and `ALLOWED_EMAILS` is rechecked on every request.
-2. `APP_SECRET` remains the break-glass/admin credential even when Google auth is primary. API requests can use `X-Api-Key: <APP_SECRET>` or `Authorization: Bearer <APP_SECRET>`.
-3. If neither Google auth nor `APP_SECRET` is configured, local development runs open.
+2. **Personal access tokens** (`pgo_…`) for scripts and CLI use — minted in Settings → Access Tokens from a live Google session, stored as SHA-256 hash + metadata in `<DATA_ROOT>/access-tokens.json`, sent as `X-Api-Key` or `Authorization: Bearer`. A token carries its owner's email and is re-checked against `ALLOWED_EMAILS` on every request, so removing an address kills that person's tokens instantly without anyone revoking them.
+3. `APP_SECRET` remains the break-glass/admin credential even when Google auth is primary. API requests can use `X-Api-Key: <APP_SECRET>` or `Authorization: Bearer <APP_SECRET>`. It is the one credential that resolves to no email; keep it in Railway env only, never on a laptop.
+4. If none of the above is configured, local development runs open.
 
-Split by kind, not by sensitivity: `utils/auth.js` owns every decision about whether a request is authenticated (config gating, session signing/verification, cookie parsing, the live allowlist check); `routes/auth.js` only wires those decisions to URLs. Route-level coverage is `test/auth_routes.test.js`.
+⚠️ **Every credential type must resolve to an email and re-check `ALLOWED_EMAILS` per request.** The allowlist is the deployment's kill switch — it has to sever access through every door at once, without anyone tracking which credentials a given person holds. An anonymous credential added to `requireAuth` breaks the multi-user identity model outright; `APP_SECRET` is the single deliberate exception.
+
+⚠️ **A token cannot manage tokens.** `/api/tokens` is guarded by a session-only check inside `routes/tokens.js`, not by `requireAuth` — otherwise one leaked token could mint its own successors and revoke the real ones, surviving revocation of the credential that leaked.
+
+Split by kind, not by sensitivity: `utils/auth.js` and `utils/tokens.js` own every decision about whether a request is authenticated (config gating, session signing/verification, cookie parsing, token hashing and expiry, the live allowlist check); `routes/auth.js` and `routes/tokens.js` only wire those decisions to URLs. Route-level coverage is `test/auth_routes.test.js` and `test/access_tokens.test.js`.
 
 Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. Deployed tester builds should keep `APP_SECRET` set even with Google enabled so maintenance scripts and recovery access still work. The public frontend reads `GET /api/auth-config` before booting so it can show either the Google button, the access-key form, or no auth overlay.
 
@@ -98,6 +103,16 @@ Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. D
 
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-08-11 — Multi-user Phase 1: personal access tokens
+Scripts can now authenticate as a person instead of as the deployment. `utils/tokens.js` mints `pgo_` + 32 random bytes, stores SHA-256 + `{id, name, owner, created, lastUsed, expires}` in `<DATA_ROOT>/access-tokens.json`, and `requireAuth` grew one branch between the cookie and `APP_SECRET`. Settings → Access Tokens creates (shown once), lists with last-used, and revokes. 18 route-harness tests in `test/access_tokens.test.js`; both the new branch and the allowlist re-check were verified to fail the suite when removed.
+
+Three real defects found while building it, all fixed and pinned:
+- **`updateStore` rewrote the file even when the updater changed nothing**, giving every fire-and-forget `touchToken` a lost-update window over any concurrent write — it surfaced as a token that was minted with a 201 and then failed to authenticate. An updater now returns `false` for "no change" and no write happens. The store path is resolved once per update and passed to both halves, so a read and its write can never target different files.
+- **Two overlapping `renderTokenList()` calls each appended to the same emptied list**, showing every row twice. The clear moved to after the fetch, plus a sequence counter so an overtaken render drops its result.
+- `.modal-input` is `width:100%`; a non-shrinking `<select>` in a nowrap flex row crushed the name input to 18px. Needs `width:auto` on the select *and* `min-width:0` on the input.
+
+⚠️ **A token cannot manage tokens** — `/api/tokens` is session-only on purpose (see the auth section). ⚠️ Token auth is inert unless Google sign-in is configured: a token authenticates *as an allowlisted email*, and with no allowlist there is no identity for it to be.
 
 ### 2026-08-09 — Live pagination (editor plan item 6) — THE EDITOR PLAN IS NOW FULLY BUILT
 Stage 7's continuous view shows real page geometry (`1955a2a`): a "p. N" chip on every scene, a dashed rule where each page begins, and a live total in the header, updating as you type. **The numbers come from the exporter's own math by construction**: `parseFountain` + the whole layout walk moved to shared `public/screenplay-layout.js` (browser `<script>` + server `require`, same pattern as script-diff), and `generateScreenplayPdf` now just draws `layoutScreenplay`'s ops. `test/screenplay_layout.test.js` pins the math, the 1-line-per-element mapping the overlay relies on, and (by real invocation) that the PDF's physical page count equals the layout's plus the title page.

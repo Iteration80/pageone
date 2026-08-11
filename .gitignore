@@ -4,6 +4,10 @@
 # User settings (API keys — never commit)
 data/settings.json
 
+# Personal access tokens. Hashes, not plaintext — but it is still the list of who
+# holds a live credential on this deployment, and it is per-machine state, not source.
+data/access-tokens.json
+
 # Project data
 data/projects/
 data/source-files/

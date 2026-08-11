@@ -11786,6 +11786,161 @@ async function loadBuildInfo() {
         return select;
     }
 
+    // ─── Access tokens (multi-user Phase 1) ──────────────────────────────────
+    // Server-side contract in routes/tokens.js: session-only, owner-scoped, and the
+    // plaintext exists exactly once — in the create response. There is deliberately
+    // no "show it again" call to write against.
+
+    function formatTokenDate(iso) {
+        if (!iso) return null;
+        const parsed = new Date(iso);
+        return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString();
+    }
+
+    /** One row's subtitle: created / last used / expiry, only what's true. */
+    function tokenSubtitle(token) {
+        const parts = [`created ${formatTokenDate(token.created) || 'unknown'}`];
+        // "Never used" is a distinct fact from "used at some point" and the reason
+        // the field exists — revoking is a decision made on exactly this.
+        parts.push(token.lastUsed ? `last used ${formatTokenDate(token.lastUsed)}` : 'never used');
+        if (token.expires) {
+            const expired = Date.parse(token.expires) < Date.now();
+            parts.push(`${expired ? 'expired' : 'expires'} ${formatTokenDate(token.expires)}`);
+        }
+        return parts.join(' · ');
+    }
+
+    // ⚠️ Clearing the list before the fetch and appending after it lets two
+    // overlapping renders each append to the same emptied container — reopening
+    // Settings mid-render, or revoking twice quickly, showed every row twice.
+    // The clear moved to just before the append, and this counter makes a render
+    // that has been overtaken drop its result instead of painting over a newer one.
+    let tokenRenderSequence = 0;
+
+    async function renderTokenList() {
+        const list = document.getElementById('settings-tokens-list');
+        if (!list) return;
+        const mine = ++tokenRenderSequence;
+
+        let tokens;
+        try {
+            const res = await nativeFetch('/api/tokens');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            ({ tokens } = await res.json());
+        } catch (err) {
+            // Say the list failed to load. Rendering an empty list here would claim
+            // "you have no tokens" on a network error — a false statement about
+            // account state, and the one that would get someone to mint a duplicate.
+            console.warn('Could not load access tokens:', err);
+            if (mine !== tokenRenderSequence) return;
+            list.innerHTML = '';
+            const failed = document.createElement('p');
+            failed.style.cssText = 'font-size:0.8rem;color:#f87171';
+            failed.textContent = 'Could not load your tokens. Check your connection and reopen Settings.';
+            list.appendChild(failed);
+            return;
+        }
+
+        if (mine !== tokenRenderSequence) return; // overtaken by a newer render
+        list.innerHTML = '';
+
+        if (!tokens.length) {
+            const empty = document.createElement('p');
+            empty.style.cssText = 'font-size:0.8rem;color:#6b7280';
+            empty.textContent = 'No tokens yet.';
+            list.appendChild(empty);
+            return;
+        }
+
+        tokens.forEach(token => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px;border:1px solid #374151;border-radius:6px';
+
+            const text = document.createElement('div');
+            text.style.cssText = 'min-width:0';
+            const name = document.createElement('div');
+            name.style.cssText = 'font-size:0.85rem;color:#d1d5db;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+            name.textContent = token.name;
+            const meta = document.createElement('div');
+            meta.style.cssText = 'font-size:0.72rem;color:#6b7280';
+            meta.textContent = tokenSubtitle(token);
+            text.append(name, meta);
+
+            const revoke = document.createElement('button');
+            revoke.className = 'secondary-btn';
+            revoke.type = 'button';
+            revoke.style.cssText = 'padding:3px 10px;flex-shrink:0';
+            revoke.textContent = 'Revoke';
+            revoke.addEventListener('click', async () => {
+                const confirmed = await confirmDialog({
+                    title: 'Revoke this token?',
+                    message: `"${token.name}" will stop working immediately. Anything using it will start failing with 401.`,
+                    confirmLabel: 'Revoke',
+                    danger: true
+                });
+                if (!confirmed) return;
+                try {
+                    const res = await nativeFetch(`/api/tokens/${encodeURIComponent(token.id)}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                } catch (err) {
+                    console.error('Failed to revoke token:', err);
+                    noticeDialog({ message: 'Could not revoke that token. It is still active.' });
+                }
+                await renderTokenList();
+            });
+
+            row.append(text, revoke);
+            list.appendChild(row);
+        });
+    }
+
+    document.getElementById('btnCreateToken')?.addEventListener('click', async () => {
+        const nameInput = document.getElementById('settings-token-name');
+        const expirySelect = document.getElementById('settings-token-expiry');
+        const name = nameInput.value.trim();
+        if (!name) {
+            noticeDialog({ message: 'Give the token a name so you can tell it apart later.' });
+            return;
+        }
+
+        const body = { name };
+        if (expirySelect.value) body.expiresInDays = Number(expirySelect.value);
+
+        try {
+            const res = await nativeFetch('/api/tokens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            const created = await res.json();
+
+            document.getElementById('settings-token-value').textContent = created.token;
+            document.getElementById('settings-token-reveal').classList.remove('hidden');
+            nameInput.value = '';
+            expirySelect.value = '';
+            await renderTokenList();
+        } catch (err) {
+            console.error('Failed to create token:', err);
+            noticeDialog({ message: `Could not create the token. ${err.message}` });
+        }
+    });
+
+    document.getElementById('btnCopyToken')?.addEventListener('click', async () => {
+        const value = document.getElementById('settings-token-value').textContent;
+        const button = document.getElementById('btnCopyToken');
+        try {
+            await navigator.clipboard.writeText(value);
+            button.textContent = 'Copied';
+        } catch {
+            // Clipboard access can be refused (permissions, insecure origin). The
+            // token is still selectable in the page — say that rather than showing
+            // "Copied" for a copy that did not happen.
+            button.textContent = 'Select it';
+        }
+        setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+    });
+
     async function openSettingsModal() {
         let settings = { stageModels: {} };
         try {
@@ -11796,14 +11951,31 @@ async function loadBuildInfo() {
         }
         renderBuildInfo(settings.build || currentBuildInfo || {});
 
-        // Account panel — only when signed in via Google.
+        // Account + access-token panels — only when signed in via Google. Both are
+        // gated on the SAME probe: a token belongs to the signed-in account, so the
+        // condition for showing the token panel is exactly the condition for
+        // knowing whose tokens to show.
         const acctPanel = document.getElementById('settings-account-panel');
-        if (acctPanel) {
+        const tokensPanel = document.getElementById('settings-tokens-panel');
+        {
             let email = null;
             if (authMode === 'google') {
                 try { const me = await nativeFetch('/api/me'); if (me.ok) email = (await me.json()).email; } catch {}
             }
+            // Every open starts with the reveal box closed — a plaintext token must
+            // not still be sitting on screen the next time Settings is opened.
+            document.getElementById('settings-token-reveal')?.classList.add('hidden');
+            const tokenValue = document.getElementById('settings-token-value');
+            if (tokenValue) tokenValue.textContent = '';
+
             if (email) {
+                tokensPanel?.classList.remove('hidden');
+                renderTokenList();
+            } else {
+                tokensPanel?.classList.add('hidden');
+            }
+
+            if (acctPanel && email) {
                 acctPanel.classList.remove('hidden');
                 const emailEl = document.getElementById('settings-account-email');
                 if (emailEl) emailEl.textContent = `Signed in as ${email}`;
@@ -11813,7 +11985,7 @@ async function loadBuildInfo() {
                     signOutBtn.addEventListener('click', () => window.pageoneSignOut());
                 }
             } else {
-                acctPanel.classList.add('hidden');
+                acctPanel?.classList.add('hidden');
             }
         }
 

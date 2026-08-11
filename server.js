@@ -455,8 +455,10 @@ const { registerKnowledgeRoutes } = require('./routes/knowledge');
 const { registerProjectRoutes } = require('./routes/projects');
 const { registerRewriteRoutes } = require('./routes/rewrite');
 const { registerStyleRoutes } = require('./routes/styles');
-const { isGoogleAuthEnabled, getSessionEmail } = require('./utils/auth');
+const { isGoogleAuthEnabled, getSessionEmail, isAllowedEmail } = require('./utils/auth');
 const { registerAuthRoutes } = require('./routes/auth');
+const { registerTokenRoutes } = require('./routes/tokens');
+const accessTokens = require('./utils/tokens');
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
@@ -3849,17 +3851,55 @@ app.use((req, res, next) => {
 //   routes in routes/auth.js):
 //   1. Google sign-in — when GOOGLE_CLIENT_ID/SECRET + ALLOWED_EMAILS are set,
 //      a signed session cookie from an allowlisted Google account grants access.
-//   2. Shared secret (break-glass) — when APP_SECRET is set, an X-Api-Key /
+//   2. Personal access token — a `pgo_` credential minted from such a session
+//      (utils/tokens.js), for scripts. Resolves to its owner's email.
+//   3. Shared secret (break-glass) — when APP_SECRET is set, an X-Api-Key /
 //      Bearer header matching it grants access (admin / CLI / maintenance).
-//   3. Nothing configured — fully open (localhost dev).
+//   4. Nothing configured — fully open (localhost dev).
+//
+// ⚠️ EVERY credential type must resolve to an email AND re-check ALLOWED_EMAILS on
+// this request. The allowlist is the kill switch for the whole deployment: removing
+// an address has to sever access through every door at once, without anyone having
+// to remember which credentials that person happens to hold. An anonymous
+// credential added here would break the multi-user identity model outright —
+// APP_SECRET is the one deliberate exception, and it never leaves Railway's env.
+function headerCredential(req) {
+    return req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+}
+
+async function authenticateWithToken(presented, req, res, next) {
+    let record = null;
+    try {
+        record = await accessTokens.verifyToken(presented);
+    } catch (err) {
+        console.error('[auth] token lookup failed:', err.message);
+    }
+    // Same two conditions the cookie path applies, in the same order: the credential
+    // must be real, and its owner must be allowlisted right now.
+    if (record && isAllowedEmail(record.owner)) {
+        req.userEmail = record.owner;
+        req.authMethod = 'token';
+        req.accessTokenId = record.id;
+        accessTokens.touchToken(record.id); // bookkeeping; never gates the request
+        return next();
+    }
+    return res.status(401).json({ error: 'Unauthorized' });
+}
+
 function requireAuth(req, res, next) {
     if (isGoogleAuthEnabled()) {
         const email = getSessionEmail(req);
         if (email) { req.userEmail = email; return next(); }
     }
+    const presented = headerCredential(req);
+    // Only a `pgo_`-shaped credential costs a store read, and only when Google auth
+    // is configured — a token authenticates as an allowlisted email, and without an
+    // allowlist there is no email it could authenticate as.
+    if (isGoogleAuthEnabled() && accessTokens.looksLikeAccessToken(presented)) {
+        return authenticateWithToken(presented, req, res, next);
+    }
     if (APP_SECRET) {
-        const header = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
-        if (header && header === APP_SECRET) return next();
+        if (presented && presented === APP_SECRET) return next();
     }
     if (!isGoogleAuthEnabled() && !APP_SECRET) return next(); // dormant — nothing configured
     return res.status(401).json({ error: 'Unauthorized' });
@@ -3905,6 +3945,18 @@ app.use(express.json({ limit: '20mb' }));
 // Auth routes (/auth/google, /api/me, /api/auth-config, /auth/logout) — public,
 // must precede the /api catch-all. Google sign-in stays dormant until configured.
 registerAuthRoutes(app, { APP_SECRET, oauthLimiter });
+
+// Token management (/api/tokens). Session-guarded inside the module, not by
+// requireAuth — see the header comment there for why a token cannot manage tokens.
+registerTokenRoutes(app, {
+    getSessionEmail,
+    isGoogleAuthEnabled,
+    createToken: accessTokens.createToken,
+    listTokens: accessTokens.listTokens,
+    revokeToken: accessTokens.revokeToken,
+    BadRequestError,
+    sendApiError
+});
 
 registerGenerationRoutes(app, {
     requireAuth,
