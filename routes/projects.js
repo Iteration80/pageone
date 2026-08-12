@@ -146,6 +146,61 @@ function registerProjectRoutes(app, deps) {
         }
     });
 
+    // --- Project ownership migration (multi-user Phase 2) --- //
+    // Same pattern, and for the same reason as the Stage 3 seed above: the live
+    // project store is on a deployment volume, and a migration you cannot run
+    // without shell access is a migration that does not happen.
+    //
+    // ⚠️ This is what makes Phase 2 deployable in one step. Unowned projects fail
+    // closed, so between the deploy and the migration every project 404s — with
+    // these routes that gap is one authenticated request wide, not however long it
+    // takes to get a shell on the box.
+    //
+    // GET  /api/maintenance/project-owners/audit  = report coverage (never writes)
+    // POST /api/maintenance/project-owners/stamp  = stamp unowned projects
+    // Owner defaults to the signed-in admin; pass ?owner= or { owner } to override.
+    function runOwnerMigration(write, { owner }) {
+        return new Promise((resolve, reject) => {
+            const scriptPath = modulePath.join(__dirname, '../scripts/stamp-project-owners.js');
+            const args = write
+                ? [scriptPath, '--dir', DATA_DIR, '--owner', owner, '--write']
+                : [scriptPath, '--dir', DATA_DIR, '--verify'];
+            execFile(process.execPath, args, { timeout: 60_000 }, (error, stdout, stderr) => {
+                // --verify exits non-zero while any project is unowned. That is a
+                // report, not a failure, so the exit code must not become a 500 —
+                // the unowned case is exactly the one the caller is asking about.
+                const output = String(stdout).trim().split('\n').filter(Boolean);
+                if (error && !(!write && output.length)) {
+                    error.message = `${error.message}${stderr ? ` — ${String(stderr).trim()}` : ''}`;
+                    return reject(error);
+                }
+                resolve({ ok: true, write, owner: write ? owner : undefined, output });
+            });
+        });
+    }
+
+    app.get('/api/maintenance/project-owners/audit', requireAuth, requireAdmin, async (_req, res) => {
+        try {
+            res.json(await runOwnerMigration(false, {}));
+        } catch (error) {
+            console.error('project owner audit error:', error.message);
+            sendApiError(res, error, 'Failed to audit project ownership');
+        }
+    });
+
+    app.post('/api/maintenance/project-owners/stamp', requireAuth, requireAdmin, async (req, res) => {
+        try {
+            const owner = String(req.query?.owner || req.body?.owner || req.userEmail || '').trim().toLowerCase();
+            if (!owner.includes('@')) {
+                throw new BadRequestError('No owner email to stamp — sign in, or pass ?owner=you@example.com');
+            }
+            res.json(await runOwnerMigration(true, { owner }));
+        } catch (error) {
+            console.error('project owner stamp error:', error.message);
+            sendApiError(res, error, 'Failed to stamp project owners');
+        }
+    });
+
     // --- Provider key health check --- //
     // Pings each provider's models endpoint with the server's CONFIGURED key and
     // reports validity WITHOUT exposing the key. Use after rotating a key on the

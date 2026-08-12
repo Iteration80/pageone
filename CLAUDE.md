@@ -113,13 +113,24 @@ The caller is carried in an **AsyncLocalStorage** context (`utils/request_identi
 
 ⚠️ **`next()` is called INSIDE `runWithIdentity`.** Moving it out would leave every request looking like a trusted system call, and no test can tell that apart from "the user owns everything."
 
-⚠️ **UNOWNED PROJECTS FAIL CLOSED** — denied to everyone, including their real owner. Treating "no owner" as "everyone's" is the silent hole this phase closes, so the migration is a hard ordering requirement on any deployment with existing data:
+⚠️ **UNOWNED PROJECTS FAIL CLOSED** — denied to everyone, including their real owner. Treating "no owner" as "everyone's" is the silent hole this phase closes, so the migration is a hard ordering requirement on any deployment with existing data.
+
+**On a deployment, run it over HTTP** (same pattern and same reason as the Stage 3 seed above — a migration you can't run without shell access is a migration that doesn't happen). This is what makes Phase 2 a one-step deploy: the gap where every project 404s is one authenticated request wide.
+```
+GET  /api/maintenance/project-owners/audit   # coverage report, never writes
+POST /api/maintenance/project-owners/stamp   # owner defaults to the signed-in admin
+```
+Both are `requireAdmin`. The stamp **only fills in blanks** — it never reassigns a project that already has an owner, so it cannot be used to take someone else's work.
+
+Locally, or with shell access:
 ```
 npm run migrate:project-owners -- --verify                              # gate: 0 unowned
 npm run migrate:project-owners -- --owner you@example.com               # dry run
 npm run migrate:project-owners -- --owner you@example.com --write
 ```
-Honours `DATA_ROOT`, so on Railway it targets the volume with no `--dir`. `--verify` exits non-zero while any project is unowned. Rehearsed end to end on a copy of the real 10-project store.
+Honours `DATA_ROOT`, so on Railway it targets the volume with no `--dir`. `--verify` exits non-zero while any project is unowned. Rehearsed end to end on a copy of the real 10-project store, and the HTTP path is covered by a test that walks the whole sequence: unowned → everything 404s → one POST → visible again.
+
+⚠️ **Local dev needs no migration.** With Google auth unconfigured the server runs open, ownership enforcement is inert, and unowned projects open normally.
 
 **404, never 403, for a project you don't own** — a 403 confirms the project exists, which is a cross-tenant disclosure to anyone who can guess an id. A non-owner cannot distinguish an existing project from an absent one.
 

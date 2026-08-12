@@ -259,6 +259,83 @@ test('cross-tenant maintenance routes are refused to a non-admin tester', async 
     });
 });
 
+// ─── The migration, driven the way it will actually be driven on prod ──────────
+
+test('the ownership migration endpoint recovers a deployment from unowned to owned', async () => {
+    // This is the deploy sequence itself, end to end: Phase 2 code meets a store
+    // full of pre-migration projects, everything 404s, one authenticated POST
+    // fixes it. Running it here is the difference between believing the ordering
+    // works and knowing it does.
+    await withServer({}, async ({ request, dataRoot }) => {
+        const legacyIds = ['1700000000010', '1700000000011'];
+        for (const id of legacyIds) {
+            fs.writeFileSync(
+                path.join(dataRoot, 'projects', `${id}.json`),
+                JSON.stringify({ id, title: `Legacy ${id}`, data: {} }, null, 2)
+            );
+        }
+
+        // Before: the admin's own projects are invisible to her.
+        assert.equal((await request('/api/projects', { cookies: as(ALICE) })).json.projects.length, 0);
+        assert.equal((await request(`/api/projects/${legacyIds[0]}`, { cookies: as(ALICE) })).status, 404);
+
+        // The audit says so, without writing anything.
+        const audit = await request('/api/maintenance/project-owners/audit', { cookies: as(ALICE) });
+        assert.equal(audit.status, 200);
+        assert.match(audit.json.output.join('\n'), /2 unowned/);
+        assert.equal(
+            JSON.parse(fs.readFileSync(path.join(dataRoot, 'projects', `${legacyIds[0]}.json`), 'utf-8')).owner,
+            undefined,
+            'the audit wrote an owner'
+        );
+
+        // The stamp defaults to the signed-in admin — no owner argument needed.
+        const stamp = await request('/api/maintenance/project-owners/stamp', { method: 'POST', cookies: as(ALICE) });
+        assert.equal(stamp.status, 200, stamp.text);
+        assert.equal(stamp.json.owner, ALICE);
+
+        // After: they are hers, and only hers.
+        const list = (await request('/api/projects', { cookies: as(ALICE) })).json.projects.map(p => p.id);
+        assert.deepEqual(list.sort(), [...legacyIds].sort());
+        assert.equal((await request(`/api/projects/${legacyIds[0]}`, { cookies: as(ALICE) })).status, 200);
+        assert.equal((await request(`/api/projects/${legacyIds[0]}`, { cookies: as(BOB) })).status, 404);
+
+        // And a second run changes nothing.
+        const again = await request('/api/maintenance/project-owners/stamp', { method: 'POST', cookies: as(ALICE) });
+        assert.match(again.json.output.join('\n'), /0 project file\(s\) stamped, 2 already owned/);
+    });
+});
+
+test('the migration endpoints are admin-only and never claim another user’s projects', async () => {
+    await withServer({}, async ({ request, dataRoot }) => {
+        fs.writeFileSync(
+            path.join(dataRoot, 'projects', '1700000000012.json'),
+            JSON.stringify({ id: '1700000000012', title: 'Legacy', data: {} }, null, 2)
+        );
+
+        // Bob is allowlisted but not the admin. If he could stamp, he would take
+        // every unmigrated project on the deployment in one request.
+        assert.equal((await request('/api/maintenance/project-owners/audit', { cookies: as(BOB) })).status, 403);
+        assert.equal((await request('/api/maintenance/project-owners/stamp', { method: 'POST', cookies: as(BOB) })).status, 403);
+        assert.equal(
+            JSON.parse(fs.readFileSync(path.join(dataRoot, 'projects', '1700000000012.json'), 'utf-8')).owner,
+            undefined,
+            'a non-admin stamped the store'
+        );
+
+        // The stamp only ever fills in the blanks — it does not reassign.
+        const aliceId = await createProject(request, ALICE, 'Alice Script');
+        await request('/api/maintenance/project-owners/stamp', {
+            method: 'POST', cookies: as(ALICE), json: { owner: BOB }
+        });
+        assert.equal(
+            JSON.parse(fs.readFileSync(path.join(dataRoot, 'projects', `${aliceId}.json`), 'utf-8')).owner,
+            ALICE,
+            'an existing owner was reassigned by the migration endpoint'
+        );
+    });
+});
+
 // ─── Regressions: the other credential types still behave ──────────────────────
 
 test('break-glass sees every project — it is the deployment, not a person', async () => {
