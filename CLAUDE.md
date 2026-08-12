@@ -90,6 +90,8 @@ API auth is layered and each layer is dormant unless configured:
 
 ⚠️ **A token cannot manage tokens.** `/api/tokens` is guarded by a session-only check inside `routes/tokens.js`, not by `requireAuth` — otherwise one leaked token could mint its own successors and revoke the real ones, surviving revocation of the credential that leaked.
 
+**Identity is also carried in the async context.** `requireAuth` calls `next()` inside `runWithIdentity` (`utils/request_identity.js`), which is what lets the project-ownership chokepoints know who is asking without every route passing it down. `session` and `token` are scoped to a person; `secret` (break-glass) and `open` (unconfigured dev) are not, and both see every project deliberately.
+
 Split by kind, not by sensitivity: `utils/auth.js` and `utils/tokens.js` own every decision about whether a request is authenticated (config gating, session signing/verification, cookie parsing, token hashing and expiry, the live allowlist check); `routes/auth.js` and `routes/tokens.js` only wire those decisions to URLs. Route-level coverage is `test/auth_routes.test.js` and `test/access_tokens.test.js`.
 
 Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. Deployed tester builds should keep `APP_SECRET` set even with Google enabled so maintenance scripts and recovery access still work. The public frontend reads `GET /api/auth-config` before booting so it can show either the Google button, the access-key form, or no auth overlay.
@@ -103,6 +105,27 @@ Set `SESSION_SECRET` for session signing, or let it fall back to `APP_SECRET`. D
 
 ## Recent Changes
 *Keep last 2–3 weeks here. Archive older or superseded entries to `CHANGELOG-archive.md`.*
+
+### 2026-08-11 — Multi-user Phase 2: project ownership + isolation
+Every project carries an `owner` email, stamped at creation on both creation paths (`/api/projects` and `/api/import-script`). Enforcement is at the **chokepoints, not the routes**: `readProjectJSONById`, `updateProjectJSON` and `writeProjectJSON` in server.js. There are ~110 project call sites across 8 route modules, and a per-route check means a new route can opt out by forgetting one — which would look completely ordinary in review.
+
+The caller is carried in an **AsyncLocalStorage** context (`utils/request_identity.js`) entered by `requireAuth`, so the chokepoint reads the identity itself and no route has to pass it. 12 route-harness tests with two signed-in identities; all four guards were verified to fail the suite when removed (disabling the ownership check fails 6, read-guard-only fails 4, listing filter fails 3, admin gate fails 1).
+
+⚠️ **`next()` is called INSIDE `runWithIdentity`.** Moving it out would leave every request looking like a trusted system call, and no test can tell that apart from "the user owns everything."
+
+⚠️ **UNOWNED PROJECTS FAIL CLOSED** — denied to everyone, including their real owner. Treating "no owner" as "everyone's" is the silent hole this phase closes, so the migration is a hard ordering requirement on any deployment with existing data:
+```
+npm run migrate:project-owners -- --verify                              # gate: 0 unowned
+npm run migrate:project-owners -- --owner you@example.com               # dry run
+npm run migrate:project-owners -- --owner you@example.com --write
+```
+Honours `DATA_ROOT`, so on Railway it targets the volume with no `--dir`. `--verify` exits non-zero while any project is unowned. Rehearsed end to end on a copy of the real 10-project store.
+
+**404, never 403, for a project you don't own** — a 403 confirms the project exists, which is a cross-tenant disclosure to anyone who can guess an id. A non-owner cannot distinguish an existing project from an absent one.
+
+**Two cross-tenant leaks found in the route audit and closed:** the `/api/maintenance/*` family swept every tenant's projects (two of them writing) behind plain `requireAuth`, and the global style creator fed **every** project's title, genre and logline into the prompt as "WRITER'S PROJECTS". Maintenance is now `requireAdmin`; the style context is owner-scoped. ⚠️ `isAdminEmail` (utils/auth.js) is **provisional** — the first address in `ALLOWED_EMAILS`. Phase 4 replaces it; it is the single place to change.
+
+⚠️ Two routes resolve project files directly rather than through the chokepoint — the project listing and the style-context scan — so they carry their own owner filter. Both are commented as such. Styles are still shared across users; that is Phase 3, not an oversight.
 
 ### 2026-08-11 — Multi-user Phase 1: personal access tokens
 Scripts can now authenticate as a person instead of as the deployment. `utils/tokens.js` mints `pgo_` + 32 random bytes, stores SHA-256 + `{id, name, owner, created, lastUsed, expires}` in `<DATA_ROOT>/access-tokens.json`, and `requireAuth` grew one branch between the cookie and `APP_SECRET`. Settings → Access Tokens creates (shown once), lists with last-used, and revokes. 18 route-harness tests in `test/access_tokens.test.js`; both the new branch and the allowlist re-check were verified to fail the suite when removed.

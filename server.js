@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
+// Request-scoped caller identity — the ownership chokepoints below read from this
+// rather than from a parameter, so no route can forget to pass it.
+const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./utils/request_identity');
 const os = require('os');
 const crypto = require('crypto');
 const {
@@ -131,13 +134,53 @@ function assertValidSourceId(sourceId, message = 'Invalid source ID') {
     if (!/^src_[a-zA-Z0-9_]+$/.test(String(sourceId || ''))) throw new BadRequestError(message);
 }
 
+// ─── Project ownership (multi-user Phase 2) ───────────────────────────────────
+//
+// Enforced HERE, where the file is resolved, and not in the routes. There are ~110
+// project call sites across 8 route modules; the failure mode of missing one is
+// serving user A's script to user B with a 200, which this project has paid for
+// four times in other guises. A route cannot opt out of a check it never makes.
+//
+// The caller comes from the async context (utils/request_identity.js), so nothing
+// has to be threaded through the routes for this to hold.
+
+/** The owner of a project record, normalised. Empty string means unowned. */
+function projectOwner(project) {
+    return String(project?.owner || '').trim().toLowerCase();
+}
+
+/**
+ * Whether the current caller may touch this project.
+ *
+ * ⚠️ An UNOWNED project is denied under a scoped identity. Fail closed: a project
+ * that predates the ownership migration has no owner to compare against, and
+ * treating "no owner" as "everybody's" is exactly the silent hole this phase
+ * exists to close. The consequence is a hard ordering requirement — the migration
+ * (`npm run migrate:project-owners`) must run against a deployment's data BEFORE
+ * this code serves traffic there, or every project 404s. That is deliberate: a
+ * loud, immediate, reversible failure beats a quiet leak.
+ */
+function callerMayAccessProject(project) {
+    if (!hasScopedIdentity()) return true; // system call, break-glass, or open dev
+    return projectOwner(project) === currentUserEmail();
+}
+
+/**
+ * 404, never 403. A 403 confirms the project exists and that it belongs to someone
+ * else, which is a real disclosure across tenants — "does project 1774126051196
+ * exist" is answerable by anyone who can guess an id. A non-owner should not be
+ * able to tell an existing project from an absent one.
+ */
+function assertProjectAccess(project, notFoundMessage = 'Project not found') {
+    if (callerMayAccessProject(project)) return project;
+    console.warn(`[ownership] denied ${currentUserEmail()} access to project ${project?.id} (owner: ${projectOwner(project) || 'none'})`);
+    throw new NotFoundError(notFoundMessage);
+}
+
 async function assertProjectExists(id, message = 'Project not found') {
-    try {
-        await fs.access(getProjectFilePath(id));
-    } catch (error) {
-        if (error.code === 'ENOENT') throw new NotFoundError(message);
-        throw error;
-    }
+    // Reads rather than stats: existence has to be answered with the same scoping as
+    // a read, or this becomes an oracle for which project ids exist.
+    await readProjectJSONById(id, { notFoundMessage: message });
 }
 
 async function readProjectJSONById(id, {
@@ -145,13 +188,15 @@ async function readProjectJSONById(id, {
     notFoundMessage = 'Project not found'
 } = {}) {
     assertValidProjectId(id, invalidMessage);
+    let project;
     try {
         const content = await fs.readFile(getProjectFilePath(id), 'utf-8');
-        return JSON.parse(content);
+        project = JSON.parse(content);
     } catch (error) {
         if (error.code === 'ENOENT') throw new NotFoundError(notFoundMessage);
         throw error;
     }
+    return assertProjectAccess(project, notFoundMessage);
 }
 
 function isClientAbortError(error) {
@@ -249,8 +294,39 @@ async function withProjectWriteLock(projectId, task) {
     return run;
 }
 
+/**
+ * Ownership guard for writes, run inside the write lock.
+ *
+ * Guarding reads alone would be *almost* enough — every route today reads before it
+ * writes — but "almost" is the property that decays. A future route that builds a
+ * project payload from the request body and writes it would bypass the read guard
+ * entirely and look ordinary doing it.
+ *
+ * The on-disk owner is authoritative. Trusting the payload's `owner` would let any
+ * caller take ownership of someone else's project by writing their own address into
+ * it. A file that does not exist yet is a creation, and creations must carry the
+ * caller as owner (stamped by the create route).
+ */
+async function assertProjectWriteAccess(projectId, projectData) {
+    if (!hasScopedIdentity()) return;
+    let existing = null;
+    try {
+        existing = JSON.parse(await fs.readFile(getProjectFilePath(projectId), 'utf-8'));
+    } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+    }
+    if (existing) {
+        assertProjectAccess(existing);           // update: on-disk owner decides
+        return;
+    }
+    if (projectOwner(projectData) !== currentUserEmail()) {  // creation
+        throw new NotFoundError('Project not found');
+    }
+}
+
 async function writeProjectJSON(projectId, projectData) {
     await withProjectWriteLock(projectId, async () => {
+        await assertProjectWriteAccess(projectId, projectData);
         await atomicWriteJSON(getProjectFilePath(projectId), projectData);
     });
 }
@@ -266,6 +342,9 @@ async function updateProjectJSON(projectId, updater) {
         const filePath = getProjectFilePath(projectId);
         const raw = await fs.readFile(filePath, 'utf-8');
         const project = JSON.parse(raw);
+        // Inside the lock, against the state actually on disk — the same read the
+        // updater is about to modify, so ownership cannot change underneath it.
+        assertProjectAccess(project);
         const updated = await updater(project, filePath);
         const nextProject = updated || project;
         await atomicWriteJSON(filePath, nextProject);
@@ -455,7 +534,7 @@ const { registerKnowledgeRoutes } = require('./routes/knowledge');
 const { registerProjectRoutes } = require('./routes/projects');
 const { registerRewriteRoutes } = require('./routes/rewrite');
 const { registerStyleRoutes } = require('./routes/styles');
-const { isGoogleAuthEnabled, getSessionEmail, isAllowedEmail } = require('./utils/auth');
+const { isGoogleAuthEnabled, getSessionEmail, isAllowedEmail, isAdminEmail } = require('./utils/auth');
 const { registerAuthRoutes } = require('./routes/auth');
 const { registerTokenRoutes } = require('./routes/tokens');
 const accessTokens = require('./utils/tokens');
@@ -1865,10 +1944,16 @@ You are helping the writer create a reusable style outside any single project. T
     try {
         const projectFiles = await fs.readdir(DATA_DIR);
         const pitches = [];
+        // ⚠️ Owner-scoped. This block is headed "WRITER'S PROJECTS" and goes into the
+        // style prompt verbatim — unfiltered it would put every tenant's titles,
+        // genres and loglines into another tenant's model call. It reads the
+        // directory directly, so the chokepoint guard does not cover it.
+        const viewerEmail = currentUserEmail();
         for (const f of projectFiles) {
             if (!f.endsWith('.json')) continue;
             try {
                 const pData = JSON.parse(await fs.readFile(path.join(DATA_DIR, f), 'utf-8'));
+                if (viewerEmail && String(pData.owner || '').trim().toLowerCase() !== viewerEmail) continue;
                 const pitch = pData.data?.stage1_pitch?.pitch;
                 if (pitch?.title) {
                     pitches.push(`- "${pitch.title}" (${pitch.genre || 'genre TBD'}): ${(pitch.synopsis || '').slice(0, 200)}`);
@@ -3867,6 +3952,23 @@ function headerCredential(req) {
     return req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
 }
 
+/**
+ * Admit the request, attaching the caller's identity to `req` AND to the async
+ * context for the rest of the request (utils/request_identity.js).
+ *
+ * ⚠️ `next()` is called INSIDE `runWithIdentity`, which is what keeps the context
+ * alive through every downstream handler, await and background job the request
+ * starts. Calling next() outside it would leave the ownership chokepoints seeing a
+ * system call — i.e. fully trusted — on every request. There is no test that can
+ * distinguish that from "the user owns everything", so it must not be refactored
+ * into a plain `next()` without re-reading utils/project_access.
+ */
+function admit(req, next, { email = null, method }) {
+    req.userEmail = email || undefined;
+    req.authMethod = method;
+    return runWithIdentity({ email: email || null, method }, next);
+}
+
 async function authenticateWithToken(presented, req, res, next) {
     let record = null;
     try {
@@ -3877,11 +3979,9 @@ async function authenticateWithToken(presented, req, res, next) {
     // Same two conditions the cookie path applies, in the same order: the credential
     // must be real, and its owner must be allowlisted right now.
     if (record && isAllowedEmail(record.owner)) {
-        req.userEmail = record.owner;
-        req.authMethod = 'token';
         req.accessTokenId = record.id;
         accessTokens.touchToken(record.id); // bookkeeping; never gates the request
-        return next();
+        return admit(req, next, { email: record.owner, method: 'token' });
     }
     return res.status(401).json({ error: 'Unauthorized' });
 }
@@ -3889,7 +3989,7 @@ async function authenticateWithToken(presented, req, res, next) {
 function requireAuth(req, res, next) {
     if (isGoogleAuthEnabled()) {
         const email = getSessionEmail(req);
-        if (email) { req.userEmail = email; return next(); }
+        if (email) return admit(req, next, { email, method: 'session' });
     }
     const presented = headerCredential(req);
     // Only a `pgo_`-shaped credential costs a store read, and only when Google auth
@@ -3899,10 +3999,29 @@ function requireAuth(req, res, next) {
         return authenticateWithToken(presented, req, res, next);
     }
     if (APP_SECRET) {
-        if (presented && presented === APP_SECRET) return next();
+        // Break-glass: authenticates as the deployment, not as a person, so it owns
+        // nothing and is scoped to nothing. See utils/request_identity.js.
+        if (presented && presented === APP_SECRET) return admit(req, next, { method: 'secret' });
     }
-    if (!isGoogleAuthEnabled() && !APP_SECRET) return next(); // dormant — nothing configured
+    if (!isGoogleAuthEnabled() && !APP_SECRET) return admit(req, next, { method: 'open' });
     return res.status(401).json({ error: 'Unauthorized' });
+}
+
+/**
+ * Cross-tenant operations: the /api/maintenance/* family sweeps EVERY project,
+ * reading and in two cases writing. Behind plain `requireAuth` that is a
+ * cross-tenant read/write surface for any allowlisted tester — the same failure
+ * Phase 2 closes at the project chokepoints, arriving through a different door.
+ *
+ * Runs after requireAuth, so `req.userEmail` is already resolved. Break-glass and
+ * open mode pass: neither has a scoped identity, and both are already trusted with
+ * the whole deployment.
+ */
+function requireAdmin(req, res, next) {
+    if (!hasScopedIdentity()) return next();
+    if (isAdminEmail(req.userEmail)) return next();
+    console.warn(`[ownership] denied ${req.userEmail} a maintenance route (${req.path})`);
+    return res.status(403).json({ error: 'This operation is restricted to the deployment administrator.' });
 }
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
@@ -4176,6 +4295,7 @@ registerStyleRoutes(app, {
 
 registerProjectRoutes(app, {
     requireAuth,
+    requireAdmin,
     upload,
     fs,
     path,

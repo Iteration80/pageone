@@ -6,6 +6,7 @@ const { artifactHash } = require('../utils/artifact_snapshots');
 function registerProjectRoutes(app, deps) {
     const {
         requireAuth,
+        requireAdmin,
         upload,
         fs,
         path,
@@ -79,7 +80,7 @@ function registerProjectRoutes(app, deps) {
 
     // --- Project Management Routes --- //
 
-    app.get('/api/maintenance/legacy-projects/audit', requireAuth, async (_req, res) => {
+    app.get('/api/maintenance/legacy-projects/audit', requireAuth, requireAdmin, async (_req, res) => {
         try {
             res.json(await auditOrUpgradeAllProjectKnowledge({ write: false }));
         } catch (error) {
@@ -88,7 +89,7 @@ function registerProjectRoutes(app, deps) {
         }
     });
 
-    app.post('/api/maintenance/legacy-projects/upgrade', requireAuth, async (_req, res) => {
+    app.post('/api/maintenance/legacy-projects/upgrade', requireAuth, requireAdmin, async (_req, res) => {
         try {
             res.json(await auditOrUpgradeAllProjectKnowledge({ write: true }));
         } catch (error) {
@@ -127,7 +128,7 @@ function registerProjectRoutes(app, deps) {
         });
     }
 
-    app.get('/api/maintenance/stage3-tiers/audit', requireAuth, async (req, res) => {
+    app.get('/api/maintenance/stage3-tiers/audit', requireAuth, requireAdmin, async (req, res) => {
         try {
             res.json(await runTierMigration(false, { overwrite: shouldOverwriteStage3Tiers(req) }));
         } catch (error) {
@@ -136,7 +137,7 @@ function registerProjectRoutes(app, deps) {
         }
     });
 
-    app.post('/api/maintenance/stage3-tiers/seed', requireAuth, async (req, res) => {
+    app.post('/api/maintenance/stage3-tiers/seed', requireAuth, requireAdmin, async (req, res) => {
         try {
             res.json(await runTierMigration(true, { overwrite: shouldOverwriteStage3Tiers(req) }));
         } catch (error) {
@@ -172,7 +173,7 @@ function registerProjectRoutes(app, deps) {
         return `…${s.slice(-4)} (len ${s.length})`;
     }
 
-    app.get('/api/maintenance/provider-health', requireAuth, async (_req, res) => {
+    app.get('/api/maintenance/provider-health', requireAuth, requireAdmin, async (_req, res) => {
         try {
             const { anthropicApiKey, geminiApiKey } = getModelConfig(1);
             const [anthropic, gemini] = await Promise.all([
@@ -199,11 +200,18 @@ function registerProjectRoutes(app, deps) {
             const files = await fs.readdir(DATA_DIR);
             const projects = [];
 
+            // ⚠️ This route reads the directory directly rather than going through
+            // readProjectJSONById, so the chokepoint guard does NOT cover it and the
+            // owner filter has to be applied here. It is the one project route that
+            // resolves files without the shared helper; keep it that way deliberately
+            // or move it onto the helper, but do not leave it half-way.
+            const viewerEmail = req.userEmail || null;
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     const filePath = path.join(DATA_DIR, file);
                     const content = await fs.readFile(filePath, 'utf-8');
                     const projectData = JSON.parse(content);
+                    if (viewerEmail && String(projectData.owner || '').trim().toLowerCase() !== viewerEmail) continue;
                     projects.push({ id: projectData.id, title: projectData.title, author: projectData.data?.author || '' });
                 }
             }
@@ -235,6 +243,10 @@ function registerProjectRoutes(app, deps) {
             const newProject = {
                 id,
                 title: "New Project",
+                // Stamped at birth. `writeProjectJSON` refuses a creation whose owner
+                // is not the caller, so this is not merely bookkeeping — omitting it
+                // makes the write fail rather than produce an unowned project.
+                owner: req.userEmail || undefined,
                 data: {}
             };
 
@@ -282,6 +294,7 @@ function registerProjectRoutes(app, deps) {
             const newProject = {
                 id,
                 title,
+                owner: req.userEmail || undefined, // second creation path — same rule
                 data: {
                     stage6_scenes: stage6Scenes,
                     stage7_style_skipped: true,

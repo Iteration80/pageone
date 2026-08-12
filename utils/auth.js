@@ -45,6 +45,23 @@ function isAllowedEmail(email) {
     return config().allowed.includes(String(email).trim().toLowerCase());
 }
 
+/**
+ * The deployment owner: the FIRST address in ALLOWED_EMAILS.
+ *
+ * ⚠️ PROVISIONAL, and deliberately the smallest rule that works. Multi-user Phase 2
+ * needed *some* admin distinction immediately, because the /api/maintenance/* routes
+ * read and write across every tenant's projects and were behind plain requireAuth —
+ * i.e. any allowlisted tester could sweep everyone's data. Ordering the env var is a
+ * weak way to express "who runs this deployment", but it needs no new config, no
+ * migration, and no data. Phase 4 (admin surface) replaces this with a real admin
+ * list; when it does, this function is the single place to change.
+ */
+function isAdminEmail(email) {
+    const [first] = config().allowed;
+    if (!first || !email) return false;
+    return String(email).trim().toLowerCase() === first;
+}
+
 // ─── Stateless signed session token: base64url(payload).base64url(HMAC) ────────
 
 function b64url(input) {
@@ -157,6 +174,7 @@ module.exports = {
     isGoogleAuthEnabled,
     getSessionEmail,
     isAllowedEmail,
+    isAdminEmail,
     isSecureRequest,
     parseCookies,
     requestBaseUrl,
