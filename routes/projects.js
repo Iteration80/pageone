@@ -12,6 +12,8 @@ function registerProjectRoutes(app, deps) {
         path,
         DATA_ROOT,
         DATA_DIR,
+        STYLES_DIR,
+        BUNDLED_STYLES_DIR,
         SETTINGS_PATH,
         appSettings,
         RUNTIME_API_KEYS_ENABLED,
@@ -36,6 +38,7 @@ function registerProjectRoutes(app, deps) {
         stampGenerated,
         stampRevised,
         removeProjectSourceAssets,
+        usageRollup,
         sendApiError
     } = deps;
 
@@ -198,6 +201,81 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error('project owner stamp error:', error.message);
             sendApiError(res, error, 'Failed to stamp project owners');
+        }
+    });
+
+    // --- Style ownership migration (multi-user Phase 3) --- //
+    // Same pattern as the project-owner migration above, and needed for the same
+    // reason: unowned USER-CREATED styles fail closed, so between the Phase 3
+    // deploy and this stamp Carsten's trained styles are invisible and any project
+    // drafting with one drafts unstyled. Bundled styles are never touched — the
+    // script decides "bundled" by filename against BUNDLED_STYLES_DIR, not by tier.
+    //
+    // GET  /api/maintenance/style-owners/audit  = report coverage (never writes)
+    // POST /api/maintenance/style-owners/stamp  = stamp unowned user styles
+    // Owner defaults to the signed-in admin; pass ?owner= or { owner } to override.
+    function runStyleOwnerMigration(write, { owner }) {
+        return new Promise((resolve, reject) => {
+            const scriptPath = modulePath.join(__dirname, '../scripts/stamp-style-owners.js');
+            const common = [scriptPath, '--dir', STYLES_DIR, '--bundled-dir', BUNDLED_STYLES_DIR];
+            const args = write ? [...common, '--owner', owner, '--write'] : [...common, '--verify'];
+            execFile(process.execPath, args, { timeout: 60_000 }, (error, stdout, stderr) => {
+                // --verify exits non-zero while any style is unowned; that is the
+                // report, not a failure (see runOwnerMigration).
+                const output = String(stdout).trim().split('\n').filter(Boolean);
+                if (error && !(!write && output.length)) {
+                    error.message = `${error.message}${stderr ? ` — ${String(stderr).trim()}` : ''}`;
+                    return reject(error);
+                }
+                resolve({ ok: true, write, owner: write ? owner : undefined, output });
+            });
+        });
+    }
+
+    app.get('/api/maintenance/style-owners/audit', requireAuth, requireAdmin, async (_req, res) => {
+        try {
+            res.json(await runStyleOwnerMigration(false, {}));
+        } catch (error) {
+            console.error('style owner audit error:', error.message);
+            sendApiError(res, error, 'Failed to audit style ownership');
+        }
+    });
+
+    app.post('/api/maintenance/style-owners/stamp', requireAuth, requireAdmin, async (req, res) => {
+        try {
+            const owner = String(req.query?.owner || req.body?.owner || req.userEmail || '').trim().toLowerCase();
+            if (!owner.includes('@')) {
+                throw new BadRequestError('No owner email to stamp — sign in, or pass ?owner=you@example.com');
+            }
+            res.json(await runStyleOwnerMigration(true, { owner }));
+        } catch (error) {
+            console.error('style owner stamp error:', error.message);
+            sendApiError(res, error, 'Failed to stamp style owners');
+        }
+    });
+
+    // --- Per-user spend rollup (multi-user Phase 3) --- //
+    // GET /api/usage              = the caller's own usage across all their projects
+    // GET /api/maintenance/usage  = every owner's rollup (admin; the Phase 4 view
+    //                               will sit on top of this)
+    // Both return token counts per model and per project; the client prices them.
+    app.get('/api/usage', requireAuth, async (req, res) => {
+        try {
+            // Open dev / break-glass have no email; there the whole store is "yours".
+            const owner = req.userEmail ? req.userEmail : '*';
+            res.json(await usageRollup({ owner }));
+        } catch (error) {
+            console.error('usage rollup error:', error.message);
+            sendApiError(res, error, 'Failed to load usage');
+        }
+    });
+
+    app.get('/api/maintenance/usage', requireAuth, requireAdmin, async (_req, res) => {
+        try {
+            res.json(await usageRollup({ owner: null }));
+        } catch (error) {
+            console.error('usage rollup (admin) error:', error.message);
+            sendApiError(res, error, 'Failed to load usage');
         }
     });
 

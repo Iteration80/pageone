@@ -1407,6 +1407,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'conversational';
     }
 
+    // Multi-user: a bundled style is the shared library — visible to everyone,
+    // editable by no one signed in. Presets already say so via their badge; the
+    // bundle also ships trained/conversational styles, which need the hint.
+    function styleSharedBadge(style) {
+        if (!style?.bundled || style.tier === 'preset') return '';
+        return ' <span class="style-tier-badge preset" title="Shared library style — read-only">Shared</span>';
+    }
+
     async function loadHubStyles() {
         const grid = document.getElementById('stylesGrid');
         if (!grid) return;
@@ -1427,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tierClass = styleTierClass(style.tier);
                 const tierLabel = styleTierLabel(style.tier);
                 card.innerHTML = `
-                    <div style="font-weight:600;color:var(--text-primary);font-size:1rem">${escapeHtml(style.name)} <span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
+                    <div style="font-weight:600;color:var(--text-primary);font-size:1rem">${escapeHtml(style.name)} <span class="style-tier-badge ${tierClass}">${tierLabel}</span>${styleSharedBadge(style)}</div>
                     <div style="font-size:0.85rem;color:var(--text-secondary)">${escapeHtml(style.tonal_summary || '')}</div>
                 `;
                 card.addEventListener('click', () => openStyleDetail(style.slug));
@@ -1456,6 +1464,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge = document.getElementById('styleDetailTierBadge');
             badge.textContent = styleTierLabel(data.tier);
             badge.className = `style-tier-badge ${styleTierClass(data.tier)}`;
+
+            // `editable` comes from the server (utils/style_store.js): false for the
+            // shared library under any signed-in identity. The server refuses the
+            // write anyway (403 / 404); hiding the buttons just keeps the UI honest.
+            const editable = data.editable !== false;
+            document.getElementById('btnStyleDetailEdit')?.classList.toggle('hidden', !editable);
+            document.getElementById('btnStyleDetailDelete')?.classList.toggle('hidden', !editable);
+            const savedIndicator = document.getElementById('styleDetailSavedIndicator');
+            if (savedIndicator) {
+                savedIndicator.textContent = editable ? '✓ Saved to library' : 'Shared library style — read-only';
+                savedIndicator.style.color = editable ? '#4ade80' : '#9ca3af';
+            }
 
             // Reference section (Tier 3 only)
             const refSection = document.getElementById('styleDetailRefSection');
@@ -10070,7 +10090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tierClass = styleTierClass(style.tier);
                 const tierLabel = styleTierLabel(style.tier);
                 card.innerHTML = `
-                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span></div>
+                    <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span>${styleSharedBadge(style)}</div>
                     <div style="font-size:0.75rem;color:#6b7280">${escapeHtml(style.tonal_summary || '')}</div>
                     <button class="primary-btn" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start">Use This</button>
                 `;
@@ -12086,8 +12106,10 @@ async function loadBuildInfo() {
         const usage = window.currentProjectData?.apiUsage || [];
 
         if (!usage.length) {
-            content.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;text-align:center;padding:24px 0">No usage data yet. Generate some content to start tracking costs.</p>';
+            content.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;text-align:center;padding:24px 0">No usage data yet. Generate some content to start tracking costs.</p>'
+                + '<div id="spend-modal-account" style="font-size:0.75rem;color:#9ca3af;text-align:center"></div>';
             spendModal?.classList.remove('hidden');
+            renderAccountSpend();
             return;
         }
 
@@ -12138,10 +12160,34 @@ async function loadBuildInfo() {
         }
 
         html += '</tbody></table>';
+        html += '<div id="spend-modal-account" style="font-size:0.75rem;color:#9ca3af;margin-top:14px;text-align:center"></div>';
         html += '<p style="font-size:0.65rem;color:#4b5563;margin-top:12px;text-align:center">Costs are estimates based on published API pricing.</p>';
 
         content.innerHTML = html;
         spendModal?.classList.remove('hidden');
+        renderAccountSpend();
+    }
+
+    // Multi-user Phase 3: the same numbers summed across every project the signed-in
+    // person owns (GET /api/usage — tokens only; priced here with MODEL_PRICING so
+    // the per-project and per-account figures can never disagree on a rate).
+    async function renderAccountSpend() {
+        const slot = document.getElementById('spend-modal-account');
+        if (!slot) return;
+        try {
+            const res = await fetch('/api/usage');
+            if (!res.ok) return;
+            const usage = await res.json();
+            let total = 0;
+            for (const [model, u] of Object.entries(usage.byModel || {})) {
+                const pricing = MODEL_PRICING[model] || { input: 0, output: 0 };
+                total += (u.inputTokens || 0) * pricing.input + (u.outputTokens || 0) * pricing.output;
+            }
+            const scope = usage.owner ? 'across all your projects' : 'across all projects';
+            slot.textContent = `$${total.toFixed(2)} ${scope} · ${usage.projects || 0} project${usage.projects === 1 ? '' : 's'} · ${usage.calls || 0} calls`;
+        } catch (err) {
+            console.error('Account spend error:', err);
+        }
     }
 
     function closeSpendModal() {

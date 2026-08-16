@@ -1135,7 +1135,9 @@ test('style and export routes use typed API error responder for expected failure
     assert.match(styleRoutes, /throw new BadRequestError\('At least one screenplay file is required for trained style generation'\)/);
     assert.match(styleRoutes, /throw new NotFoundError\(`Style "\$\{styleSlug\}" not found`\)/);
     assert.match(styleRoutes, /throw new NotFoundError\(`Style "\$\{slug\}" not found`\)/);
-    assert.match(styleRoutes, /throw new NotFoundError\('Style not found'\)/);
+    // Since multi-user Phase 3 the delete route's "not found" comes from the style
+    // store (utils/style_store.js), which throws the same typed NotFoundError.
+    assert.match(styleRoutes, /await styleStore\.deleteStyle\(slug\)/);
     assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to generate style'\)/);
     assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to preview style scene'\)/);
     assert.match(styleRoutes, /sendApiError\(res, error, 'Failed to select style'\)/);

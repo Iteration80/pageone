@@ -2,7 +2,7 @@ require('dotenv').config();
 const { setGlobalDispatcher, Agent } = require('undici');
 setGlobalDispatcher(new Agent({ headersTimeout: 300_000, bodyTimeout: 300_000 }));
 const express = require('express');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
@@ -97,6 +97,15 @@ class NotFoundError extends ApiError {
 class RateLimitError extends ApiError {
     constructor(message = 'Too many requests', options = {}) {
         super(429, message, { code: 'RATE_LIMITED', ...options });
+    }
+}
+
+// Reserved for resources the caller is ALLOWED TO SEE but not change — shared
+// library styles today. Never use it to refuse a private resource: that is a 404,
+// because a 403 confirms the thing exists (see assertProjectAccess).
+class ForbiddenError extends ApiError {
+    constructor(message = 'Forbidden', options = {}) {
+        super(403, message, { code: 'FORBIDDEN', ...options });
     }
 }
 
@@ -458,6 +467,71 @@ async function trackUsage(projectId, usageOrList) {
         console.error('trackUsage error:', err.message);
     }
 }
+
+/**
+ * Per-user spend rollup (multi-user Phase 3). `apiUsage` is recorded per project;
+ * this sums it per OWNER — the unit that matters in a shared-key deployment, where
+ * the risk is one tester quietly burning the Gemini budget across ten projects.
+ *
+ * Returns tokens, not dollars: pricing lives in one place (the client's
+ * MODEL_PRICING table, which already prices the per-project modal) and the admin
+ * view in Phase 4 will price these same numbers with the same table.
+ *
+ * ⚠️ Reads the project directory directly, so the ownership chokepoint does NOT
+ * cover it — like the project listing and the style-context scan, it carries its
+ * own owner filter. `owner: null` sums everyone and is for requireAdmin routes only.
+ */
+async function usageRollup({ owner = null } = {}) {
+    // owner: '<email>' → that person's bucket; '*' → everything as ONE bucket (open
+    // dev / break-glass, where the whole store is "yours"); null → one bucket per owner.
+    const wanted = owner ? String(owner).trim().toLowerCase() : null;
+    const byOwner = new Map();
+    const bucketFor = email => {
+        const key = email || '';
+        if (!byOwner.has(key)) {
+            byOwner.set(key, { owner: key || null, projects: 0, calls: 0, inputTokens: 0, outputTokens: 0, byModel: {}, byProject: [] });
+        }
+        return byOwner.get(key);
+    };
+
+    let files = [];
+    try { files = await fs.readdir(DATA_DIR); } catch { files = []; }
+    for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        let project;
+        try { project = JSON.parse(await fs.readFile(path.join(DATA_DIR, file), 'utf-8')); } catch { continue; }
+        const projectOwnerEmail = projectOwner(project);
+        if (wanted !== null && wanted !== '*' && projectOwnerEmail !== wanted) continue;
+
+        const bucket = bucketFor(wanted === '*' ? '' : projectOwnerEmail);
+        const usage = Array.isArray(project.data?.apiUsage) ? project.data.apiUsage : [];
+        const perProject = { id: project.id || file.replace(/\.json$/, ''), title: project.title || '(untitled)', calls: 0, inputTokens: 0, outputTokens: 0 };
+        for (const u of usage) {
+            const model = u?.model || 'unknown';
+            const input = Number(u?.inputTokens) || 0;
+            const output = Number(u?.outputTokens) || 0;
+            if (!bucket.byModel[model]) bucket.byModel[model] = { calls: 0, inputTokens: 0, outputTokens: 0 };
+            bucket.byModel[model].calls += 1;
+            bucket.byModel[model].inputTokens += input;
+            bucket.byModel[model].outputTokens += output;
+            perProject.calls += 1;
+            perProject.inputTokens += input;
+            perProject.outputTokens += output;
+        }
+        bucket.projects += 1;
+        bucket.calls += perProject.calls;
+        bucket.inputTokens += perProject.inputTokens;
+        bucket.outputTokens += perProject.outputTokens;
+        bucket.byProject.push(perProject);
+    }
+
+    for (const bucket of byOwner.values()) {
+        bucket.byProject.sort((a, b) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens));
+    }
+    if (wanted === '*') return bucketFor('');
+    if (wanted !== null) return bucketFor(wanted);
+    return { owners: [...byOwner.values()].sort((a, b) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens)) };
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 const {
@@ -497,6 +571,15 @@ const { agent8Coverage } = require('./agents/agent_9_coverage');
 const { rewriteScene } = require('./agents/agent_10_rewrite');
 const { generateStyleFile, generateTrainedStyle, parseStyleFile, stampStyleFrontMatter } = require('./agents/agent_7_style');
 const { diffStyleSections } = require('./utils/style_diff');
+const { createStyleStore } = require('./utils/style_store');
+
+// ─── Style ownership (multi-user Phase 3) ────────────────────────────────────
+// Every read and write of a style file goes through this store, which is where
+// "shared library vs someone's private style" is decided (utils/style_store.js).
+// ⚠️ Do not read STYLES_DIR directly from a route or helper. The remaining direct
+// readers of the directory are: seedBundledStyles (startup, system context) and
+// styleSlugExists (uniqueness — deliberately global, see the note above it).
+const styleStore = createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, ForbiddenError });
 const {
     buildMemorySourcePromptBlock,
     buildMemorySourceSystemInstruction
@@ -698,27 +781,29 @@ async function loadProjectStyle(projectData) {
         return { styleContent: null, styleWarning: 'Invalid style slug — drafting without style directives.', referenceContent: null };
     }
 
-    // Try new naming first (-directive.md), fall back to legacy (.md)
-    let styleContent = null, referenceContent = null, styleWarning = null;
-    try {
-        styleContent = await fs.readFile(path.join(STYLES_DIR, `${slug}-directive.md`), 'utf-8');
-    } catch {
-        try {
-            styleContent = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
-        } catch {
-            console.warn(`Style file "${slug}" not found — drafting without style directives.`);
-            styleWarning = `The style "${slug}" is no longer available. Drafting without style directives.`;
-        }
+    // Through the style chokepoint: a style the caller may not see (someone else's
+    // private style, or an unowned one awaiting migration) drafts as "no longer
+    // available", the same as a deleted one. Draft-time is the read that matters
+    // most — it is where a private directive would otherwise leak into another
+    // tenant's prompt with nothing in any log.
+    const style = await styleStore.tryReadStyle(slug);
+    if (!style || !style.directive) {
+        console.warn(`Style file "${slug}" not found — drafting without style directives.`);
+        return {
+            styleContent: null,
+            styleWarning: `The style "${slug}" is no longer available. Drafting without style directives.`,
+            referenceContent: null
+        };
     }
-
-    // Load full reference if it exists (Tier 3 trained styles only)
-    try {
-        referenceContent = await fs.readFile(path.join(STYLES_DIR, `${slug}-reference.md`), 'utf-8');
-    } catch { /* no reference = Tier 2 conversational or legacy style */ }
-
-    return { styleContent, styleWarning, referenceContent };
+    return { styleContent: style.directive, styleWarning: null, referenceContent: style.reference };
 }
 
+// Slug uniqueness is checked against the whole directory, not the caller's slice
+// of it: slugs are filenames, and two people cannot both own `noir-directive.md`.
+// The cost is a small oracle — creating "noir" when someone else already has one
+// yields "noir-2" — which reveals that a slug is taken, not whose it is or what it
+// says. Per-user directories would close it at the price of a file-layout migration;
+// not worth it for a tester build.
 async function styleSlugExists(slug) {
     for (const suffix of ['-directive.md', '-reference.md', '.md']) {
         try {
@@ -1923,18 +2008,12 @@ async function buildGlobalStyleAssistantContext() {
     let contextBlock = `## STYLE CREATOR
 You are helping the writer create a reusable style outside any single project. There is no active project artifact to revise. Use the generate_style tool only when the writer confirms a concrete style direction.`;
 
-    const existingStyles = [];
+    // Owner-scoped via the style store: the shared library plus the caller's own
+    // styles. Another tenant's style names are content too — a trained style is
+    // usually named after the writer it was trained on.
+    let existingStyles = [];
     try {
-        const files = await fs.readdir(STYLES_DIR);
-        for (const file of files) {
-            if (!file.endsWith('-directive.md') && !file.endsWith('.md')) continue;
-            if (file.endsWith('-reference.md')) continue;
-            try {
-                const raw = await fs.readFile(path.join(STYLES_DIR, file), 'utf-8');
-                const { meta } = parseStyleFile(raw);
-                existingStyles.push(meta.name || file.replace(/-directive\.md$|\.md$/g, ''));
-            } catch {}
-        }
+        existingStyles = (await styleStore.listStyles()).map(style => style.meta.name || style.slug);
     } catch {}
 
     if (existingStyles.length > 0) {
@@ -2976,19 +3055,10 @@ function stageDataForReadiness(projectData, stageId) {
             return JSON.stringify(data.stage6_scenes || [], null, 2);
         case 7: {
             const styleSlug = data.stage7_style || null;
-            let styleContent = '';
-            if (styleSlug) {
-                try {
-                    styleContent = fsSync.readFileSync(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
-                } catch {
-                    try {
-                        styleContent = fsSync.readFileSync(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
-                    } catch {
-                        styleContent = '';
-                    }
-                }
-            }
-            return JSON.stringify({ slug: styleSlug, content: styleContent }, null, 2);
+            // Sync caller (readiness hashing) — the store's sync twin applies the
+            // same access rule; an inaccessible style hashes like a missing one.
+            const style = styleSlug && isValidSlug(styleSlug) ? styleStore.tryReadStyleSync(styleSlug) : null;
+            return JSON.stringify({ slug: styleSlug, content: style?.directive || '' }, null, 2);
         }
         case 8: {
             const scenes = [];
@@ -3727,32 +3797,19 @@ async function buildStageDataForAssistant(projectData, stageId, sceneNumber) {
             }
             break;
         case 7: {
-            const savedStyleNames = [];
+            // Both reads go through the style store: the library listing is the
+            // caller's slice of it, and the current style is only quoted if the
+            // caller may see it (a project can point at a slug it no longer may).
+            let savedStyleNames = [];
             try {
-                const styleFiles = await fs.readdir(STYLES_DIR);
-                for (const f of styleFiles) {
-                    if (!f.endsWith('-directive.md') && !f.endsWith('.md')) continue;
-                    if (f.endsWith('-reference.md')) continue;
-                    try {
-                        const raw = await fs.readFile(path.join(STYLES_DIR, f), 'utf-8');
-                        const { meta } = parseStyleFile(raw);
-                        if (meta.name) savedStyleNames.push(meta.name);
-                    } catch {}
-                }
+                savedStyleNames = (await styleStore.listStyles()).map(style => style.meta.name).filter(Boolean);
             } catch {}
             const styleSlug = projectData.data?.stage7_style;
             if (styleSlug) {
-                try {
-                    let styleContent;
-                    try {
-                        styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf8');
-                    } catch {
-                        styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf8');
-                    }
-                    stageData = `Current style file (${styleSlug}):\n${styleContent}`;
-                } catch {
-                    stageData = 'No style file loaded yet.';
-                }
+                const style = isValidSlug(styleSlug) ? await styleStore.tryReadStyle(styleSlug) : null;
+                stageData = style?.directive
+                    ? `Current style file (${styleSlug}):\n${style.directive}`
+                    : 'No style file loaded yet.';
             } else {
                 stageData = 'No style selected yet. Help the writer define their style.';
             }
@@ -4025,11 +4082,24 @@ function requireAdmin(req, res, next) {
 }
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
+// The AI limiters are keyed to the PERSON, not the IP (multi-user Phase 3). Two
+// testers behind one NAT — an office, a household, a conference — would otherwise
+// share one bucket, and one of them generating a Scene Blueprint would 429 the
+// other's Pitch. Every route that mounts these limiters mounts them AFTER
+// requireAuth, so `req.userEmail` is resolved by the time the key is computed;
+// unauthenticated requests never reach a limiter. Break-glass and open mode carry
+// no email and fall back to the IP bucket, which is the pre-Phase-3 behaviour.
+// ⚠️ Keep the ordering: `requireAuth, aiLimiter` — a limiter mounted before
+// requireAuth would silently key everyone by IP again.
+function limiterKey(req) {
+    return req.userEmail ? `user:${req.userEmail}` : `ip:${ipKeyGenerator(req.ip)}`;
+}
 const aiLimiter = rateLimit({
     windowMs: 60 * 1000,      // 1 minute window
-    max: 30,                   // max 30 AI calls per IP per minute
+    max: 30,                   // max 30 AI calls per person per minute
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: limiterKey,
     handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
 });
 const strictLimiter = rateLimit({
@@ -4037,6 +4107,7 @@ const strictLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: limiterKey,
     handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
 });
 // The OAuth handshake is unauthenticated by necessity, and /auth/google/callback
@@ -4290,6 +4361,7 @@ registerStyleRoutes(app, {
     loadSkill,
     generateContent,
     STYLES_DIR,
+    styleStore,
     normalizeStage3CharactersForPipeline
 });
 
@@ -4301,6 +4373,8 @@ registerProjectRoutes(app, {
     path,
     DATA_ROOT,
     DATA_DIR,
+    STYLES_DIR,
+    BUNDLED_STYLES_DIR,
     SETTINGS_PATH,
     appSettings,
     RUNTIME_API_KEYS_ENABLED,
@@ -4325,6 +4399,7 @@ registerProjectRoutes(app, {
     stampGenerated,
     stampRevised,
     removeProjectSourceAssets,
+    usageRollup,
     sendApiError
 });
 
@@ -4446,6 +4521,16 @@ if (require.main === module) {
 
 module.exports = {
     app,
+    // For the route harness: tests boot the app without startServer(), so a test
+    // that needs the bundled styles seeded into its throwaway DATA_ROOT calls this
+    // — the same seed prod runs, so the test and the deployment agree on what
+    // "bundled" means.
+    initDb,
+    styleStore,
+    requireAuth,
+    upload,
+    loadProjectStyle,
+    buildGlobalStyleAssistantContext,
     buildStage10PlannerSceneList,
     stage10SceneHasDraft,
     buildStage10RewritePlanPrompt,

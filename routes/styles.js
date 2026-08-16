@@ -38,8 +38,16 @@ function registerStyleRoutes(app, deps) {
         loadSkill,
         generateContent,
         STYLES_DIR,
+        styleStore,
         normalizeStage3CharactersForPipeline
     } = deps;
+
+    // ⚠️ Multi-user Phase 3: every READ of a style file in this module goes through
+    // `styleStore` (utils/style_store.js), which decides shared-vs-private and
+    // refuses with 404 what the caller may not see. `STYLES_DIR` is used here only
+    // to place NEW files. If you find yourself writing `fs.readFile(path.join(
+    // STYLES_DIR, ...))` in a route, you are about to serve someone's private style
+    // to someone else.
 
     // Generate a style skill file from chat/form input
     app.post('/api/generate-stage7-style', requireAuth, aiLimiter, upload.array('sampleFiles', 5), async (req, res) => {
@@ -84,9 +92,13 @@ function registerStyleRoutes(app, deps) {
             let previousDirective = '';
             let ownsPreviousStyle = false;
             if (previousSlug && projectId && isValidSlug(previousSlug)) {
-                try {
-                    previousDirective = await fs.readFile(path.join(STYLES_DIR, `${previousSlug}-directive.md`), 'utf-8');
-                    const { meta: prevMeta } = parseStyleFile(previousDirective);
+                // Through the store: a previous style the caller may not see reads as
+                // absent, so the refine falls through to minting a new style — the
+                // same safe fallthrough as every other "not ours" case below.
+                const previous = await styleStore.tryReadStyle(previousSlug);
+                if (previous?.directive) {
+                    previousDirective = previous.directive;
+                    const prevMeta = previous.meta;
                     const tier = String(prevMeta.tier).toLowerCase();
                     // Presets are shared library assets. TRAINED styles are excluded for a
                     // different reason: their directive is a DISTILLATION of a paired
@@ -95,11 +107,12 @@ function registerStyleRoutes(app, deps) {
                     // asserting a provenance the file no longer has — the artifact would
                     // claim to be derived from an analysis it had just been divorced from.
                     // Both fall through to minting a new style, which is the old behaviour.
-                    ownsPreviousStyle = tier !== 'preset'
+                    // `editable` adds the Phase 3 rule on top: never rewrite a shared
+                    // library style in place, whatever its tier line says.
+                    ownsPreviousStyle = previous.editable
+                        && tier !== 'preset'
                         && tier !== 'trained'
                         && String(prevMeta.project_id || '') === String(projectId);
-                } catch {
-                    previousDirective = '';
                 }
             }
 
@@ -132,12 +145,17 @@ function registerStyleRoutes(app, deps) {
             // `created` is server-stamped for the same reason: the model has no clock
             // and invents plausible dates (a style generated 2026-08-09 arrived stamped
             // "2026-03-30"; presets carry "2024-05-24"). A refine keeps the original date.
+            // `owner` (multi-user Phase 3) is the caller's email under a scoped identity
+            // — it is what makes the style private to them; a refine keeps the original.
             const styleContent = stampStyleFrontMatter(rawStyleContent, {
                 slug,
                 created: ownsPreviousStyle
                     ? (parseStyleFile(previousDirective).meta.created || new Date().toISOString().slice(0, 10))
                     : new Date().toISOString().slice(0, 10),
-                ...(projectId ? { project_id: String(projectId) } : {})
+                ...(projectId ? { project_id: String(projectId) } : {}),
+                owner: ownsPreviousStyle
+                    ? (parseStyleFile(previousDirective).meta.owner || styleStore.ownerStampForNewStyle())
+                    : styleStore.ownerStampForNewStyle()
             });
             const { meta } = parseStyleFile(styleContent);
 
@@ -188,17 +206,9 @@ function registerStyleRoutes(app, deps) {
             const filePath = getProjectFilePath(projectId);
             const projectData = await readProjectJSONById(projectId);
 
-            // Load style file — try new naming first, fall back to legacy
-            let styleContent;
-            try {
-                styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf-8');
-            } catch {
-                try {
-                    styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
-                } catch {
-                    throw new NotFoundError(`Style "${styleSlug}" not found`);
-                }
-            }
+            // 404 for a style the caller may not see, before any model call.
+            const { directive: styleContent } = await styleStore.readStyle(styleSlug);
+            if (!styleContent) throw new NotFoundError(`Style "${styleSlug}" not found`);
 
             // Get the target scene
             const allScenes = [];
@@ -257,50 +267,22 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         }
     });
 
-    // List all available styles
+    // List the styles the caller may use: the shared library plus their own.
     app.get('/api/styles', requireAuth, async (req, res) => {
         try {
-            let files;
-            try { files = await fs.readdir(STYLES_DIR); } catch { files = []; }
-
-            // Group files by slug: [slug]-directive.md, [slug]-reference.md, or legacy [slug].md
-            const styleMap = new Map(); // slug -> { directiveFile, referenceFile }
-            for (const file of files) {
-                if (!file.endsWith('.md')) continue;
-                const tieredMatch = file.match(/^(.+?)-(directive|reference)\.md$/);
-                if (tieredMatch) {
-                    const [, slug, type] = tieredMatch;
-                    if (!styleMap.has(slug)) styleMap.set(slug, {});
-                    styleMap.get(slug)[type === 'directive' ? 'directiveFile' : 'referenceFile'] = file;
-                } else {
-                    // Legacy single-file style
-                    const slug = file.replace(/\.md$/, '');
-                    if (!styleMap.has(slug)) styleMap.set(slug, {});
-                    styleMap.get(slug).directiveFile = file;
-                }
-            }
-
-            const styles = [];
-            for (const [slug, entry] of styleMap) {
-                // Read the directive (primary metadata source)
-                const metaFile = entry.directiveFile || entry.referenceFile;
-                if (!metaFile) continue;
-                try {
-                    const raw = await fs.readFile(path.join(STYLES_DIR, metaFile), 'utf-8');
-                    const { meta } = parseStyleFile(raw);
-                    styles.push({
-                        slug,
-                        name: meta.name || slug,
-                        tonal_summary: meta.tonal_summary || '',
-                        references: meta.references || [],
-                        created: meta.created || '',
-                        tier: meta.tier || 'conversational',
-                        hasReference: !!entry.referenceFile
-                    });
-                } catch {
-                    styles.push({ slug, name: slug, tonal_summary: '', references: [], created: '', tier: 'conversational', hasReference: false });
-                }
-            }
+            const styles = (await styleStore.listStyles()).map(({ slug, meta, hasReference, bundled, editable }) => ({
+                slug,
+                name: meta.name || slug,
+                tonal_summary: meta.tonal_summary || '',
+                references: meta.references || [],
+                created: meta.created || '',
+                tier: meta.tier || 'conversational',
+                hasReference,
+                // `bundled` = shared library, visible to everyone; `editable` = the caller
+                // may PUT/DELETE it. The UI hides Edit/Delete when editable is false.
+                bundled,
+                editable
+            }));
             res.json({ styles });
         } catch (error) {
             console.error('list styles error:', error.message);
@@ -314,17 +296,10 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             const { projectId, styleSlug } = req.body;
             if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) throw new BadRequestError('Missing or invalid projectId or styleSlug');
 
-            // Verify style exists — try new naming first, fall back to legacy
-            let styleContent = null;
-            try {
-                styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}-directive.md`), 'utf-8');
-            } catch {
-                try {
-                    styleContent = await fs.readFile(path.join(STYLES_DIR, `${styleSlug}.md`), 'utf-8');
-                } catch {
-                    throw new NotFoundError(`Style "${styleSlug}" not found`);
-                }
-            }
+            // Verify the style exists AND the caller may see it — a project must not
+            // be able to point at another tenant's private style by slug.
+            const { directive: styleContent } = await styleStore.readStyle(styleSlug);
+            if (!styleContent) throw new NotFoundError(`Style "${styleSlug}" not found`);
 
             const filePath = getProjectFilePath(projectId);
             const projectData = await readProjectJSONById(projectId);
@@ -398,7 +373,10 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
                 slug,
                 // Server clock, not the model's guess — see the conversational path.
                 created: new Date().toISOString().slice(0, 10),
-                ...(projectId ? { project_id: String(projectId) } : {})
+                ...(projectId ? { project_id: String(projectId) } : {}),
+                // Phase 3: private to its creator. Stamped on BOTH files — the reference
+                // is the analysis of the screenplays they uploaded, the more sensitive half.
+                owner: styleStore.ownerStampForNewStyle()
             };
             const stampedReference = stampStyleFrontMatter(reference, stampFields);
             const stampedDirective = stampStyleFrontMatter(directive, { ...stampFields, paired_with: `${slug}-reference` });
@@ -433,35 +411,23 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         try {
             const { slug } = req.params;
             if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
-            let directive = null, reference = null;
 
-            // Try new naming first, fall back to legacy
-            try {
-                directive = await fs.readFile(path.join(STYLES_DIR, `${slug}-directive.md`), 'utf-8');
-            } catch {
-                try {
-                    directive = await fs.readFile(path.join(STYLES_DIR, `${slug}.md`), 'utf-8');
-                } catch {
-                    throw new NotFoundError(`Style "${slug}" not found`);
-                }
-            }
+            // 404 for absent AND for not-yours, indistinguishably (style store).
+            const style = await styleStore.readStyle(slug);
+            if (!style.directive) throw new NotFoundError(`Style "${slug}" not found`);
+            const { directive, reference, meta, body, tier, bundled, editable } = style;
 
-            // Load reference if it exists (Tier 3 only)
-            try {
-                reference = await fs.readFile(path.join(STYLES_DIR, `${slug}-reference.md`), 'utf-8');
-            } catch { /* no reference = Tier 2 */ }
-
-            const { meta, body } = parseStyleFile(directive);
-            const tier = reference ? 'trained' : (meta.tier || 'conversational');
-
-            res.json({ slug, directive, reference, meta, body, tier });
+            res.json({ slug, directive, reference, meta, body, tier, bundled, editable });
         } catch (error) {
             console.error('get-style error:', error.message);
             sendApiError(res, error, 'Failed to load style');
         }
     });
 
-    // Update a style's directive content
+    // Update a style's directive content.
+    // 404 if the caller may not see it, 403 if it is a shared library style. The
+    // store re-applies server-owned provenance (slug/owner/created/project_id) from
+    // the file on disk — the client edits the body, never the ownership.
     app.put('/api/styles/:slug', requireAuth, async (req, res) => {
         try {
             const { slug } = req.params;
@@ -469,22 +435,7 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
             if (!content) throw new BadRequestError('Missing content');
 
-            // Verify the file exists first
-            let filePath;
-            try {
-                filePath = path.join(STYLES_DIR, `${slug}-directive.md`);
-                await fs.access(filePath);
-            } catch {
-                try {
-                    filePath = path.join(STYLES_DIR, `${slug}.md`);
-                    await fs.access(filePath);
-                } catch {
-                    throw new NotFoundError(`Style "${slug}" not found`);
-                }
-            }
-
-            await atomicWriteFile(filePath, content);
-            const { meta } = parseStyleFile(content);
+            const { meta } = await styleStore.writeDirective(slug, content, { atomicWriteFile });
             res.json({ slug, meta });
         } catch (error) {
             console.error('update-style error:', error.message);
@@ -492,22 +443,15 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         }
     });
 
-    // Delete a style (removes both directive and reference files)
+    // Delete a style (removes both directive and reference files). Same refusal
+    // rules as PUT; a shared library style cannot be deleted by anyone signed in —
+    // and would only come back at the next restart anyway (seedBundledStyles).
     app.delete('/api/styles/:slug', requireAuth, async (req, res) => {
         try {
             const { slug } = req.params;
             if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
-            let deleted = false;
 
-            // Delete all possible files for this slug
-            for (const suffix of ['-directive.md', '-reference.md', '.md']) {
-                try {
-                    await fs.unlink(path.join(STYLES_DIR, `${slug}${suffix}`));
-                    deleted = true;
-                } catch { /* file doesn't exist, that's fine */ }
-            }
-
-            if (!deleted) throw new NotFoundError('Style not found');
+            await styleStore.deleteStyle(slug);
             res.json({ deleted: true, slug });
         } catch (error) {
             console.error('delete-style error:', error.message);
