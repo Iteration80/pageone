@@ -155,7 +155,13 @@ function registerStyleRoutes(app, deps) {
                 ...(projectId ? { project_id: String(projectId) } : {}),
                 owner: ownsPreviousStyle
                     ? (parseStyleFile(previousDirective).meta.owner || styleStore.ownerStampForNewStyle())
-                    : styleStore.ownerStampForNewStyle()
+                    : styleStore.ownerStampForNewStyle(),
+                // A refine regenerates the front matter from the model's output, which
+                // knows nothing about sharing — carry the owner's visibility choice over
+                // or a refined shared style would silently go private again.
+                ...(ownsPreviousStyle && parseStyleFile(previousDirective).meta.visibility
+                    ? { visibility: parseStyleFile(previousDirective).meta.visibility }
+                    : {})
             });
             const { meta } = parseStyleFile(styleContent);
 
@@ -206,8 +212,9 @@ function registerStyleRoutes(app, deps) {
             const filePath = getProjectFilePath(projectId);
             const projectData = await readProjectJSONById(projectId);
 
-            // 404 for a style the caller may not see, before any model call.
-            const { directive: styleContent } = await styleStore.readStyle(styleSlug);
+            // 404 for a style the caller may not see, 403 for one they may see but not
+            // use (someone else's shared style — copy it first), before any model call.
+            const { directive: styleContent } = await styleStore.readStyleForUse(styleSlug);
             if (!styleContent) throw new NotFoundError(`Style "${styleSlug}" not found`);
 
             // Get the target scene
@@ -270,7 +277,7 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
     // List the styles the caller may use: the shared library plus their own.
     app.get('/api/styles', requireAuth, async (req, res) => {
         try {
-            const styles = (await styleStore.listStyles()).map(({ slug, meta, hasReference, bundled, editable }) => ({
+            const styles = (await styleStore.listStyles()).map(({ slug, meta, hasReference, bundled, owner, visibility, editable, usable }) => ({
                 slug,
                 name: meta.name || slug,
                 tonal_summary: meta.tonal_summary || '',
@@ -278,10 +285,16 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
                 created: meta.created || '',
                 tier: meta.tier || 'conversational',
                 hasReference,
-                // `bundled` = shared library, visible to everyone; `editable` = the caller
-                // may PUT/DELETE it. The UI hides Edit/Delete when editable is false.
+                // `bundled` = the shared library, visible to everyone. `visibility` =
+                // private|shared, set by the owner. `usable` = the caller may attach it to
+                // a project (own or bundled); another tester's shared style is visible but
+                // not usable — the UI offers "Copy to my library" instead of "Use This".
+                // `editable` = the caller may PUT/DELETE it (own only).
                 bundled,
-                editable
+                owner,
+                visibility,
+                editable,
+                usable
             }));
             res.json({ styles });
         } catch (error) {
@@ -296,9 +309,10 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             const { projectId, styleSlug } = req.body;
             if (!isValidProjectId(projectId) || !isValidSlug(styleSlug)) throw new BadRequestError('Missing or invalid projectId or styleSlug');
 
-            // Verify the style exists AND the caller may see it — a project must not
-            // be able to point at another tenant's private style by slug.
-            const { directive: styleContent } = await styleStore.readStyle(styleSlug);
+            // Verify the style exists AND the caller may USE it — own or bundled. A
+            // project must never point at another tenant's file, private OR shared:
+            // shared styles are copied into your library, not linked (link-free sharing).
+            const { directive: styleContent } = await styleStore.readStyleForUse(styleSlug);
             if (!styleContent) throw new NotFoundError(`Style "${styleSlug}" not found`);
 
             const filePath = getProjectFilePath(projectId);
@@ -415,9 +429,9 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
             // 404 for absent AND for not-yours, indistinguishably (style store).
             const style = await styleStore.readStyle(slug);
             if (!style.directive) throw new NotFoundError(`Style "${slug}" not found`);
-            const { directive, reference, meta, body, tier, bundled, editable } = style;
+            const { directive, reference, meta, body, tier, bundled, owner, visibility, editable, usable } = style;
 
-            res.json({ slug, directive, reference, meta, body, tier, bundled, editable });
+            res.json({ slug, directive, reference, meta, body, tier, bundled, owner, visibility, editable, usable });
         } catch (error) {
             console.error('get-style error:', error.message);
             sendApiError(res, error, 'Failed to load style');
@@ -440,6 +454,48 @@ Output ONLY the raw Fountain-formatted text. No code blocks, no introductory tex
         } catch (error) {
             console.error('update-style error:', error.message);
             sendApiError(res, error, 'Failed to update style');
+        }
+    });
+
+    // Owner-only: share a style with every signed-in tester, or take it private
+    // again. Read-only for everyone else either way; they copy it to use it. Sharing
+    // a trained style shares its reference too — the UI says so on the toggle.
+    app.patch('/api/styles/:slug/visibility', requireAuth, async (req, res) => {
+        try {
+            const { slug } = req.params;
+            const visibility = String(req.body?.visibility || '').trim().toLowerCase();
+            if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
+            if (visibility !== 'private' && visibility !== 'shared') throw new BadRequestError('visibility must be "private" or "shared"');
+
+            const style = await styleStore.setVisibility(slug, visibility, { atomicWriteFile });
+            res.json({ slug, visibility: style.visibility, editable: style.editable, usable: style.usable });
+        } catch (error) {
+            console.error('set-style-visibility error:', error.message);
+            sendApiError(res, error, 'Failed to change style visibility');
+        }
+    });
+
+    // Copy any style the caller may see into their own library as a new private
+    // style they own — the way to use another tester's shared style, and the way to
+    // get an editable copy of a bundled preset. 404 for a style they may not see.
+    app.post('/api/styles/:slug/copy', requireAuth, async (req, res) => {
+        try {
+            const { slug } = req.params;
+            if (!isValidSlug(slug)) throw new BadRequestError('Invalid slug');
+
+            const copy = await styleStore.copyStyle(slug, { uniqueStyleSlug, atomicWriteFile });
+            res.status(201).json({
+                slug: copy.slug,
+                copiedFrom: slug,
+                content: copy.directive,
+                meta: copy.meta,
+                tier: copy.tier,
+                editable: copy.editable,
+                usable: copy.usable
+            });
+        } catch (error) {
+            console.error('copy-style error:', error.message);
+            sendApiError(res, error, 'Failed to copy style');
         }
     });
 

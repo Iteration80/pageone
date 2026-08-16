@@ -153,7 +153,9 @@
 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid #1e293b">
                 <span id="styleDetailSavedIndicator" style="font-size:0.75rem;color:#4ade80">✓ Saved to library</span>
-                <div style="display:flex;gap:10px">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+                    <button id="btnStyleDetailShare" class="secondary-btn hidden" style="font-size:0.8rem" title="Shared styles are visible to everyone, read-only; they copy it to use it. Sharing a trained style shares its reference too.">Share</button>
+                    <button id="btnStyleDetailCopy" class="secondary-btn hidden" style="font-size:0.8rem" title="Make a private copy in your own library that you can edit and use">Copy to my library</button>
                     <button id="btnStyleDetailDelete" style="font-size:0.8rem;padding:6px 14px;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;border-radius:8px;cursor:pointer">Delete</button>
                     <button id="btnStyleDetailEdit" class="secondary-btn" style="font-size:0.8rem">Edit</button>
                     <button id="btnStyleDetailDone" class="primary-btn" style="font-size:0.8rem">Done</button>

@@ -787,8 +787,10 @@ async function loadProjectStyle(projectData) {
     // most — it is where a private directive would otherwise leak into another
     // tenant's prompt with nothing in any log.
     const style = await styleStore.tryReadStyle(slug);
-    if (!style || !style.directive) {
-        console.warn(`Style file "${slug}" not found — drafting without style directives.`);
+    // `usable`, not merely visible: another tester's SHARED style is viewable but a
+    // project must never draft with it — sharing is copy-based, not link-based.
+    if (!style || !style.directive || !style.usable) {
+        console.warn(`Style file "${slug}" not found or not usable by the caller — drafting without style directives.`);
         return {
             styleContent: null,
             styleWarning: `The style "${slug}" is no longer available. Drafting without style directives.`,

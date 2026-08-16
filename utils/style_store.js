@@ -8,13 +8,16 @@
  * to every signed-in user. Same shape as the project problem Phase 2 closed, and the
  * same fix: put the check where the file is resolved, so a route cannot forget it.
  *
- * Two kinds of style, one discriminator:
+ * Three states, two discriminators (bundled-ness by filename; visibility by front matter):
  *
- *   SHARED   — bundled with the app (BUNDLED_STYLES_DIR, seeded into STYLES_DIR at
- *              startup). Read-only for every signed-in person, visible to all.
+ *   LIBRARY  — bundled with the app (BUNDLED_STYLES_DIR, seeded into STYLES_DIR at
+ *              startup). Visible to all, usable by all, editable by none.
  *   PRIVATE  — created by a person. Carries `owner: <email>` in its front matter,
- *              stamped by the server at creation. Visible to, and editable by, its
- *              owner only.
+ *              stamped by the server at creation. Visible to, usable by, and
+ *              editable by its owner only.
+ *   SHARED   — a private style whose owner set `visibility: shared`. Visible to all
+ *              signed-in testers; still usable and editable by the OWNER ONLY. Others
+ *              copy it into their own library to use it (link-free sharing).
  *
  * ⚠️ "Bundled" is decided by FILENAME in BUNDLED_STYLES_DIR, not by the `tier:`
  * front-matter line or the Preset badge. The bundle ships two trained styles and one
@@ -44,7 +47,18 @@ const { hasScopedIdentity, currentUserEmail } = require('./request_identity');
 const { parseStyleFile, stampStyleFrontMatter } = require('../agents/agent_7_style');
 
 /** Front-matter fields the server owns. A PUT may rewrite the body; never these. */
-const PROVENANCE_FIELDS = ['slug', 'owner', 'created', 'project_id'];
+const PROVENANCE_FIELDS = ['slug', 'owner', 'created', 'project_id', 'visibility', 'copied_from'];
+
+/**
+ * Sharing (Carsten's call, 2026-08-16): a private style's owner may mark it
+ * `visibility: shared`. Everyone signed in can then SEE it — list it, open it,
+ * read both halves — but nobody else can attach it to a project or edit it. To
+ * use it they COPY it into their own library, which mints a private style of their
+ * own (`copied_from` records the source). Link-free by design: no project ever
+ * points at another tenant's file, so un-sharing (or deleting) a shared style can
+ * never make someone else's project draft unstyled.
+ */
+const VISIBILITIES = new Set(['private', 'shared']);
 
 function normaliseEmail(value) {
     return String(value || '').trim().toLowerCase();
@@ -78,23 +92,40 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
         return normaliseEmail(meta?.owner);
     }
 
-    /** Whether the current caller may READ this style. */
+    function isSharedByOwner(meta) {
+        return String(meta?.visibility || '').trim().toLowerCase() === 'shared';
+    }
+
+    /** Whether the current caller may READ this style (list it, open it). */
     function callerMayAccess(slug, meta) {
         if (!hasScopedIdentity()) return true;   // system call, break-glass, open dev
         if (isBundledSlug(slug)) return true;    // shared library
+        if (styleOwner(meta) === currentUserEmail()) return true;
+        return isSharedByOwner(meta);            // another tester's shared style: view only
+    }
+
+    /**
+     * Whether the current caller may USE this style — attach it to a project and
+     * draft with it. Own and bundled only. A style someone else shared is
+     * viewable, not usable: copy it first (see copyStyle). This is what keeps
+     * sharing link-free.
+     */
+    function callerMayUse(slug, meta) {
+        if (!hasScopedIdentity()) return true;
+        if (isBundledSlug(slug)) return true;
         return styleOwner(meta) === currentUserEmail();
     }
 
     /**
      * Whether the current caller may EDIT or DELETE this style: everything they may
-     * read, minus the shared library. Defined in terms of callerMayAccess on purpose
-     * — an owner clause repeated here would be unreachable (every write path reads
-     * first) and therefore untestable.
+     * USE, minus the shared library — i.e. their own styles. Defined in terms of
+     * callerMayUse (not callerMayAccess: since sharing, "may see" includes other
+     * testers' shared styles, which must stay read-only for them).
      */
     function callerMayModify(slug, meta) {
-        if (!callerMayAccess(slug, meta)) return false;
+        if (!callerMayUse(slug, meta)) return false;
         if (!hasScopedIdentity()) return true;
-        return !isBundledSlug(slug);             // shared and read-only
+        return !isBundledSlug(slug);             // shared library: read-only
     }
 
     /**
@@ -158,7 +189,10 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
             body,
             tier: reference ? 'trained' : (meta.tier || 'conversational'),
             bundled,
-            editable: callerMayModify(slug, meta)
+            owner: styleOwner(meta) || null,
+            visibility: isSharedByOwner(meta) ? 'shared' : 'private',
+            editable: callerMayModify(slug, meta),
+            usable: callerMayUse(slug, meta)
         };
     }
 
@@ -196,12 +230,27 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
 
     /**
      * Read a style the caller intends to change. 404 if it is not theirs to see,
-     * 403 if it is a shared library style — visible to all, editable by none.
+     * 403 if they may see it but not change it — the shared library, or another
+     * tester's shared style.
      */
     async function readStyleForWrite(slug) {
         const style = await readStyle(slug);
         if (!style.editable) {
-            throw new ForbiddenError(`"${style.meta.name || slug}" is a shared library style and cannot be changed.`);
+            throw new ForbiddenError(style.bundled
+                ? `"${style.meta.name || slug}" is a shared library style and cannot be changed.`
+                : `"${style.meta.name || slug}" is shared by ${style.owner} and is read-only — copy it to your library to edit it.`);
+        }
+        return style;
+    }
+
+    /**
+     * Read a style the caller intends to attach to a project. 404 if unseen, 403
+     * if seen-but-not-usable (someone else's shared style — copy it first).
+     */
+    async function readStyleForUse(slug) {
+        const style = await readStyle(slug);
+        if (!style.usable) {
+            throw new ForbiddenError(`"${style.meta.name || slug}" is shared by ${style.owner} — copy it to your library to use it.`);
         }
         return style;
     }
@@ -244,7 +293,10 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
                 meta,
                 hasReference: Boolean(entry.referenceFile),
                 bundled: isBundledSlug(slug),
-                editable: callerMayModify(slug, meta)
+                owner: styleOwner(meta) || null,
+                visibility: isSharedByOwner(meta) ? 'shared' : 'private',
+                editable: callerMayModify(slug, meta),
+                usable: callerMayUse(slug, meta)
             });
         }
         return styles;
@@ -269,6 +321,57 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
         return { ...existing, directive: stamped, meta: parseStyleFile(stamped).meta };
     }
 
+    /**
+     * Owner-only: flip a private style to shared or back. Stamped on BOTH files —
+     * sharing a trained style shares its reference (the analysis of the uploaded
+     * screenplays), and the reference must say so too. Bundled styles are refused
+     * (403) by readStyleForWrite; they are already shared with everyone.
+     */
+    async function setVisibility(slug, visibility, { atomicWriteFile }) {
+        const next = String(visibility || '').trim().toLowerCase();
+        if (!VISIBILITIES.has(next)) throw new Error(`Invalid visibility "${visibility}"`);
+        const existing = await readStyleForWrite(slug);
+        for (const [filePath, content] of [[existing.directivePath, existing.directive], [existing.referencePath, existing.reference]]) {
+            if (!filePath || !content) continue;
+            await atomicWriteFile(filePath, stampStyleFrontMatter(content, { visibility: next }));
+        }
+        return readStyle(slug);
+    }
+
+    /**
+     * Copy any style the caller may SEE into their own library as a new PRIVATE
+     * style they own — the only way to use another tester's shared style, and a
+     * handy way to get an editable copy of a bundled preset. Both files are
+     * copied; the reference's `paired_with` follows the new slug. `project_id` is
+     * dropped (the copy belongs to no project until a refine stamps one);
+     * `copied_from` records provenance.
+     */
+    async function copyStyle(slug, { uniqueStyleSlug, atomicWriteFile }) {
+        const source = await readStyle(slug);            // 404 if not visible
+        if (!source.directive) throw new NotFoundError(`Style "${slug}" not found`);
+        const newSlug = await uniqueStyleSlug(source.meta.slug || slug);
+        const stamp = {
+            slug: newSlug,
+            owner: ownerStampForNewStyle(),
+            created: new Date().toISOString().slice(0, 10),
+            visibility: 'private',
+            copied_from: slug
+        };
+        // `stampStyleFrontMatter` only sets keys; the copy must not inherit the
+        // source's project_id, so strip that line before stamping.
+        const dropProjectId = text => text.replace(/^project_id:.*\n/m, '');
+        const directive = stampStyleFrontMatter(dropProjectId(source.directive), {
+            ...stamp,
+            ...(source.reference ? { paired_with: `${newSlug}-reference` } : {})
+        });
+        await atomicWriteFile(path.join(STYLES_DIR, `${newSlug}-directive.md`), directive);
+        if (source.reference) {
+            const reference = stampStyleFrontMatter(dropProjectId(source.reference), { ...stamp, paired_with: `${newSlug}-directive` });
+            await atomicWriteFile(path.join(STYLES_DIR, `${newSlug}-reference.md`), reference);
+        }
+        return readStyle(newSlug);
+    }
+
     /** Delete every file of a style the caller may modify. */
     async function deleteStyle(slug) {
         const existing = await readStyleForWrite(slug);
@@ -288,14 +391,18 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
         styleOwner,
         callerMayAccess,
         callerMayModify,
+        callerMayUse,
         ownerStampForNewStyle,
         readStyle,
         readStyleSync,
         tryReadStyle,
         tryReadStyleSync,
         readStyleForWrite,
+        readStyleForUse,
         listStyles,
         writeDirective,
+        setVisibility,
+        copyStyle,
         deleteStyle
     };
 }

@@ -434,6 +434,136 @@ test('an open server is unaffected: unowned styles are visible and editable', as
     });
 });
 
+// ─── Sharing: view for everyone, use and edit for the owner, copy to use ────────
+//
+// Carsten's design (2026-08-16): sharing is COPY-based, never link-based. Another
+// tester's shared style is visible, but a project can only be attached to a style
+// you own or a bundled one — so un-sharing can never break someone else's drafts.
+
+test('the owner may share a style; others can then see it but not edit, delete or attach it', async () => {
+    await withServer({}, async ({ request, dataRoot }) => {
+        seedStyle(dataRoot, { slug: 'alice-noir', owner: ALICE, name: 'Alice Noir', withReference: true });
+        const bobId = await createProject(request, BOB, 'Bob Script');
+
+        // Bob cannot share Alice's style for her.
+        const hijack = await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(BOB), json: { visibility: 'shared' } });
+        assert.equal(hijack.status, 404);
+        assert.doesNotMatch(readStyleFile(dataRoot, 'alice-noir-directive.md'), /^visibility:/m);
+
+        const share = await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'shared' } });
+        assert.equal(share.status, 200, share.text);
+        assert.equal(share.json.visibility, 'shared');
+        // Both halves say so — sharing a trained style shares its reference.
+        assert.match(readStyleFile(dataRoot, 'alice-noir-directive.md'), /^visibility: "shared"$/m);
+        assert.match(readStyleFile(dataRoot, 'alice-noir-reference.md'), /^visibility: "shared"$/m);
+
+        // Bob can now SEE it, with the flags the UI keys off.
+        const seen = await request('/api/styles/alice-noir', { cookies: as(BOB) });
+        assert.equal(seen.status, 200);
+        assert.equal(seen.json.owner, ALICE);
+        assert.equal(seen.json.visibility, 'shared');
+        assert.deepEqual([seen.json.editable, seen.json.usable], [false, false]);
+        assert.match(seen.json.reference, /Reference analysis/);
+        const listed = (await request('/api/styles', { cookies: as(BOB) })).json.styles.find(s => s.slug === 'alice-noir');
+        assert.ok(listed, 'shared style missing from Bob’s list');
+        assert.deepEqual([listed.usable, listed.editable, listed.owner], [false, false, ALICE]);
+
+        // ...but not EDIT, DELETE, or ATTACH it. These are 403 (he can see it exists).
+        const before = readStyleFile(dataRoot, 'alice-noir-directive.md');
+        assert.equal((await request('/api/styles/alice-noir', { method: 'PUT', cookies: as(BOB), json: { content: '---\nname: x\n---\nnope' } })).status, 403);
+        assert.equal((await request('/api/styles/alice-noir', { method: 'DELETE', cookies: as(BOB) })).status, 403);
+        assert.equal(readStyleFile(dataRoot, 'alice-noir-directive.md'), before, 'a refused write changed the shared style');
+        assert.ok(styleFileExists(dataRoot, 'alice-noir-reference.md'));
+        const attach = await request('/api/select-style', { method: 'POST', cookies: as(BOB), json: { projectId: bobId, styleSlug: 'alice-noir' } });
+        assert.equal(attach.status, 403, attach.text);
+        assert.match(attach.json.error, /copy it to your library/i);
+        assert.equal(projectOnDisk(dataRoot, bobId).data?.stage7_style, undefined);
+        const preview = await request('/api/preview-style-scene', { method: 'POST', cookies: as(BOB), json: { projectId: bobId, styleSlug: 'alice-noir' } });
+        assert.equal(preview.status, 403);
+
+        // The owner still uses and edits it as before.
+        const aliceId = await createProject(request, ALICE, 'Alice Script');
+        assert.equal((await request('/api/select-style', { method: 'POST', cookies: as(ALICE), json: { projectId: aliceId, styleSlug: 'alice-noir' } })).status, 200);
+        const edit = await request('/api/styles/alice-noir', { method: 'PUT', cookies: as(ALICE), json: { content: styleText({ name: 'Alice Noir', slug: 'alice-noir', owner: ALICE, body: 'Still mine.' }) } });
+        assert.equal(edit.status, 200, edit.text);
+        // And the edit did not un-share it (provenance re-stamped from disk).
+        assert.match(readStyleFile(dataRoot, 'alice-noir-directive.md'), /^visibility: "shared"$/m);
+
+        // Taking it private again hides it from Bob at once.
+        assert.equal((await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'private' } })).status, 200);
+        assert.equal((await request('/api/styles/alice-noir', { cookies: as(BOB) })).status, 404);
+
+        // Bundled styles cannot be re-shared or privatised by anyone.
+        assert.equal((await request(`/api/styles/${BUNDLED_PRESET}/visibility`, { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'private' } })).status, 403);
+        assert.equal((await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'public' } })).status, 400);
+    });
+});
+
+test('at draft time, another tester’s shared style is not used even if a project points at it', async () => {
+    // Defence in depth for the link-free rule: select-style already refuses, but a
+    // slug could land in a project some other way (import, old data). It must draft
+    // as "no longer available" for anyone but the owner.
+    await withServer({}, async ({ dataRoot, module: serverModule }) => {
+        const { runWithIdentity } = identityOf();
+        seedStyle(dataRoot, { slug: 'alice-noir', owner: ALICE, body: 'ALICE SHARED DIRECTIVE' });
+        fs.writeFileSync(path.join(dataRoot, 'styles', 'alice-noir-directive.md'),
+            readStyleFile(dataRoot, 'alice-noir-directive.md').replace('---\n\n## Voice', 'visibility: "shared"\n---\n\n## Voice'));
+        const projectData = { data: { stage7_style: 'alice-noir' } };
+        const forAlice = await runWithIdentity({ email: ALICE, method: 'session' }, () => serverModule.loadProjectStyle(projectData));
+        assert.match(forAlice.styleContent, /ALICE SHARED DIRECTIVE/);
+        const forBob = await runWithIdentity({ email: BOB, method: 'session' }, () => serverModule.loadProjectStyle(projectData));
+        assert.equal(forBob.styleContent, null);
+        assert.match(forBob.styleWarning, /no longer available/);
+    });
+});
+
+test('copying a shared style (or a bundled one) yields a private style of your own, both files, usable and editable', async () => {
+    await withServer({}, async ({ request, dataRoot }) => {
+        seedStyle(dataRoot, { slug: 'alice-noir', owner: ALICE, name: 'Alice Noir', withReference: true });
+        const bobId = await createProject(request, BOB, 'Bob Script');
+
+        // Private: Bob cannot even see it, so he cannot copy it.
+        assert.equal((await request('/api/styles/alice-noir/copy', { method: 'POST', cookies: as(BOB) })).status, 404);
+
+        await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'shared' } });
+        const copy = await request('/api/styles/alice-noir/copy', { method: 'POST', cookies: as(BOB) });
+        assert.equal(copy.status, 201, copy.text);
+        const newSlug = copy.json.slug;
+        assert.notEqual(newSlug, 'alice-noir');
+        assert.equal(copy.json.copiedFrom, 'alice-noir');
+        assert.deepEqual([copy.json.editable, copy.json.usable], [true, true]);
+
+        // On disk: Bob's, private, both halves, paired to each other, provenance recorded.
+        const dir = readStyleFile(dataRoot, `${newSlug}-directive.md`);
+        const ref = readStyleFile(dataRoot, `${newSlug}-reference.md`);
+        for (const text of [dir, ref]) {
+            assert.match(text, new RegExp(`^owner: "${BOB}"$`, 'm'));
+            assert.match(text, /^visibility: "private"$/m);
+            assert.match(text, /^copied_from: "alice-noir"$/m);
+            assert.match(text, new RegExp(`^slug: "${newSlug}"$`, 'm'));
+        }
+        assert.match(dir, new RegExp(`^paired_with: "${newSlug}-reference"$`, 'm'));
+        assert.match(ref, new RegExp(`^paired_with: "${newSlug}-directive"$`, 'm'));
+
+        // Bob can now use and edit HIS copy; Alice cannot see it; the original is untouched.
+        assert.equal((await request('/api/select-style', { method: 'POST', cookies: as(BOB), json: { projectId: bobId, styleSlug: newSlug } })).status, 200);
+        assert.equal(projectOnDisk(dataRoot, bobId).data.stage7_style, newSlug);
+        assert.equal((await request(`/api/styles/${newSlug}`, { cookies: as(ALICE) })).status, 404);
+        assert.match(readStyleFile(dataRoot, 'alice-noir-directive.md'), new RegExp(`^owner: "${ALICE}"$`, 'm'));
+
+        // Alice un-sharing afterwards does not touch Bob's copy or his project.
+        await request('/api/styles/alice-noir/visibility', { method: 'PATCH', cookies: as(ALICE), json: { visibility: 'private' } });
+        assert.equal((await request(`/api/styles/${newSlug}`, { cookies: as(BOB) })).status, 200);
+
+        // A bundled preset copies too — an editable duplicate for whoever wants one.
+        const presetCopy = await request(`/api/styles/${BUNDLED_PRESET}/copy`, { method: 'POST', cookies: as(BOB) });
+        assert.equal(presetCopy.status, 201, presetCopy.text);
+        assert.equal(presetCopy.json.editable, true);
+        assert.match(readStyleFile(dataRoot, `${presetCopy.json.slug}-directive.md`), new RegExp(`^owner: "${BOB}"$`, 'm'));
+        assert.equal((await request(`/api/styles/${BUNDLED_PRESET}`, { cookies: as(ALICE) })).json.editable, false, 'copying changed the bundled original');
+    });
+});
+
 // ─── Completeness: a new style route cannot quietly skip this file ─────────────
 
 const COVERED_STYLE_ROUTES = new Set([
@@ -449,7 +579,9 @@ const COVERED_STYLE_ROUTES = new Set([
     'POST /api/generate-stage7-style',
     'POST /api/generate-trained-style',
     'GET /api/maintenance/style-owners/audit',
-    'POST /api/maintenance/style-owners/stamp'
+    'POST /api/maintenance/style-owners/stamp',
+    'PATCH /api/styles/:slug/visibility',
+    'POST /api/styles/:slug/copy'
 ]);
 
 test('every style-bearing route is covered by an explicit cross-user case', async () => {

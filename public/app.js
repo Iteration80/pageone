@@ -1407,12 +1407,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'conversational';
     }
 
-    // Multi-user: a bundled style is the shared library — visible to everyone,
-    // editable by no one signed in. Presets already say so via their badge; the
-    // bundle also ships trained/conversational styles, which need the hint.
+    // Multi-user chips. Bundled = the shared library (visible to everyone, editable
+    // by no one; presets already say so via their badge, the bundle's trained /
+    // conversational styles need the hint). visibility 'shared' = a tester shared
+    // their own style: everyone can see it, only the owner can use or edit it;
+    // others copy it to their library.
     function styleSharedBadge(style) {
-        if (!style?.bundled || style.tier === 'preset') return '';
-        return ' <span class="style-tier-badge preset" title="Shared library style — read-only">Shared</span>';
+        if (!style) return '';
+        if (style.bundled) {
+            return style.tier === 'preset' ? '' : ' <span class="style-tier-badge preset" title="Shared library style — read-only">Library</span>';
+        }
+        if (style.visibility === 'shared') {
+            const mine = style.editable;
+            const label = mine ? 'Shared' : `Shared by ${escapeHtml(style.owner || 'another writer')}`;
+            const title = mine ? 'You share this style (read-only for others)' : 'Read-only — copy it to your library to use it';
+            return ` <span class="style-tier-badge preset" title="${title}">${label}</span>`;
+        }
+        return '';
     }
 
     async function loadHubStyles() {
@@ -1447,6 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentDetailStyleSlug = null;
+    let currentDetailStyle = null;
 
     async function openStyleDetail(slug) {
         const modal = document.getElementById('styleDetailModal');
@@ -1465,16 +1477,31 @@ document.addEventListener('DOMContentLoaded', () => {
             badge.textContent = styleTierLabel(data.tier);
             badge.className = `style-tier-badge ${styleTierClass(data.tier)}`;
 
-            // `editable` comes from the server (utils/style_store.js): false for the
-            // shared library under any signed-in identity. The server refuses the
-            // write anyway (403 / 404); hiding the buttons just keeps the UI honest.
+            // Flags come from the server (utils/style_store.js). `editable` = mine;
+            // `bundled` = the shared library; visibility 'shared' + !editable = another
+            // tester's shared style (view + copy only). The server refuses the writes
+            // anyway (403 / 404); the buttons just keep the UI honest.
             const editable = data.editable !== false;
+            const shared = data.visibility === 'shared';
+            currentDetailStyle = data;
             document.getElementById('btnStyleDetailEdit')?.classList.toggle('hidden', !editable);
             document.getElementById('btnStyleDetailDelete')?.classList.toggle('hidden', !editable);
+            // Owner of a non-bundled style: Share / Make private. Everyone: Copy (an
+            // editable private duplicate — of a shared style, or of a preset).
+            const shareBtn = document.getElementById('btnStyleDetailShare');
+            if (shareBtn) {
+                shareBtn.classList.toggle('hidden', !(editable && !data.bundled));
+                shareBtn.textContent = shared ? 'Make private' : 'Share';
+            }
+            document.getElementById('btnStyleDetailCopy')?.classList.toggle('hidden', editable && !data.bundled);
             const savedIndicator = document.getElementById('styleDetailSavedIndicator');
             if (savedIndicator) {
-                savedIndicator.textContent = editable ? '✓ Saved to library' : 'Shared library style — read-only';
-                savedIndicator.style.color = editable ? '#4ade80' : '#9ca3af';
+                let text = '✓ Saved to library', color = '#4ade80';
+                if (data.bundled) { text = 'Shared library style — read-only'; color = '#9ca3af'; }
+                else if (shared && editable) { text = 'Shared (read-only for others)'; color = '#93c5fd'; }
+                else if (shared && !editable) { text = `Shared by ${data.owner || 'another writer'} — read-only. Copy it to use it.`; color = '#9ca3af'; }
+                savedIndicator.textContent = text;
+                savedIndicator.style.color = color;
             }
 
             // Reference section (Tier 3 only)
@@ -1541,6 +1568,46 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Delete style error:', err);
             noticeDialog({ message: 'Failed to delete style.' });
+        }
+    });
+
+    document.getElementById('btnStyleDetailShare')?.addEventListener('click', async () => {
+        if (!currentDetailStyleSlug || !currentDetailStyle) return;
+        const sharing = currentDetailStyle.visibility !== 'shared';
+        if (sharing && !await confirmDialog({
+            title: 'Share this style?',
+            message: `"${currentDetailStyle.meta?.name || currentDetailStyleSlug}" becomes visible to everyone signed in, read-only — they can copy it into their own library.${currentDetailStyle.reference ? ' This is a trained style, so its full reference (the analysis of the screenplays it was trained on) is shared too.' : ''}`,
+            confirmLabel: 'Share'
+        })) return;
+        try {
+            const res = await fetch(`/api/styles/${currentDetailStyleSlug}/visibility`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visibility: sharing ? 'shared' : 'private' })
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Request failed');
+            await openStyleDetail(currentDetailStyleSlug);
+            loadHubStyles();
+        } catch (err) {
+            console.error('Share style error:', err);
+            noticeDialog({ message: `Failed to change sharing: ${err.message}` });
+        }
+    });
+
+    async function copyStyleToLibrary(slug) {
+        const res = await fetch(`/api/styles/${slug}/copy`, { method: 'POST' });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Copy failed');
+        return res.json();
+    }
+
+    document.getElementById('btnStyleDetailCopy')?.addEventListener('click', async () => {
+        if (!currentDetailStyleSlug) return;
+        try {
+            const copy = await copyStyleToLibrary(currentDetailStyleSlug);
+            await openStyleDetail(copy.slug);
+            loadHubStyles();
+        } catch (err) {
+            console.error('Copy style error:', err);
+            noticeDialog({ message: `Failed to copy style: ${err.message}` });
         }
     });
 
@@ -10061,7 +10128,9 @@ document.addEventListener('DOMContentLoaded', () => {
             c.style.background = isActive ? '#1e3a5f' : '#1e293b';
             const btn = c.querySelector('button');
             if (btn) {
-                btn.textContent = isActive ? 'In Use ✓' : 'Use This';
+                // Each card carries its own idle label ("Use This", or "Copy & Use" for
+                // another writer's shared style) — restore that, don't assume.
+                btn.textContent = isActive ? 'In Use ✓' : (btn.dataset.idleLabel || 'Use This');
                 btn.style.background = isActive ? '#166534' : '';
                 btn.style.borderColor = isActive ? '#166534' : '';
             }
@@ -10089,25 +10158,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;min-width:180px;max-width:240px;cursor:pointer;transition:border-color 0.2s,background 0.2s;display:flex;flex-direction:column;gap:4px';
                 const tierClass = styleTierClass(style.tier);
                 const tierLabel = styleTierLabel(style.tier);
+                // Another tester's shared style cannot be attached directly (sharing is
+                // copy-based): the button copies it into this writer's library, then
+                // selects the copy.
+                const usable = style.usable !== false;
                 card.innerHTML = `
                     <div style="font-size:0.9rem;color:#e5e7eb;font-weight:500">${escapeHtml(style.name)}<span class="style-tier-badge ${tierClass}">${tierLabel}</span>${styleSharedBadge(style)}</div>
                     <div style="font-size:0.75rem;color:#6b7280">${escapeHtml(style.tonal_summary || '')}</div>
-                    <button class="primary-btn" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start">Use This</button>
+                    <button class="primary-btn" data-idle-label="${usable ? 'Use This' : 'Copy & Use'}" style="font-size:0.7rem;padding:3px 10px;margin-top:4px;align-self:flex-start" title="${usable ? '' : 'Makes a private copy in your library and uses that'}">${usable ? 'Use This' : 'Copy & Use'}</button>
                 `;
                 card.querySelector('button').addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const loadingEl = document.getElementById('stage7-loading');
                     if (loadingEl) loadingEl.classList.remove('hidden');
                     try {
+                        const slugToUse = usable ? style.slug : (await copyStyleToLibrary(style.slug)).slug;
                         const selectRes = await fetch('/api/select-style', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId: activeProjectId, styleSlug: style.slug })
+                            body: JSON.stringify({ projectId: activeProjectId, styleSlug: slugToUse })
                         });
                         if (!selectRes.ok) throw new Error('Select failed');
                         const selectData = await selectRes.json();
                         stage7DisplayStyle(selectData);
                         if (window.currentProjectData) window.currentProjectData.stage7_style = selectData.slug;
+                        // A copy is a new card in this writer's library — re-list so the
+                        // active mark lands on it rather than on the shared original.
+                        if (!usable) await stage7LoadInlineStyles();
                         stage7MarkActiveCard(selectData.slug);
                         updateStageNav(window.currentProjectData);
                     } catch (err) {
