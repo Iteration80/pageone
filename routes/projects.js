@@ -39,6 +39,8 @@ function registerProjectRoutes(app, deps) {
         stampRevised,
         removeProjectSourceAssets,
         usageRollup,
+        runAsSystem,
+        sha256Hex,
         sendApiError
     } = deps;
 
@@ -279,6 +281,58 @@ function registerProjectRoutes(app, deps) {
         }
     });
 
+    // --- Cross-tenant project export for backups (admin) --- //
+    // `npm run backup:prod` with an ADMIN token pulls every tenant's projects through
+    // these two routes; with an ordinary token it uses /api/projects and gets its own.
+    //
+    // ⚠️ THE ONE PLACE A SCOPED REQUEST IS DELIBERATELY ELEVATED. The chokepoint
+    // (readProjectJSONById) 404s an admin on anyone else's project — correctly, an
+    // admin is not an owner. A backup has to see across tenants, so the read runs
+    // as a SYSTEM call via `runAsSystem`, inside requireAdmin, read-only, and
+    // logged. It reuses the chokepoint rather than reading the directory directly,
+    // so this is not a fifth direct reader; it is the same reader with the identity
+    // set aside for one call. Do not copy this pattern into a write path.
+    //
+    // GET /api/maintenance/projects      = [{ id, title, owner, bytes, sha256 }] for every project
+    // GET /api/maintenance/projects/:id  = the full record, whoever owns it
+    app.get('/api/maintenance/projects', requireAuth, requireAdmin, async (req, res) => {
+        try {
+            const files = (await fs.readdir(DATA_DIR)).filter(f => f.endsWith('.json'));
+            const projects = [];
+            for (const file of files) {
+                const raw = await fs.readFile(path.join(DATA_DIR, file), 'utf-8');
+                let project;
+                try { project = JSON.parse(raw); } catch { continue; }
+                projects.push({
+                    id: project.id || file.replace(/\.json$/, ''),
+                    title: project.title || '(untitled)',
+                    owner: String(project.owner || '').trim().toLowerCase() || null,
+                    bytes: Buffer.byteLength(raw),
+                    sha256: sha256Hex(JSON.stringify(project))
+                });
+            }
+            projects.sort((a, b) => String(b.id).localeCompare(String(a.id)));
+            console.log(`[maintenance] ${req.userEmail || 'break-glass'} listed ${projects.length} project(s) for backup`);
+            res.json({ projects });
+        } catch (error) {
+            console.error('maintenance project list error:', error.message);
+            sendApiError(res, error, 'Failed to list projects');
+        }
+    });
+
+    app.get('/api/maintenance/projects/:id', requireAuth, requireAdmin, async (req, res) => {
+        try {
+            const { id } = req.params;
+            assertValidProjectId(id);
+            const project = await runAsSystem(() => readProjectJSONById(id));
+            console.log(`[maintenance] ${req.userEmail || 'break-glass'} exported project ${id} (owner: ${project.owner || 'none'})`);
+            res.json(project);
+        } catch (error) {
+            console.error('maintenance project export error:', error.message);
+            sendApiError(res, error, 'Failed to export project');
+        }
+    });
+
     // --- Provider key health check --- //
     // Pings each provider's models endpoint with the server's CONFIGURED key and
     // reports validity WITHOUT exposing the key. Use after rotating a key on the
@@ -489,6 +543,15 @@ function registerProjectRoutes(app, deps) {
                 }
 
                 const nextProject = { ...projectData, ...updates, data: mergedData };
+                // `id` and `owner` are server-owned provenance, like a style's front
+                // matter: a PUT cannot rename a project or hand it to (or take it from)
+                // another tenant — otherwise a body `{owner: "bob@…"}` would drop a
+                // project into Bob's list, and `{owner: ""}` would make it fail closed
+                // for everyone. Also what lets `npm run push:prod` send a whole backup
+                // record back without stripping fields first.
+                nextProject.id = projectData.id;
+                if (projectData.owner !== undefined) nextProject.owner = projectData.owner;
+                else delete nextProject.owner;
                 delete nextProject.restoreVersionId;
                 delete nextProject.skipSnapshots;
                 const shouldDeriveStage4Beats = Boolean(

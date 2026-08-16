@@ -4591,6 +4591,11 @@ registerProjectRoutes(app, {
     stampRevised,
     removeProjectSourceAssets,
     usageRollup,
+    // Read-only elevation for the admin backup export — see the comment above the
+    // /api/maintenance/projects routes for why this exists and why it must stay
+    // read-only. `null` identity = system call (utils/request_identity.js).
+    runAsSystem: fn => runWithIdentity(null, fn),
+    sha256Hex: text => crypto.createHash('sha256').update(String(text)).digest('hex'),
     sendApiError
 });
 

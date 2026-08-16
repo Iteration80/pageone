@@ -8,6 +8,14 @@ data/settings.json
 # holds a live credential on this deployment, and it is per-machine state, not source.
 data/access-tokens.json
 
+# Data-backed allowlist / admins / quotas (multi-user Phase 4). Per-deployment
+# state edited from Settings → Administration, not source.
+data/access-control.json
+
+# Local backups pulled from the deployment (`npm run backup:prod`). Other people's
+# scripts live in here on a multi-tester deployment — never commit.
+backups/
+
 # Project data
 data/projects/
 data/source-files/
