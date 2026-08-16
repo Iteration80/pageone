@@ -12038,6 +12038,300 @@ async function loadBuildInfo() {
         setTimeout(() => { button.textContent = 'Copy'; }, 2000);
     });
 
+    // ─── Administration (multi-user Phase 4) ─────────────────────────────────
+    // Server contract in routes/admin.js: GET /api/admin/overview is the whole panel
+    // in one call; mutations are session-only and admin-only there — this UI is a
+    // courtesy on top of the real gate, never the gate.
+
+    let adminRenderSequence = 0;
+    let adminOverview = null;
+
+    function fmtUsd(n) {
+        return `$${(Number(n) || 0).toFixed(2)}`;
+    }
+
+    function adminStatus(text, isError = false) {
+        const el = document.getElementById('settings-admin-status');
+        if (!el) return;
+        el.textContent = text || '';
+        el.style.color = isError ? '#f87171' : '#6b7280';
+    }
+
+    async function adminCall(pathname, options = {}) {
+        const res = await nativeFetch(pathname, {
+            headers: { 'Content-Type': 'application/json' },
+            ...options
+        });
+        let body = {};
+        try { body = await res.json(); } catch {}
+        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+        return body;
+    }
+
+    /** Small inline chip used for env / admin / bootstrap markers. */
+    function adminChip(text, color) {
+        const chip = document.createElement('span');
+        chip.style.cssText = `font-size:0.65rem;padding:1px 6px;border-radius:999px;border:1px solid ${color};color:${color};white-space:nowrap`;
+        chip.textContent = text;
+        return chip;
+    }
+
+    function usageTitle(block) {
+        if (!block || !block.byModel?.length) return 'No AI usage recorded';
+        const lines = block.byModel.map(r => `${r.label}: ${fmtUsd(r.cost)} (${r.calls} calls, ${r.inputTokens} in / ${r.outputTokens} out)${r.priced ? '' : ' — no price on file'}`);
+        return lines.join('\n');
+    }
+
+    async function renderAdminPanel() {
+        const list = document.getElementById('settings-admin-people');
+        if (!list) return;
+        const mine = ++adminRenderSequence;
+
+        let overview;
+        try {
+            overview = await adminCall('/api/admin/overview');
+        } catch (err) {
+            console.warn('Could not load the admin overview:', err);
+            if (mine !== adminRenderSequence) return;
+            list.innerHTML = '';
+            const failed = document.createElement('p');
+            failed.style.cssText = 'font-size:0.8rem;color:#f87171';
+            failed.textContent = `Could not load administration data (${err.message}).`;
+            list.appendChild(failed);
+            return;
+        }
+        if (mine !== adminRenderSequence) return;
+        adminOverview = overview;
+
+        const defaultInput = document.getElementById('settings-admin-default-quota');
+        if (defaultInput && document.activeElement !== defaultInput) {
+            defaultInput.value = overview.quotas.defaultMonthlyUsd === null ? '' : String(overview.quotas.defaultMonthlyUsd);
+        }
+
+        list.innerHTML = '';
+        const me = overview.me;
+        const envAdmins = new Set(overview.admins.filter(a => a.source === 'env').map(a => a.email));
+        const bootstrap = overview.admins.find(a => a.source === 'bootstrap')?.email || null;
+        const usageByOwner = new Map(overview.usage.map(u => [u.owner, u]));
+
+        overview.allowlist.forEach(entry => {
+            const u = usageByOwner.get(entry.email) || { month: { usd: 0 }, allTime: { usd: 0 }, quotaUsd: null, projects: 0 };
+            // Two lines: identity + actions, then chips + spend + budget. The modal is
+            // 560px wide; a five-column grid truncated every email to five letters.
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #374151;border-radius:6px';
+
+            const name = document.createElement('div');
+            name.style.cssText = 'font-size:0.85rem;color:#d1d5db;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0';
+            name.textContent = entry.email + (entry.email === me ? ' (you)' : '');
+            name.title = entry.email;
+            const chips = document.createElement('div');
+            chips.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1 1 auto;min-width:0';
+            if (entry.admin) chips.appendChild(adminChip(bootstrap === entry.email ? 'admin (bootstrap)' : envAdmins.has(entry.email) ? 'admin (env)' : 'admin', '#fbbf24'));
+            if (entry.source === 'env') chips.appendChild(adminChip('from environment', '#6b7280'));
+            else if (entry.addedBy) chips.appendChild(adminChip(`added by ${entry.addedBy}${entry.added ? ' · ' + formatTokenDate(entry.added) : ''}`, '#6b7280'));
+            const projects = document.createElement('span');
+            projects.style.cssText = 'font-size:0.65rem;color:#6b7280;align-self:center';
+            projects.textContent = `${u.projects || 0} project${u.projects === 1 ? '' : 's'}`;
+            chips.appendChild(projects);
+
+            // Spend.
+            const spend = document.createElement('div');
+            spend.style.cssText = 'display:flex;gap:10px;align-items:center;flex-shrink:0;font-variant-numeric:tabular-nums;font-size:0.78rem';
+            const month = document.createElement('span');
+            month.style.cssText = 'color:#e5e7eb';
+            month.textContent = `${fmtUsd(u.month.usd)}${u.month.unpriced?.length ? '†' : ''} this month`;
+            month.title = usageTitle(u.month);
+            if (u.quotaUsd !== null && u.quotaUsd !== undefined && u.month.usd >= u.quotaUsd) month.style.color = '#f87171';
+            const allTime = document.createElement('span');
+            allTime.style.cssText = 'color:#9ca3af';
+            allTime.textContent = `${fmtUsd(u.allTime.usd)}${u.allTime.unpriced?.length ? '†' : ''} all time`;
+            allTime.title = usageTitle(u.allTime);
+            spend.append(month, allTime);
+
+            // Per-user budget. Empty = inherit the default (or none, for admins);
+            // a number = that cap; "none" = explicitly unlimited even with a default.
+            const quota = document.createElement('input');
+            quota.type = 'text';
+            quota.className = 'modal-input';
+            quota.inputMode = 'decimal';
+            quota.style.cssText = 'width:84px;flex:0 0 auto;padding:3px 6px;font-size:0.78rem';
+            const hasOverride = Object.prototype.hasOwnProperty.call(overview.quotas.perUser, entry.email);
+            const override = overview.quotas.perUser[entry.email];
+            quota.value = hasOverride ? (override === null ? 'none' : String(override)) : '';
+            quota.placeholder = entry.admin ? 'no cap' : (overview.quotas.defaultMonthlyUsd === null ? 'no cap' : `default ${overview.quotas.defaultMonthlyUsd}`);
+            quota.title = 'Empty = use the default (admins: no cap) · a number = cap in USD per month · "none" = never cap this person';
+            quota.addEventListener('change', async () => {
+                const raw = quota.value.trim().toLowerCase();
+                const perUser = { ...overview.quotas.perUser };
+                if (raw === '') delete perUser[entry.email];
+                else if (raw === 'none' || raw === 'unlimited' || raw === '∞') perUser[entry.email] = null;
+                else {
+                    const n = Number(raw.replace(/^\$/, ''));
+                    if (!Number.isFinite(n) || n < 0) {
+                        adminStatus(`"${quota.value}" is not a budget. Use a number, "none", or leave it empty.`, true);
+                        return;
+                    }
+                    perUser[entry.email] = n;
+                }
+                try {
+                    await adminCall('/api/admin/quotas', { method: 'PUT', body: JSON.stringify({ perUser }) });
+                    adminStatus(`Budget for ${entry.email} saved.`);
+                    renderAdminPanel();
+                } catch (err) {
+                    adminStatus(`Could not save the budget: ${err.message}`, true);
+                }
+            });
+
+            // Actions.
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;gap:6px;justify-content:flex-end';
+            const isSelf = entry.email === me;
+            const roleBtn = document.createElement('button');
+            roleBtn.className = 'secondary-btn';
+            roleBtn.type = 'button';
+            roleBtn.style.cssText = 'padding:3px 8px;font-size:0.72rem;flex-shrink:0';
+            if (entry.admin) {
+                roleBtn.textContent = 'Demote';
+                const envAdmin = envAdmins.has(entry.email);
+                const isBootstrap = bootstrap === entry.email;
+                roleBtn.disabled = isSelf || envAdmin || isBootstrap;
+                roleBtn.title = isSelf ? 'You cannot demote yourself'
+                    : envAdmin ? 'Set by ADMIN_EMAILS in the server environment'
+                    : isBootstrap ? 'Bootstrap admin — promote someone explicitly and this switches off'
+                    : 'Remove administrator rights';
+                roleBtn.addEventListener('click', async () => {
+                    const ok = await confirmDialog({ title: 'Demote administrator?', message: `${entry.email} will lose access to administration and maintenance routes.`, confirmLabel: 'Demote', danger: true });
+                    if (!ok) return;
+                    try {
+                        await adminCall(`/api/admin/admins/${encodeURIComponent(entry.email)}`, { method: 'DELETE' });
+                        adminStatus(`${entry.email} demoted.`);
+                    } catch (err) { adminStatus(err.message, true); }
+                    renderAdminPanel();
+                });
+            } else {
+                roleBtn.textContent = 'Make admin';
+                roleBtn.title = 'Grant access to administration and maintenance routes';
+                roleBtn.addEventListener('click', async () => {
+                    const ok = await confirmDialog({ title: 'Make administrator?', message: `${entry.email} will be able to manage the allowlist, admins, budgets, and run maintenance across every project.`, confirmLabel: 'Make admin' });
+                    if (!ok) return;
+                    try {
+                        await adminCall('/api/admin/admins', { method: 'POST', body: JSON.stringify({ email: entry.email }) });
+                        adminStatus(`${entry.email} is now an administrator.`);
+                    } catch (err) { adminStatus(err.message, true); }
+                    renderAdminPanel();
+                });
+            }
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'secondary-btn';
+            removeBtn.type = 'button';
+            removeBtn.style.cssText = 'padding:3px 8px;font-size:0.72rem;flex-shrink:0';
+            removeBtn.textContent = 'Remove';
+            removeBtn.disabled = isSelf || entry.source === 'env';
+            removeBtn.title = isSelf ? 'You cannot remove your own access'
+                : entry.source === 'env' ? 'Set by ALLOWED_EMAILS in the server environment — change it there'
+                : 'Remove access. Their sign-in and every access token stop working on the next request.';
+            removeBtn.addEventListener('click', async () => {
+                const ok = await confirmDialog({ title: 'Remove access?', message: `${entry.email} will be signed out on their next request and every access token they hold stops working. Their projects stay on disk.`, confirmLabel: 'Remove', danger: true });
+                if (!ok) return;
+                try {
+                    await adminCall(`/api/admin/allowlist/${encodeURIComponent(entry.email)}`, { method: 'DELETE' });
+                    adminStatus(`${entry.email} removed.`);
+                } catch (err) { adminStatus(err.message, true); }
+                renderAdminPanel();
+            });
+            actions.append(roleBtn, removeBtn);
+
+            const budgetWrap = document.createElement('label');
+            budgetWrap.style.cssText = 'display:flex;gap:6px;align-items:center;flex-shrink:0;font-size:0.72rem;color:#9ca3af';
+            budgetWrap.append('Budget $/mo', quota);
+
+            const top = document.createElement('div');
+            top.style.cssText = 'display:flex;gap:8px;align-items:center';
+            top.append(name, actions);
+            const bottom = document.createElement('div');
+            bottom.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+            bottom.append(chips, spend, budgetWrap);
+            row.append(top, bottom);
+            list.appendChild(row);
+        });
+
+        // Owners with usage who are NOT on the allowlist (removed testers, or the
+        // unowned bucket) still cost money — show them, read-only.
+        overview.usage
+            .filter(u => !overview.allowlist.some(e => e.email === u.owner) && (u.allTime.usd > 0 || u.projects > 0))
+            .forEach(u => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px;border:1px dashed #374151;border-radius:6px;opacity:0.75;font-size:0.78rem;color:#9ca3af';
+                const who = document.createElement('span');
+                who.style.cssText = 'flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+                who.textContent = u.owner ? `${u.owner} (no longer allowlisted)` : '(unowned projects)';
+                const month = document.createElement('span');
+                month.textContent = `${fmtUsd(u.month.usd)} this month`;
+                month.title = usageTitle(u.month);
+                const allTime = document.createElement('span');
+                allTime.textContent = `${fmtUsd(u.allTime.usd)} all time`;
+                allTime.title = usageTitle(u.allTime);
+                const projects = document.createElement('span');
+                projects.style.cssText = 'font-size:0.68rem;color:#6b7280';
+                projects.textContent = `${u.projects} project${u.projects === 1 ? '' : 's'}`;
+                row.append(who, month, allTime, projects);
+                list.appendChild(row);
+            });
+
+        const anyUnpriced = overview.usage.some(u => u.allTime.unpriced?.length);
+        if (anyUnpriced) {
+            const note = document.createElement('p');
+            note.style.cssText = 'font-size:0.68rem;color:#6b7280;margin-top:4px';
+            note.textContent = '† includes calls to a model with no price on file (counted as $0.00) — add it to model-pricing.js.';
+            list.appendChild(note);
+        }
+        const since = document.createElement('p');
+        since.style.cssText = 'font-size:0.68rem;color:#4b5563;margin-top:4px';
+        since.textContent = `"This month" counts from ${new Date(overview.monthStart).toUTCString().replace(/ \d\d:\d\d:\d\d GMT$/, '')} (UTC). Hover a figure for the per-model breakdown.`;
+        list.appendChild(since);
+    }
+
+    document.getElementById('btnAdminAddEmail')?.addEventListener('click', async () => {
+        const input = document.getElementById('settings-admin-add-email');
+        const email = input.value.trim();
+        if (!email.includes('@')) {
+            adminStatus('Enter an email address to add.', true);
+            return;
+        }
+        try {
+            const res = await adminCall('/api/admin/allowlist', { method: 'POST', body: JSON.stringify({ email }) });
+            adminStatus(res.added ? `${res.email} can now sign in with Google.` : `${res.email} was already on the allowlist.`);
+            input.value = '';
+        } catch (err) {
+            adminStatus(`Could not add ${email}: ${err.message}`, true);
+        }
+        renderAdminPanel();
+    });
+    document.getElementById('settings-admin-add-email')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnAdminAddEmail')?.click(); }
+    });
+
+    document.getElementById('btnAdminSaveDefaultQuota')?.addEventListener('click', async () => {
+        const input = document.getElementById('settings-admin-default-quota');
+        const raw = input.value.trim().replace(/^\$/, '');
+        let value = null;
+        if (raw !== '' && !/^(none|unlimited)$/i.test(raw)) {
+            value = Number(raw);
+            if (!Number.isFinite(value) || value < 0) {
+                adminStatus(`"${input.value}" is not a budget. Use a number in USD, or leave it empty for no cap.`, true);
+                return;
+            }
+        }
+        try {
+            await adminCall('/api/admin/quotas', { method: 'PUT', body: JSON.stringify({ defaultMonthlyUsd: value }) });
+            adminStatus(value === null ? 'Default budget cleared — no cap unless a person has their own.' : `Default budget saved: ${fmtUsd(value)} per month for non-admins.`);
+        } catch (err) {
+            adminStatus(`Could not save the default budget: ${err.message}`, true);
+        }
+        renderAdminPanel();
+    });
+
     async function openSettingsModal() {
         let settings = { stageModels: {} };
         try {
@@ -12054,10 +12348,26 @@ async function loadBuildInfo() {
         // knowing whose tokens to show.
         const acctPanel = document.getElementById('settings-account-panel');
         const tokensPanel = document.getElementById('settings-tokens-panel');
+        const adminPanel = document.getElementById('settings-admin-panel');
         {
             let email = null;
+            let admin = false;
             if (authMode === 'google') {
-                try { const me = await nativeFetch('/api/me'); if (me.ok) email = (await me.json()).email; } catch {}
+                try {
+                    const me = await nativeFetch('/api/me');
+                    if (me.ok) ({ email, admin = false } = await me.json());
+                } catch {}
+            }
+
+            // Administration — only for admins (server re-checks every call).
+            if (adminPanel) {
+                if (email && admin) {
+                    adminPanel.classList.remove('hidden');
+                    adminStatus('');
+                    renderAdminPanel();
+                } else {
+                    adminPanel.classList.add('hidden');
+                }
             }
             // Every open starts with the reveal box closed — a plaintext token must
             // not still be sitting on screen the next time Settings is opened.
@@ -12157,22 +12467,11 @@ async function loadBuildInfo() {
 
     // ─── Project Spend Modal ────────────────────────────────────────────────
 
-    const MODEL_PRICING = {
-        'gemini-3.1-pro-preview':      { input: 1.25 / 1e6, output: 10.0 / 1e6, label: 'Gemini 3.1 Pro' },
-        'gemini-2.5-pro-preview-05-06':{ input: 1.25 / 1e6, output: 10.0 / 1e6, label: 'Gemini 2.5 Pro' },
-        'gemini-3-flash-preview':      { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 3 Flash' },
-        'gemini-2.0-flash':            { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
-        'gemini-2.0-flash-001':        { input: 0.10 / 1e6, output: 0.40 / 1e6, label: 'Gemini 2.0 Flash' },
-        'claude-fable-5':              { input: 10.0 / 1e6, output: 50.0 / 1e6, label: 'Claude Fable 5' },
-        'claude-opus-5':               { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 5' },
-        'claude-sonnet-5':             { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 5' },
-        'claude-haiku-4-5-20251001':   { input: 1.0 / 1e6,  output: 5.0 / 1e6,  label: 'Claude Haiku 4.5' },
-        // Retained for historical spend on projects that used superseded models:
-        'claude-opus-4-8':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.8' },
-        'claude-opus-4-7':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.7' },
-        'claude-opus-4-6':             { input: 5.0 / 1e6,  output: 25.0 / 1e6, label: 'Claude Opus 4.6' },
-        'claude-sonnet-4-6':           { input: 3.0 / 1e6,  output: 15.0 / 1e6, label: 'Claude Sonnet 4.6' },
-    };
+    // ⚠️ The price table lives in public/model-pricing.js — shared with the server,
+    // which prices the same numbers for the per-user quota guard (Phase 4). Do not
+    // add a rate here; add it there, once, and both sides see it.
+    const MODEL_PRICING = window.ModelPricing.MODEL_PRICING;
+    const priceUsage = window.ModelPricing.priceUsage;
 
     const spendModal = document.getElementById('spendModal');
 
@@ -12200,15 +12499,10 @@ async function loadBuildInfo() {
             byModel[key].calls += 1;
         }
 
-        // Calculate costs
-        let totalCost = 0;
-        const rows = Object.entries(byModel).map(([model, data]) => {
-            const pricing = MODEL_PRICING[model] || { input: 0, output: 0 };
-            const cost = (data.inputTokens * pricing.input) + (data.outputTokens * pricing.output);
-            totalCost += cost;
-            const label = MODEL_PRICING[model]?.label || model;
-            return { label, model, ...data, cost };
-        }).sort((a, b) => b.cost - a.cost);
+        // Calculate costs — with the shared table, so an unpriced model is SAID to be
+        // unpriced instead of quietly contributing $0.00 (gemini-3.6-flash did that
+        // for weeks before 2026-08-16).
+        const { totalUsd: totalCost, rows, unpriced } = priceUsage(byModel);
 
         let html = `<div style="text-align:center;margin-bottom:20px">
             <div style="font-size:2rem;font-weight:700;color:#e5e7eb">$${totalCost.toFixed(2)}</div>
@@ -12228,8 +12522,9 @@ async function loadBuildInfo() {
 
         for (const r of rows) {
             const fmtTokens = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toString();
+            const escapedLabel = String(r.label).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
             html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
-                <td style="padding:8px 4px;color:#d1d5db">${r.label}</td>
+                <td style="padding:8px 4px;color:#d1d5db">${escapedLabel}${r.priced ? '' : ' <span style="color:#f59e0b" title="No price on file for this model">†</span>'}</td>
                 <td style="padding:8px 4px;text-align:right;color:#9ca3af">${fmtTokens(r.inputTokens)}</td>
                 <td style="padding:8px 4px;text-align:right;color:#9ca3af">${fmtTokens(r.outputTokens)}</td>
                 <td style="padding:8px 4px;text-align:right;color:#e5e7eb;font-weight:600">$${r.cost.toFixed(2)}</td>
@@ -12238,7 +12533,8 @@ async function loadBuildInfo() {
 
         html += '</tbody></table>';
         html += '<div id="spend-modal-account" style="font-size:0.75rem;color:#9ca3af;margin-top:14px;text-align:center"></div>';
-        html += '<p style="font-size:0.65rem;color:#4b5563;margin-top:12px;text-align:center">Costs are estimates based on published API pricing.</p>';
+        html += '<p style="font-size:0.65rem;color:#4b5563;margin-top:12px;text-align:center">Costs are estimates based on published API pricing.'
+            + (unpriced.length ? ' † = no price on file, counted as $0.00.' : '') + '</p>';
 
         content.innerHTML = html;
         spendModal?.classList.remove('hidden');

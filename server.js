@@ -109,6 +109,15 @@ class ForbiddenError extends ApiError {
     }
 }
 
+// A per-user monthly budget is spent (multi-user Phase 4). 429 like the rate
+// limiter — the client already treats that status as "stop and tell the writer" —
+// but with its own code, because "try again in a minute" is the wrong advice here.
+class QuotaExceededError extends ApiError {
+    constructor(message = 'Monthly budget reached', options = {}) {
+        super(429, message, { code: 'QUOTA_EXCEEDED', ...options });
+    }
+}
+
 function publicErrorDetail(error, maxChars = 900) {
     const message = String(error?.message || '').trim();
     if (!message) return '';
@@ -461,6 +470,9 @@ async function trackUsage(projectId, usageOrList) {
                     outputTokens: u.outputTokens || 0,
                 });
             }
+            // Keep the quota guard's month-to-date figure current without a rescan
+            // — the same call is now in the file it will rescan from anyway.
+            noteSpend(projectOwner(project), usages);
             return project;
         });
     } catch (err) {
@@ -480,11 +492,16 @@ async function trackUsage(projectId, usageOrList) {
  * ⚠️ Reads the project directory directly, so the ownership chokepoint does NOT
  * cover it — like the project listing and the style-context scan, it carries its
  * own owner filter. `owner: null` sums everyone and is for requireAdmin routes only.
+ *
+ * `since` (ms epoch, optional) restricts the sum to usage recorded at or after that
+ * instant — the quota guard passes the start of the current UTC month. Records with
+ * no timestamp are counted only when there is no window (they predate timestamps).
  */
-async function usageRollup({ owner = null } = {}) {
+async function usageRollup({ owner = null, since = null } = {}) {
     // owner: '<email>' → that person's bucket; '*' → everything as ONE bucket (open
     // dev / break-glass, where the whole store is "yours"); null → one bucket per owner.
     const wanted = owner ? String(owner).trim().toLowerCase() : null;
+    const sinceMs = Number.isFinite(since) ? since : null;
     const byOwner = new Map();
     const bucketFor = email => {
         const key = email || '';
@@ -507,6 +524,7 @@ async function usageRollup({ owner = null } = {}) {
         const usage = Array.isArray(project.data?.apiUsage) ? project.data.apiUsage : [];
         const perProject = { id: project.id || file.replace(/\.json$/, ''), title: project.title || '(untitled)', calls: 0, inputTokens: 0, outputTokens: 0 };
         for (const u of usage) {
+            if (sinceMs !== null && !(Number(u?.timestamp) >= sinceMs)) continue;
             const model = u?.model || 'unknown';
             const input = Number(u?.inputTokens) || 0;
             const output = Number(u?.outputTokens) || 0;
@@ -531,6 +549,111 @@ async function usageRollup({ owner = null } = {}) {
     if (wanted === '*') return bucketFor('');
     if (wanted !== null) return bucketFor(wanted);
     return { owners: [...byOwner.values()].sort((a, b) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens)) };
+}
+
+// ─── Per-user monthly quotas (multi-user Phase 4) ─────────────────────────────
+//
+// In a shared-key deployment the real risk is one tester quietly burning the Gemini
+// budget. The cap is USD per calendar month (UTC), configured per person or as a
+// default (utils/access_control.js), and priced with THE SAME table the browser
+// uses (public/model-pricing.js) — so the figure the writer sees in the spend modal
+// and the figure that 429s them can never disagree on a rate.
+//
+// It is a SOFT cap on starting new work: the guard runs before an AI route's
+// handler, so a long generation that crosses the line mid-flight completes, and
+// the next request is refused. That is the same shape as Managed Agents' session
+// budgets, and it is the honest one — pre-empting a stream half-way through a
+// Scene Blueprint would cost the writer more than the overshoot costs Carsten.
+//
+// Month-to-date spend per owner is cached: a full rescan of the project directory
+// per AI request would read every script on the volume for every assistant turn.
+// The cache is rebuilt at most once a minute (or when the month rolls over) and is
+// bumped in place by trackUsage, so within one process it is exact for this
+// process's own writes and at most a minute stale for anyone else's.
+
+const { priceUsage: priceModelUsage } = require('./public/model-pricing');
+const SPEND_CACHE_TTL_MS = 60 * 1000;
+let spendCache = { monthKey: null, at: 0, byOwner: new Map(), building: null };
+
+function currentMonthStartMs(now = Date.now()) {
+    const d = new Date(now);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+}
+
+function monthKeyOf(now = Date.now()) {
+    const d = new Date(now);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+async function rebuildSpendCache() {
+    const monthKey = monthKeyOf();
+    const rollup = await usageRollup({ owner: null, since: currentMonthStartMs() });
+    const byOwner = new Map();
+    for (const bucket of rollup.owners) {
+        if (!bucket.owner) continue;
+        byOwner.set(bucket.owner, priceModelUsage(bucket.byModel).totalUsd);
+    }
+    spendCache = { monthKey, at: Date.now(), byOwner, building: null };
+    return spendCache;
+}
+
+/** Month-to-date spend in USD for one owner, from the cache (rebuilt when stale). */
+async function monthlySpendUsd(email) {
+    const clean = String(email || '').trim().toLowerCase();
+    if (!clean) return 0;
+    const stale = spendCache.monthKey !== monthKeyOf() || Date.now() - spendCache.at > SPEND_CACHE_TTL_MS;
+    if (stale) {
+        if (!spendCache.building) spendCache.building = rebuildSpendCache().catch(err => {
+            spendCache.building = null;
+            throw err;
+        });
+        await spendCache.building;
+    }
+    return spendCache.byOwner.get(clean) || 0;
+}
+
+/** Called by trackUsage: add freshly recorded usage to the cached figure in place. */
+function noteSpend(ownerEmail, usages) {
+    const clean = String(ownerEmail || '').trim().toLowerCase();
+    if (!clean || spendCache.monthKey !== monthKeyOf()) return; // no live cache → next read rebuilds
+    let add = 0;
+    for (const u of usages) {
+        if (!u || !u.model) continue;
+        add += priceModelUsage({ [u.model]: { inputTokens: u.inputTokens || 0, outputTokens: u.outputTokens || 0 } }).totalUsd;
+    }
+    if (add) spendCache.byOwner.set(clean, (spendCache.byOwner.get(clean) || 0) + add);
+}
+
+/**
+ * The guard. Composed into aiLimiter/strictLimiter below, so every AI route that is
+ * rate-limited is also budget-checked — no route list to keep in sync. Break-glass
+ * and open mode carry no email and are never capped (they are the deployment).
+ */
+async function quotaGuard(req, res, next) {
+    const email = req.userEmail;
+    if (!email) return next();
+    let cap;
+    try {
+        cap = accessControl.effectiveQuotaFor(email);
+    } catch (err) {
+        console.error('[quota] could not read quota config:', err.message);
+        return next(); // a broken config file must not take every AI route down
+    }
+    if (cap === null || cap === undefined) return next();
+    let spent;
+    try {
+        spent = await monthlySpendUsd(email);
+    } catch (err) {
+        console.error('[quota] could not compute spend:', err.message);
+        return next();
+    }
+    if (spent >= cap) {
+        console.warn(`[quota] ${email} refused: $${spent.toFixed(2)} spent of $${cap.toFixed(2)} this month`);
+        return sendApiError(res, new QuotaExceededError(
+            `Monthly AI budget reached ($${spent.toFixed(2)} of $${cap.toFixed(2)}). Ask the administrator to raise it.`
+        ));
+    }
+    return next();
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -620,7 +743,9 @@ const { registerStyleRoutes } = require('./routes/styles');
 const { isGoogleAuthEnabled, getSessionEmail, isAllowedEmail, isAdminEmail } = require('./utils/auth');
 const { registerAuthRoutes } = require('./routes/auth');
 const { registerTokenRoutes } = require('./routes/tokens');
+const { registerAdminRoutes } = require('./routes/admin');
 const accessTokens = require('./utils/tokens');
+const accessControl = require('./utils/access_control');
 
 const STAGE_NAMES = {
     1: 'Pitch Generation', 2: 'Outline', 3: 'Characters',
@@ -4126,25 +4251,38 @@ function requireAdmin(req, res, next) {
 // no email and fall back to the IP bucket, which is the pre-Phase-3 behaviour.
 // ⚠️ Keep the ordering: `requireAuth, aiLimiter` — a limiter mounted before
 // requireAuth would silently key everyone by IP again.
+//
+// Since Phase 4 each "limiter" is the rate limiter FOLLOWED BY the monthly quota
+// guard (see quotaGuard above), composed here so every mount of `aiLimiter` /
+// `strictLimiter` is budget-checked without a second list of routes to maintain.
+// The rate limiter runs first: a burst is refused before it costs a spend lookup.
 function limiterKey(req) {
     return req.userEmail ? `user:${req.userEmail}` : `ip:${ipKeyGenerator(req.ip)}`;
 }
-const aiLimiter = rateLimit({
+function withQuota(rateLimiter) {
+    return function aiGate(req, res, next) {
+        rateLimiter(req, res, err => {
+            if (err) return next(err);
+            quotaGuard(req, res, next).catch(next);
+        });
+    };
+}
+const aiLimiter = withQuota(rateLimit({
     windowMs: 60 * 1000,      // 1 minute window
     max: 30,                   // max 30 AI calls per person per minute
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: limiterKey,
     handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
-});
-const strictLimiter = rateLimit({
+}));
+const strictLimiter = withQuota(rateLimit({
     windowMs: 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: limiterKey,
     handler: (_req, res) => sendApiError(res, new RateLimitError('Too many requests — slow down and try again.')),
-});
+}));
 // The OAuth handshake is unauthenticated by necessity, and /auth/google/callback
 // spends a real request against our Google token quota on every attempt with a
 // matching state cookie — which anyone can obtain by first fetching /auth/google.
@@ -4179,6 +4317,24 @@ registerTokenRoutes(app, {
     createToken: accessTokens.createToken,
     listTokens: accessTokens.listTokens,
     revokeToken: accessTokens.revokeToken,
+    BadRequestError,
+    sendApiError
+});
+
+// Administration (/api/admin/*). Reads are requireAuth+requireAdmin; mutations are
+// session-only inside the module — a token cannot edit who may enter (see the
+// header comment there).
+registerAdminRoutes(app, {
+    requireAuth,
+    requireAdmin,
+    getSessionEmail,
+    isGoogleAuthEnabled,
+    isAdminEmail,
+    isAllowedEmail,
+    accessControl,
+    usageRollup,
+    currentMonthStartMs,
+    priceUsage: priceModelUsage,
     BadRequestError,
     sendApiError
 });
@@ -4535,7 +4691,14 @@ async function startServer() {
         console.warn('[warn] Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set — AI features will fail on first use.');
     }
     if (isGoogleAuthEnabled()) {
-        console.log(`[auth] Google sign-in active (${(process.env.ALLOWED_EMAILS || '').split(',').filter(Boolean).length} allowlisted email(s))${APP_SECRET ? ' + APP_SECRET break-glass' : ''}.`);
+        const allowed = accessControl.listAllowed();
+        const admins = accessControl.listAdmins();
+        const fromStore = allowed.filter(e => e.source === 'store').length;
+        console.log(`[auth] Google sign-in active (${allowed.length} allowlisted email(s): ${allowed.length - fromStore} from env, ${fromStore} from Settings)${APP_SECRET ? ' + APP_SECRET break-glass' : ''}.`);
+        console.log(`[auth] admins: ${admins.map(a => `${a.email} (${a.source})`).join(', ') || 'none'}.`);
+        if (admins.some(a => a.source === 'bootstrap')) {
+            console.log('[auth] no ADMIN_EMAILS and no admins in Settings — the first ALLOWED_EMAILS address is the bootstrap admin. Promote yourself in Settings → Administration to make it explicit.');
+        }
     } else if (APP_SECRET) {
         console.log('[auth] APP_SECRET set — shared-secret API authentication active.');
     } else {

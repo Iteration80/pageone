@@ -24,6 +24,7 @@ const {
     authConfig,
     getSessionEmail,
     isAllowedEmail,
+    isAdminEmail,
     isSecureRequest,
     parseCookies,
     requestBaseUrl,
@@ -52,11 +53,13 @@ function registerAuthRoutes(app, deps = {}) {
         res.json({ mode: c.enabled ? 'google' : (APP_SECRET ? 'secret' : 'open'), googleEnabled: c.enabled });
     });
 
-    // Session probe used by the frontend to decide whether to show the login overlay.
+    // Session probe used by the frontend to decide whether to show the login overlay
+    // — and, since Phase 4, whether to show the Administration panel in Settings.
+    // `admin` is advisory for the UI only; every admin route re-checks server-side.
     app.get('/api/me', (req, res) => {
         const email = getSessionEmail(req);
         if (!email) return res.status(401).json({ error: 'Not signed in' });
-        res.json({ email });
+        res.json({ email, admin: isAdminEmail(email) });
     });
 
     app.get('/auth/google', oauthLimiter, (req, res) => {

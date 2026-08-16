@@ -72,7 +72,8 @@ test('/api/me 401s with no cookie and 200s with a valid one', async () => {
         const token = signSession('writer@example.com', GOOGLE_ENV.SESSION_SECRET);
         const ok = await request('/api/me', { cookies: { pageone_session: token } });
         assert.equal(ok.status, 200);
-        assert.deepEqual(ok.json, { email: 'writer@example.com' });
+        // `admin: true` — writer is first in ALLOWED_EMAILS and nothing else names an admin (bootstrap rule).
+        assert.deepEqual(ok.json, { email: 'writer@example.com', admin: true });
     });
 });
 

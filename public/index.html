@@ -1235,6 +1235,37 @@
                 </div>
             </section>
 
+            <!-- Administration (multi-user Phase 4). Shown only when /api/me says the
+                 signed-in account is an administrator; every route re-checks server-side,
+                 so hiding this is a courtesy, not a control. Rendered by app.js. -->
+            <section id="settings-admin-panel" class="settings-build-panel hidden">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Administration</h4>
+                <p style="font-size:0.8rem;color:#9ca3af;line-height:1.5;margin-bottom:12px">
+                    Who may sign in, who administers, and each person's monthly AI budget. Addresses set in the
+                    server environment are the floor and can only be changed there. Budgets are USD per calendar
+                    month (UTC), priced with the same table as the spend modal; a person at their budget gets a
+                    clear refusal on the next AI request rather than a silent stop mid-generation.
+                </p>
+
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+                    <span style="font-size:0.8rem;color:#d1d5db;flex-shrink:0">Default monthly budget</span>
+                    <input type="text" id="settings-admin-default-quota" class="modal-input" inputmode="decimal"
+                           style="width:110px;flex:0 0 auto;padding:4px 8px" placeholder="none" autocomplete="off"
+                           title="USD per calendar month for everyone who is not an administrator. Leave empty for no cap.">
+                    <button id="btnAdminSaveDefaultQuota" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0">Save</button>
+                    <span style="font-size:0.72rem;color:#6b7280">applies to non-admins without their own budget</span>
+                </div>
+
+                <div id="settings-admin-people" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="email" id="settings-admin-add-email" class="modal-input"
+                           style="flex:1 1 auto;min-width:0;padding:4px 8px" placeholder="someone@example.com" autocomplete="off">
+                    <button id="btnAdminAddEmail" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0">Add to allowlist</button>
+                </div>
+                <p id="settings-admin-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
+            </section>
+
             <section class="settings-build-panel">
                 <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Build</h4>
                 <p id="settings-build-fingerprint" class="settings-build-fingerprint">Build unavailable</p>
@@ -1309,6 +1340,7 @@
 
     <script src="script-diff.js"></script>
     <script src="screenplay-layout.js"></script>
+    <script src="model-pricing.js"></script>
     <script src="fountain-editor.js"></script>
     <script src="app.js"></script>
 </body>

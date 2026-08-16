@@ -211,7 +211,7 @@ test('/api/me rejects missing sessions and accepts a signed allowlisted session'
 
         const signed = await invoke(routes['GET /api/me'], { headers: { cookie: `pageone_session=${token}` } });
         assert.strictEqual(signed.statusCode, 200);
-        assert.deepStrictEqual(signed.body, { email: 'writer@example.com' });
+        assert.deepStrictEqual(signed.body, { email: 'writer@example.com', admin: true });
     });
 });
 

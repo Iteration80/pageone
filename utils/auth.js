@@ -10,7 +10,9 @@
  *    instances with zero infra.
  *  - LIVE ALLOWLIST: the email allowlist is re-checked on every request, so
  *    removing an address from ALLOWED_EMAILS instantly revokes access even if the
- *    user still holds a valid, unexpired cookie.
+ *    user still holds a valid, unexpired cookie. Since multi-user Phase 4 the
+ *    allowlist is ALLOWED_EMAILS ∪ a data-backed list (utils/access_control.js)
+ *    that admins edit from Settings; the same per-request re-check covers both.
  *  - BREAK-GLASS: APP_SECRET stays a valid credential (checked in requireAuth),
  *    so admin/CLI/maintenance access survives a Google misconfiguration.
  *
@@ -19,6 +21,7 @@
  */
 
 const crypto = require('crypto');
+const accessControl = require('./access_control');
 
 const SESSION_COOKIE = 'pageone_session';
 const STATE_COOKIE = 'pageone_oauth_state';
@@ -40,26 +43,36 @@ function isGoogleAuthEnabled() {
     return config().enabled;
 }
 
+/**
+ * Is this email allowed in right now? ALLOWED_EMAILS ∪ the data-backed allowlist
+ * (utils/access_control.js — multi-user Phase 4). Re-checked on every request by
+ * every credential path, so removing an address from EITHER half severs cookies and
+ * tokens alike on the next request. The env is the floor: an env-listed address
+ * cannot be removed from the UI, only from the env.
+ *
+ * ⚠️ Google auth being ENABLED still keys off the env alone (`config().enabled`) —
+ * the store adds people to a configured deployment; it cannot switch auth on.
+ */
 function isAllowedEmail(email) {
     if (!email) return false;
-    return config().allowed.includes(String(email).trim().toLowerCase());
+    const clean = String(email).trim().toLowerCase();
+    if (config().allowed.includes(clean)) return true;
+    return accessControl.isStoreAllowed(clean);
 }
 
 /**
- * The deployment owner: the FIRST address in ALLOWED_EMAILS.
+ * Is this email an administrator? ADMIN_EMAILS ∪ the data-backed admin list, with
+ * one bootstrap: when neither names anyone, the FIRST address in ALLOWED_EMAILS is
+ * admin, so a deployment that never configured admins behaves as it did before
+ * Phase 4 and the operator can promote themself in Settings to make it explicit.
+ * (That bootstrap was the whole admin rule from Phase 2 to Phase 4 — kept only as
+ * the fallback of last resort; the moment anyone is named it switches off.)
  *
- * ⚠️ PROVISIONAL, and deliberately the smallest rule that works. Multi-user Phase 2
- * needed *some* admin distinction immediately, because the /api/maintenance/* routes
- * read and write across every tenant's projects and were behind plain requireAuth —
- * i.e. any allowlisted tester could sweep everyone's data. Ordering the env var is a
- * weak way to express "who runs this deployment", but it needs no new config, no
- * migration, and no data. Phase 4 (admin surface) replaces this with a real admin
- * list; when it does, this function is the single place to change.
+ * This remains the single place that decides "who runs this deployment";
+ * requireAdmin in server.js and the admin routes call nothing else.
  */
 function isAdminEmail(email) {
-    const [first] = config().allowed;
-    if (!first || !email) return false;
-    return String(email).trim().toLowerCase() === first;
+    return accessControl.isAdmin(email);
 }
 
 // ─── Stateless signed session token: base64url(payload).base64url(HMAC) ────────
