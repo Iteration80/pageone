@@ -3922,7 +3922,7 @@ const ALLOWED_UPLOAD_MIMES = new Set([
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-word',
 ]);
-const upload = multer({
+const rawUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB hard cap
     fileFilter(_req, file, cb) {
@@ -3934,6 +3934,36 @@ const upload = multer({
         cb(null, true);
     },
 });
+
+/**
+ * ⚠️ multer LOSES THE CALLER'S IDENTITY. It hands the request back from a stream
+ * event on the socket, and that socket is an async resource created BEFORE
+ * requireAuth entered the identity context — so `next()` runs with no store, the
+ * handler sees no identity, and the ownership chokepoints treat the request as a
+ * trusted SYSTEM call. Found 2026-08-16: a freshly generated style arrived with no
+ * owner stamp, and the same gap let Bob's multipart POST /api/execute generate a
+ * pitch INTO Alice's project with a 200. Nine routes mount multer, including Stage
+ * 1–5 generation. Re-entering the identity captured on `req` (by `admit`) after
+ * multer finishes restores the context for everything downstream.
+ *
+ * Wrapped ONCE here so no route has to remember; `upload.single/array/...` are the
+ * only multer entry points the routes use. If a new middleware ever calls back from
+ * a foreign async resource (busboy, a raw socket, an EventEmitter created before
+ * the request), it needs the same treatment — `test/project_ownership.test.js`
+ * pins the multer case with a probe route.
+ */
+function preserveIdentity(middleware) {
+    return (req, res, next) => middleware(req, res, (err) => (
+        req.identity ? runWithIdentity(req.identity, () => next(err)) : next(err)
+    ));
+}
+const upload = {
+    single: (...args) => preserveIdentity(rawUpload.single(...args)),
+    array: (...args) => preserveIdentity(rawUpload.array(...args)),
+    fields: (...args) => preserveIdentity(rawUpload.fields(...args)),
+    none: (...args) => preserveIdentity(rawUpload.none(...args)),
+    any: (...args) => preserveIdentity(rawUpload.any(...args))
+};
 
 // Initialization
 async function seedBundledStyles() {
@@ -4023,7 +4053,10 @@ function headerCredential(req) {
 function admit(req, next, { email = null, method }) {
     req.userEmail = email || undefined;
     req.authMethod = method;
-    return runWithIdentity({ email: email || null, method }, next);
+    // Kept on the request too, so a middleware that calls back from a foreign async
+    // resource (multer — see preserveIdentity) can re-enter the same context.
+    req.identity = { email: email || null, method };
+    return runWithIdentity(req.identity, next);
 }
 
 async function authenticateWithToken(presented, req, res, next) {

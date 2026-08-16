@@ -430,3 +430,75 @@ test('every project-bearing route is covered by an explicit cross-user case', as
         assert.deepEqual(uncovered, [], `project routes with no ownership coverage:\n  ${uncovered.join('\n  ')}`);
     });
 });
+
+// ─── Multipart (multer) routes keep the caller's identity ────────────────────────
+//
+// multer hands the request back from a stream event on the socket — an async
+// resource created BEFORE requireAuth entered the identity context — so without a
+// re-entry the handler runs as a SYSTEM call and the chokepoints trust it. Found
+// 2026-08-16 when a freshly generated style arrived with no owner stamp; the same
+// gap let a multipart POST read and write another tenant's project.
+
+function multipart(fields) {
+    const boundary = '----pageone-test-boundary';
+    const parts = Object.entries(fields).map(([name, value]) =>
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
+    return {
+        body: Buffer.from(`${parts.join('')}--${boundary}--\r\n`),
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` }
+    };
+}
+
+// Every multer-mounted route that takes a projectId in the body. Each is refused
+// with 404 for Bob and gets PAST the ownership check for Alice (anything but 404 —
+// a model failure without an API key is fine, it means the read succeeded).
+const MULTIPART_PROJECT_ROUTES = [
+    '/api/execute',
+    '/api/refine-pitch',
+    '/api/generate-outline',
+    '/api/generate-characters',
+    '/api/generate-stage5-treatment',
+    '/api/generate-stage7-style',
+    '/api/generate-trained-style'
+];
+
+test('multipart routes refuse the other user and serve the owner — identity survives multer', async () => {
+    await withServer({}, async ({ request, dataRoot }) => {
+        const aliceId = await createProject(request, ALICE, 'Alice Script');
+        const before = fs.readFileSync(path.join(dataRoot, 'projects', `${aliceId}.json`), 'utf-8');
+
+        for (const route of MULTIPART_PROJECT_ROUTES) {
+            const { body, headers } = multipart({ projectId: aliceId, description: 'x', message: 'x', prompt: 'x', styleName: 'x' });
+            const intruder = await request(route, { method: 'POST', cookies: as(BOB), headers, body });
+            assert.ok(
+                intruder.status === 404 || intruder.status === 400,
+                `${route}: Bob got ${intruder.status} — ${intruder.text.slice(0, 120)}`
+            );
+            assert.ok(!/alice/i.test(intruder.text), `${route}: leaked project content to Bob`);
+        }
+        assert.equal(fs.readFileSync(path.join(dataRoot, 'projects', `${aliceId}.json`), 'utf-8'), before, 'a refused multipart request modified the project');
+
+        // The owner leg for the one route that reads the project before anything else
+        // it validates: it must get past the ownership check (a model failure is fine).
+        const { body, headers } = multipart({ projectId: aliceId, description: 'A terse style' });
+        const owner = await request('/api/generate-stage7-style', { method: 'POST', cookies: as(ALICE), headers, body });
+        assert.notEqual(owner.status, 404, `the OWNER got 404 on a multipart route — ${owner.text.slice(0, 120)}`);
+    });
+});
+
+test('a style created through a multipart route is stamped with its creator', async () => {
+    // Direct check on the seam: inside a multer callback, is the identity present?
+    // A style generated as Bob must not come back unowned (invisible to everyone).
+    await withServer({}, async ({ request, module: serverModule }) => {
+        const { currentUserEmail } = require('../utils/request_identity');
+        let seenInsideMulter = 'not-called';
+        serverModule.app.post('/__test/multipart-identity', serverModule.requireAuth, serverModule.upload.single('f'), (req, res) => {
+            seenInsideMulter = currentUserEmail();
+            res.json({ ok: true });
+        });
+        const { body, headers } = multipart({ note: 'hi' });
+        const res = await request('/__test/multipart-identity', { method: 'POST', cookies: as(BOB), headers, body });
+        assert.equal(res.status, 200, res.text);
+        assert.equal(seenInsideMulter, BOB, 'the identity context was lost across multer');
+    });
+});

@@ -92,6 +92,16 @@ async function startTestServer({ env = {} } = {}) {
         GOOGLE_CLIENT_SECRET: '',
         ALLOWED_EMAILS: '',
         OAUTH_BASE_URL: '',
+        // Model keys OFF too, for the same reason. Route tests are written to stop
+        // at validation or ownership, before any model call — but with the
+        // developer's .env leaking in, a route that got PAST those checks would
+        // silently spend real money and take 20 s to do it (2026-08-16: a cross-user
+        // multipart POST generated a real pitch into the wrong project, and the
+        // only clue was the test's duration). No key means such a route fails
+        // fast and honestly with a 500 the test can see.
+        GEMINI_API_KEY: '',
+        ANTHROPIC_API_KEY: '',
+        GEMINI_MODEL: '',
         ...env
     });
 
