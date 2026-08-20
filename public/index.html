@@ -293,6 +293,10 @@
                 <a href="javascript:void(0)" id="nav-stage-8" class="stage-link disabled"><span class="badge">7</span> Draft</a>
                 <a href="javascript:void(0)" id="nav-stage-9" class="stage-link disabled"><span class="badge">8</span> Coverage</a>
                 <a href="javascript:void(0)" id="nav-stage-10" class="stage-link disabled"><span class="badge">9</span> Rewrite</a>
+                <!-- Visible stage 10 "Script" = INTERNAL id 11 (visible 9 Rewrite is
+                     already internal 10 — the legacy data-key trap, see CLAUDE.md).
+                     Pure read-only view; unlocks when the Rewrite is approved. -->
+                <a href="javascript:void(0)" id="nav-stage-11" class="stage-link disabled"><span class="badge">10</span> Script</a>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnReturnHome" class="sidebar-home-btn" title="Return Home">
@@ -1087,6 +1091,56 @@
                     </div>
                 </div>
 
+            </div>
+        </main>
+
+        <!-- Stage 10: Script (INTERNAL id 11 — see the nav comment). The finished
+             screenplay after Rewrite, read straight through: continuous render of
+             stage9_rewrites.working (fallback: the approved draft), page geometry
+             from the shared layout module, and the export buttons in one place.
+             No editor, no chat, no new data keys — a pure view. -->
+        <main id="stage-11-view" class="workspace hidden">
+            <header class="workspace-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <h1>Stage 10: Script</h1>
+                    <p>The finished screenplay, read straight through. To change anything, go back to Rewrite.</p>
+                </div>
+                <div class="flex items-center gap-3" style="flex-shrink:0;margin-top:4px">
+                    <button id="btnStage11Fountain" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        .fountain
+                    </button>
+                    <button id="btnStage11Docx" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        .docx
+                    </button>
+                    <button id="btnStage11PdfClean" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-4 rounded-full border border-white/10 transition-colors flex items-center gap-1.5"
+                        title="The clean script, no revision marks — for wider circulation">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        PDF (clean)
+                    </button>
+                    <button id="btnStage11Pdf" class="primary-btn flex items-center gap-1.5" style="font-size:0.75rem;white-space:nowrap"
+                        title="Revised lines carry an asterisk in the right margin — the starred draft production expects after a rewrite pass">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export PDF
+                    </button>
+                </div>
+            </header>
+            <div class="flex flex-1 overflow-hidden">
+                <div class="flex-1 bg-gray-900 flex flex-col overflow-hidden">
+                    <div class="bg-gray-950 border-b border-white/10 flex-shrink-0">
+                        <div class="max-w-4xl mx-auto flex items-center justify-between px-10 py-3">
+                            <div id="stage11-source-note" class="text-xs text-gray-500"></div>
+                            <div class="flex items-center space-x-3">
+                                <span id="stage11-page-total" class="text-xs font-mono text-gray-500 tabular-nums" title="Computed with the PDF exporter's own layout — matches the printed page count"></span>
+                                <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Reading Mode</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-10 py-10 flex-1 bg-gray-950 overflow-y-auto scrollbar-hide">
+                        <div id="stage11-script-mount" class="draft-editor stage11-script max-w-4xl mx-auto bg-gray-800 shadow-2xl rounded-sm mt-8 mb-24 min-h-[1100px]"></div>
+                    </div>
+                </div>
             </div>
         </main>
 

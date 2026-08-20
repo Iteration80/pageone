@@ -1203,7 +1203,9 @@ test('frontend centralizes full project state replacement for Phase 6 state clea
     assert.equal(refreshDeclarations.length, 1);
 });
 
-test('frontend exposes nine visible stages and hides the derived beat sheet workspace', () => {
+// "Ten" since 2026-08-16: visible stage 10 "Script" (internal id 11) joined the
+// pipeline — a read-only view, so the derived-beat-sheet rules are untouched.
+test('frontend exposes ten visible stages and hides the derived beat sheet workspace', () => {
     const indexHtml = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
     const appJs = fs.readFileSync(require.resolve('../public/app.js'), 'utf8');
 
@@ -1213,7 +1215,7 @@ test('frontend exposes nine visible stages and hides the derived beat sheet work
     assert.doesNotMatch(indexHtml, />Generate Beats</);
     assert.match(indexHtml, /id="nav-stage-5"[\s\S]*<span class="badge">4<\/span>[\s\S]*Treatment/);
     assert.match(indexHtml, /<h1>Stage 4: Treatment<\/h1>/);
-    assert.match(appJs, /const PIPELINE_STAGE_IDS = \[1, 2, 3, 5, 6, 7, 8, 9, 10\]/);
+    assert.match(appJs, /const PIPELINE_STAGE_IDS = \[1, 2, 3, 5, 6, 7, 8, 9, 10, 11\]/);
     assert.match(appJs, /const DISPLAY_STAGE_NUMBERS = \{[\s\S]*5: 4/);
     assert.doesNotMatch(appJs, /=== Stage 4: Beats Logic ===/);
     assert.doesNotMatch(appJs, /getCurrentStage4Beats/);

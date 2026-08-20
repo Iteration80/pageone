@@ -177,7 +177,7 @@ function stage6AuditLabel(flag = {}) {
 // This is the SECOND time a helper trapped in this handler has killed the gear icon
 // (the June closure-scope incident is the first). A helper called from anywhere must
 // be declared here, not inside the handler.
-const DISPLAY_STAGE_NUMBERS = { 1: 1, 2: 2, 3: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9 };
+const DISPLAY_STAGE_NUMBERS = { 1: 1, 2: 2, 3: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9, 11: 10 };
 const DISPLAY_STAGE_LABELS = {
     1: 'Pitch',
     2: 'Outline',
@@ -187,7 +187,8 @@ const DISPLAY_STAGE_LABELS = {
     7: 'Style',
     8: 'Draft',
     9: 'Coverage',
-    10: 'Rewrite'
+    10: 'Rewrite',
+    11: 'Script' // pure view over the finished screenplay — internal id 11, visible 10
 };
 const displayStageNumber = stageId => DISPLAY_STAGE_NUMBERS[Number(stageId)] || Number(stageId);
 const displayStageLabel = stageId => DISPLAY_STAGE_LABELS[Number(stageId)] || `Stage ${stageId}`;
@@ -535,13 +536,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Navigation and Workspaces
     const navItems = {};
     const workspaces = {};
-    const PIPELINE_STAGE_IDS = [1, 2, 3, 5, 6, 7, 8, 9, 10];
-    for (let i = 1; i <= 10; i++) {
+    const PIPELINE_STAGE_IDS = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11];
+    for (let i = 1; i <= 11; i++) {
         // Handle inconsistent ID patterns (nav-stage-X vs nav-stageX)
         navItems[i] = document.getElementById(`nav-stage-${i}`) || document.getElementById(`nav-stage${i}`);
         workspaces[i] = document.getElementById(`stage-${i}-view`) || document.getElementById(`stage${i}-view`);
     }
-    const SOURCE_READINESS_STAGES = new Set(PIPELINE_STAGE_IDS.filter(stageId => stageId !== 9));
+    const SOURCE_READINESS_STAGES = new Set(PIPELINE_STAGE_IDS.filter(stageId => stageId !== 9 && stageId !== 11));
     const SOURCE_TYPE_OPTIONS = [
         ['source_material', 'Source Material'],
         ['source_reference', 'Source Reference'],
@@ -2733,7 +2734,8 @@ document.addEventListener('DOMContentLoaded', () => {
             7: !!(data.stage7_style || data.stage7_style_skipped),
             8: !!data.stage7_approved,
             9: !!data.stage8_coverage,
-            10: !!data.stage9_rewrites?.approved
+            10: !!data.stage9_rewrites?.approved,
+            11: !!data.stage9_rewrites?.approved // the Script view IS the approved rewrite
         };
 
         PIPELINE_STAGE_IDS.forEach((stageId, index) => {
@@ -2879,6 +2881,8 @@ document.addEventListener('DOMContentLoaded', () => {
             initStage9();
         } else if (stageNum === 10) {
             initStage10();
+        } else if (stageNum === 11) {
+            initStage11();
         }
     }
 
@@ -11229,6 +11233,159 @@ document.addEventListener('DOMContentLoaded', () => {
                 const onUp = () => { hsplit.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
+            });
+        }
+    }
+
+    // ─── Stage 10 "Script" (INTERNAL id 11) — the finished screenplay ─────────
+    //
+    // A pure VIEW: no editor, no chat, no data keys of its own. Scene text resolves
+    // exactly the way the exporters resolve it — the rewrite's working text once the
+    // Rewrite has run, else the approved draft — so what this page shows is what
+    // /api/export/pdf will print, by construction. Page geometry comes from
+    // window.ScreenplayLayout, the exporter's own math, same rule as the Stage 7
+    // overlay: never a second estimate.
+
+    let stage11Wired = false;
+
+    /** { hasRewrite, scenes: [{ key, text }] } — mirrors routes/export.js exactly. */
+    function stage11Scenes() {
+        const d = window.currentProjectData || {};
+        const working = d.stage9_rewrites?.working || {};
+        if (Object.keys(working).length) {
+            return {
+                hasRewrite: true,
+                scenes: Object.entries(working)
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .filter(([, txt]) => txt && txt.trim() !== '[SCENE DELETED]')
+                    .map(([n, txt]) => ({ key: Number(n), text: txt }))
+            };
+        }
+        return {
+            hasRewrite: false,
+            scenes: getFlatScenes()
+                .filter(s => s.humanized_draft_text || s.draft_text)
+                .sort((a, b) => a.scene_number - b.scene_number)
+                .map(s => ({ key: s.scene_number, text: s.humanized_draft_text || s.draft_text }))
+        };
+    }
+
+    function initStage11() {
+        const mount = document.getElementById('stage11-script-mount');
+        if (!mount) return;
+        const { hasRewrite, scenes } = stage11Scenes();
+        const note = document.getElementById('stage11-source-note');
+        const totalEl = document.getElementById('stage11-page-total');
+
+        if (!scenes.length) {
+            mount.innerHTML = '<p style="color:#6b7280;font-size:0.85rem;text-align:center;padding:48px 0">Nothing to read yet — draft and approve the script first.</p>';
+            if (note) note.textContent = '';
+            if (totalEl) totalEl.textContent = '';
+            return;
+        }
+
+        // Render every scene as a read-only block. Same line-per-div rendering the
+        // Stage 7 continuous view uses, which is what lets the page markers land on
+        // the right child below.
+        mount.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        const blocks = [];
+        scenes.forEach(({ key, text }) => {
+            const block = document.createElement('div');
+            block.className = 'cv-scene stage11-scene';
+            block.setAttribute('data-scene', String(key));
+            block.innerHTML = formatFountainToHTML(text);
+            blocks.push(block);
+            frag.appendChild(block);
+        });
+        mount.appendChild(frag);
+
+        // Pagination — the exporter's document construction exactly: trimmed scene
+        // texts joined by '\n\n' (one blank element between scenes). The blocks
+        // render the UNTRIMMED text one div per line, so marker targets are offset
+        // by however many leading blank lines the trim removed (see Stage 7).
+        if (window.ScreenplayLayout) {
+            const combined = [];
+            const origin = []; // combined element index -> { sceneIdx, lineIdx }
+            const sceneFirstEl = [];
+            const leadLines = [];
+            scenes.forEach(({ text }, sceneIdx) => {
+                if (sceneIdx > 0) { combined.push({ type: 'blank' }); origin.push(null); }
+                sceneFirstEl.push(combined.length);
+                const raw = String(text);
+                const strippedPrefix = raw.slice(0, raw.length - raw.trimStart().length);
+                leadLines.push((strippedPrefix.match(/\n/g) || []).length);
+                window.ScreenplayLayout.parseFountain(raw.trim()).forEach((el, lineIdx) => {
+                    combined.push(el);
+                    origin.push({ sceneIdx, lineIdx });
+                });
+            });
+            const layout = window.ScreenplayLayout.layoutScreenplay(combined);
+            if (totalEl) totalEl.textContent = `${layout.pageCount} page${layout.pageCount === 1 ? '' : 's'}`;
+
+            blocks.forEach((block, sceneIdx) => {
+                const from = sceneFirstEl[sceneIdx];
+                const to = sceneIdx + 1 < sceneFirstEl.length ? sceneFirstEl[sceneIdx + 1] : combined.length;
+                let page = null;
+                for (let k = from; k < to && page === null; k++) page = layout.pageOfElement[k];
+                if (page === null) return;
+                const chip = document.createElement('div');
+                chip.className = 'cv-page-chip';
+                chip.textContent = `p. ${page}`;
+                block.appendChild(chip);
+            });
+
+            const inserts = [];
+            layout.pageStarts.forEach(({ page, elIndex }) => {
+                const o = origin[elIndex];
+                if (!o) return;
+                const block = blocks[o.sceneIdx];
+                const target = block?.children[o.lineIdx + leadLines[o.sceneIdx]];
+                if (target) inserts.push({ block, target, page });
+            });
+            inserts.forEach(({ block, target, page }) => {
+                const marker = document.createElement('div');
+                marker.className = 'cv-page-marker';
+                marker.innerHTML = `<span>p. ${page}</span>`;
+                block.insertBefore(marker, target);
+            });
+        } else if (totalEl) {
+            totalEl.textContent = '';
+        }
+
+        if (note) {
+            note.textContent = hasRewrite
+                ? `Rewrite pass · ${scenes.length} scene${scenes.length === 1 ? '' : 's'}`
+                : `Approved draft (Rewrite not run) · ${scenes.length} scene${scenes.length === 1 ? '' : 's'}`;
+        }
+        // The starred/clean distinction only exists for a rewrite — a first draft
+        // has no baseline to star, so one PDF button is honest there.
+        document.getElementById('btnStage11PdfClean')?.classList.toggle('hidden', !hasRewrite);
+
+        if (!stage11Wired) {
+            stage11Wired = true;
+            const exportStage = () => (stage11Scenes().hasRewrite ? 'rewrite' : 'draft');
+            document.getElementById('btnStage11Pdf')?.addEventListener('click', () => {
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=${exportStage()}`, document.getElementById('btnStage11Pdf'));
+            });
+            document.getElementById('btnStage11PdfClean')?.addEventListener('click', () => {
+                triggerApiDownload(`/api/export/pdf/${activeProjectId}?stage=${exportStage()}&marks=0`, document.getElementById('btnStage11PdfClean'));
+            });
+            document.getElementById('btnStage11Docx')?.addEventListener('click', () => {
+                triggerApiDownload(`/api/export/docx/${activeProjectId}?stage=${exportStage()}`, document.getElementById('btnStage11Docx'));
+            });
+            document.getElementById('btnStage11Fountain')?.addEventListener('click', () => {
+                const current = stage11Scenes();
+                if (!current.scenes.length) return;
+                const fountainText = current.scenes.map(sc => String(sc.text).trim()).join('\n\n');
+                const title = window.currentProjectData?.stage1_pitch?.pitch?.title || 'screenplay';
+                const blob = new Blob([fountainText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = makeFilename(title, current.hasRewrite ? 'script' : 'draft', 'fountain');
+                a.click();
+                URL.revokeObjectURL(url);
             });
         }
     }

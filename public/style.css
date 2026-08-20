@@ -3658,3 +3658,16 @@ textarea.synopsis-input {
     color: #64748b;
     white-space: nowrap;
 }
+
+/* ─── Stage 10 "Script" (internal id 11) — reading mode ─────────────────────
+   Reuses .cv-scene positioning and the pagination chips/markers, but the whole
+   script is at full reading contrast (this is the finished page, not dimmed
+   context around an editor) and nothing is clickable. */
+.stage11-scene {
+    padding: 10px 56px;
+    color: #d7dce3;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    cursor: default;
+}
