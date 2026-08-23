@@ -15,6 +15,8 @@
  *   { name, description, input_schema: { type: 'object', properties, required } }
  */
 
+const { parseJsonWithRepair } = require('./json_parse');
+
 function resultToText(result) {
     if (result == null) return '';
     return typeof result === 'string' ? result : JSON.stringify(result);
@@ -142,11 +144,99 @@ function parseGeminiResponse(response) {
     return { text, toolCalls, stopReason: response.candidates?.[0]?.finishReason || null };
 }
 
+// ─── OpenAI-compatible ────────────────────────────────────────────────────────
+//
+// One translation for the whole OpenAI-compatible world: OpenAI itself, Moonshot
+// (Kimi), DeepSeek, Groq, Together, OpenRouter, a local llama.cpp or vLLM server.
+// They differ in which optional features they support, never in this shape.
+//
+// Two things are unlike the other two providers and both have bitten people before:
+//
+//  1. A tool RESULT is its own message with `role: 'tool'` and a `tool_call_id`,
+//     one per call — Anthropic packs them into a user turn and Gemini into parts.
+//     A missing `tool_call_id`, or a result whose id does not match a call in the
+//     immediately preceding assistant message, is a 400 from most vendors and
+//     silently-ignored context on the rest.
+//  2. There is no `is_error` flag. A failed tool result is ordinary text, so the
+//     failure has to be legible IN the text or the model will read it as success —
+//     which is exactly the silent-retry the assistant loop is built to prevent.
+//     `toOpenAIMessages` prefixes it. Do not remove that prefix without giving the
+//     model some other way to tell a failure from a result.
+
+function toOpenAIMessages(messages, system = null) {
+    const out = [];
+    if (system) out.push({ role: 'system', content: system });
+    for (const msg of messages) {
+        if (msg.role === 'user') {
+            out.push({ role: 'user', content: msg.text || '' });
+        } else if (msg.role === 'assistant') {
+            const toolCalls = (msg.toolCalls || []).map(call => ({
+                id: call.id,
+                type: 'function',
+                function: { name: call.name, arguments: JSON.stringify(call.input || {}) }
+            }));
+            out.push({
+                role: 'assistant',
+                // `content: null` is the documented shape for a pure tool turn; a few
+                // vendors reject an empty string there.
+                content: msg.text || (toolCalls.length ? null : ''),
+                ...(toolCalls.length ? { tool_calls: toolCalls } : {})
+            });
+        } else if (msg.role === 'tool') {
+            for (const r of msg.results || []) {
+                out.push({
+                    role: 'tool',
+                    tool_call_id: r.id,
+                    content: r.isError ? `TOOL FAILED: ${resultToText(r.result)}` : resultToText(r.result)
+                });
+            }
+        } else {
+            throw new Error(`Unknown neutral message role: ${msg.role}`);
+        }
+    }
+    return out;
+}
+
+function toOpenAITools(tools) {
+    return tools.map(t => ({
+        type: 'function',
+        function: { name: t.name, description: t.description, parameters: t.input_schema }
+    }));
+}
+
+function parseOpenAIResponse(response) {
+    const choice = response?.choices?.[0] || {};
+    const message = choice.message || {};
+    const toolCalls = (message.tool_calls || [])
+        .filter(call => call?.function?.name)
+        .map((call, index) => {
+            let input = {};
+            // ⚠️ Arguments arrive as a JSON STRING — model output, so it goes through
+            // parseJsonWithRepair like every other piece of model JSON (a trailing
+            // comma from a small model would otherwise lose the whole tool call).
+            // And a throw here would lose the whole turn including the model's text,
+            // so an unrepairable argument list degrades to an empty input: the tool
+            // then reports its own honest failure through the loop's machinery,
+            // which is the behaviour `toolResultsContainFailure` exists to handle.
+            try { input = call.function.arguments ? parseJsonWithRepair(call.function.arguments, { label: `${call.function.name} arguments` }) : {}; }
+            catch { input = {}; }
+            return { id: call.id || `openai_call_${index}_${call.function.name}`, name: call.function.name, input };
+        });
+    return {
+        text: String(message.content || '').trim(),
+        toolCalls,
+        stopReason: choice.finish_reason || null
+    };
+}
+
 module.exports = {
     toAnthropicMessages,
     toAnthropicTools,
     parseAnthropicResponse,
     toGeminiContents,
     toGeminiTools,
-    parseGeminiResponse
+    parseGeminiResponse,
+    toOpenAIMessages,
+    toOpenAITools,
+    parseOpenAIResponse
 };

@@ -13,6 +13,8 @@ const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./util
 const userSettings = require('./utils/user_settings');
 // The one table of models, providers and prices, as data (Phase 5 item 1).
 const modelRegistry = require('./utils/model_registry');
+// The one answer to "which key talks to this provider" (Phase 5 items 2–3).
+const apiKeys = require('./utils/api_keys');
 const os = require('os');
 const crypto = require('crypto');
 const {
@@ -461,29 +463,43 @@ function resolveStageModel(stageNum, email) {
  * the personal layer by not passing an argument. There is nothing to pass.
  */
 function getModelConfig(stageNum) {
+    const model = resolveStageModel(stageNum, currentUserEmail());
+    const baseUrl = modelRegistry.baseUrlFor(model);
     return {
-        model: resolveStageModel(stageNum, currentUserEmail()),
+        model,
         geminiApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY,
-        anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY
+        anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY,
+        // The OpenAI-compatible branch needs both a key and somewhere to send the
+        // request; the endpoint comes from the model's registry row, so a stage
+        // configured for Kimi carries Moonshot's URL without any caller knowing.
+        openaiApiKey: providerKeyFor('openai-compatible', baseUrl),
+        baseUrl
     };
 }
 
 /**
  * The API key this deployment holds for a provider family, or null.
  *
- * ⚠️ HOUSE KEYS ONLY, for now. `openai-compatible` has nowhere to keep a key yet —
- * that arrives with the per-user key store (Phase 5 item 3), and this function is
- * the single place that has to learn about it. Discovery uses it, so an
- * openai-compatible "Discover models" says so honestly instead of 401ing.
+ * ⚠️ HOUSE KEYS ONLY. Per-person keys (bring-your-own) arrive in Phase 5 item 3,
+ * and this function is the single place that has to learn about them — every
+ * caller already asks the question "what key for this provider", so the answer can
+ * become identity-aware without any of them changing.
+ *
+ * For `openai-compatible` the key is per ENDPOINT, not per family: Moonshot and
+ * DeepSeek are the same protocol and different accounts. `OPENAI_KEYS` is a
+ * `<baseUrl>=<key>` list for that; `OPENAI_API_KEY` is the catch-all for a
+ * deployment that only talks to one.
  */
-function providerKeyFor(provider) {
-    if (provider === 'anthropic') {
-        return ((RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY) || null;
-    }
-    if (provider === 'gemini') {
-        return ((RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY) || null;
-    }
-    return null;
+// The runtime (Settings-stored) half of the house keys. Installed once; the module
+// owns the env half and the per-endpoint openai-compatible lookup.
+apiKeys.setHouseKeyOverrides(() => (RUNTIME_API_KEYS_ENABLED ? {
+    geminiApiKey: appSettings.geminiApiKey,
+    anthropicApiKey: appSettings.anthropicApiKey,
+    openaiKeys: appSettings.openaiKeys
+} : {}));
+
+function providerKeyFor(provider, baseUrl = null) {
+    return apiKeys.keyFor(provider, { baseUrl, email: currentUserEmail() });
 }
 
 function getAssistantModelConfig(stageNum = 1) {

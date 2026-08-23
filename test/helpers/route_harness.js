@@ -101,6 +101,12 @@ async function startTestServer({ env = {} } = {}) {
         // fast and honestly with a 500 the test can see.
         GEMINI_API_KEY: '',
         ANTHROPIC_API_KEY: '',
+        // The OpenAI-compatible family, same reason (Phase 5 item 2). These are also
+        // the instrument for item 3: with every house key blank, a bring-your-own
+        // resolution that silently fell back to one would have to show up as a
+        // request actually reaching a provider — which cannot happen here.
+        OPENAI_API_KEY: '',
+        OPENAI_KEYS: '',
         GEMINI_MODEL: '',
         ...env
     });

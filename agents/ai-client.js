@@ -16,9 +16,26 @@
 const { GoogleGenAI } = require('@google/genai');
 const Anthropic = require('@anthropic-ai/sdk');
 const modelRegistry = require('../utils/model_registry');
+const apiKeys = require('../utils/api_keys');
 
 function detectProvider(model) {
     return modelRegistry.providerFor(model);
+}
+
+/**
+ * Where an OpenAI-compatible call gets its endpoint and its key.
+ *
+ * ⚠️ RESOLVED HERE, NOT PASSED IN. Every one of the ~30 `generateContent` call
+ * sites in `agents/*` destructures its keys by name; threading two more parameters
+ * through all of them is the kind of change where missing one produces a stage that
+ * works on Gemini and fails only when someone points it at Kimi. The endpoint comes
+ * from the model's registry row and the key from utils/api_keys.js, which is also
+ * where per-person keys will resolve. An explicit argument still wins, so a caller
+ * that knows better (the admin Verify action) can say so.
+ */
+function resolveOpenAiTarget(model, { baseUrl = null, apiKey = null } = {}) {
+    const endpoint = baseUrl || modelRegistry.baseUrlFor(model);
+    return { baseUrl: endpoint, apiKey: apiKey || apiKeys.keyFor('openai-compatible', { baseUrl: endpoint }) };
 }
 
 function normalizeAbortError(error, signal) {
@@ -216,11 +233,167 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     }
 }
 
+// ─── OpenAI-compatible path ───────────────────────────────────────────────────
+//
+// ONE BRANCH, MANY VENDORS. OpenAI, Moonshot (Kimi), DeepSeek, Groq, Together,
+// OpenRouter and a local llama.cpp/vLLM server all speak `POST {baseUrl}/chat/
+// completions` with the same body. What varies is which optional features they
+// support, and that variation is handled by asking for the cheapest thing that
+// works and degrading rather than failing:
+//
+//  - Structured output: `response_format: {type:'json_schema'}` when the vendor
+//    supports it. Many do not, and they signal it with a 400 mentioning
+//    `response_format`. On that specific failure we retry ONCE with the schema in
+//    the system prompt instead, which is what the Claude path has always done.
+//  - `max_completion_tokens` is the current field; older/simpler servers only know
+//    `max_tokens`. Same treatment: retry once on a 400 that names the field.
+//
+// ⚠️ EVERY VENDOR HAS ITS OWN SCHEMA TRAPS — the Gemini `minItems` class is not
+// unique to Gemini. That is why a model is not usable for a stage until the admin
+// Verify action has made one real request against that stage's schema; an
+// unverified model is offered with a warning, a failed one is refused.
+
+const OPENAI_TIMEOUT_MS = 300_000;
+
+function openAiEndpoint(baseUrl) {
+    if (!baseUrl) throw new Error('This model is registered as OpenAI-compatible but has no baseUrl.');
+    return `${String(baseUrl).replace(/\/+$/, '')}/chat/completions`;
+}
+
+/** True when the vendor's 400 is "I don't know that field", not "your input is bad". */
+function mentionsUnsupported(text, field) {
+    return new RegExp(field, 'i').test(String(text || ''));
+}
+
+async function postOpenAI({ baseUrl, apiKey, body, signal }) {
+    const response = await fetch(openAiEndpoint(baseUrl), {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body),
+        signal: signal || AbortSignal.timeout(OPENAI_TIMEOUT_MS)
+    });
+    const text = await response.text();
+    if (!response.ok) {
+        // Relay the vendor's own words. "invalid_api_key" or "model not found" is a
+        // usable answer; "request failed" sends someone reading logs for an hour.
+        const error = new Error(`${response.status} from ${baseUrl}: ${text.slice(0, 500)}`);
+        error.status = response.status;
+        error.body = text;
+        throw error;
+    }
+    try {
+        // The provider's HTTP envelope, not model prose — repairing it would only
+        // paper over a truncated or proxied response we want to hear about.
+        return JSON.parse(text); // not-model-json: chat/completions envelope
+    } catch {
+        throw new Error(`${baseUrl} returned a non-JSON body: ${text.slice(0, 300)}`);
+    }
+}
+
+function openAiUsage(model, payload) {
+    return {
+        model,
+        inputTokens: payload?.usage?.prompt_tokens || 0,
+        outputTokens: payload?.usage?.completion_tokens || 0
+    };
+}
+
+/**
+ * Send one request, degrading through the two optional fields described above.
+ * Each fallback happens at most once, and only for a 400 that names the field —
+ * a 400 about the prompt is a real error and is thrown.
+ */
+async function postOpenAIWithFallbacks({ baseUrl, apiKey, body, signal }) {
+    try {
+        return { payload: await postOpenAI({ baseUrl, apiKey, body, signal }), usedSchema: Boolean(body.response_format) };
+    } catch (error) {
+        if (error.status !== 400) throw error;
+
+        if (body.response_format && mentionsUnsupported(error.body, 'response_format')) {
+            const { response_format: _dropped, ...rest } = body;
+            console.warn(`[ai] ${baseUrl} rejected response_format — retrying with the schema in the prompt.`);
+            const payload = await postOpenAI({ baseUrl, apiKey, body: rest, signal });
+            return { payload, usedSchema: false };
+        }
+        if (body.max_completion_tokens && mentionsUnsupported(error.body, 'max_completion_tokens')) {
+            const { max_completion_tokens, ...rest } = body;
+            console.warn(`[ai] ${baseUrl} rejected max_completion_tokens — retrying with max_tokens.`);
+            const payload = await postOpenAI({ baseUrl, apiKey, body: { ...rest, max_tokens: max_completion_tokens }, signal });
+            return { payload, usedSchema: Boolean(body.response_format) };
+        }
+        throw error;
+    }
+}
+
+async function callOpenAICompatible({ model, baseUrl, apiKey, contents, config = {}, schema }) {
+    const signal = config?.abortSignal;
+    throwIfAborted(signal);
+
+    // Reuse the Claude normalisation: it already flattens Gemini-style contents to
+    // one user turn, and it is the same job here.
+    const claudeShaped = normalizeContentsForClaude(contents);
+    const userText = claudeShaped[0].content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join('\n\n');
+    // ⚠️ Documents (inlineData) are dropped: the OpenAI chat shape carries files
+    // through a different mechanism that varies per vendor, and silently sending
+    // the prompt without the attachment would look like a working call producing a
+    // worse answer. Say so instead.
+    const droppedDocuments = claudeShaped[0].content.filter(block => block.type === 'document').length;
+    if (droppedDocuments) {
+        throw new Error(
+            `${model} is an OpenAI-compatible model and this request carries ${droppedDocuments} attachment(s), `
+            + 'which this provider path does not send. Use a Gemini or Claude model for stages that read uploads.'
+        );
+    }
+
+    const messages = [];
+    // With no native schema support the instruction has to be in the prompt; with
+    // it, saying it twice costs nothing and helps small models.
+    const system = buildClaudeSystemPrompt(config?.systemInstruction, schema);
+    if (system) messages.push({ role: 'system', content: system });
+    messages.push({ role: 'user', content: userText });
+
+    const body = {
+        model,
+        messages,
+        temperature: config?.temperature ?? 0.7,
+        max_completion_tokens: config?.maxOutputTokens ?? 16000,
+        ...(schema ? {
+            response_format: {
+                type: 'json_schema',
+                json_schema: { name: 'pageone_response', strict: false, schema }
+            }
+        } : {})
+    };
+
+    let payload;
+    try {
+        ({ payload } = await postOpenAIWithFallbacks({ baseUrl, apiKey, body, signal }));
+    } catch (error) {
+        normalizeAbortError(error, signal);
+        throw error;
+    }
+
+    const raw = String(payload?.choices?.[0]?.message?.content || '');
+    let text = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+    // Same belt-and-braces as the Claude path: a model that wraps its JSON in prose
+    // has still produced the JSON, and the caller's parseJsonWithRepair takes it
+    // from here.
+    if (schema) text = extractJsonFromText(text, schema);
+    return { text, usage: openAiUsage(model, payload) };
+}
+
 // ─── Chat with tools ──────────────────────────────────────────────────────────
 
 const {
     toAnthropicMessages, toAnthropicTools, parseAnthropicResponse,
-    toGeminiContents, toGeminiTools, parseGeminiResponse
+    toGeminiContents, toGeminiTools, parseGeminiResponse,
+    toOpenAIMessages, toOpenAITools, parseOpenAIResponse
 } = require('./tool_messages');
 
 /**
@@ -233,9 +406,28 @@ const {
  *
  * @returns {{ text: string, toolCalls: [{id,name,input}], usage: {model,inputTokens,outputTokens}, stopReason: string|null }}
  */
-async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, messages, tools = [], temperature = 0.7, maxTokens = 4000, abortSignal = null }) {
+async function chatWithTools({ model, geminiApiKey, anthropicApiKey, openaiApiKey, baseUrl, system, messages, tools = [], temperature = 0.7, maxTokens = 4000, abortSignal = null }) {
     const provider = detectProvider(model);
     throwIfAborted(abortSignal);
+
+    if (provider === 'openai-compatible') {
+        const target = resolveOpenAiTarget(model, { baseUrl, apiKey: openaiApiKey });
+        const body = {
+            model,
+            messages: toOpenAIMessages(messages, system),
+            temperature,
+            max_completion_tokens: maxTokens,
+            ...(tools.length ? { tools: toOpenAITools(tools), tool_choice: 'auto' } : {})
+        };
+        let payload;
+        try {
+            ({ payload } = await postOpenAIWithFallbacks({ ...target, body, signal: abortSignal }));
+        } catch (error) {
+            normalizeAbortError(error, abortSignal);
+            throw error;
+        }
+        return { ...parseOpenAIResponse(payload), usage: openAiUsage(model, payload) };
+    }
 
     if (provider === 'anthropic') {
         const client = new Anthropic({ apiKey: anthropicApiKey });
@@ -299,19 +491,27 @@ async function chatWithTools({ model, geminiApiKey, anthropicApiKey, system, mes
 /**
  * generateContent({ model, geminiApiKey, anthropicApiKey, contents, config, schema })
  *
- * @param {string}  model          - e.g. "gemini-3.1-pro-preview" or "claude-opus-4-6"
+ * @param {string}  model          - e.g. "gemini-3.1-pro-preview", "claude-opus-5" or "kimi-k3"
  * @param {string}  geminiApiKey   - Google GenAI API key (used when provider=gemini)
  * @param {string}  anthropicApiKey - Anthropic API key (used when provider=anthropic)
+ * @param {string}  openaiApiKey   - key for the OpenAI-compatible endpoint (provider=openai-compatible)
+ * @param {string}  baseUrl        - override the registry's baseUrl for that provider
  * @param {*}       contents       - Gemini-style: string | string[] | {inlineData}[]
  * @param {object}  config         - { systemInstruction, temperature, thinkingConfig, tools, ... }
  * @param {object}  schema         - JSON schema object (optional); enforced natively on Gemini,
- *                                   injected as system prompt instruction on Claude
+ *                                   requested via response_format where an OpenAI-compatible
+ *                                   vendor supports it, and injected as a system-prompt
+ *                                   instruction on Claude and wherever it is not supported
  * @returns {{ text: string, usage: { model: string, inputTokens: number, outputTokens: number } }}
  */
-async function generateContent({ model, geminiApiKey, anthropicApiKey, contents, config, schema }) {
+async function generateContent({ model, geminiApiKey, anthropicApiKey, openaiApiKey, baseUrl, contents, config, schema }) {
     const provider = detectProvider(model);
     if (provider === 'anthropic') {
         return callClaude({ model, anthropicApiKey, contents, config, schema });
+    }
+    if (provider === 'openai-compatible') {
+        const target = resolveOpenAiTarget(model, { baseUrl, apiKey: openaiApiKey });
+        return callOpenAICompatible({ model, ...target, contents, config, schema });
     }
     return callGemini({ model, geminiApiKey, contents, config, schema });
 }

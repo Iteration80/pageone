@@ -17,6 +17,13 @@ const ALLOWED_RAW_PARSE = {
     'assistant.js': true         // turnState deserialization (server-serialized JSON)
 };
 
+// A per-LINE exemption, for JSON that is not model prose — a provider's own HTTP
+// envelope, say. Deliberately narrow: exempting a whole file (as the map above does)
+// hides every future parse added to it, and the OpenAI-compatible branch in
+// ai-client.js both parses an envelope AND handles model text. The marker has to sit
+// on the same line, so it is visible at the site and shows up in review.
+const NOT_MODEL_JSON = '// not-model-json:';
+
 test('agents never raw-JSON.parse model output', () => {
     const agentsDir = path.join(__dirname, '../agents');
     const offenders = [];
@@ -26,6 +33,7 @@ test('agents never raw-JSON.parse model output', () => {
         source.split('\n').forEach((line, i) => {
             if (!line.includes('JSON.parse')) return;
             if (line.includes('JSON.parse(JSON.stringify')) return; // deep clone
+            if (line.includes(NOT_MODEL_JSON)) return;              // provider envelope, marked at the site
             offenders.push(`${file}:${i + 1}: ${line.trim()}`);
         });
     }
