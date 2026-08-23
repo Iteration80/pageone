@@ -72,8 +72,23 @@ function envAdminEmails() {
 
 // ─── Store I/O ────────────────────────────────────────────────────────────────
 
+/**
+ * Whose keys a person runs on (Phase 5 item 3).
+ *
+ *  - `house` — the deployment's keys, counted against their monthly budget. THE
+ *    DEFAULT, and the whole point: a tester Carsten whitelists never sees an API key.
+ *  - `byok`  — their own keys (utils/user_keys.js), and the house keys are never
+ *    used for them. Uncapped by default because it is their money; an explicit
+ *    per-user quota still applies if one is set.
+ *
+ * ⚠️ THE DEFAULT MUST STAY `house`. An unknown or missing value resolving to `byok`
+ * would lock a tester out of a deployment that is working perfectly.
+ */
+const KEY_MODES = ['house', 'byok'];
+const DEFAULT_KEY_MODE = 'house';
+
 function emptyStore() {
-    return { version: 1, allowed: [], admins: [], quotas: { defaultMonthlyUsd: null, perUser: {} } };
+    return { version: 1, allowed: [], admins: [], quotas: { defaultMonthlyUsd: null, perUser: {} }, keyModes: {} };
 }
 
 function normaliseStore(parsed) {
@@ -93,6 +108,14 @@ function normaliseStore(parsed) {
         for (const [email, value] of Object.entries(q.perUser)) {
             const clean = normEmail(email);
             if (clean && validQuota(value)) store.quotas.perUser[clean] = value;
+        }
+    }
+    if (parsed.keyModes && typeof parsed.keyModes === 'object') {
+        for (const [email, mode] of Object.entries(parsed.keyModes)) {
+            const clean = normEmail(email);
+            // An unrecognised value is DROPPED, not kept — it then resolves to
+            // `house`, which is the safe direction (see KEY_MODES above).
+            if (clean && KEY_MODES.includes(mode)) store.keyModes[clean] = mode;
         }
     }
     return store;
@@ -178,10 +201,12 @@ function isStoreAllowed(email) {
  */
 function listAllowed() {
     const env = envAllowedEmails();
-    const out = env.map(email => ({ email, source: 'env', addedBy: null, added: null }));
-    for (const entry of readStoreSync().allowed) {
+    const store = readStoreSync();
+    const withMode = entry => ({ ...entry, keyMode: store.keyModes[entry.email] || DEFAULT_KEY_MODE });
+    const out = env.map(email => withMode({ email, source: 'env', addedBy: null, added: null }));
+    for (const entry of store.allowed) {
         if (env.includes(entry.email)) continue;
-        out.push({ email: entry.email, source: 'store', addedBy: entry.addedBy, added: entry.added });
+        out.push(withMode({ email: entry.email, source: 'store', addedBy: entry.addedBy, added: entry.added }));
     }
     return out;
 }
@@ -206,10 +231,16 @@ async function addAllowedEmail(email, { by = null } = {}) {
 async function removeAllowedEmail(email) {
     const clean = normEmail(email);
     return updateStore(store => {
-        const before = store.allowed.length + store.admins.length;
+        const before = store.allowed.length + store.admins.length + (store.keyModes[clean] ? 1 : 0);
         store.allowed = store.allowed.filter(e => e.email !== clean);
         store.admins = store.admins.filter(e => e.email !== clean);
-        return store.allowed.length + store.admins.length !== before;
+        // Their key mode goes too, so re-adding someone starts them on the default
+        // (`house`) rather than resurrecting a byok setting nobody remembers making.
+        // ⚠️ Their stored KEYS are deliberately left alone (utils/user_keys.js) —
+        // those are the person's own property, useless without access, and keeping
+        // them means a temporary removal does not cost them re-entering everything.
+        delete store.keyModes[clean];
+        return store.allowed.length + store.admins.length + (store.keyModes[clean] ? 1 : 0) !== before;
     });
 }
 
@@ -332,13 +363,46 @@ async function setQuotas({ defaultMonthlyUsd, perUser } = {}) {
 function effectiveQuotaFor(email) {
     const clean = normEmail(email);
     if (!clean) return null;
-    const q = readStoreSync().quotas;
+    const store = readStoreSync();
+    const q = store.quotas;
     if (Object.prototype.hasOwnProperty.call(q.perUser, clean)) return q.perUser[clean];
     if (isAdmin(clean)) return null;
+    // ⚠️ A bring-your-own-keys writer spends their OWN money, so the deployment's
+    // default budget is not the deployment's business. Their spend is still recorded
+    // and priced for the admin view — an explicit per-user budget above still caps
+    // them, which is the escape hatch if one ever needs it.
+    if ((store.keyModes[clean] || DEFAULT_KEY_MODE) === 'byok') return null;
     return q.defaultMonthlyUsd;
 }
 
+// ─── Key mode (house vs bring-your-own) ───────────────────────────────────────
+
+/** `'house'` | `'byok'`. Unknown or unset resolves to `house` — see KEY_MODES. */
+function keyModeFor(email) {
+    const clean = normEmail(email);
+    if (!clean) return DEFAULT_KEY_MODE;
+    return readStoreSync().keyModes[clean] || DEFAULT_KEY_MODE;
+}
+
+async function setKeyMode(email, mode) {
+    const clean = normEmail(email);
+    if (!clean.includes('@')) throw new Error('A valid email address is required.');
+    if (!KEY_MODES.includes(mode)) throw new Error(`Key mode must be one of: ${KEY_MODES.join(', ')}.`);
+    return updateStore(store => {
+        const current = store.keyModes[clean] || DEFAULT_KEY_MODE;
+        if (current === mode) return false;
+        // The default is not stored, so the file says only what has been decided.
+        if (mode === DEFAULT_KEY_MODE) delete store.keyModes[clean];
+        else store.keyModes[clean] = mode;
+        return true;
+    });
+}
+
 module.exports = {
+    KEY_MODES,
+    DEFAULT_KEY_MODE,
+    keyModeFor,
+    setKeyMode,
     envAllowedEmails,
     envAdminEmails,
     isStoreAllowed,

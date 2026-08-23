@@ -32,3 +32,7 @@ node_modules/
 # Per-user preferences (which model each writer runs each stage on). Per-deployment
 # state written from Settings, not source.
 data/user-settings.json
+
+# Per-person API keys (bring-your-own). Encrypted at rest, but it is still the list
+# of who holds a live credential on this deployment — per-machine state, not source.
+data/user-keys.json

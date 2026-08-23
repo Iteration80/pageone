@@ -52,7 +52,10 @@ function registerModelRoutes(app, deps) {
         getSessionEmail,
         isGoogleAuthEnabled,
         isAdminEmail,
+        isAllowedEmail,
         modelRegistry,
+        accessControl,
+        userKeys,
         providerKeyFor,
         BadRequestError,
         sendApiError
@@ -171,6 +174,119 @@ function registerModelRoutes(app, deps) {
             res.json({ ok: true, ...registryPayload() });
         } catch (error) {
             sendApiError(res, error, 'Failed to save the recommended models');
+        }
+    });
+
+    // ── Your own API keys (bring-your-own-keys) ────────────────────────────────
+    //
+    // ⚠️ SESSION-ONLY, LIKE TOKENS AND THE ALLOWLIST. A token must not be able to
+    // write the keys of the account it belongs to: one leaked token would otherwise
+    // become a way to redirect that person's spend to an attacker's account, and it
+    // would survive revoking the token. Entering a key requires being at the keyboard.
+    //
+    // ⚠️ PLAINTEXT NEVER COMES BACK. `GET` returns masks and `usable` flags only —
+    // there is deliberately no "show it to me again", exactly as with access tokens.
+
+    function requireOwnSession(req, res, next) {
+        if (!isGoogleAuthEnabled()) {
+            // Nothing to key a personal store on. Absent, not unauthorized.
+            return res.status(404).json({ error: 'Personal API keys need Google sign-in to be configured.' });
+        }
+        const email = getSessionEmail(req);
+        if (!email) return res.status(401).json({ error: 'Sign in with Google to manage your API keys.' });
+        req.userEmail = email;
+        return next();
+    }
+
+    /** Read `{ provider, baseUrl }` from a body or query, refusing anything else. */
+    function providerTarget(source = {}) {
+        const provider = String(source.provider || '').trim();
+        const baseUrl = String(source.baseUrl || '').trim();
+        if (!PROVIDERS.includes(provider)) throw new BadRequestError(`Provider must be one of: ${PROVIDERS.join(', ')}.`);
+        if (provider === 'openai-compatible' && !/^https?:\/\//i.test(baseUrl)) {
+            throw new BadRequestError('An OpenAI-compatible key belongs to one endpoint — send its baseUrl.');
+        }
+        return { provider, baseUrl: provider === 'openai-compatible' ? baseUrl : null };
+    }
+
+    app.get('/api/my-keys', requireOwnSession, (req, res) => {
+        try {
+            res.json({
+                mode: accessControl.keyModeFor(req.userEmail),
+                canStoreKeys: userKeys.canStoreKeys(),
+                keys: userKeys.listKeys(req.userEmail),
+                // Which endpoints a byok writer actually needs a key for, so the
+                // panel can ask for exactly those rather than for "a key".
+                needed: neededKeySlots()
+            });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to load your API keys');
+        }
+    });
+
+    app.put('/api/my-keys', requireOwnSession, async (req, res) => {
+        try {
+            const { provider, baseUrl } = providerTarget(req.body || {});
+            const value = String(req.body?.key || '').trim();
+            if (!value) throw new BadRequestError('An API key is required.');
+            if (value.includes('•')) throw new BadRequestError('That is the masked display, not a key. Paste the real one.');
+            try {
+                await userKeys.setKey(req.userEmail, provider, value, baseUrl);
+            } catch (err) {
+                throw new BadRequestError(err.message);
+            }
+            // The value itself is never logged, here or anywhere.
+            console.log(`[keys] ${req.userEmail} stored a ${provider} key${baseUrl ? ` for ${baseUrl}` : ''}`);
+            res.json({ ok: true, keys: userKeys.listKeys(req.userEmail) });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to save your API key');
+        }
+    });
+
+    app.delete('/api/my-keys', requireOwnSession, async (req, res) => {
+        try {
+            const { provider, baseUrl } = providerTarget({ ...req.query, ...(req.body || {}) });
+            const removed = await userKeys.removeKey(req.userEmail, provider, baseUrl);
+            if (!removed) return res.status(404).json({ error: 'No such key on your account.' });
+            console.log(`[keys] ${req.userEmail} removed their ${provider} key${baseUrl ? ` for ${baseUrl}` : ''}`);
+            res.json({ ok: true, keys: userKeys.listKeys(req.userEmail) });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to remove your API key');
+        }
+    });
+
+    /** Every provider/endpoint an enabled model in the registry needs a key for. */
+    function neededKeySlots() {
+        const seen = new Map();
+        for (const model of modelRegistry.listModels({ enabled: true })) {
+            if (!model.provider) continue;
+            const slot = model.provider === 'openai-compatible'
+                ? `openai-compatible:${model.baseUrl}`
+                : model.provider;
+            if (!seen.has(slot)) {
+                seen.set(slot, { slot, provider: model.provider, baseUrl: model.baseUrl || null, models: [] });
+            }
+            seen.get(slot).models.push(model.label || model.id);
+        }
+        return [...seen.values()];
+    }
+
+    // ── Key mode, per person (admin) ───────────────────────────────────────────
+    app.put('/api/admin/key-mode', requireAdminSession, async (req, res) => {
+        try {
+            const email = String(req.body?.email || '').trim().toLowerCase();
+            const mode = String(req.body?.mode || '').trim();
+            if (!email.includes('@')) throw new BadRequestError('A valid email address is required.');
+            if (!isAllowedEmail(email)) throw new BadRequestError(`${email} is not on the allowlist — add them first.`);
+            try {
+                await accessControl.setKeyMode(email, mode);
+            } catch (err) {
+                throw new BadRequestError(err.message);
+            }
+            console.log(`[keys] ${req.userEmail} set ${email} to ${mode} keys`);
+            res.json({ ok: true, email, mode, allowlist: accessControl.listAllowed() });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to change the key mode');
         }
     });
 

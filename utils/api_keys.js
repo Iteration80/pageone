@@ -12,16 +12,33 @@
  * So resolution lives here, `getModelConfig` asks it, and `ai-client.js` asks it for
  * anything a caller did not supply. There is one place to make it identity-aware.
  *
- * HOUSE KEYS ONLY IN THIS FILE TODAY. `keyFor(provider, { baseUrl, email })` already
- * takes the caller, and ignores it: every deployment runs on the house keys until
- * item 3 adds the per-person store and the `house` / `byok` modes. When it does, the
- * change is here and nowhere else.
+ * TWO MODES, PER PERSON (Phase 5 item 3, `utils/access_control.js`):
+ *
+ *  - `house` (the default) — the deployment's keys, counted against that person's
+ *    monthly budget. The point of the default: a tester Carsten whitelists never
+ *    has to deal with an API key at all.
+ *  - `byok` — that person's own keys (`utils/user_keys.js`) and NOTHING ELSE.
+ *
+ * ⚠️ A BYOK CALLER MUST NEVER TOUCH A HOUSE KEY. This is the silent-200 family: a
+ * fallback would work perfectly, cost Carsten money, and show up nowhere. So the
+ * byok branch returns the person's key or `null` — it does not consult the house
+ * keys at all, and there is no `||` at the end of it. Callers turn that null into an
+ * honest 4xx naming the provider (`resolveKeysForModel` in server.js) instead of a
+ * 500 from a provider that looks like the key is wrong.
+ *
+ * ⚠️ NO IDENTITY MEANS HOUSE. Startup, migrations, break-glass and open dev all run
+ * without a scoped caller and are already trusted with the deployment — the same
+ * rule the ownership chokepoints use.
  *
  * ⚠️ OPENAI-COMPATIBLE KEYS ARE PER ENDPOINT, NOT PER FAMILY. Moonshot, DeepSeek,
  * Groq and a local server all speak the same protocol and are four different
  * accounts. `OPENAI_KEYS` is a `<baseUrl>=<key>` list (comma- or newline-separated);
  * `OPENAI_API_KEY` is the catch-all for a deployment that only talks to one.
  */
+
+const accessControl = require('./access_control');
+const userKeys = require('./user_keys');
+const { currentUserEmail } = require('./request_identity');
 
 /**
  * Where the runtime (Settings-stored) keys come from, installed by server.js.
@@ -52,16 +69,8 @@ function openAiKeyMap() {
     return map;
 }
 
-/**
- * The key to use, or null.
- *
- * `email` is accepted and currently unused — see the header. Returning null rather
- * than throwing is deliberate: the caller knows whether a missing key is a 4xx the
- * writer should read ("add your Gemini key in Settings") or a feature that simply
- * is not available ("nothing to discover with").
- */
-function keyFor(provider, { baseUrl = null, email = null } = {}) {
-    void email; // identity-aware in item 3
+/** The deployment's own key for a provider, or null. */
+function houseKeyFor(provider, baseUrl = null) {
     const overrides = houseOverrides() || {};
     if (provider === 'gemini') {
         return overrides.geminiApiKey || process.env.GEMINI_API_KEY || null;
@@ -77,4 +86,49 @@ function keyFor(provider, { baseUrl = null, email = null } = {}) {
     return null;
 }
 
-module.exports = { keyFor, setHouseKeyOverrides, _openAiKeyMap: openAiKeyMap };
+/**
+ * Which mode applies. Defaults to the async-context identity, so a caller that does
+ * not pass one still gets the right answer — the same reason `getModelConfig` reads
+ * the context instead of taking a parameter. Pass `email: null` explicitly to ask
+ * about the deployment itself.
+ */
+function modeFor(email) {
+    const who = email === undefined ? currentUserEmail() : email;
+    if (!who) return { email: null, mode: 'house' }; // system, break-glass, open dev
+    return { email: who, mode: accessControl.keyModeFor(who) };
+}
+
+/**
+ * The key to use, or null.
+ *
+ * Returning null rather than throwing is deliberate: the caller knows whether a
+ * missing key is a 4xx the writer should read ("add your Gemini key in Settings")
+ * or a feature that simply is not available ("nothing to discover with").
+ */
+function keyFor(provider, { baseUrl = null, email } = {}) {
+    const { email: who, mode } = modeFor(email);
+    if (mode === 'byok') {
+        // ⚠️ NO FALLBACK, DELIBERATELY — there is no `||` at the end of this line.
+        // A byok caller quietly running on the house key is the exact failure this
+        // mode exists to prevent, it would work perfectly, and it would be invisible.
+        return userKeys.getKey(who, provider, baseUrl);
+    }
+    return houseKeyFor(provider, baseUrl);
+}
+
+/**
+ * The same question answered in full, for a caller that has to explain itself:
+ * `{ provider, baseUrl, email, mode, key }` with `key: null` when there is none.
+ */
+function resolveKey(provider, { baseUrl = null, email } = {}) {
+    const { email: who, mode } = modeFor(email);
+    return {
+        provider,
+        baseUrl: baseUrl ? normaliseUrl(baseUrl) : null,
+        email: who,
+        mode,
+        key: keyFor(provider, { baseUrl, email: who })
+    };
+}
+
+module.exports = { keyFor, resolveKey, houseKeyFor, setHouseKeyOverrides, _openAiKeyMap: openAiKeyMap };

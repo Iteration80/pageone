@@ -15,6 +15,8 @@ const userSettings = require('./utils/user_settings');
 const modelRegistry = require('./utils/model_registry');
 // The one answer to "which key talks to this provider" (Phase 5 items 2–3).
 const apiKeys = require('./utils/api_keys');
+// Per-person API keys, encrypted at rest, for bring-your-own-keys writers.
+const userKeys = require('./utils/user_keys');
 const os = require('os');
 const crypto = require('crypto');
 const {
@@ -103,6 +105,21 @@ class NotFoundError extends ApiError {
 class RateLimitError extends ApiError {
     constructor(message = 'Too many requests', options = {}) {
         super(429, message, { code: 'RATE_LIMITED', ...options });
+    }
+}
+
+/**
+ * A bring-your-own-keys writer whose chosen model has no key of theirs to run on
+ * (multi-user Phase 5 item 3).
+ *
+ * ⚠️ THIS EXISTS SO THE FAILURE IS HONEST AND EARLY. The alternative — let the call
+ * go out with no key — is a 401 from the provider, surfaced as a 500, which reads
+ * like "the key is wrong" to someone who has not entered one. 402 rather than 400:
+ * nothing about the request is malformed, the caller simply has no credit for it.
+ */
+class MissingApiKeyError extends ApiError {
+    constructor(message, options = {}) {
+        super(402, message, { code: 'NO_API_KEY', ...options });
     }
 }
 
@@ -462,19 +479,64 @@ function resolveStageModel(stageNum, email) {
  * and route modules, and a signature change means a new one can silently opt out of
  * the personal layer by not passing an argument. There is nothing to pass.
  */
-function getModelConfig(stageNum) {
-    const model = resolveStageModel(stageNum, currentUserEmail());
+const PROVIDER_LABELS = { gemini: 'Gemini', anthropic: 'Anthropic', 'openai-compatible': 'OpenAI-compatible' };
+
+/**
+ * The keys for one model, resolved for whoever is asking. Every key honours the
+ * caller's key mode (utils/api_keys.js): a `byok` writer gets their own keys and
+ * NEVER the deployment's.
+ *
+ * All three are populated, not just the chosen model's — `getAssistantModelConfig`
+ * decides which chat model to use by looking at which keys are present, so telling
+ * it only about one provider would silently change that choice.
+ */
+function keysForModel(model) {
     const baseUrl = modelRegistry.baseUrlFor(model);
     return {
         model,
-        geminiApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY,
-        anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY,
+        geminiApiKey: apiKeys.keyFor('gemini') || undefined,
+        anthropicApiKey: apiKeys.keyFor('anthropic') || undefined,
         // The OpenAI-compatible branch needs both a key and somewhere to send the
         // request; the endpoint comes from the model's registry row, so a stage
         // configured for Kimi carries Moonshot's URL without any caller knowing.
-        openaiApiKey: providerKeyFor('openai-compatible', baseUrl),
+        openaiApiKey: apiKeys.keyFor('openai-compatible', { baseUrl }) || undefined,
         baseUrl
     };
+}
+
+/**
+ * Refuse, before any provider call, when the caller has no key for this model.
+ *
+ * ⚠️ ONLY FOR A SCOPED CALLER. Startup, migrations, break-glass and open dev run
+ * without an identity and must behave exactly as they did before Phase 5 — several
+ * of them legitimately run with no keys at all (the route harness blanks them on
+ * purpose). Throwing there would turn "this test never reaches a model" into "this
+ * test fails".
+ */
+function assertKeyForModel(model) {
+    if (!hasScopedIdentity()) return;
+    const provider = modelRegistry.providerFor(model);
+    const baseUrl = modelRegistry.baseUrlFor(model);
+    const resolved = apiKeys.resolveKey(provider, { baseUrl });
+    if (resolved.key) return;
+    const label = PROVIDER_LABELS[provider] || provider;
+    if (resolved.mode === 'byok') {
+        throw new MissingApiKeyError(
+            `You are set up to use your own API keys, and there is no ${label} key on your account`
+            + `${baseUrl ? ` for ${baseUrl}` : ''}. Add one in Settings → Your API keys, or ask the administrator `
+            + 'to switch you to the deployment\'s keys.'
+        );
+    }
+    throw new MissingApiKeyError(
+        `This deployment has no ${label} key configured${baseUrl ? ` for ${baseUrl}` : ''}, so ${model} cannot run. `
+        + 'Ask the administrator to add one, or choose a different model in Settings.'
+    );
+}
+
+function getModelConfig(stageNum) {
+    const model = resolveStageModel(stageNum, currentUserEmail());
+    assertKeyForModel(model);
+    return keysForModel(model);
 }
 
 /**
@@ -504,11 +566,18 @@ function providerKeyFor(provider, baseUrl = null) {
 
 function getAssistantModelConfig(stageNum = 1) {
     const config = getModelConfig(stageNum);
+    // ⚠️ Each branch re-resolves through keysForModel for the model it lands on:
+    // the chat model may be a DIFFERENT provider from the stage's, so its baseUrl
+    // (and, for a byok caller, whether a key exists at all) has to be recomputed.
+    const switchTo = model => {
+        assertKeyForModel(model);
+        return keysForModel(model);
+    };
     const explicitModel = appSettings.brainstormModel || process.env.BRAINSTORM_MODEL;
-    if (explicitModel) return { ...config, model: explicitModel };
-    if (config.geminiApiKey) return { ...config, model: 'gemini-3-flash-preview' };
+    if (explicitModel) return switchTo(explicitModel);
+    if (config.geminiApiKey) return switchTo('gemini-3-flash-preview');
     if (config.anthropicApiKey && (!config.model || String(config.model).startsWith('gemini-'))) {
-        return { ...config, model: 'claude-sonnet-5' };
+        return switchTo('claude-sonnet-5');
     }
     return config;
 }
@@ -4425,7 +4494,10 @@ registerModelRoutes(app, {
     getSessionEmail,
     isGoogleAuthEnabled,
     isAdminEmail,
+    isAllowedEmail,
     modelRegistry,
+    accessControl,
+    userKeys,
     providerKeyFor,
     BadRequestError,
     sendApiError

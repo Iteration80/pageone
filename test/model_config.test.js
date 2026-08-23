@@ -4,7 +4,12 @@ const fs = require('node:fs');
 
 test('assistant Anthropic fallback uses the current Sonnet model', () => {
     const serverJs = fs.readFileSync(require.resolve('../server.js'), 'utf8');
-    assert.match(serverJs, /model: 'claude-sonnet-5'/);
+    // Phase 5 item 3 changed the shape from `{ ...config, model: 'claude-sonnet-5' }`
+    // to `switchTo('claude-sonnet-5')` — each fallback now re-resolves the keys for
+    // the model it lands on, since the chat model may be a different provider from
+    // the stage's. The claim under test is unchanged: it must name the current Sonnet.
+    assert.match(serverJs, /switchTo\('claude-sonnet-5'\)/);
+    assert.doesNotMatch(serverJs, /claude-sonnet-4-6'\)/);
     assert.doesNotMatch(serverJs, /model: 'claude-sonnet-4-6'/);
 });
 

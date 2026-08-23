@@ -12293,6 +12293,150 @@ async function loadBuildInfo() {
         return lines.join('\n');
     }
 
+    // ─── Your API keys (bring-your-own-keys writers only) ───────────────────────
+    // Session-only on the server, and the plaintext never comes back — the panel
+    // shows a mask and an "unusable" state (a key stored under a session secret that
+    // has since changed), because telling someone to add a key they already added is
+    // the kind of lie that costs an afternoon.
+
+    function myKeysStatus(text, isError = false) {
+        const el = document.getElementById('settings-my-keys-status');
+        if (!el) return;
+        el.textContent = text;
+        el.style.color = isError ? '#f87171' : '#6b7280';
+    }
+
+    function myKeyRow(slot, stored, onChanged) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid #374151;border-radius:6px';
+
+        const top = document.createElement('div');
+        top.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+        const name = document.createElement('span');
+        name.style.cssText = 'font-size:0.85rem;color:#e5e7eb';
+        name.textContent = slot.provider === 'openai-compatible' ? slot.baseUrl : slot.provider;
+        top.appendChild(name);
+        if (stored) {
+            top.appendChild(adminChip(stored.usable ? `saved ${stored.mask}` : `${stored.mask} — unusable`,
+                stored.usable ? '#34d399' : '#fbbf24'));
+            if (!stored.usable) {
+                const why = document.createElement('span');
+                why.style.cssText = 'font-size:0.68rem;color:#fbbf24';
+                why.textContent = 'stored before the server\'s session secret changed — enter it again';
+                top.appendChild(why);
+            }
+        } else {
+            top.appendChild(adminChip('no key', '#f87171'));
+        }
+        if (slot.models?.length) {
+            const used = document.createElement('span');
+            used.style.cssText = 'font-size:0.68rem;color:#6b7280';
+            used.textContent = `for ${slot.models.join(', ')}`;
+            top.appendChild(used);
+        }
+        row.appendChild(top);
+
+        const fields = document.createElement('div');
+        fields.style.cssText = 'display:flex;align-items:center;gap:6px';
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.className = 'modal-input';
+        input.autocomplete = 'off';
+        input.style.cssText = 'flex:1 1 auto;min-width:0;padding:3px 6px;font-size:0.75rem';
+        input.placeholder = stored ? 'paste a new key to replace it' : 'paste your key';
+        const save = document.createElement('button');
+        save.className = 'secondary-btn';
+        save.type = 'button';
+        save.style.cssText = 'padding:3px 10px;font-size:0.75rem;flex-shrink:0';
+        save.textContent = 'Save';
+        save.addEventListener('click', async () => {
+            const key = input.value.trim();
+            if (!key) return myKeysStatus('Paste a key first.', true);
+            try {
+                await adminCall('/api/my-keys', {
+                    method: 'PUT',
+                    body: JSON.stringify({ provider: slot.provider, baseUrl: slot.baseUrl, key })
+                });
+                // Cleared immediately: a key must not sit in a field behind a modal.
+                input.value = '';
+                myKeysStatus('Saved. It is stored encrypted and is never shown again.');
+            } catch (err) {
+                myKeysStatus(`Could not save that key: ${err.message}`, true);
+            }
+            onChanged();
+        });
+        fields.append(input, save);
+
+        if (stored) {
+            const remove = document.createElement('button');
+            remove.className = 'secondary-btn';
+            remove.type = 'button';
+            remove.style.cssText = 'padding:3px 10px;font-size:0.75rem;flex-shrink:0';
+            remove.textContent = 'Remove';
+            remove.addEventListener('click', async () => {
+                try {
+                    await adminCall(`/api/my-keys?provider=${encodeURIComponent(slot.provider)}&baseUrl=${encodeURIComponent(slot.baseUrl || '')}`,
+                        { method: 'DELETE' });
+                    myKeysStatus('Removed.');
+                } catch (err) {
+                    myKeysStatus(`Could not remove that key: ${err.message}`, true);
+                }
+                onChanged();
+            });
+            fields.appendChild(remove);
+        }
+        row.appendChild(fields);
+        return row;
+    }
+
+    let myKeysRenderSequence = 0;
+
+    /** Renders the panel and returns the caller's key mode, or null when unavailable. */
+    async function renderMyKeysPanel() {
+        const panel = document.getElementById('settings-my-keys-panel');
+        if (!panel) return null;
+        const mine = ++myKeysRenderSequence;
+        let payload;
+        try {
+            payload = await adminCall('/api/my-keys');
+        } catch {
+            panel.classList.add('hidden');
+            return null;
+        }
+        if (mine !== myKeysRenderSequence) return payload.mode;
+
+        // House writers never see this panel — the whole point of the default is
+        // that a whitelisted tester does not have to deal with API keys.
+        if (payload.mode !== 'byok') {
+            panel.classList.add('hidden');
+            return payload.mode;
+        }
+        panel.classList.remove('hidden');
+
+        const intro = document.getElementById('settings-my-keys-intro');
+        intro.textContent = payload.canStoreKeys
+            ? 'You run on your own API keys, so your usage is billed to you rather than to this deployment. '
+              + 'Keys are stored encrypted and are never shown again after you save them.'
+            : 'This deployment has no session secret configured, so it cannot store API keys securely. '
+              + 'Ask the administrator to set one, or to switch you to the deployment\'s keys.';
+
+        const list = document.getElementById('settings-my-keys-list');
+        list.innerHTML = '';
+        const byslot = new Map((payload.keys || []).map(k => [k.slot, k]));
+        // One row per provider/endpoint that an ENABLED model actually needs, so the
+        // panel asks for exactly the keys her dropdowns can spend, and no others.
+        for (const slot of payload.needed || []) {
+            list.appendChild(myKeyRow(slot, byslot.get(slot.slot) || null, renderMyKeysPanel));
+            byslot.delete(slot.slot);
+        }
+        // Anything stored for a provider no enabled model uses any more still gets a
+        // row, so it can be removed rather than lingering invisibly.
+        for (const [, stored] of byslot) {
+            list.appendChild(myKeyRow({ provider: stored.provider, baseUrl: stored.baseUrl, models: [] }, stored, renderMyKeysPanel));
+        }
+        return payload.mode;
+    }
+
     // ─── Models (Settings → Administration → Models) ────────────────────────────
     // The registry as an editable table. Everything here writes through
     // /api/admin/models*, which is admin-SESSION only — the server re-checks.
@@ -12568,6 +12712,37 @@ async function loadBuildInfo() {
             allTime.title = usageTitle(u.allTime);
             spend.append(month, allTime);
 
+            // Whose keys this person runs on. `house` is the default and the point
+            // of it: a whitelisted tester never has to deal with an API key. `byok`
+            // means their own keys and their own bill — the deployment's default
+            // budget stops applying, though an explicit one below still would.
+            const keyMode = document.createElement('select');
+            keyMode.className = 'modal-input';
+            keyMode.style.cssText = 'width:auto;flex:0 0 auto;padding:3px 6px;font-size:0.78rem';
+            keyMode.title = 'House = runs on this deployment\'s API keys, counted against the budget. '
+                + 'Own = must add their own keys in Settings; their spend is recorded but not capped by the default.';
+            for (const [value, label] of [['house', 'Keys: house'], ['byok', 'Keys: own']]) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                if ((entry.keyMode || 'house') === value) option.selected = true;
+                keyMode.appendChild(option);
+            }
+            keyMode.addEventListener('change', async () => {
+                try {
+                    await adminCall('/api/admin/key-mode', {
+                        method: 'PUT',
+                        body: JSON.stringify({ email: entry.email, mode: keyMode.value })
+                    });
+                    adminStatus(keyMode.value === 'byok'
+                        ? `${entry.email} now runs on their own API keys — they will be asked for them in Settings, and refused until they add one.`
+                        : `${entry.email} now runs on this deployment's keys.`);
+                } catch (err) {
+                    adminStatus(`Could not change the key mode: ${err.message}`, true);
+                }
+                renderAdminPanel();
+            });
+
             // Per-user budget. Empty = inherit the default (or none, for admins);
             // a number = that cap; "none" = explicitly unlimited even with a default.
             const quota = document.createElement('input');
@@ -12670,7 +12845,7 @@ async function loadBuildInfo() {
             top.append(name, actions);
             const bottom = document.createElement('div');
             bottom.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
-            bottom.append(chips, spend, budgetWrap);
+            bottom.append(chips, spend, keyMode, budgetWrap);
             row.append(top, bottom);
             list.appendChild(row);
         });
@@ -12805,8 +12980,10 @@ async function loadBuildInfo() {
             if (email) {
                 tokensPanel?.classList.remove('hidden');
                 renderTokenList();
+                renderMyKeysPanel();
             } else {
                 tokensPanel?.classList.add('hidden');
+                document.getElementById('settings-my-keys-panel')?.classList.add('hidden');
             }
 
             if (acctPanel && email) {
