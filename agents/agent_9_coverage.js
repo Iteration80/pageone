@@ -303,4 +303,4 @@ ${fullScriptText}
     return { result: consolidated.parsed, usageList };
 };
 
-module.exports = { agent8Coverage };
+module.exports = { agent8Coverage, COVERAGE_SCHEMA: coverageSchema };

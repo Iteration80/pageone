@@ -1104,4 +1104,4 @@ function combineUsage(a, b) {
     };
 }
 
-module.exports = { agent3Characters, normalizeCurrentCharacters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, explicitTierChangesFromNotes, PROFILE_REPAIR_SCHEMA };
+module.exports = { agent3Characters, CHARACTER_SCHEMA, normalizeCurrentCharacters, applySurgicalCharacterMerge, preserveExistingCharacters, preserveNonEmptyCharacterFields, charactersWithIncompleteProfiles, isIncompleteProfile, explicitTierChangesFromNotes, PROFILE_REPAIR_SCHEMA };

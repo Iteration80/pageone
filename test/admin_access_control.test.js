@@ -278,7 +278,8 @@ const COVERED_ADMIN_ROUTES = new Set([
     'PUT /api/admin/models-recommended',
     'POST /api/admin/models/discover',
     // → test/key_modes.test.js
-    'PUT /api/admin/key-mode'
+    'PUT /api/admin/key-mode',
+    'POST /api/admin/models/:id/verify'
 ]);
 
 test('every /api/admin route is covered by an explicit non-admin and session-only case', async () => {

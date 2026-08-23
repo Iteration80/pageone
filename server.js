@@ -463,10 +463,66 @@ const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' |
  * `email` null (system call, break-glass, open dev) means "no personal layer" and
  * resolves to the global — the pre-Phase-5 answer, unchanged.
  */
+/**
+ * The reserved id meaning "pick for me" (Phase 5 item 4). Stored like any other
+ * model choice; resolved at request time by `resolveAutoModel`.
+ *
+ * ⚠️ `addModel` refuses this id, so it can never collide with a real registry row.
+ */
+const AUTO_MODEL = 'auto';
+
+/**
+ * What "Auto (recommended)" resolves to for this person, on this stage — or null.
+ *
+ * ONE ADMIN-EDITABLE MAP, NO ROUTER, NO SCORING. The order is:
+ *
+ *   1. the admin's `recommended` model for the stage, if the caller can reach it;
+ *   2. otherwise the cheapest model VERIFIED to work on this stage that they can reach;
+ *   3. otherwise the cheapest unverified one they can reach.
+ *
+ * A model whose Verify FAILED on this stage is never chosen at any step — that is
+ * the one thing we positively know, and Auto is exactly where the knowledge should
+ * be spent. "Can reach" means their key mode resolves a key for that model's
+ * provider, so a bring-your-own-keys writer with only a Gemini key gets a Gemini
+ * model rather than an honest-but-useless refusal.
+ *
+ * Returning null is a real answer: nothing is both usable and reachable, and the
+ * caller turns that into a message saying so.
+ */
+function resolveAutoModel(stageNum, email) {
+    const stageKey = String(stageNum);
+    const rows = modelRegistry.listModels({ enabled: true });
+    const reachable = row => Boolean(apiKeys.keyFor(row.provider, { baseUrl: row.baseUrl, email }));
+    const failedHere = row => row.verified?.[stageKey]?.ok === false;
+    const verifiedHere = row => row.verified?.[stageKey]?.ok === true;
+    // Sum of the two published rates: a blunt but explainable ranking, and the only
+    // one that does not require guessing an input/output ratio per stage.
+    const cost = row => (row.pricing.inputPerMTok ?? Infinity) + (row.pricing.outputPerMTok ?? Infinity);
+
+    const candidates = rows.filter(row => !failedHere(row) && reachable(row));
+    if (!candidates.length) return null;
+
+    const recommended = modelRegistry.recommendedFor(stageNum);
+    const preferred = candidates.find(row => row.id === recommended);
+    if (preferred) return preferred.id;
+
+    const byCost = [...candidates].sort((a, b) => cost(a) - cost(b));
+    return (byCost.find(verifiedHere) || byCost[0]).id;
+}
+
+/**
+ * The model that will actually run for `stageNum` for a given person.
+ *
+ *     user override ?? global default ?? GEMINI_MODEL, with `auto` resolved
+ *
+ * Returns null only when the choice is Auto and nothing is reachable.
+ */
 function resolveStageModel(stageNum, email) {
-    return userSettings.getUserStageModel(email, stageNum)
+    const chosen = userSettings.getUserStageModel(email, stageNum)
         || appSettings.stageModels?.[`stage${stageNum}`]
         || process.env.GEMINI_MODEL;
+    if (chosen === AUTO_MODEL) return resolveAutoModel(stageNum, email);
+    return chosen;
 }
 
 /**
@@ -513,8 +569,34 @@ function keysForModel(model) {
  * purpose). Throwing there would turn "this test never reaches a model" into "this
  * test fails".
  */
-function assertKeyForModel(model) {
+function assertKeyForModel(model, stageNum = null) {
     if (!hasScopedIdentity()) return;
+
+    // Auto found nothing usable. Say which of the two reasons it was, because the
+    // fix is different: add a key, or ask the admin to enable/verify a model.
+    if (!model) {
+        const anyEnabled = modelRegistry.listModels({ enabled: true }).length > 0;
+        throw new MissingApiKeyError(anyEnabled
+            ? 'Auto could not find a model you can run this stage on — every enabled model either needs an API key '
+              + 'you do not have, or has failed verification for this stage. Add a key in Settings → Your API keys, '
+              + 'or pick a model explicitly.'
+            : 'Auto has nothing to choose from — no models are enabled in this deployment. Ask the administrator.');
+    }
+
+    // ⚠️ A model whose Verify FAILED on this stage is refused outright, while an
+    // unverified one is allowed (the UI warns). "We tried it and it did not work"
+    // is knowledge; "nobody has tried" is not, and refusing on the second would
+    // make every newly added model unusable until someone spent money on it.
+    if (stageNum !== null) {
+        const verdict = modelRegistry.getModel(model)?.verified?.[String(stageNum)];
+        if (verdict && verdict.ok === false) {
+            throw new BadRequestError(
+                `${model} has been verified as NOT working for this stage`
+                + `${verdict.error ? ` (${verdict.error})` : ''}. Choose another model for it in Settings, or use Auto.`
+            );
+        }
+    }
+
     const provider = modelRegistry.providerFor(model);
     const baseUrl = modelRegistry.baseUrlFor(model);
     const resolved = apiKeys.resolveKey(provider, { baseUrl });
@@ -535,8 +617,66 @@ function assertKeyForModel(model) {
 
 function getModelConfig(stageNum) {
     const model = resolveStageModel(stageNum, currentUserEmail());
-    assertKeyForModel(model);
+    assertKeyForModel(model, stageNum);
     return keysForModel(model);
+}
+
+/**
+ * Where the admin Verify action's spend is recorded (Phase 5 item 4).
+ *
+ * Usage is recorded per PROJECT and rolled up per owner, so verification needs a
+ * project to attribute to — otherwise the money an admin spends proving a model
+ * works would be the only spend on the deployment nobody can see. It goes to a
+ * fixture project in the `999999…` throwaway range, one per admin (the id is
+ * derived from their address, so two admins never contend for the same file and the
+ * ownership chokepoint never has to refuse one of them).
+ *
+ * ⚠️ Written through `runAsSystem`. The fixture belongs to the admin, not to the
+ * request, and creating it inside the caller's identity is fine — but re-running
+ * verification later, possibly by a different admin, must not fail on an ownership
+ * check for a file that is pure bookkeeping.
+ */
+function verificationProjectId(email) {
+    const digest = crypto.createHash('sha256').update(String(email || 'system')).digest('hex');
+    const suffix = String(parseInt(digest.slice(0, 8), 16) % 10_000_000).padStart(7, '0');
+    return `999999${suffix}`; // 13 digits — isValidProjectId's throwaway range
+}
+
+async function recordVerificationUsage(email, usage) {
+    if (!usage) return;
+    const id = verificationProjectId(email);
+    const filePath = path.join(DATA_DIR, `${id}.json`);
+    try {
+        await runWithIdentity(null, async () => {
+            let project;
+            try {
+                project = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+            } catch {
+                project = {
+                    id,
+                    title: 'Model verification (system)',
+                    owner: String(email || '').trim().toLowerCase() || undefined,
+                    // Marked so the project listing can keep it out of the writer's
+                    // hub — it is a spend ledger, not a screenplay.
+                    systemFixture: true,
+                    data: { apiUsage: [] }
+                };
+            }
+            if (!project.data) project.data = {};
+            if (!Array.isArray(project.data.apiUsage)) project.data.apiUsage = [];
+            project.data.apiUsage.push({
+                timestamp: Date.now(),
+                model: usage.model,
+                inputTokens: usage.inputTokens || 0,
+                outputTokens: usage.outputTokens || 0
+            });
+            await writeJSONQueued(filePath, project);
+            noteSpend(project.owner, [usage]);
+        });
+    } catch (err) {
+        // Bookkeeping must never be the reason a verification result is lost.
+        console.error('[models] could not record verification spend:', err.message);
+    }
 }
 
 /**
@@ -4499,6 +4639,7 @@ registerModelRoutes(app, {
     accessControl,
     userKeys,
     providerKeyFor,
+    recordVerificationUsage,
     BadRequestError,
     sendApiError
 });

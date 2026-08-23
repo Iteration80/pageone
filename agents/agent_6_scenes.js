@@ -7,6 +7,33 @@ const { parseJsonWithRepair } = require('./json_parse');
 const { deriveBlueprintPageCounts } = require('../utils/blueprint_pages');
 const { loadSkill } = require('../utils/skills_cache');
 
+// ⚠️ MODULE SCOPE AND EXPORTED so the admin Verify action (Phase 5 item 4) sends
+// THIS OBJECT in its one real request per stage — never a copy of it.
+const SCENE_SEQUENCE_SCHEMA = {
+    type: 'object',
+    properties: {
+        sequence_title: { type: 'string' },
+        total_estimated_pages: { type: 'number' },
+        scenes: {
+            type: 'array',
+            description: 'An array of scenes. Provide 8 to 12 scenes based on the natural narrative breaks of the sequence.',
+            items: {
+                type: 'object',
+                properties: {
+                    scene_number: { type: 'number' },
+                    scene_heading: { type: 'string' },
+                    narrative_action: { type: 'string' },
+                    dramaturgical_function: { type: 'string' },
+                    estimated_page_count: { type: 'number' }
+                },
+                required: ['scene_number', 'scene_heading', 'narrative_action', 'dramaturgical_function', 'estimated_page_count']
+            }
+        }
+    },
+    required: ['sequence_title', 'scenes']
+};
+
+
 /**
  * Parses a treatment or beat text into a dictionary keyed by sequence number.
  * Extracts text strictly between [SEQUENCE N START] and [SEQUENCE N END] tags.
@@ -306,29 +333,7 @@ const generateStage6Scenes = async (pitch, characters, beats, treatment, onProgr
 
     const scenesSOP = loadSkill('skill_stage6_scenes');
 
-    const sequenceSchema = {
-        type: 'object',
-        properties: {
-            sequence_title: { type: 'string' },
-            total_estimated_pages: { type: 'number' },
-            scenes: {
-                type: 'array',
-                description: 'An array of scenes. Provide 8 to 12 scenes based on the natural narrative breaks of the sequence.',
-                items: {
-                    type: 'object',
-                    properties: {
-                        scene_number: { type: 'number' },
-                        scene_heading: { type: 'string' },
-                        narrative_action: { type: 'string' },
-                        dramaturgical_function: { type: 'string' },
-                        estimated_page_count: { type: 'number' }
-                    },
-                    required: ['scene_number', 'scene_heading', 'narrative_action', 'dramaturgical_function', 'estimated_page_count']
-                }
-            }
-        },
-        required: ['sequence_title', 'scenes']
-    };
+    const sequenceSchema = SCENE_SEQUENCE_SCHEMA;
 
     const config = {
         systemInstruction: buildMemorySourceSystemInstruction(scenesSOP, 'Stage 6 Scene Blueprint'),
@@ -597,4 +602,4 @@ Return a JSON object for this sequence only.`;
     return { result: newSequences, usageList, meta: resolvedMeta };
 };
 
-module.exports = { generateStage6Scenes };
+module.exports = { generateStage6Scenes, SCENE_SEQUENCE_SCHEMA };

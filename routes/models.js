@@ -23,6 +23,9 @@
  */
 
 const { PROVIDERS } = require('../utils/model_registry');
+const { VERIFIABLE_STAGES, stageProbe } = require('../agents/stage_schemas');
+const { generateContent } = require('../agents/ai-client');
+const { parseJsonWithRepair } = require('../agents/json_parse');
 
 /** Where "discover" asks each provider family what it serves. */
 const DISCOVERY = {
@@ -57,6 +60,7 @@ function registerModelRoutes(app, deps) {
         accessControl,
         userKeys,
         providerKeyFor,
+        recordVerificationUsage,
         BadRequestError,
         sendApiError
     } = deps;
@@ -269,6 +273,109 @@ function registerModelRoutes(app, deps) {
             seen.get(slot).models.push(model.label || model.id);
         }
         return [...seen.values()];
+    }
+
+    // ── Verify: does this model actually work for these stages? ────────────────
+    //
+    // ⚠️ THE HONEST ANSWER, BEFORE THIS EXISTED, WAS "WE DON'T KNOW." The only
+    // per-stage evidence was for the two Gemini defaults, arrived at by using them.
+    // The Claude models had never run a single stage on prod, and the `minItems`
+    // incident proved models differ on the exact schemas. So: one REAL request per
+    // stage, carrying the stage's own schema object (agents/stage_schemas.js — the
+    // same object the stage passes, never a copy), and the result written to
+    // `verified[stage]`.
+    //
+    // ⚠️ IT COSTS MONEY, ON THE ADMIN'S OWN BUDGET. Opt-in per model per stage,
+    // never automatic, and the spend lands on a fixture project owned by the admin
+    // who ran it so it shows up in the same overview as everyone else's.
+    app.post('/api/admin/models/:id/verify', requireAdminSession, async (req, res) => {
+        try {
+            const id = String(req.params.id || '').trim();
+            const row = modelRegistry.getModel(id);
+            if (!row) return res.status(404).json({ error: `${id} is not in the registry.` });
+
+            const asked = Array.isArray(req.body?.stages) && req.body.stages.length
+                ? req.body.stages.map(Number)
+                : VERIFIABLE_STAGES;
+            const stages = asked.filter(stage => VERIFIABLE_STAGES.includes(stage));
+            if (!stages.length) {
+                throw new BadRequestError(`Stages must be some of: ${VERIFIABLE_STAGES.join(', ')}.`);
+            }
+
+            const key = providerKeyFor(row.provider, row.baseUrl);
+            if (!key) {
+                throw new BadRequestError(
+                    `No API key is available for ${row.provider}${row.baseUrl ? ` at ${row.baseUrl}` : ''}, `
+                    + 'so there is nothing to verify with.'
+                );
+            }
+
+            const results = [];
+            for (const stage of stages) {
+                const probe = stageProbe(stage);
+                // Sequential, not parallel: verifying nine stages at once against a
+                // fresh account is the shape that trips a provider's rate limiter,
+                // and a 429 recorded as "this model does not work" would be a lie
+                // that then makes Auto avoid a perfectly good model.
+                const outcome = await runStageProbe({ row, probe, key, by: req.userEmail });
+                await modelRegistry.setVerified(id, stage, outcome);
+                results.push({ stage, visible: probe.visible, label: probe.label, kind: probe.kind, ...outcome });
+            }
+
+            const passed = results.filter(r => r.ok).length;
+            console.log(`[models] ${req.userEmail} verified ${id}: ${passed}/${results.length} stage(s) passed`);
+            res.json({ ok: true, id, results, ...registryPayload() });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to verify the model');
+        }
+    });
+
+    /**
+     * One real request. Returns `{ ok, error }` — never throws, because a provider
+     * refusing the schema IS the result we are recording, not a failure of the route.
+     */
+    async function runStageProbe({ row, probe, key, by }) {
+        const started = Date.now();
+        try {
+            const response = await generateContent({
+                model: row.id,
+                geminiApiKey: row.provider === 'gemini' ? key : undefined,
+                anthropicApiKey: row.provider === 'anthropic' ? key : undefined,
+                openaiApiKey: row.provider === 'openai-compatible' ? key : undefined,
+                baseUrl: row.baseUrl || undefined,
+                contents: [probe.probe],
+                config: {
+                    temperature: 0.2,
+                    // Small on purpose: this is an acceptance check, not a sample of
+                    // the stage's real output, and every token is the admin's money.
+                    maxOutputTokens: probe.kind === 'schema' ? 2000 : 400,
+                    systemInstruction: probe.kind === 'schema'
+                        ? 'Answer with the smallest valid response that fills every required field.'
+                        : 'Answer briefly.'
+                },
+                ...(probe.schema ? { schema: probe.schema } : {})
+            });
+
+            // Record the spend against the admin who chose to pay for it.
+            await recordVerificationUsage(by, response.usage);
+
+            const text = String(response.text || '').trim();
+            if (!text) return { ok: false, by, error: 'the model returned nothing' };
+            if (probe.kind === 'schema') {
+                // Accepting the schema is half of it; returning JSON that parses
+                // against it is the half the pipeline actually depends on.
+                try {
+                    parseJsonWithRepair(text, { schema: probe.schema, label: `${row.id} stage ${probe.stage} verification` });
+                } catch (err) {
+                    return { ok: false, by, error: `returned unparseable JSON: ${err.message}`.slice(0, 400) };
+                }
+            }
+            return { ok: true, by, ms: Date.now() - started };
+        } catch (err) {
+            // The provider's own words — "INVALID_ARGUMENT" on a minItems bound is
+            // precisely the finding this action exists to surface.
+            return { ok: false, by, error: String(err.message || err).slice(0, 400) };
+        }
     }
 
     // ── Key mode, per person (admin) ───────────────────────────────────────────

@@ -333,9 +333,19 @@ function stalePricing({ days = PRICE_STALE_DAYS, now = Date.now() } = {}) {
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
+/**
+ * ⚠️ RESERVED. `auto` is the sentinel a stage choice carries to mean "pick for me"
+ * (server.js `resolveAutoModel`). A registry row with that id would be selected by
+ * name and then resolved as the sentinel — two different meanings for one string.
+ */
+const RESERVED_MODEL_IDS = ['auto'];
+
 function assertValidNewModel(row) {
     const id = cleanId(row?.id);
     if (!id) throw new Error('A model id is required.');
+    if (RESERVED_MODEL_IDS.includes(id.toLowerCase())) {
+        throw new Error(`"${id}" is reserved — it is the id the Auto (recommended) option uses.`);
+    }
     if (!PROVIDERS.includes(row?.provider)) {
         throw new Error(`Provider must be one of: ${PROVIDERS.join(', ')}.`);
     }
@@ -448,6 +458,7 @@ async function setVerified(id, stageNum, { ok, by = null, error = null, at = nul
 
 module.exports = {
     PROVIDERS,
+    RESERVED_MODEL_IDS,
     PRICE_STALE_DAYS,
     ensureSeeded,
     listModels,

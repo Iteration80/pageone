@@ -1360,6 +1360,23 @@
 
                 <div id="settings-models-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
 
+                <!-- What "Auto (recommended)" resolves to. One map, no router, no
+                     scoring — and the permanent home for the "what should each stage
+                     run on?" question. -->
+                <details style="margin-bottom:12px">
+                    <summary style="font-size:0.8rem;color:#d1d5db;cursor:pointer">Auto — recommended model per stage</summary>
+                    <p style="font-size:0.75rem;color:#6b7280;margin:8px 0;line-height:1.5">
+                        What a stage set to <strong style="color:#9ca3af">Auto (recommended)</strong> runs on. If a writer
+                        cannot reach the recommendation — bring-your-own-keys and no key for that provider — Auto falls to
+                        the cheapest model they can reach, preferring one verified for that stage. A model verified as
+                        <span style="color:#f87171">✗</span> for a stage is never chosen for it.
+                    </p>
+                    <div id="settings-models-recommended" style="display:flex;flex-direction:column;gap:6px"></div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+                        <button id="btnAdminSaveRecommended" class="secondary-btn" type="button" style="font-size:0.8rem">Save recommendations</button>
+                    </div>
+                </details>
+
                 <details style="margin-bottom:8px">
                     <summary style="font-size:0.8rem;color:#d1d5db;cursor:pointer">Add a model</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:10px;border:1px solid #374151;border-radius:6px">

@@ -12046,6 +12046,10 @@ async function loadBuildInfo() {
     let settingsCanEditGlobal = true;
 
     function modelLabel(value) {
+        // `auto` is a sentinel, not a registry row, so it has no label to look up —
+        // and showing the raw word where a model name belongs makes the deployment
+        // default read like a broken value rather than a deliberate choice.
+        if (value === 'auto') return 'Auto (recommended)';
         return MODEL_OPTIONS.find(opt => opt.value === value)?.label || value;
     }
 
@@ -12057,7 +12061,15 @@ async function loadBuildInfo() {
      * `inheritLabel`, when given, adds that inherit option at the top and names the
      * model it resolves to today, so choosing it is not a leap of faith.
      */
-    function buildModelSelect(stageNum, currentModel, { idPrefix = 'settings-model-stage', inheritLabel = null } = {}) {
+    /** ✓ / ? / ✗ for one model on one stage, from the registry's `verified` map. */
+    function verifyMark(modelId, stageNum) {
+        const verdict = (modelRegistry.models || []).find(m => m.id === modelId)?.verified?.[String(stageNum)];
+        if (!verdict) return { mark: '?', title: 'Nobody has verified this model on this stage yet. It is allowed — "untried" is not "broken".' };
+        if (verdict.ok) return { mark: '✓', title: `Verified working on ${new Date(verdict.at).toLocaleDateString()}${verdict.by ? ` by ${verdict.by}` : ''}` };
+        return { mark: '✗', title: `Verified as NOT working${verdict.error ? `: ${verdict.error}` : ''} — this stage will refuse it.` };
+    }
+
+    function buildModelSelect(stageNum, currentModel, { idPrefix = 'settings-model-stage', inheritLabel = null, includeAuto = true } = {}) {
         const select = document.createElement('select');
         select.id = `${idPrefix}${stageNum}`;
         select.className = 'modal-input';
@@ -12072,9 +12084,22 @@ async function loadBuildInfo() {
         // with all ten stages reading "Gemini 3.1 Pro" while nine of them were running
         // `gemini-3.6-flash`, which had been dropped from this list by `d965963`.
         // A dropdown is a claim about current state; it must never misreport one.
+        // ✓/?/✗ rides in the option label, so the writer sees what is known about a
+        // model FOR THIS STAGE at the moment they pick it, not after it fails.
+        const withMark = opt => {
+            const { mark } = verifyMark(opt.value, stageNum);
+            return { ...opt, label: `${mark} ${opt.label}` };
+        };
         let options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
-            ? MODEL_OPTIONS
-            : [{ value: currentModel, label: `${currentModel} (saved)` }, ...MODEL_OPTIONS];
+            ? MODEL_OPTIONS.map(withMark)
+            : [{ value: currentModel, label: `${currentModel} (saved)` }, ...MODEL_OPTIONS.map(withMark)];
+        if (includeAuto) {
+            const auto = modelRegistry.recommended?.[String(stageNum)];
+            options = [{
+                value: 'auto',
+                label: auto ? `Auto (recommended: ${modelLabel(auto)})` : 'Auto (recommended)'
+            }, ...options];
+        }
         if (inheritLabel !== null) {
             // ⚠️ The inherit option carries value '' and must come FIRST, because ''
             // is also what a stage with no personal choice holds — without it the
@@ -12521,6 +12546,60 @@ async function loadBuildInfo() {
         enabledLabel.append(enabled, document.createTextNode('offered'));
         fields.appendChild(enabledLabel);
 
+        // Per-stage verification status. ⚠️ Before Verify existed the honest answer
+        // was "we don't know" for every model but the two Gemini defaults, and this
+        // row is where that stops being invisible.
+        const verifyLine = document.createElement('div');
+        verifyLine.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:0.7rem;color:#9ca3af';
+        const stages = STAGE_MODEL_LABELS.map(([num, label]) => ({ num, label }));
+        let unknown = 0;
+        for (const { num, label } of stages) {
+            const { mark, title } = verifyMark(model.id, num);
+            if (mark === '?') unknown += 1;
+            const chip = document.createElement('span');
+            chip.style.cssText = `padding:0 4px;border-radius:3px;color:${mark === '✓' ? '#34d399' : mark === '✗' ? '#f87171' : '#6b7280'}`;
+            chip.textContent = `${mark}${displayStageNumber(num)}`;
+            chip.title = `Stage ${displayStageNumber(num)} ${label} — ${title}`;
+            verifyLine.appendChild(chip);
+        }
+        if (unknown === stages.length) {
+            const never = document.createElement('span');
+            never.style.cssText = 'color:#6b7280';
+            never.textContent = '— never verified';
+            verifyLine.appendChild(never);
+        }
+        const verifyBtn = document.createElement('button');
+        verifyBtn.className = 'secondary-btn';
+        verifyBtn.type = 'button';
+        verifyBtn.style.cssText = 'padding:1px 8px;font-size:0.7rem;flex-shrink:0;margin-left:4px';
+        verifyBtn.textContent = 'Verify all stages';
+        verifyBtn.title = "Makes ONE real request per stage, carrying that stage's actual response schema. "
+            + 'This costs money and is billed to you.';
+        verifyBtn.addEventListener('click', async () => {
+            const ok = await confirmDialog({
+                title: `Verify ${model.label || model.id}?`,
+                message: `This sends ${stages.length} real requests — one per stage, each carrying that stage's own `
+                    + 'response schema — and records whether the model accepted it and returned parseable output. '
+                    + 'It costs real money, billed to your account.',
+                confirmLabel: 'Verify'
+            });
+            if (!ok) return;
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying…';
+            try {
+                const body = await adminCall(`/api/admin/models/${encodeURIComponent(model.id)}/verify`, { method: 'POST', body: '{}' });
+                const passed = body.results.filter(r => r.ok).length;
+                const failed = body.results.filter(r => !r.ok);
+                modelsStatus(failed.length
+                    ? `${model.id}: ${passed}/${body.results.length} stages passed. Failed — ${failed.map(f => `${f.label}: ${f.error}`).join(' · ')}`
+                    : `${model.id}: all ${passed} stages passed.`, failed.length > 0);
+            } catch (err) {
+                modelsStatus(`Could not verify ${model.id}: ${err.message}`, true);
+            }
+            renderModelsPanel();
+        });
+        verifyLine.appendChild(verifyBtn);
+
         const save = document.createElement('button');
         save.className = 'secondary-btn';
         save.type = 'button';
@@ -12553,6 +12632,7 @@ async function loadBuildInfo() {
         });
         fields.appendChild(save);
         row.appendChild(fields);
+        row.appendChild(verifyLine);
         return row;
     }
 
@@ -12567,7 +12647,45 @@ async function loadBuildInfo() {
         list.innerHTML = '';
         const stale = registry.stalePricing || [];
         for (const model of registry.models || []) list.appendChild(modelRowElement(model, stale));
+
+        // Auto's map. Only real, enabled models — "Auto: Auto" is not a thing, and a
+        // recommendation nobody's dropdown can offer is a recommendation to nowhere.
+        const recContainer = document.getElementById('settings-models-recommended');
+        if (recContainer) {
+            recContainer.innerHTML = '';
+            STAGE_MODEL_LABELS.forEach(([num, label]) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px';
+                const lbl = document.createElement('span');
+                lbl.style.cssText = 'width:130px;font-size:0.78rem;color:#9ca3af;flex-shrink:0';
+                lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
+                row.appendChild(lbl);
+                row.appendChild(buildModelSelect(num, (registry.recommended || {})[String(num)] || '', {
+                    idPrefix: 'settings-recommended-stage',
+                    includeAuto: false,
+                    inheritLabel: 'No recommendation'
+                }));
+                recContainer.appendChild(row);
+            });
+        }
     }
+
+    document.getElementById('btnAdminSaveRecommended')?.addEventListener('click', async () => {
+        const recommended = {};
+        STAGE_MODEL_LABELS.forEach(([num]) => {
+            const sel = document.getElementById(`settings-recommended-stage${num}`);
+            // '' = no recommendation for this stage; Auto then falls straight to
+            // "cheapest reachable, verified first" rather than storing a fake pick.
+            if (sel && sel.value) recommended[String(num)] = sel.value;
+        });
+        try {
+            await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
+            modelsStatus('Auto recommendations saved.');
+        } catch (err) {
+            modelsStatus(`Could not save the recommendations: ${err.message}`, true);
+        }
+        renderModelsPanel();
+    });
 
     document.getElementById('btnAdminAddModel')?.addEventListener('click', async () => {
         const value = id => document.getElementById(id).value.trim();
@@ -13048,9 +13166,15 @@ async function loadBuildInfo() {
             row.appendChild(lbl);
             if (settingsPersonalModels) {
                 const inherited = globalModels[`stage${num}`] || resolved[`stage${num}`];
+                // When the default is itself Auto, name what Auto resolves to for
+                // THIS reader rather than nesting "(Auto (recommended))" — the label
+                // exists to answer "what will actually run if I leave this alone".
+                const inheritedLabel = inherited === 'auto'
+                    ? (resolved[`stage${num}`] ? `Auto → ${modelLabel(resolved[`stage${num}`])}` : 'Auto — nothing available')
+                    : modelLabel(inherited);
                 row.appendChild(buildModelSelect(num, myModels[`stage${num}`] || '', {
                     inheritLabel: inherited
-                        ? `Deployment default (${modelLabel(inherited)})`
+                        ? `Deployment default (${inheritedLabel})`
                         : 'Deployment default'
                 }));
             } else {

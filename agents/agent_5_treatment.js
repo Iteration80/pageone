@@ -7,6 +7,21 @@ const {
 const { loadSkill } = require('../utils/skills_cache');
 const { formatCharacterBackstory } = require('../utils/character_backstory');
 
+// ⚠️ MODULE SCOPE AND EXPORTED so the admin Verify action (Phase 5 item 4) sends
+// THIS OBJECT in its one real request per stage — never a copy of it.
+const TREATMENT_SCHEMA = {
+    type: 'object',
+    properties: {
+        title_logline_characters: { type: 'string' },
+        act_1: { type: 'string' },
+        act_2a: { type: 'string' },
+        act_2b: { type: 'string' },
+        act_3: { type: 'string' }
+    },
+    required: ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3']
+};
+
+
 const TREATMENT_FIELDS = [
     {
         key: 'title_logline_characters',
@@ -255,17 +270,7 @@ const agent5Treatment = async (pitchData, charactersData, beatsData, currentTrea
 
     const systemInstruction = buildMemorySourceSystemInstruction(treatmentSOP, 'Stage 5 Treatment');
 
-    const treatmentSchema = {
-        type: 'object',
-        properties: {
-            title_logline_characters: { type: 'string' },
-            act_1: { type: 'string' },
-            act_2a: { type: 'string' },
-            act_2b: { type: 'string' },
-            act_3: { type: 'string' }
-        },
-        required: ['title_logline_characters', 'act_1', 'act_2a', 'act_2b', 'act_3']
-    };
+    const treatmentSchema = TREATMENT_SCHEMA;
 
     const baseConfig = {
         systemInstruction,
@@ -472,4 +477,4 @@ Return JSON with ONLY the 'act_3' field populated. Leave others empty.`;
     };
 };
 
-module.exports = { agent5Treatment };
+module.exports = { agent5Treatment, TREATMENT_SCHEMA };

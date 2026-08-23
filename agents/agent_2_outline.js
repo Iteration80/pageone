@@ -8,6 +8,79 @@ const {
 const { sanitizeOutlineMetaBeats } = require('../utils/outline_sanitizer');
 const { loadSkill } = require('../utils/skills_cache');
 
+// ⚠️ MODULE SCOPE AND EXPORTED so the admin Verify action (Phase 5 item 4) sends
+// THIS OBJECT in its one real request per stage. A verifier holding a copy of a
+// schema is an instrument that tests something other than what actually runs.
+const beatItemSchema = {
+    type: 'object',
+    properties: {
+        beat_label: { type: 'string' },
+        beat_name: { type: 'string' },
+        description: { type: 'string' },
+        emotional_arc: { type: 'string' },
+        pacing_notes: { type: 'string' },
+        genre_variation_notes: { type: 'string' }
+    },
+    required: ["beat_label", "beat_name", "description", "emotional_arc", "pacing_notes"]
+};
+
+const sequenceItemSchema = {
+    type: 'object',
+    properties: {
+        sequence_number_and_title: { type: 'string' },
+        beats: {
+            type: 'array',
+            // The SOP's "4–6 story beats per sequence — roughly 40 across the full
+            // outline. This is a floor, not a target to skim" was prompt-only until
+            // now, and a prompt-only count is the defect that has bitten this
+            // codebase four times (Stage 1's three pitches, Stage 6
+            // total_estimated_pages, stage4_beats, Stage 3's profile fields). The
+            // whole 15→40 beat fix of 2026-07-30 rested on wording alone.
+            //
+            // Only the FLOOR is enforced. The 6 is soft in the SOP ("roughly 40")
+            // and a hard ceiling would fight a legitimately dense sequence; bloat
+            // is already handled by the ~80-word per-beat cap.
+            minItems: 4,
+            items: beatItemSchema
+        }
+    },
+    required: ["sequence_number_and_title", "beats"]
+};
+
+// "Return exactly 8 sequences: Act I 2, Act II 4, Act III 2" (SOP §2) CANNOT be
+// enforced here, and the reason is worth knowing before you try:
+//
+//   Gemini rejects minItems/maxItems on an array whose ITEMS schema itself
+//   contains an array — with a bare `INVALID_ARGUMENT`, at request time.
+//
+// Measured 2026-08-03 across four cases: pitch_options (items = flat object) and
+// beats (items = flat object) are ACCEPTED; act_1/2/3 (items = a sequence, which
+// contains beats[]) and stage 3's characters[] (items contain arrays) are
+// REJECTED. So the beats floor above is enforceable and the sequence count is not.
+// Don't "fix" this without a real request — the whole schema fails, not the bound.
+const actSchema = () => ({ type: 'array', items: sequenceItemSchema });
+
+const OUTLINE_SCHEMA = {
+    type: 'object',
+    properties: {
+        title: { type: 'string' },
+        genre: { type: 'string' },
+        logline: { type: 'string' },
+        stc_genre_category: { type: 'string' },
+        outline: {
+            type: 'object',
+            properties: {
+                act_1: actSchema(),
+                act_2: actSchema(),
+                act_3: actSchema()
+            },
+            required: ["act_1", "act_2", "act_3"]
+        }
+    },
+    required: ["title", "genre", "logline", "stc_genre_category", "outline"]
+};
+
+
 function normalizeOutlineInput(outline) {
     if (!outline || typeof outline !== 'object') return null;
     if (outline.outline && typeof outline.outline === 'object' && !Array.isArray(outline.outline)) {
@@ -1544,74 +1617,7 @@ const agent2Outline = async (pitchData, currentOutline, notes, pdfFile, modelCon
 
     const outlineSOP = loadSkill('skill_stage2_outline');
 
-    const beatItemSchema = {
-        type: 'object',
-        properties: {
-            beat_label: { type: 'string' },
-            beat_name: { type: 'string' },
-            description: { type: 'string' },
-            emotional_arc: { type: 'string' },
-            pacing_notes: { type: 'string' },
-            genre_variation_notes: { type: 'string' }
-        },
-        required: ["beat_label", "beat_name", "description", "emotional_arc", "pacing_notes"]
-    };
-
-    const sequenceItemSchema = {
-        type: 'object',
-        properties: {
-            sequence_number_and_title: { type: 'string' },
-            beats: {
-                type: 'array',
-                // The SOP's "4–6 story beats per sequence — roughly 40 across the full
-                // outline. This is a floor, not a target to skim" was prompt-only until
-                // now, and a prompt-only count is the defect that has bitten this
-                // codebase four times (Stage 1's three pitches, Stage 6
-                // total_estimated_pages, stage4_beats, Stage 3's profile fields). The
-                // whole 15→40 beat fix of 2026-07-30 rested on wording alone.
-                //
-                // Only the FLOOR is enforced. The 6 is soft in the SOP ("roughly 40")
-                // and a hard ceiling would fight a legitimately dense sequence; bloat
-                // is already handled by the ~80-word per-beat cap.
-                minItems: 4,
-                items: beatItemSchema
-            }
-        },
-        required: ["sequence_number_and_title", "beats"]
-    };
-
-    // "Return exactly 8 sequences: Act I 2, Act II 4, Act III 2" (SOP §2) CANNOT be
-    // enforced here, and the reason is worth knowing before you try:
-    //
-    //   Gemini rejects minItems/maxItems on an array whose ITEMS schema itself
-    //   contains an array — with a bare `INVALID_ARGUMENT`, at request time.
-    //
-    // Measured 2026-08-03 across four cases: pitch_options (items = flat object) and
-    // beats (items = flat object) are ACCEPTED; act_1/2/3 (items = a sequence, which
-    // contains beats[]) and stage 3's characters[] (items contain arrays) are
-    // REJECTED. So the beats floor above is enforceable and the sequence count is not.
-    // Don't "fix" this without a real request — the whole schema fails, not the bound.
-    const actSchema = () => ({ type: 'array', items: sequenceItemSchema });
-
-    const outlineSchema = {
-        type: 'object',
-        properties: {
-            title: { type: 'string' },
-            genre: { type: 'string' },
-            logline: { type: 'string' },
-            stc_genre_category: { type: 'string' },
-            outline: {
-                type: 'object',
-                properties: {
-                    act_1: actSchema(),
-                    act_2: actSchema(),
-                    act_3: actSchema()
-                },
-                required: ["act_1", "act_2", "act_3"]
-            }
-        },
-        required: ["title", "genre", "logline", "stc_genre_category", "outline"]
-    };
+    const outlineSchema = OUTLINE_SCHEMA;
 
     // Revision Bypass Logic
     if (notes && hasCurrentOutline) {
@@ -1813,6 +1819,7 @@ Revise the outline again. Add or adjust the minimum necessary beats so every mis
 
 module.exports = {
     agent2Outline,
+    OUTLINE_SCHEMA,
     outlineHasContent,
     beatKind,
     buildRevisionChecklist,
