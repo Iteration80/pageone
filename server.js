@@ -9,6 +9,8 @@ const path = require('path');
 // Request-scoped caller identity — the ownership chokepoints below read from this
 // rather than from a parameter, so no route can forget to pass it.
 const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./utils/request_identity');
+// Per-person preferences layered over the server-global settings (Phase 5 item 0).
+const userSettings = require('./utils/user_settings');
 const os = require('os');
 const crypto = require('crypto');
 const {
@@ -432,10 +434,33 @@ async function loadSettings() {
 const APP_SECRET = process.env.APP_SECRET;
 const RUNTIME_API_KEYS_ENABLED = process.env.ALLOW_RUNTIME_API_KEYS === 'true' || (!APP_SECRET && process.env.ALLOW_RUNTIME_API_KEYS !== 'false');
 
-/** Returns the model + API keys to use for a given stage number (1–10). */
+/**
+ * The model that will actually run for `stageNum` for a given person.
+ *
+ *     user override ?? server-global default ?? GEMINI_MODEL
+ *
+ * `email` null (system call, break-glass, open dev) means "no personal layer" and
+ * resolves to the global — the pre-Phase-5 answer, unchanged.
+ */
+function resolveStageModel(stageNum, email) {
+    return userSettings.getUserStageModel(email, stageNum)
+        || appSettings.stageModels?.[`stage${stageNum}`]
+        || process.env.GEMINI_MODEL;
+}
+
+/**
+ * Returns the model + API keys to use for a given stage number (1–10).
+ *
+ * ⚠️ IDENTITY-AWARE, AND IT READS THE CALLER ITSELF. The per-stage model is now a
+ * personal preference layered over the deployment default (utils/user_settings.js),
+ * and the caller comes from the async context — exactly like the ownership
+ * chokepoints, and for the same reason: there are ~30 call sites across the agents
+ * and route modules, and a signature change means a new one can silently opt out of
+ * the personal layer by not passing an argument. There is nothing to pass.
+ */
 function getModelConfig(stageNum) {
     return {
-        model: appSettings.stageModels?.[`stage${stageNum}`] || process.env.GEMINI_MODEL,
+        model: resolveStageModel(stageNum, currentUserEmail()),
         geminiApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY,
         anthropicApiKey: (RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY
     };
@@ -4579,6 +4604,9 @@ registerProjectRoutes(app, {
     writeJSONQueued,
     BadRequestError,
     getModelConfig,
+    resolveStageModel,
+    userSettings,
+    isAdminEmail,
     assertValidProjectId,
     assertProjectExists,
     updateProjectJSON,

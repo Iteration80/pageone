@@ -12011,9 +12011,27 @@ async function loadBuildInfo() {
 
     const settingsModal = document.getElementById('settingsModal');
 
-    function buildModelSelect(stageNum, currentModel) {
+    // Which layer the modal's main model list is editing, decided by the server on
+    // each open (see openSettingsModal). `settingsPersonalModels` false = there is no
+    // signed-in person, so that list IS the deployment default.
+    let settingsPersonalModels = false;
+    let settingsCanEditGlobal = true;
+
+    function modelLabel(value) {
+        return MODEL_OPTIONS.find(opt => opt.value === value)?.label || value;
+    }
+
+    /**
+     * One per-stage model dropdown.
+     *
+     * `currentModel` is the value actually stored at the layer being edited — for the
+     * personal list that is a SPARSE map, so '' means "no choice of mine, inherit".
+     * `inheritLabel`, when given, adds that inherit option at the top and names the
+     * model it resolves to today, so choosing it is not a leap of faith.
+     */
+    function buildModelSelect(stageNum, currentModel, { idPrefix = 'settings-model-stage', inheritLabel = null } = {}) {
         const select = document.createElement('select');
-        select.id = `settings-model-stage${stageNum}`;
+        select.id = `${idPrefix}${stageNum}`;
         select.className = 'modal-input';
         select.style.cssText = 'flex:1;padding:4px 8px';
 
@@ -12026,15 +12044,23 @@ async function loadBuildInfo() {
         // with all ten stages reading "Gemini 3.1 Pro" while nine of them were running
         // `gemini-3.6-flash`, which had been dropped from this list by `d965963`.
         // A dropdown is a claim about current state; it must never misreport one.
-        const options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
+        let options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
             ? MODEL_OPTIONS
             : [{ value: currentModel, label: `${currentModel} (saved)` }, ...MODEL_OPTIONS];
+        if (inheritLabel !== null) {
+            // ⚠️ The inherit option carries value '' and must come FIRST, because ''
+            // is also what a stage with no personal choice holds — without it the
+            // select would fall through to its first real model and Save would turn
+            // every inherited stage into an explicit pin. Same failure as 2026-08-03,
+            // one layer up.
+            options = [{ value: '', label: inheritLabel }, ...options.filter(opt => opt.value !== '')];
+        }
 
         options.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
-            if (opt.value === currentModel) option.selected = true;
+            if (opt.value === (currentModel || '')) option.selected = true;
             select.appendChild(option);
         });
         return select;
@@ -12555,7 +12581,10 @@ async function loadBuildInfo() {
 
         const apiKeySection = document.getElementById('settings-api-key-section');
         const managedKeySection = document.getElementById('settings-api-key-managed');
-        if (settings.apiKeysManagedByServer) {
+        // The runtime keys are the DEPLOYMENT's keys — a global setting like the
+        // default models, and refused to non-admins by the server. Showing the
+        // fields to someone who cannot save them is a control that lies.
+        if (settings.apiKeysManagedByServer || settings.canEditGlobalModels === false) {
             apiKeySection?.classList.add('hidden');
             managedKeySection?.classList.remove('hidden');
         } else {
@@ -12567,20 +12596,73 @@ async function loadBuildInfo() {
         document.getElementById('settings-gemini-key').value = '';
         document.getElementById('settings-anthropic-key').value = '';
 
-        // Build per-stage model dropdowns
+        // ─── Per-stage model dropdowns ──────────────────────────────────────
+        //
+        // TWO LAYERS (Phase 5 item 0). Signed in, the top list edits YOUR OWN
+        // preference and each stage may say "use the deployment default"; admins get
+        // a second list below for the deployment default itself. Without a signed-in
+        // account (open dev, break-glass) there is no personal layer at all and the
+        // top list IS the deployment default — which is exactly what it always was.
+        settingsPersonalModels = Boolean(settings.hasPersonalModels);
+        settingsCanEditGlobal = settings.canEditGlobalModels !== false;
+        const globalModels = settings.globalStageModels || settings.stageModels || {};
+        const myModels = settings.myStageModels || {};
+        const resolved = settings.resolvedStageModels || {};
+
+        const note = document.getElementById('settings-stage-models-note');
+        if (note) {
+            note.textContent = settingsPersonalModels
+                ? 'Your own choices. A stage left on “Deployment default” follows whatever the administrator sets.'
+                : 'The models this deployment runs each stage on.';
+        }
+
         const container = document.getElementById('settings-stage-models');
         container.innerHTML = '';
         STAGE_MODEL_LABELS.forEach(([num, label]) => {
-            const currentModel = settings.stageModels?.[`stage${num}`] || 'gemini-3.1-pro-preview';
             const row = document.createElement('div');
             row.style.cssText = 'display:flex;align-items:center;gap:12px';
             const lbl = document.createElement('span');
             lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
             lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
             row.appendChild(lbl);
-            row.appendChild(buildModelSelect(num, currentModel));
+            if (settingsPersonalModels) {
+                const inherited = globalModels[`stage${num}`] || resolved[`stage${num}`];
+                row.appendChild(buildModelSelect(num, myModels[`stage${num}`] || '', {
+                    inheritLabel: inherited
+                        ? `Deployment default (${modelLabel(inherited)})`
+                        : 'Deployment default'
+                }));
+            } else {
+                row.appendChild(buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview'));
+            }
             container.appendChild(row);
         });
+
+        // Deployment defaults — a second, separately saved list, for admins who also
+        // have a personal layer sitting on top of it.
+        const globalPanel = document.getElementById('settings-global-models-panel');
+        if (globalPanel) {
+            const showGlobal = settingsPersonalModels && settings.canEditGlobalModels;
+            globalPanel.classList.toggle('hidden', !showGlobal);
+            if (showGlobal) {
+                const gContainer = document.getElementById('settings-global-stage-models');
+                gContainer.innerHTML = '';
+                const status = document.getElementById('settings-global-models-status');
+                if (status) status.textContent = '';
+                STAGE_MODEL_LABELS.forEach(([num, label]) => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:center;gap:12px';
+                    const lbl = document.createElement('span');
+                    lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
+                    lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
+                    row.appendChild(lbl);
+                    row.appendChild(buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview', {
+                        idPrefix: 'settings-global-model-stage'
+                    }));
+                    gContainer.appendChild(row);
+                });
+            }
+        }
 
         settingsModal.classList.remove('hidden');
     }
@@ -12593,27 +12675,90 @@ async function loadBuildInfo() {
     document.getElementById('btnOpenSettingsHub')?.addEventListener('click', openSettingsModal);
     document.getElementById('cancelSettingsBtn')?.addEventListener('click', closeSettingsModal);
 
+    /** Read one of the two per-stage lists. `sparse` drops the "inherit" choices. */
+    function collectStageModels(idPrefix, { sparse = false } = {}) {
+        const stageModels = {};
+        STAGE_MODEL_LABELS.forEach(([num]) => {
+            const sel = document.getElementById(`${idPrefix}${num}`);
+            if (!sel) return;
+            if (sparse && !sel.value) return; // '' = inherit — store nothing at all
+            stageModels[`stage${num}`] = sel.value;
+        });
+        return stageModels;
+    }
+
+    async function errorTextFrom(res, fallback) {
+        try {
+            const body = await res.json();
+            if (body?.error) return body.error;
+        } catch {}
+        return fallback;
+    }
+
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const geminiApiKey = document.getElementById('settings-gemini-key').value.trim();
         const anthropicApiKey = document.getElementById('settings-anthropic-key').value.trim();
 
-        const stageModels = {};
-        STAGE_MODEL_LABELS.forEach(([num]) => {
-            const sel = document.getElementById(`settings-model-stage${num}`);
-            if (sel) stageModels[`stage${num}`] = sel.value;
-        });
+        try {
+            if (settingsPersonalModels) {
+                // Signed in: the top list is YOURS. It never touches the deployment
+                // default, and it is stored sparse so an inherited stage keeps
+                // following the default rather than freezing today's value.
+                const res = await fetch('/api/settings/my-models', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stageModels: collectStageModels('settings-model-stage', { sparse: true }) })
+                });
+                if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+                // API keys, where the deployment lets them be set at runtime, are
+                // still a global setting — only send them when there is one to send
+                // and the caller is entitled to, so a writer pressing Save does not
+                // get a 403 for a field they never filled in.
+                if ((geminiApiKey || anthropicApiKey) && settingsCanEditGlobal) {
+                    const keyRes = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ geminiApiKey, anthropicApiKey })
+                    });
+                    if (!keyRes.ok) throw new Error(await errorTextFrom(keyRes, 'Save failed'));
+                }
+            } else {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        geminiApiKey,
+                        anthropicApiKey,
+                        stageModels: collectStageModels('settings-model-stage')
+                    })
+                });
+                if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+            }
+            closeSettingsModal();
+        } catch (err) {
+            console.error('Failed to save settings:', err);
+            noticeDialog({ message: `Failed to save settings. ${err.message}` });
+        }
+    });
 
+    document.getElementById('btnSaveGlobalModels')?.addEventListener('click', async () => {
+        const status = document.getElementById('settings-global-models-status');
+        const say = (text, bad = false) => {
+            if (status) {
+                status.textContent = text;
+                status.style.color = bad ? '#f87171' : '#9ca3af';
+            }
+        };
         try {
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ geminiApiKey, anthropicApiKey, stageModels })
+                body: JSON.stringify({ stageModels: collectStageModels('settings-global-model-stage') })
             });
-            if (!res.ok) throw new Error('Save failed');
-            closeSettingsModal();
+            if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+            say('Deployment defaults saved — everyone who has not chosen their own follows these.');
         } catch (err) {
-            console.error('Failed to save settings:', err);
-            noticeDialog({ message: 'Failed to save settings. Check the console for details.' });
+            say(`Could not save the deployment defaults: ${err.message}`, true);
         }
     });
 

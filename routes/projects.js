@@ -27,6 +27,9 @@ function registerProjectRoutes(app, deps) {
         writeJSONQueued,
         BadRequestError,
         getModelConfig,
+        resolveStageModel,
+        userSettings,
+        isAdminEmail,
         assertValidProjectId,
         assertProjectExists,
         updateProjectJSON,
@@ -54,19 +57,63 @@ function registerProjectRoutes(app, deps) {
     });
 
     // --- Settings Routes --- //
+    //
+    // ⚠️ TWO LAYERS, TWO DOORS (Phase 5 item 0). `data/settings.json` is ONE object
+    // for the whole deployment: the per-stage model map and, where runtime keys are
+    // enabled, the API keys. Behind plain `requireAuth` that made every signed-in
+    // tester an administrator of everyone else's models — open Settings, press Save,
+    // and the whole deployment now runs the stages on whatever their dropdowns
+    // happened to show. So:
+    //
+    //   POST /api/settings           → the GLOBAL layer. requireAdmin.
+    //   PUT  /api/settings/my-models → the PERSONAL layer. Yourself only.
+    //
+    // The personal map is sparse (utils/user_settings.js): a stage a person has not
+    // chosen is absent and inherits the global, so an admin changing the default is
+    // still felt by everyone who never expressed an opinion.
+
+    /** The stage numbers the model map is allowed to carry — the stages that call a model. */
+    const MODEL_STAGE_NUMBERS = [1, 2, 3, 5, 6, 7, 8, 9, 10];
+
+    function resolvedStageModelsFor(email) {
+        const out = {};
+        for (const num of MODEL_STAGE_NUMBERS) {
+            const model = resolveStageModel(num, email);
+            if (model) out[`stage${num}`] = model;
+        }
+        return out;
+    }
 
     app.get('/api/settings', requireAuth, (req, res) => {
+            const email = req.userEmail || null;
             res.json({
                 geminiApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey ? '***' : '',
                 anthropicApiKey: RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey ? '***' : '',
+                // ⚠️ `stageModels` keeps its original meaning — the DEPLOYMENT default.
+                // A browser still running the pre-Phase-5 app.js therefore reads and
+                // writes exactly what it always did (and is refused by the new admin
+                // gate if it is not entitled to), instead of silently pinning the
+                // caller's personal map to today's defaults.
                 stageModels: appSettings.stageModels || {},
+                globalStageModels: appSettings.stageModels || {},
+                myStageModels: email ? userSettings.getUserStageModels(email) : {},
+                // What will actually run for this caller, after the personal layer.
+                // The dropdowns show this as each stage's "use the default" label —
+                // a control that claims a current state must not misreport one.
+                resolvedStageModels: resolvedStageModelsFor(email),
+                canEditGlobalModels: !email || isAdminEmail(email),
+                hasPersonalModels: Boolean(email),
                 runtimeApiKeysEnabled: RUNTIME_API_KEYS_ENABLED,
                 apiKeysManagedByServer: !RUNTIME_API_KEYS_ENABLED,
                 build: getBuildInfo()
             });
     });
 
-    app.post('/api/settings', requireAuth, async (req, res) => {
+    // The GLOBAL layer — the deployment default models and (where enabled) the
+    // deployment's API keys. Admin only. Break-glass and open dev pass requireAdmin
+    // by design: neither has a scoped identity and both already hold the whole
+    // deployment.
+    app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
         try {
             const { geminiApiKey, anthropicApiKey, stageModels } = req.body;
             // Only update keys that were actually changed (don't overwrite with masked placeholder)
@@ -80,6 +127,32 @@ function registerProjectRoutes(app, deps) {
         } catch (err) {
             console.error('Failed to save settings:', err);
             sendApiError(res, err, 'Failed to save settings');
+        }
+    });
+
+    // The PERSONAL layer. Writes only the caller's own row — there is deliberately
+    // no email parameter, so this route cannot be pointed at anybody else.
+    app.put('/api/settings/my-models', requireAuth, async (req, res) => {
+        const email = req.userEmail;
+        if (!email) {
+            // Break-glass and open dev authenticate as the deployment, not as a
+            // person, so there is no row to write. They edit the global instead —
+            // which on those deployments is the only layer that exists.
+            return res.status(400).json({
+                error: 'Personal model preferences need a signed-in account. This deployment is running without one, so the global defaults are the only setting.'
+            });
+        }
+        try {
+            const { stageModels } = req.body || {};
+            await userSettings.setUserStageModels(email, stageModels || {});
+            res.json({
+                ok: true,
+                myStageModels: userSettings.getUserStageModels(email),
+                resolvedStageModels: resolvedStageModelsFor(email)
+            });
+        } catch (err) {
+            console.error('Failed to save personal model preferences:', err.message);
+            sendApiError(res, new BadRequestError(err.message), 'Failed to save personal model preferences');
         }
     });
 

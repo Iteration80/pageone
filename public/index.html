@@ -1236,9 +1236,27 @@
             </section>
 
             <section>
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">Model Per Stage</h4>
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px">Model Per Stage</h4>
+                <p id="settings-stage-models-note" style="font-size:0.75rem;color:#6b7280;margin-bottom:12px;line-height:1.5"></p>
                 <div id="settings-stage-models" style="display:flex;flex-direction:column;gap:8px">
                     <!-- Injected by JS -->
+                </div>
+            </section>
+
+            <!-- Deployment defaults — admins only, and a separate save from the
+                 personal list above. Everyone inherits these for any stage they
+                 have not chosen for themselves. -->
+            <section id="settings-global-models-panel" class="hidden" style="margin-top:24px;padding-top:20px;border-top:1px solid #374151">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px">Deployment Defaults <span style="color:#6b7280;text-transform:none;letter-spacing:0">· admin</span></h4>
+                <p style="font-size:0.75rem;color:#6b7280;margin-bottom:12px;line-height:1.5">
+                    What every writer runs on unless they have picked something else for that stage. Saved separately from your own preferences above.
+                </p>
+                <div id="settings-global-stage-models" style="display:flex;flex-direction:column;gap:8px">
+                    <!-- Injected by JS -->
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                    <button id="btnSaveGlobalModels" class="btn-secondary" style="font-size:0.8rem">Save deployment defaults</button>
+                    <span id="settings-global-models-status" style="font-size:0.75rem;color:#9ca3af"></span>
                 </div>
             </section>
 
