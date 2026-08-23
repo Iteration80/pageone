@@ -1338,6 +1338,56 @@
                 <p id="settings-admin-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
             </section>
 
+            <!-- Models — the registry. Admin only; the server re-checks every call. -->
+            <section id="settings-models-panel" class="settings-build-panel hidden">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Models</h4>
+                <p style="font-size:0.8rem;color:#9ca3af;line-height:1.5;margin-bottom:12px">
+                    Every model this deployment can run, and what it costs. Adding one is a row here, not a code
+                    change. <strong style="color:#d1d5db">Prices are per million tokens, exactly as the provider
+                    publishes them</strong> — no provider API exposes pricing, so each is typed in by hand with the
+                    page it was read from and the date. A rate nobody has checked in 90 days is flagged; an
+                    unpriced model spends real money and reports $0.00.
+                </p>
+
+                <div id="settings-models-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+
+                <details style="margin-bottom:8px">
+                    <summary style="font-size:0.8rem;color:#d1d5db;cursor:pointer">Add a model</summary>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:10px;border:1px solid #374151;border-radius:6px">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            <input type="text" id="settings-model-new-id" class="modal-input" style="flex:2 1 200px;min-width:0;padding:4px 8px" placeholder="model id (e.g. kimi-k3)" autocomplete="off">
+                            <input type="text" id="settings-model-new-label" class="modal-input" style="flex:1 1 140px;min-width:0;padding:4px 8px" placeholder="display name" autocomplete="off">
+                            <select id="settings-model-new-provider" class="modal-input" style="width:auto;padding:4px 8px">
+                                <option value="gemini">gemini</option>
+                                <option value="anthropic">anthropic</option>
+                                <option value="openai-compatible">openai-compatible</option>
+                            </select>
+                        </div>
+                        <input type="text" id="settings-model-new-baseurl" class="modal-input" style="width:100%;padding:4px 8px"
+                               placeholder="baseUrl — OpenAI-compatible only (e.g. https://api.moonshot.ai/v1)" autocomplete="off">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            <input type="text" id="settings-model-new-in" class="modal-input" inputmode="decimal" style="width:110px;flex:0 0 auto;padding:4px 8px" placeholder="$ in / M" autocomplete="off">
+                            <input type="text" id="settings-model-new-out" class="modal-input" inputmode="decimal" style="width:110px;flex:0 0 auto;padding:4px 8px" placeholder="$ out / M" autocomplete="off">
+                            <input type="text" id="settings-model-new-source" class="modal-input" style="flex:1 1 220px;min-width:0;padding:4px 8px" placeholder="price source URL" autocomplete="off">
+                            <button id="btnAdminAddModel" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0">Add model</button>
+                        </div>
+                    </div>
+                </details>
+
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span style="font-size:0.8rem;color:#d1d5db;flex-shrink:0">Discover from</span>
+                    <select id="settings-model-discover-provider" class="modal-input" style="width:auto;padding:4px 8px">
+                        <option value="gemini">gemini</option>
+                        <option value="anthropic">anthropic</option>
+                        <option value="openai-compatible">openai-compatible</option>
+                    </select>
+                    <input type="text" id="settings-model-discover-baseurl" class="modal-input" style="flex:1 1 200px;min-width:0;padding:4px 8px" placeholder="baseUrl (OpenAI-compatible)" autocomplete="off">
+                    <button id="btnAdminDiscoverModels" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0">Discover models</button>
+                </div>
+                <div id="settings-models-discovered" style="font-size:0.75rem;color:#9ca3af;margin-top:8px"></div>
+                <p id="settings-models-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
+            </section>
+
             <section class="settings-build-panel">
                 <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Build</h4>
                 <p id="settings-build-fingerprint" class="settings-build-fingerprint">Build unavailable</p>

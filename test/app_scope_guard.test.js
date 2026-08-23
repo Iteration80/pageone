@@ -130,12 +130,21 @@ test('the visible-stage helpers are declared above the handler, where every call
 // instead ("Gemini 3.1 Pro"), and Save writes back what is displayed. Opening Settings
 // and saving would have silently moved the whole pipeline onto pro.
 
+// ⚠️ Since Phase 5 the list is DATA — `data/models.json`, filled into MODEL_OPTIONS
+// from GET /api/models — so the claim is now checked against the registry rather
+// than scraped out of app.js. Same claim, real source.
 test('every model the app can be configured with is offered in Settings', () => {
-    const options = [...APP_JS.matchAll(/\{ value: '([^']+)',\s*label: '/g)].map(m => m[1]);
-    assert.ok(options.length >= 6, `expected the MODEL_OPTIONS list, found ${options.length} entries`);
+    const registry = JSON.parse(fs.readFileSync(require.resolve('../data/models.json'), 'utf8'));
+    const offered = registry.models.filter(m => m.enabled !== false).map(m => m.id);
+    assert.ok(offered.length >= 6, `expected the bundled model registry, found ${offered.length} enabled rows`);
     // The defaults the server actually falls back to must be selectable.
     for (const model of ['gemini-3.6-flash', 'gemini-3.1-pro-preview']) {
-        assert.ok(options.includes(model), `${model} is used by the app but missing from the Settings dropdown`);
+        assert.ok(offered.includes(model), `${model} is used by the app but missing from the model registry`);
+    }
+    // Auto's recommendations have to be reachable too, or "recommended" names a
+    // model no dropdown will ever show.
+    for (const [stage, id] of Object.entries(registry.recommended || {})) {
+        assert.ok(offered.includes(id), `stage ${stage} recommends ${id}, which is not an enabled model`);
     }
 });
 

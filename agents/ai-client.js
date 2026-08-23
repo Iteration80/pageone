@@ -2,19 +2,23 @@
  * ai-client.js — Unified AI generation wrapper
  *
  * Supports Gemini (Google GenAI) and Anthropic (Claude) providers.
- * Provider is detected from the model name prefix:
- *   - "gemini-*"  → Google GenAI SDK
- *   - "claude-*"  → Anthropic SDK
+ *
+ * ⚠️ PROVIDER COMES FROM THE MODEL REGISTRY (utils/model_registry.js), not from the
+ * model id. Until Phase 5 it was a prefix rule — `claude-*` → Anthropic, everything
+ * else → Gemini — which is fine for two vendors and wrong the moment a third exists:
+ * `kimi-k3` would have been posted to Google. The registry row names the provider,
+ * and the prefix rule survives ONLY as the guess for an id nobody registered, so a
+ * model configured before the registry existed does not suddenly change SDK.
  *
  * All callers receive { text: string, usage: { model, inputTokens, outputTokens } } regardless of provider.
  */
 
 const { GoogleGenAI } = require('@google/genai');
 const Anthropic = require('@anthropic-ai/sdk');
+const modelRegistry = require('../utils/model_registry');
 
 function detectProvider(model) {
-    if (typeof model === 'string' && model.startsWith('claude-')) return 'anthropic';
-    return 'gemini';
+    return modelRegistry.providerFor(model);
 }
 
 function normalizeAbortError(error, signal) {

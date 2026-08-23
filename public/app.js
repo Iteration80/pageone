@@ -2185,7 +2185,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Resolve login mode first (sets the correct overlay), then boot the app.
-    initAuthMode().finally(() => handleHashChange());
+    // The registry carries the price table, so it has to land before anything shows
+    // a dollar figure. Chained after auth: /api/models is requireAuth, and asking
+    // before sign-in would only ever 401.
+    initAuthMode()
+        .finally(() => loadModelRegistry())
+        .finally(() => handleHashChange());
 
     // --- Main App Logic ---
     pdfUpload.addEventListener('change', (e) => {
@@ -11993,15 +11998,38 @@ async function loadBuildInfo() {
 
     // ─── Settings Modal ────────────────────────────────────────────────────────
 
-    const MODEL_OPTIONS = [
-        { value: 'gemini-3.1-pro-preview',    label: 'Gemini 3.1 Pro' },
-        { value: 'gemini-3.6-flash',          label: 'Gemini 3.6 Flash' },
-        { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash' },
-        { value: 'claude-fable-5',            label: 'Claude Fable 5' },
-        { value: 'claude-opus-5',             label: 'Claude Opus 5' },
-        { value: 'claude-sonnet-5',           label: 'Claude Sonnet 5' },
-        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-    ];
+    // ⚠️ THE MODEL LIST IS DATA, NOT SOURCE (Phase 5 item 1). This was a hardcoded
+    // array until 2026-08-22, which meant adding a model was a code change in three
+    // files and a redeploy — and, twice, a dropdown that disagreed with what the
+    // server was actually running. It is now filled from GET /api/models, which
+    // serves the registry an admin edits in Settings → Administration → Models.
+    //
+    // Same call carries the price table: `setPricingTable` loads the per-token rates
+    // into window.ModelPricing so the spend modal prices with EXACTLY the rows the
+    // server's quota guard prices with. There is one table; this is how the browser
+    // half of it arrives.
+    let MODEL_OPTIONS = [];
+    let modelRegistry = { models: [], recommended: {}, stalePricing: [], providers: [] };
+
+    async function loadModelRegistry() {
+        try {
+            const res = await fetch('/api/models');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const payload = await res.json();
+            modelRegistry = payload;
+            MODEL_OPTIONS = (payload.models || [])
+                .filter(m => m.enabled)
+                .map(m => ({ value: m.id, label: m.label || m.id }));
+            window.ModelPricing.setPricingTable(payload.pricingTable || {});
+        } catch (err) {
+            // Deliberately quiet about prices and loud about the cause: a failed load
+            // leaves MODEL_OPTIONS empty, and buildModelSelect keeps whatever is
+            // actually configured as its own option, so a dropdown still tells the
+            // truth about the current state rather than offering a wrong first item.
+            console.warn('Could not load the model registry:', err.message);
+        }
+        return modelRegistry;
+    }
 
     const STAGE_MODEL_LABELS = [
         [1, 'Pitch'], [2, 'Outline'], [3, 'Characters'], [5, 'Treatment'],
@@ -12265,6 +12293,214 @@ async function loadBuildInfo() {
         return lines.join('\n');
     }
 
+    // ─── Models (Settings → Administration → Models) ────────────────────────────
+    // The registry as an editable table. Everything here writes through
+    // /api/admin/models*, which is admin-SESSION only — the server re-checks.
+
+    function modelsStatus(text, isError = false) {
+        const el = document.getElementById('settings-models-status');
+        if (!el) return;
+        el.textContent = text;
+        el.style.color = isError ? '#f87171' : '#6b7280';
+    }
+
+    /** '' and 'none' clear a price; anything else must parse as a number ≥ 0. */
+    function parsePrice(raw) {
+        const text = String(raw ?? '').trim().replace(/^\$/, '');
+        if (text === '' || /^(none|-)$/i.test(text)) return null;
+        const value = Number(text);
+        if (!Number.isFinite(value) || value < 0) throw new Error(`"${raw}" is not a price. Use USD per million tokens, e.g. 0.75.`);
+        return value;
+    }
+
+    function modelRowElement(model, staleIds) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid #374151;border-radius:6px';
+
+        const top = document.createElement('div');
+        top.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+        const name = document.createElement('span');
+        name.style.cssText = `font-size:0.85rem;color:${model.enabled ? '#e5e7eb' : '#6b7280'}`;
+        name.textContent = model.label || model.id;
+        top.appendChild(name);
+        const id = document.createElement('code');
+        id.style.cssText = 'font-size:0.7rem;color:#6b7280';
+        id.textContent = model.id;
+        top.appendChild(id);
+        top.appendChild(adminChip(model.provider || 'no provider', model.provider ? '#60a5fa' : '#f87171'));
+        if (!model.enabled) top.appendChild(adminChip('disabled', '#6b7280'));
+        if (model.deprecated) top.appendChild(adminChip('deprecated', '#6b7280'));
+        if (staleIds.includes(model.id)) {
+            const chip = adminChip(`price unchecked since ${model.pricing.checkedAt || 'never'}`, '#fbbf24');
+            chip.title = 'Nobody has compared this rate to the provider\'s page in over 90 days. '
+                + 'Two Gemini rows were wrong for months exactly this way.';
+            top.appendChild(chip);
+        }
+        if (model.pricing.inputPerMTok === null) {
+            const chip = adminChip('no price', '#f87171');
+            chip.title = 'This model spends real money and reports $0.00 in every spend figure.';
+            top.appendChild(chip);
+        }
+        if (model.pricing.note) {
+            const note = document.createElement('span');
+            note.style.cssText = 'font-size:0.68rem;color:#9ca3af';
+            note.textContent = model.pricing.note;
+            top.appendChild(note);
+        }
+        row.appendChild(top);
+
+        const fields = document.createElement('div');
+        fields.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+        const input = (value, placeholder, width, title) => {
+            const el = document.createElement('input');
+            el.type = 'text';
+            el.className = 'modal-input';
+            el.style.cssText = `padding:3px 6px;font-size:0.75rem;min-width:0;${width}`;
+            el.value = value ?? '';
+            el.placeholder = placeholder;
+            if (title) el.title = title;
+            return el;
+        };
+        const labelInput = input(model.label, 'display name', 'flex:1 1 130px');
+        const inInput = input(model.pricing.inputPerMTok, '$ in / M', 'flex:0 0 84px', 'USD per million input tokens, as published');
+        const outInput = input(model.pricing.outputPerMTok, '$ out / M', 'flex:0 0 84px', 'USD per million output tokens, as published');
+        const sourceInput = input(model.pricing.source, 'price source URL', 'flex:2 1 200px');
+        const baseUrlInput = input(model.baseUrl, 'baseUrl', 'flex:1 1 160px');
+        baseUrlInput.style.display = model.provider === 'openai-compatible' ? '' : 'none';
+        for (const el of [labelInput, inInput, outInput, sourceInput, baseUrlInput]) fields.appendChild(el);
+
+        const enabledLabel = document.createElement('label');
+        enabledLabel.style.cssText = 'font-size:0.72rem;color:#9ca3af;display:flex;align-items:center;gap:4px;flex-shrink:0';
+        const enabled = document.createElement('input');
+        enabled.type = 'checkbox';
+        enabled.checked = model.enabled;
+        enabledLabel.append(enabled, document.createTextNode('offered'));
+        fields.appendChild(enabledLabel);
+
+        const save = document.createElement('button');
+        save.className = 'secondary-btn';
+        save.type = 'button';
+        save.style.cssText = 'padding:3px 10px;font-size:0.75rem;flex-shrink:0';
+        save.textContent = 'Save';
+        save.addEventListener('click', async () => {
+            try {
+                await adminCall(`/api/admin/models/${encodeURIComponent(model.id)}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        label: labelInput.value.trim() || model.id,
+                        enabled: enabled.checked,
+                        baseUrl: baseUrlInput.value.trim() || null,
+                        pricing: {
+                            inputPerMTok: parsePrice(inInput.value),
+                            outputPerMTok: parsePrice(outInput.value),
+                            source: sourceInput.value.trim() || null,
+                            // Editing a rate IS re-checking it — stamping the date
+                            // here is what makes the 90-day flag mean anything.
+                            checkedAt: new Date().toISOString().slice(0, 10)
+                        }
+                    })
+                });
+                modelsStatus(`${model.id} saved.`);
+            } catch (err) {
+                modelsStatus(`Could not save ${model.id}: ${err.message}`, true);
+            }
+            await loadModelRegistry();
+            renderModelsPanel();
+        });
+        fields.appendChild(save);
+        row.appendChild(fields);
+        return row;
+    }
+
+    let modelsRenderSequence = 0;
+
+    async function renderModelsPanel() {
+        const list = document.getElementById('settings-models-list');
+        if (!list) return;
+        const mine = ++modelsRenderSequence;
+        const registry = await loadModelRegistry();
+        if (mine !== modelsRenderSequence) return; // an overtaken render drops its result
+        list.innerHTML = '';
+        const stale = registry.stalePricing || [];
+        for (const model of registry.models || []) list.appendChild(modelRowElement(model, stale));
+    }
+
+    document.getElementById('btnAdminAddModel')?.addEventListener('click', async () => {
+        const value = id => document.getElementById(id).value.trim();
+        try {
+            await adminCall('/api/admin/models', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id: value('settings-model-new-id'),
+                    label: value('settings-model-new-label') || value('settings-model-new-id'),
+                    provider: value('settings-model-new-provider'),
+                    baseUrl: value('settings-model-new-baseurl') || null,
+                    enabled: true,
+                    pricing: {
+                        inputPerMTok: parsePrice(value('settings-model-new-in')),
+                        outputPerMTok: parsePrice(value('settings-model-new-out')),
+                        source: value('settings-model-new-source') || null,
+                        checkedAt: new Date().toISOString().slice(0, 10)
+                    }
+                })
+            });
+            modelsStatus(`${value('settings-model-new-id')} added. It is unverified until you run Verify on the stages you want it for.`);
+            for (const id of ['id', 'label', 'baseurl', 'in', 'out', 'source']) {
+                document.getElementById(`settings-model-new-${id}`).value = '';
+            }
+        } catch (err) {
+            modelsStatus(`Could not add the model: ${err.message}`, true);
+        }
+        renderModelsPanel();
+    });
+
+    document.getElementById('btnAdminDiscoverModels')?.addEventListener('click', async () => {
+        const out = document.getElementById('settings-models-discovered');
+        const provider = document.getElementById('settings-model-discover-provider').value;
+        const baseUrl = document.getElementById('settings-model-discover-baseurl').value.trim();
+        out.textContent = 'Asking…';
+        try {
+            const body = await adminCall('/api/admin/models/discover', {
+                method: 'POST',
+                body: JSON.stringify({ provider, baseUrl })
+            });
+            const fresh = body.found.filter(m => !m.registered);
+            out.innerHTML = '';
+            const summary = document.createElement('div');
+            summary.style.cssText = 'margin-bottom:4px;color:#d1d5db';
+            summary.textContent = `${provider} serves ${body.found.length} model(s); ${fresh.length} not in the registry. ${body.note}`;
+            out.appendChild(summary);
+            for (const model of fresh) {
+                const line = document.createElement('div');
+                line.style.cssText = 'display:flex;align-items:center;gap:8px;padding:1px 0';
+                const code = document.createElement('code');
+                code.style.cssText = 'color:#9ca3af';
+                code.textContent = model.id;
+                const use = document.createElement('button');
+                use.className = 'secondary-btn';
+                use.type = 'button';
+                use.style.cssText = 'padding:1px 8px;font-size:0.7rem';
+                use.textContent = 'Use in the add form';
+                // Fills the form, never adds the row: the price is still missing and
+                // only a person can supply it. This is the whole reason discovery
+                // does not write.
+                use.addEventListener('click', () => {
+                    document.getElementById('settings-model-new-id').value = model.id;
+                    document.getElementById('settings-model-new-label').value = model.label || model.id;
+                    document.getElementById('settings-model-new-provider').value = provider;
+                    document.getElementById('settings-model-new-baseurl').value = provider === 'openai-compatible' ? baseUrl : '';
+                    modelsStatus(`${model.id} filled in — it still needs a price and its source URL.`);
+                });
+                line.append(code, use);
+                out.appendChild(line);
+            }
+            if (!fresh.length) out.appendChild(document.createTextNode('Nothing new.'));
+        } catch (err) {
+            out.textContent = '';
+            modelsStatus(`Discovery failed: ${err.message}`, true);
+        }
+    });
+
     async function renderAdminPanel() {
         const list = document.getElementById('settings-admin-people');
         if (!list) return;
@@ -12523,6 +12759,9 @@ async function loadBuildInfo() {
         } catch (e) {
             console.warn('Could not load settings:', e);
         }
+        // Re-read the registry on every open: an admin may have added a model in
+        // another tab, and a dropdown built from a stale list would omit it.
+        await loadModelRegistry();
         renderBuildInfo(settings.build || currentBuildInfo || {});
 
         // Account + access-token panels — only when signed in via Google. Both are
@@ -12543,13 +12782,18 @@ async function loadBuildInfo() {
             }
 
             // Administration — only for admins (server re-checks every call).
+            const modelsPanel = document.getElementById('settings-models-panel');
             if (adminPanel) {
                 if (email && admin) {
                     adminPanel.classList.remove('hidden');
                     adminStatus('');
                     renderAdminPanel();
+                    modelsPanel?.classList.remove('hidden');
+                    modelsStatus('');
+                    renderModelsPanel();
                 } else {
                     adminPanel.classList.add('hidden');
+                    modelsPanel?.classList.add('hidden');
                 }
             }
             // Every open starts with the reveal box closed — a plaintext token must

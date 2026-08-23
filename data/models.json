@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "_comment": [
+    "THE MODEL REGISTRY — the one table of models, providers and prices.",
+    "This file in the repo is the BUNDLED DEFAULT. On a deployment it is copied once",
+    "into <DATA_ROOT>/models.json and that copy is what Settings -> Administration ->",
+    "Models edits; the bundle is never written to on a deployment. Locally DATA_ROOT",
+    "IS this directory, so local edits land here — same arrangement as data/styles.",
+    "",
+    "PRICES ARE PER MILLION TOKENS, in USD, exactly as the provider publishes them.",
+    "That is deliberate: two Gemini rows were wrong for months because nothing ever",
+    "compared them to the source page, and a per-token float cannot be compared by eye.",
+    "Every row carries the URL it was read from and the date it was read. No provider",
+    "API exposes pricing, so this is hand-entered and the admin UI flags rows that have",
+    "not been checked in 90 days.",
+    "",
+    "`verified` is written ONLY by the admin Verify action (one real request per stage",
+    "schema). Never hand-edit it — a hand-written tick is a claim nobody tested."
+  ],
+  "models": [
+    {
+      "id": "gemini-3.6-flash",
+      "label": "Gemini 3.6 Flash",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 3.75,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": "$0.75/$3.75 through 2026-12-31; steps to $1.50/$7.50 on 2027-01-01 — update this row then."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "label": "Gemini 3.1 Pro",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": "The above-200k-prompt tier ($4/$18) is not modelled; PageOne prompts stay under it."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "label": "Gemini 3 Flash",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.5,
+        "outputPerMTok": 3.0,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": null
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "claude-fable-5",
+      "label": "Claude Fable 5",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": null
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "claude-opus-5",
+      "label": "Claude Opus 5",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": null
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "claude-sonnet-5",
+      "label": "Claude Sonnet 5",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 3.0,
+        "outputPerMTok": 15.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": null
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "label": "Claude Haiku 4.5",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 1.0,
+        "outputPerMTok": 5.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": null
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
+      "id": "gemini-2.5-pro-preview-05-06",
+      "label": "Gemini 2.5 Pro",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10.0,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "label": "Gemini 2.0 Flash",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "gemini-2.0-flash-001",
+      "label": "Gemini 2.0 Flash",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "claude-opus-4-8",
+      "label": "Claude Opus 4.8",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "claude-opus-4-7",
+      "label": "Claude Opus 4.7",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "claude-opus-4-6",
+      "label": "Claude Opus 4.6",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "label": "Claude Sonnet 4.6",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 3.0,
+        "outputPerMTok": 15.0,
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checkedAt": "2026-08-16",
+        "note": "Superseded — kept so historical spend on projects that used it still prices."
+      },
+      "enabled": false,
+      "deprecated": true,
+      "verified": {}
+    }
+  ],
+  "recommended": {
+    "1": "gemini-3.6-flash",
+    "2": "gemini-3.6-flash",
+    "3": "gemini-3.1-pro-preview",
+    "5": "gemini-3.6-flash",
+    "6": "gemini-3.6-flash",
+    "7": "gemini-3.6-flash",
+    "8": "gemini-3.6-flash",
+    "9": "gemini-3.6-flash",
+    "10": "gemini-3.6-flash"
+  }
+}

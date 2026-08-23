@@ -28,3 +28,7 @@ node_modules/
 # after an iCloud sync moved them, which is noise on every `git status`.
 .DS_Store
 .vscode/
+
+# Per-user preferences (which model each writer runs each stage on). Per-deployment
+# state written from Settings, not source.
+data/user-settings.json

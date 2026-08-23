@@ -256,16 +256,27 @@ test('break-glass is never capped and open mode has no administration to speak o
 
 // ─── Completeness ───────────────────────────────────────────────────────────────
 
-// Every /api/admin/ route must be in this set — each is exercised above with a
-// non-admin AND (for mutations) with a token. Adding a route without adding it here
-// fails this test, which is the point.
+// Every /api/admin/ route must be in this set — each is exercised with a non-admin
+// AND (for mutations) with a token. Adding a route without adding it here fails this
+// test, which is the point.
+//
+// The model-registry routes are covered in test/model_registry.test.js ("every
+// writer may read the registry; only an admin SESSION may change it") rather than
+// here — they belong to a different feature, but the completeness walk is
+// deliberately global, so they must still be declared.
 const COVERED_ADMIN_ROUTES = new Set([
     'GET /api/admin/overview',
     'POST /api/admin/allowlist',
     'DELETE /api/admin/allowlist/:email',
     'POST /api/admin/admins',
     'DELETE /api/admin/admins/:email',
-    'PUT /api/admin/quotas'
+    'PUT /api/admin/quotas',
+    // → test/model_registry.test.js
+    'POST /api/admin/models',
+    'PUT /api/admin/models/:id',
+    'DELETE /api/admin/models/:id',
+    'PUT /api/admin/models-recommended',
+    'POST /api/admin/models/discover'
 ]);
 
 test('every /api/admin route is covered by an explicit non-admin and session-only case', async () => {

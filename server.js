@@ -11,6 +11,8 @@ const path = require('path');
 const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./utils/request_identity');
 // Per-person preferences layered over the server-global settings (Phase 5 item 0).
 const userSettings = require('./utils/user_settings');
+// The one table of models, providers and prices, as data (Phase 5 item 1).
+const modelRegistry = require('./utils/model_registry');
 const os = require('os');
 const crypto = require('crypto');
 const {
@@ -466,6 +468,24 @@ function getModelConfig(stageNum) {
     };
 }
 
+/**
+ * The API key this deployment holds for a provider family, or null.
+ *
+ * ⚠️ HOUSE KEYS ONLY, for now. `openai-compatible` has nowhere to keep a key yet —
+ * that arrives with the per-user key store (Phase 5 item 3), and this function is
+ * the single place that has to learn about it. Discovery uses it, so an
+ * openai-compatible "Discover models" says so honestly instead of 401ing.
+ */
+function providerKeyFor(provider) {
+    if (provider === 'anthropic') {
+        return ((RUNTIME_API_KEYS_ENABLED && appSettings.anthropicApiKey) || process.env.ANTHROPIC_API_KEY) || null;
+    }
+    if (provider === 'gemini') {
+        return ((RUNTIME_API_KEYS_ENABLED && appSettings.geminiApiKey) || process.env.GEMINI_API_KEY) || null;
+    }
+    return null;
+}
+
 function getAssistantModelConfig(stageNum = 1) {
     const config = getModelConfig(stageNum);
     const explicitModel = appSettings.brainstormModel || process.env.BRAINSTORM_MODEL;
@@ -596,7 +616,21 @@ async function usageRollup({ owner = null, since = null } = {}) {
 // bumped in place by trackUsage, so within one process it is exact for this
 // process's own writes and at most a minute stale for anyone else's.
 
-const { priceUsage: priceModelUsage } = require('./public/model-pricing');
+const { priceUsage: priceModelUsage, setPricingTable } = require('./public/model-pricing');
+
+// ⚠️ THE PRICE TABLE IS LOADED FROM THE REGISTRY, HERE, ONCE — and reloaded on every
+// registry write. `model-pricing.js` ships no rates of its own since Phase 5; it is
+// the pricing FUNCTION and the table is data (utils/model_registry.js). If this call
+// is ever removed, `priceUsage` returns $0.00 for everything: every spend figure
+// reads zero and every monthly quota becomes infinite, with nothing in any log.
+// `setPricingTable` refuses an empty table for exactly that reason.
+function reloadPricingTable() {
+    const rows = setPricingTable(modelRegistry.pricingTable());
+    return rows;
+}
+reloadPricingTable();
+modelRegistry.onChange(reloadPricingTable);
+
 const SPEND_CACHE_TTL_MS = 60 * 1000;
 let spendCache = { monthKey: null, at: 0, byOwner: new Map(), building: null };
 
@@ -769,6 +803,7 @@ const { isGoogleAuthEnabled, getSessionEmail, isAllowedEmail, isAdminEmail } = r
 const { registerAuthRoutes } = require('./routes/auth');
 const { registerTokenRoutes } = require('./routes/tokens');
 const { registerAdminRoutes } = require('./routes/admin');
+const { registerModelRoutes } = require('./routes/models');
 const accessTokens = require('./utils/tokens');
 const accessControl = require('./utils/access_control');
 
@@ -4145,6 +4180,10 @@ async function initDb() {
         await fs.mkdir(DATA_DIR, { recursive: true });
         await fs.mkdir(STYLES_DIR, { recursive: true });
         await seedBundledStyles();
+        // Same arrangement as the styles bundle: the repo ships the default model
+        // registry, the deployment gets its own editable copy on first boot.
+        await modelRegistry.ensureSeeded();
+        reloadPricingTable();
     } catch (err) {
         console.error("Failed to create data directory:", err);
     }
@@ -4360,6 +4399,18 @@ registerAdminRoutes(app, {
     usageRollup,
     currentMonthStartMs,
     priceUsage: priceModelUsage,
+    BadRequestError,
+    sendApiError
+});
+
+// The model registry (GET /api/models for everyone; /api/admin/models* session-only).
+registerModelRoutes(app, {
+    requireAuth,
+    getSessionEmail,
+    isGoogleAuthEnabled,
+    isAdminEmail,
+    modelRegistry,
+    providerKeyFor,
     BadRequestError,
     sendApiError
 });
