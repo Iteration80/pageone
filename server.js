@@ -476,13 +476,15 @@ const AUTO_MODEL = 'auto';
  *
  * ONE ADMIN-EDITABLE MAP, NO ROUTER, NO SCORING. The order is:
  *
- *   1. the admin's `recommended` model for the stage, if the caller can reach it;
+ *   1. the admin's `recommended` model for the stage, if the caller can reach it —
+ *      EVEN IF its probe failed here (a warning is logged; see below);
  *   2. otherwise the cheapest model VERIFIED to work on this stage that they can reach;
  *   3. otherwise the cheapest unverified one they can reach.
  *
- * A model whose Verify FAILED on this stage is never chosen at any step — that is
- * the one thing we positively know, and Auto is exactly where the knowledge should
- * be spent. "Can reach" means their key mode resolves a key for that model's
+ * A model whose Verify FAILED is never chosen at steps 2 or 3 — that is the one thing
+ * we positively know, and Auto is where the knowledge should be spent. It does NOT
+ * veto step 1: an explicit recommendation is a standing human judgement and outranks
+ * a single probe, which can be wrong (it was, on 2026-08-26). "Can reach" means their key mode resolves a key for that model's
  * provider, so a bring-your-own-keys writer with only a Gemini key gets a Gemini
  * model rather than an honest-but-useless refusal.
  *
@@ -499,13 +501,30 @@ function resolveAutoModel(stageNum, email) {
     // one that does not require guessing an input/output ratio per stage.
     const cost = row => (row.pricing.inputPerMTok ?? Infinity) + (row.pricing.outputPerMTok ?? Infinity);
 
+    // ⚠️ THE ADMIN'S EXPLICIT RECOMMENDATION OUTRANKS A FAILED PROBE, and says so out
+    // loud. It used to lose silently: failed rows were filtered out before the
+    // recommendation was ever read, so one bad probe rerouted a stage with nothing
+    // anywhere saying it had happened.
+    //
+    // That is not hypothetical. On 2026-08-26 a too-small probe ceiling (routes/models.js)
+    // marked Gemini 3.6 Flash ✗ on stage 2 — a stage it runs in production every day —
+    // and Auto quietly stopped choosing it. A probe is one request; a recommendation is
+    // a standing human judgement about a model the admin actually watches in production.
+    // When they disagree, the human wins and the disagreement is surfaced, because a
+    // silent reroute is the part that cost us.
+    const recommended = modelRegistry.recommendedFor(stageNum);
+    const recommendedRow = rows.find(row => row.id === recommended && reachable(row));
+    if (recommendedRow) {
+        if (failedHere(recommendedRow)) {
+            console.warn(`[auto] stage ${stageKey}: recommended model ${recommendedRow.id} FAILED its probe here but is used anyway — the admin's choice outranks it. Re-verify it, or change the recommendation.`);
+        }
+        return recommendedRow.id;
+    }
+
+    // No usable recommendation: fall back, and here a ✗ IS decisive — nobody has
+    // vouched for these, so the one thing we positively know is all we have.
     const candidates = rows.filter(row => !failedHere(row) && reachable(row));
     if (!candidates.length) return null;
-
-    const recommended = modelRegistry.recommendedFor(stageNum);
-    const preferred = candidates.find(row => row.id === recommended);
-    if (preferred) return preferred.id;
-
     const byCost = [...candidates].sort((a, b) => cost(a) - cost(b));
     return (byCost.find(verifiedHere) || byCost[0]).id;
 }
@@ -589,7 +608,7 @@ function assertKeyForModel(model, stageNum = null) {
     // make every newly added model unusable until someone spent money on it.
     if (stageNum !== null) {
         const verdict = modelRegistry.getModel(model)?.verified?.[String(stageNum)];
-        if (verdict && verdict.ok === false) {
+        if (verdict && verdict.ok === false && !autoChoseTheRecommendation(model, stageNum)) {
             throw new BadRequestError(
                 `${model} has been verified as NOT working for this stage`
                 + `${verdict.error ? ` (${verdict.error})` : ''}. Choose another model for it in Settings, or use Auto.`
@@ -613,6 +632,32 @@ function assertKeyForModel(model, stageNum = null) {
         `This deployment has no ${label} key configured${baseUrl ? ` for ${baseUrl}` : ''}, so ${model} cannot run. `
         + 'Ask the administrator to add one, or choose a different model in Settings.'
     );
+}
+
+/**
+ * Did Auto land on this model *because the admin recommends it here*, despite a
+ * failed probe?
+ *
+ * ⚠️ THIS EXISTS TO STOP THE TWO GUARDS CONTRADICTING EACH OTHER. resolveAutoModel
+ * now honours the admin's recommendation even when its probe failed (a probe is one
+ * request; a recommendation is a standing judgement — see the note there). Without
+ * this, `assertKeyForModel` would then refuse the very model Auto just chose, with a
+ * message ending "or use Auto" — while Auto was what chose it. Found while making
+ * that change on 2026-08-26, before it shipped.
+ *
+ * An EXPLICIT pick of a failed model is still refused: the admin vouched for it as a
+ * default, not as an override of evidence someone deliberately went looking for.
+ *
+ * ⚠️ The three-way lookup mirrors resolveStageModel — if that order changes, change
+ * it here too, or Auto and the guard will disagree again.
+ */
+function autoChoseTheRecommendation(model, stageNum) {
+    const email = currentUserEmail();
+    const chosen = userSettings.getUserStageModel(email, stageNum)
+        || appSettings.stageModels?.[`stage${stageNum}`]
+        || process.env.GEMINI_MODEL;
+    if (chosen !== AUTO_MODEL) return false;
+    return modelRegistry.recommendedFor(stageNum) === model;
 }
 
 function getModelConfig(stageNum) {

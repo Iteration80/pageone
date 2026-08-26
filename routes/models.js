@@ -346,9 +346,27 @@ function registerModelRoutes(app, deps) {
                 contents: [probe.probe],
                 config: {
                     temperature: 0.2,
-                    // Small on purpose: this is an acceptance check, not a sample of
-                    // the stage's real output, and every token is the admin's money.
-                    maxOutputTokens: probe.kind === 'schema' ? 2000 : 400,
+                    // ⚠️ 2000 HERE WAS A FALSE-NEGATIVE FACTORY. Gemini 3 counts THINKING
+                    // tokens against maxOutputTokens, so a tight ceiling starves the
+                    // thinking budget and truncates the JSON mid-answer — the model looks
+                    // like it cannot do the stage when it is only being cut off. Exactly
+                    // the defect already measured on 2026-07-14 and written up at
+                    // agents/agent_3_characters.js:1010 ("4000 → truncated at ~600 chars;
+                    // 16000 → clean"), which this route then reintroduced at 2000.
+                    //
+                    // Measured 2026-08-26 across all 7 live models: every one of the six
+                    // failures was truncation (`Unterminated string in JSON`), zero were
+                    // schema rejections. Gemini 3.6 Flash was marked ✗ on stage 2 — a
+                    // stage it runs in production every day. 16000 matches the value
+                    // already proven good for this schema family. DO NOT LOWER.
+                    //
+                    // Cost is still bounded: the systemInstruction asks for the smallest
+                    // valid response, so the ceiling is headroom for reasoning, not a
+                    // target — a passing probe spends a few hundred output tokens.
+                    maxOutputTokens: probe.kind === 'schema' ? 16000 : 400,
+                    // Gemini-only; ai-client drops it for other providers. LOW is enough
+                    // for "fill every required field" and keeps the reasoning spend down.
+                    ...(probe.kind === 'schema' ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
                     systemInstruction: probe.kind === 'schema'
                         ? 'Answer with the smallest valid response that fills every required field.'
                         : 'Answer briefly.'

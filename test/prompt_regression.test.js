@@ -2265,6 +2265,62 @@ test('Stage 3 character generation coerces configured project tiers and strips m
     assert.equal(moog._deep_profile, undefined);
 });
 
+// The SOP (skills/skill_stage3_characters.md, all three tier sections) promises saved tier
+// assignments are honored "unless the writer's notes explicitly change a character's
+// tiering". That precedence was broken once already — the pin won unconditionally in
+// normalizeProfileTier, so the model correctly obeyed "promote Ray to Tier 1" and the
+// normalizer silently put him back (found 2026-07-30, fixed 2026-08-02 by merging
+// note-stated changes INTO the override map before it is applied).
+//
+// ⚠️ Until now that fix was covered only by tests of explicitTierChangesFromNotes in
+// isolation — the extractor can be perfect while the merge is wrong, and neither the
+// extractor tests nor the tier-coercion test above would notice. This asserts the promise
+// itself, end to end, which is the thing the SOP actually makes. A 2026-08-23 handoff
+// re-reported the old bug from reading normalizeProfileTier alone; this test is what makes
+// re-deriving that answer unnecessary.
+test('Stage 3: a tier stated in the notes beats the pinned override, a described one does not', async () => {
+    const rayTier1 = {
+        name: 'Ray',
+        role: 'Supporting',
+        profile_tier: 'Tier 1',
+        brief_summary: 'Ray carries the back half.',
+        psychological_core: { ghost_and_wound: 'w', the_lie: 'l', fear: 'f', desire: 'd', psychological_need: 'n', moral_need: 'm', paradox: 'p' },
+        voice_and_behavior: { voice_tag: 'v', pressure_tag: 'pt', humor_tag: 'h', speech_patterns: 's', deflection_tactic: 'dt' },
+        arc: { core_drive: 'c', direction: 'Growth' },
+        ticks: { enabled: false, description: '', frequency_gate: '' }
+    };
+    const savedCast = [{
+        name: 'Ray',
+        role: 'Supporting',
+        profile_tier: 'Tier 3',
+        cameo_profile: { scene_purpose: 'sp', casting_energy: 'ce', playable_behavior: 'pb', line_style_example: 'ls' }
+    }];
+
+    const tierAfterNotes = async notes => {
+        const { generateContentFn } = makeRecorder(() => ({
+            text: JSON.stringify({ characters: [rayTier1] }),
+            usage: { inputTokens: 1, outputTokens: 1 }
+        }));
+        const { result } = await agent3Characters(
+            { title: 'Probe', logline: 'A probe.', genre: 'Drama' },
+            { beats: [{ name: 'Opening', description: 'It opens.' }] },
+            savedCast,
+            notes,
+            null,
+            { generateContentFn, tierOverrides: { Ray: 3 } }
+        );
+        return result.characters.find(character => character.name === 'Ray').profile_tier;
+    };
+
+    // The writer explicitly retiers him: the note wins, exactly as the SOP promises.
+    assert.equal(await tierAfterNotes('Promote Ray to Tier 1.'), 'Tier 1');
+    // Merely DESCRIBING a tier is not changing one — the pin must hold, or every passing
+    // mention of "Tier 1" would silently retier the cast.
+    assert.equal(await tierAfterNotes('Ray is our Tier 1 emotional anchor in spirit.'), 'Tier 3');
+    // An unrelated note leaves the pin alone.
+    assert.equal(await tierAfterNotes('Sharpen Ray\'s dialogue.'), 'Tier 3');
+});
+
 test('Stage 3 tier guidance uses project tier overrides when names appear', async () => {
     const beatsWithNamedCast = {
         act_1: [{

@@ -12665,6 +12665,22 @@ async function loadBuildInfo() {
                     includeAuto: false,
                     inheritLabel: 'No recommendation'
                 }));
+                // ⚠️ Say it out loud when the recommendation and its probe disagree.
+                // The server now honours the recommendation anyway (server.js
+                // resolveAutoModel) — which is right, a probe is one request and a
+                // recommendation is a standing judgement — but an unsurfaced
+                // disagreement is how a stage silently ran on the wrong model for a
+                // day on 2026-08-26. The admin should see the conflict where they set it.
+                const recId = (registry.recommended || {})[String(num)];
+                const recRow = recId && (registry.models || []).find(m => m.id === recId);
+                if (recRow && recRow.verified?.[String(num)]?.ok === false) {
+                    const warn = document.createElement('span');
+                    warn.style.cssText = 'font-size:0.72rem;color:#f59e0b;flex-shrink:0';
+                    warn.textContent = '⚠️ failed Verify here — used anyway';
+                    warn.title = String(recRow.verified[String(num)].error || 'This model failed its verification probe for this stage.')
+                        + '\n\nAuto still uses it because you recommended it. Re-verify, or change the recommendation.';
+                    row.appendChild(warn);
+                }
                 recContainer.appendChild(row);
             });
         }

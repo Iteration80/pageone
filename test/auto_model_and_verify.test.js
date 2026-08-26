@@ -107,25 +107,40 @@ test('Auto resolves to the admin\'s recommended model for the stage', async () =
     });
 });
 
-test('Auto never picks a model that FAILED verification for that stage', async () => {
+// ⚠️ POLICY CHANGED 2026-08-26. This test used to assert that a failed probe beat the
+// admin's recommendation. It no longer does, and the reason is worth keeping: a
+// too-small probe ceiling marked Gemini 3.6 Flash ✗ on stage 2 — a stage it runs in
+// production every day — and Auto silently stopped choosing it. A probe is ONE
+// request and can be wrong about the model; a recommendation is a standing human
+// judgement about something the admin watches in production. The human wins, loudly.
+// What a ✗ still decides is everything nobody has vouched for — the fallback below.
+test('the admin\'s recommendation outranks a failed probe, but a ✗ still rules the fallback', async () => {
     await withVendor(() => ({ json: completion('{"pitch_options":[]}') }), async ({ baseUrl }) => {
         await withServer({ OPENAI_KEYS: `${baseUrl}=house-openai` }, async ({ request }) => {
-            // Only the vendor model is reachable: every house model key is blank.
             const id = await addVendorModel(request, baseUrl);
             await request('/api/admin/models-recommended', { method: 'PUT', cookies: as(ALICE), json: { recommended: { 1: id } } });
             await setGlobalModels(request, { stage1: 'auto' });
             assert.equal((await settingsFor(request, BOB)).json.resolvedStageModels.stage1, id);
 
-            // Record a failure for stage 1 by verifying against a vendor that refuses.
-            await withVendor(() => ({ status: 400, json: { error: { message: 'INVALID_ARGUMENT: minItems' } } }), async () => {});
             const registry = require('../utils/model_registry');
             await registry.setVerified(id, 1, { ok: false, error: 'INVALID_ARGUMENT', by: ALICE });
 
+            assert.equal((await settingsFor(request, BOB)).json.resolvedStageModels.stage1, id,
+                'the admin recommended it here — a single failed probe must not silently overrule that');
+
+            // …and the guard must agree with Auto. Refusing the model Auto just chose,
+            // with a message saying "or use Auto", is the contradiction this pairing exists
+            // to prevent.
+            const ran = await request('/api/execute', { method: 'POST', cookies: as(BOB), json: {} });
+            assert.notEqual(ran.status, 400,
+                `the execute guard must not refuse the model Auto resolved from the recommendation (${ran.text})`);
+
+            // Drop the recommendation: now nobody has vouched for it, and the ✗ decides.
+            await request('/api/admin/models-recommended', { method: 'PUT', cookies: as(ALICE), json: { recommended: {} } });
             const after = (await settingsFor(request, BOB)).json.resolvedStageModels;
             assert.notEqual(after.stage1, id,
-                'a model we have positively established does not work must never be what Auto picks');
-            // Nothing else is reachable, so Auto honestly has nothing.
-            assert.equal(after.stage1, undefined);
+                'with no recommendation behind it, a model we positively established does not work must never be picked');
+            assert.equal(after.stage1, undefined, 'nothing else is reachable, so Auto honestly has nothing');
         });
     });
 });
@@ -369,4 +384,27 @@ test('the Verify probe carries THE agent\'s schema object, not a copy of it', ()
         assert.equal(entry.kind === 'schema', Boolean(entry.schema),
             `stage ${stage}'s kind must match whether it actually has a schema`);
     }
+});
+
+// ⚠️ A CEILING THIS PROJECT HAS NOW PAID FOR TWICE. Gemini 3 counts THINKING tokens
+// against maxOutputTokens, so a tight ceiling starves the reasoning budget and
+// truncates the JSON mid-answer — the model looks incapable when it was only cut off.
+// Measured 2026-07-14 (agents/agent_3_characters.js: "4000 → truncated at ~600 chars;
+// 16000 → clean"), then reintroduced here at 2000 when Verify shipped, which on
+// 2026-08-26 marked Gemini 3.6 Flash ✗ on stage 2 — a stage it runs in production
+// every day — and rerouted Auto off the workhorse.
+//
+// A source-text pin, deliberately: the failure only reproduces against a real thinking
+// model, so no local test can catch it behaviourally. What can be held down is the
+// number, and the reason it is that number.
+test('the Verify probe leaves room for thinking tokens (the 2000 ceiling was a false-negative factory)', () => {
+    const src = require('node:fs').readFileSync(require.resolve('../routes/models.js'), 'utf8');
+    const m = src.match(/maxOutputTokens:\s*probe\.kind === 'schema'\s*\?\s*(\d+)\s*:/);
+    assert.ok(m, 'could not find the schema-probe maxOutputTokens in routes/models.js');
+    const budget = Number(m[1]);
+    assert.ok(budget >= 16000,
+        `schema probes must allow >= 16000 output tokens (found ${budget}). Gemini counts thinking `
+        + 'tokens against this; 4000 was measured truncating and 2000 shipped false failures. Do not lower.');
+    assert.match(src, /thinkingConfig/,
+        'the schema probe should set an explicit thinking level rather than inheriting an unbounded default');
 });
