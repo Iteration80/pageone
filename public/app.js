@@ -2306,8 +2306,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="logline">${escapeHtml(pitch.logline)}</textarea>
                 </div>
                 <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Premise</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="premise">${escapeHtml(pitch.premise || '')}</textarea>
+                </div>
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Controlling Idea</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="controlling_idea">${escapeHtml(pitch.controlling_idea || '')}</textarea>
+                </div>
+                <div class="field-group mb-4">
                     <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Core Theme</label>
                     <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="core_theme">${escapeHtml(pitch.core_theme)}</textarea>
+                </div>
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Stakes</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="stakes">${escapeHtml(pitch.stakes || '')}</textarea>
+                </div>
+                <div class="field-group mb-4">
+                    <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Dramatic Kernel</label>
+                    <textarea class="editable-field w-full bg-transparent border-none resize-none overflow-hidden text-gray-300" data-field="dramatic_kernel">${escapeHtml(pitch.dramatic_kernel || '')}</textarea>
                 </div>
                 <div class="field-group mb-6">
                     <label class="text-gray-400 block mb-2 text-xs font-semibold tracking-wider uppercase">Synopsis</label>
@@ -5996,6 +6012,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pitch.genre) lines.push(`GENRE: ${pitch.genre}`);
         if (pitch.logline) lines.push(`LOGLINE: ${pitch.logline}`);
         if (pitch.core_theme) lines.push(`CORE THEME: ${pitch.core_theme}`);
+        if (pitch.premise) lines.push(`PREMISE: ${pitch.premise}`);
+        if (pitch.controlling_idea) lines.push(`CONTROLLING IDEA: ${pitch.controlling_idea}`);
+        if (pitch.stakes) lines.push(`STAKES: ${pitch.stakes}`);
+        if (pitch.dramatic_kernel) lines.push(`DRAMATIC KERNEL: ${pitch.dramatic_kernel}`);
         if (Array.isArray(characters) && characters.length) {
             lines.push('CHARACTERS:');
             characters.forEach(character => {
@@ -10464,6 +10484,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.tone) out += `TONE: ${p.tone}\n`;
             if (p.setting) out += `SETTING: ${p.setting}\n`;
             if (p.logline) out += `\nLOGLINE:\n${p.logline}\n`;
+            if (p.premise) out += `\nPREMISE:\n${p.premise}\n`;
+            if (p.controlling_idea) out += `\nCONTROLLING IDEA:\n${p.controlling_idea}\n`;
+            if (p.core_theme) out += `\nCORE THEME:\n${p.core_theme}\n`;
+            if (p.stakes) out += `\nSTAKES:\n${p.stakes}\n`;
+            if (p.dramatic_kernel) out += `\nDRAMATIC KERNEL:\n${p.dramatic_kernel}\n`;
             if (p.synopsis) out += `\nSYNOPSIS:\n${p.synopsis}\n`;
             if (snap.notes) out += `\nNOTES:\n${snap.notes}\n`;
             return out.trim() || JSON.stringify(snap, null, 2);

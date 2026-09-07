@@ -80,6 +80,10 @@ function buildTitleLoglineCharacters(pitchData, charactersData) {
     if (pitch.genre) lines.push(`GENRE: ${pitch.genre}`);
     if (pitch.logline) lines.push(`LOGLINE: ${pitch.logline}`);
     if (pitch.core_theme) lines.push(`CORE THEME: ${pitch.core_theme}`);
+    if (pitch.premise) lines.push(`PREMISE: ${pitch.premise}`);
+    if (pitch.controlling_idea) lines.push(`CONTROLLING IDEA: ${pitch.controlling_idea}`);
+    if (pitch.stakes) lines.push(`STAKES: ${pitch.stakes}`);
+    if (pitch.dramatic_kernel) lines.push(`DRAMATIC KERNEL: ${pitch.dramatic_kernel}`);
 
     if (characters.length) {
         lines.push('CHARACTERS:');

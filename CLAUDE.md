@@ -26,6 +26,7 @@ All chat surfaces (internal stages 1, 2, 3, 5, 6, 7, 8, 10, and the projectless 
 - **Model output parsing:** use `agents/json_parse.js::parseJsonWithRepair(text, { schema, label })` — never raw `JSON.parse` on model output.
 - **Numeric contracts must live in the schema, not only the prompt.** A count stated to the model and never enforced in code has produced four separate bugs (Stage 1's three pitches, Stage 6 `total_estimated_pages`, `stage4_beats`, Stage 3's silently-dropped profile fields). When a prompt or SOP names a count, an enum, or a required field, put it in the schema too.
   ⚠️ **Gemini rejects `minItems`/`maxItems` on an array whose ITEMS schema itself contains an array** — bare `INVALID_ARGUMENT` at request time, and the whole request fails, not just the bound. Measured 2026-08-03: `pitch_options` and Stage 2 `beats` (flat items) accept it; Stage 2 `act_1/2/3` and Stage 3 `characters` (items contain arrays) do not. **Always verify a schema edit with one real request** — this class cannot be caught by any local test.
+- **Stage 1 pitch fields are a contract with a pinned reader list.** `PITCH_ITEM_SCHEMA` (`agents/agent_1_pitch.js`) is the one schema for generate AND refine (`agent_1_refine.js` imports it — it once carried a stale private copy). Adding a field means teaching every reader: the pitch card and treatment fallback and snapshot text in `public/app.js`, `agents/agent_5_treatment.js`, `agents/export.js`, and the SOP. `test/stage1_pitch_contract.test.js` fails until all of them know the new name.
 - **Model config:** `getAssistantModelConfig(stageN)` for chat, `getModelConfig(stageN)` for generation; per-stage models + BYOK keys live in `data/settings.json` (gitignored), `.env` as fallback.
 - Build fingerprint: `/health` (+ UI footer, Settings modal, DOCX metadata) via `utils/build_info.js` — check it first when "the server isn't running my code".
 
@@ -43,6 +44,7 @@ All chat surfaces (internal stages 1, 2, 3, 5, 6, 7, 8, 10, and the projectless 
 ## Skill Files (the core assets)
 All stage SOPs live in `skills/`:
 - `skills/skill_assistant_core.md` — the stage assistant SOP (tool contract, editorial voice, cadence)
+- `skills/skill_stage1_pitch.md` — three pitch options with checkable premise machinery (Egri triad, controlling idea, stakes ladder, dramatic kernel, logline contract); also rides along on every pitch refine
 - `skills/skill_stage2_outline.md` — 8-sequence outline with Save the Cat beat annotations
 - `skills/skill_stage3_characters.md` — character casting and profiling (tier system)
 - `skills/skill_stage5_treatment.md` — scene-by-scene treatment

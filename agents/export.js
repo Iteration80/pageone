@@ -818,7 +818,11 @@ async function generatePitchDocx(pitch) {
 
     const sections = [
         { label: 'LOGLINE', value: pitch.logline },
+        { label: 'PREMISE', value: pitch.premise },
+        { label: 'CONTROLLING IDEA', value: pitch.controlling_idea },
         { label: 'CORE THEME', value: pitch.core_theme },
+        { label: 'STAKES', value: pitch.stakes },
+        { label: 'DRAMATIC KERNEL', value: pitch.dramatic_kernel },
         { label: 'SYNOPSIS', value: pitch.synopsis },
     ];
 

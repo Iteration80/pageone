@@ -1,5 +1,6 @@
 const { generateContent } = require('./ai-client');
 const { parseJsonWithRepair } = require('./json_parse');
+const { loadSkill } = require('../utils/skills_cache');
 
 // ⚠️ MODULE SCOPE AND EXPORTED so the admin Verify action (Phase 5 item 4) can send
 // THIS OBJECT — not a copy of it — in its one real request per stage. A hand-copied
@@ -11,10 +12,24 @@ const PITCH_ITEM_SCHEMA = {
         logline: { type: 'string' },
         genre: { type: 'string' },
         core_theme: { type: 'string' },
+        // 2026-09-07 — the premise machinery the Stage 1 SOP (skills/skill_stage1_pitch.md)
+        // demands. Each of these is a checkable claim about the story (an argument, a
+        // value+cause, a concrete loss, a removable core), not more prose. They are
+        // REQUIRED so every model must commit to them and the admin Verify probe
+        // exercises them; readers all use optional chaining, so pitches saved before
+        // this date still load. Every reader of these fields is pinned by
+        // test/stage1_pitch_contract.test.js — extend that list before adding a field.
+        premise: { type: 'string' },
+        controlling_idea: { type: 'string' },
+        stakes: { type: 'string' },
+        dramatic_kernel: { type: 'string' },
         synopsis: { type: 'string' }
     },
-    required: ["title", "logline", "genre", "core_theme", "synopsis"]
+    required: ["title", "logline", "genre", "core_theme", "premise", "controlling_idea", "stakes", "dramatic_kernel", "synopsis"]
 };
+
+/** Field names in the order the pitch card, exports and downstream prompts present them. */
+const PITCH_FIELDS = Object.keys(PITCH_ITEM_SCHEMA.properties);
 
 const PITCH_SCHEMA = {
     type: 'object',
@@ -66,7 +81,10 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
         config: {
             temperature: 0.7,
             thinkingConfig: { thinkingLevel: "HIGH" },
-            systemInstruction: "You are an elite Hollywood Creative Executive. Your objective is to take a raw, unformatted story idea from a user and brainstorm THREE distinct, professional, high-concept movie pitch options. For each option, you must provide a compelling logline, identify the primary genre, state the core theme, and write a brief, three-act synopsis. Provide variations in tone, genre, or character dynamics across the three options. If PROJECT SOURCE CANON is provided, use it as authoritative adaptation context and avoid contradicting saved source facts. Do not include conversational filler. You must output your response strictly according to the defined JSON schema. CRITICAL FORMATTING: You MUST separate Act I, Act II, and Act III in the Synopsis with double line breaks (\\n\\n) so they render as distinct paragraphs. Do not output the synopsis as a single block of text.",
+            // The SOP is the system instruction — see CLAUDE.md "Skill Files". Until
+            // 2026-09-07 Stage 1 was the only generating stage with no SOP at all: one
+            // sentence asked for "high-concept" options and nothing defined what that meant.
+            systemInstruction: loadSkill('skill_stage1_pitch'),
         },
         schema: PITCH_SCHEMA
     });
@@ -78,4 +96,4 @@ const agent1Pitch = async (prompt, pdfFile, modelConfig = {}) => {
     return { result: parseJsonWithRepair(rawText, { label: 'Stage 1 pitch generation response' }), usage };
 };
 
-module.exports = { agent1Pitch, PITCH_SCHEMA };
+module.exports = { agent1Pitch, PITCH_SCHEMA, PITCH_ITEM_SCHEMA, PITCH_FIELDS };
