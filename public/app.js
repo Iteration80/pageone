@@ -3544,6 +3544,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return protected_beats;
     }
 
+    async function persistStage2ProtectedBeats(labels = []) {
+        if (!activeProjectId) throw new Error('No active project');
+        const res = await fetch(`/api/projects/${activeProjectId}/stage2-protected-beats`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ protected_beats: normalizeStage2ProtectedBeatLabels(labels) })
+        });
+        if (!res.ok) throw new Error(await apiErrorMessage(res, 'Failed to save protected beats'));
+        const payload = await res.json().catch(() => null);
+        return setCurrentStage2ProtectedBeats(payload?.protected_beats || labels);
+    }
+
     function stage2PayloadFromOutline(outline = {}) {
         return {
             ...(window.currentProjectData?.stage2_outline || {}),
@@ -3687,9 +3699,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const protectedToggle = card.querySelector('.stage2-protected-toggle');
                     protectedToggle.dataset.label = label;
-                    protectedToggle.addEventListener('click', () => {
-                        const labels = new Set(currentStage2ProtectedBeats());
-                        if (protectedToggle.classList.contains('is-active')) {
+                    protectedToggle.addEventListener('click', async () => {
+                        // A shield is saved the moment it is clicked. It used to sit in
+                        // memory until the outline was re-approved, so on an approved
+                        // project every shield vanished on refresh (prod, 2026-09-22).
+                        // It is not a content edit, so it does not touch Approve.
+                        const wasActive = protectedToggle.classList.contains('is-active');
+                        const previousLabels = currentStage2ProtectedBeats();
+                        const labels = new Set(previousLabels);
+                        if (wasActive) {
                             labels.delete(label);
                         } else {
                             labels.add(label);
@@ -3698,7 +3716,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         const active = nextLabels.some(item => item === label);
                         protectedToggle.classList.toggle('is-active', active);
                         protectedToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
-                        markStage2Changed();
+                        protectedToggle.disabled = true;
+                        try {
+                            await persistStage2ProtectedBeats(nextLabels);
+                        } catch (err) {
+                            // Roll the click back so the shield never shows a state the server does not hold.
+                            setCurrentStage2ProtectedBeats(previousLabels);
+                            protectedToggle.classList.toggle('is-active', wasActive);
+                            protectedToggle.setAttribute('aria-pressed', wasActive ? 'true' : 'false');
+                            console.error('Failed to save protected beats:', err);
+                            noticeDialog({ message: `Could not save the shield: ${err.message}` });
+                        } finally {
+                            protectedToggle.disabled = false;
+                        }
                     });
 
                     const ta = card.querySelector('textarea');

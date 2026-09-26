@@ -4949,6 +4949,7 @@ registerProjectRoutes(app, {
     // read-only. `null` identity = system call (utils/request_identity.js).
     runAsSystem: fn => runWithIdentity(null, fn),
     sha256Hex: text => crypto.createHash('sha256').update(String(text)).digest('hex'),
+    normalizeProtectedBeats,
     sendApiError
 });
 

@@ -44,6 +44,7 @@ function registerProjectRoutes(app, deps) {
         usageRollup,
         runAsSystem,
         sha256Hex,
+        normalizeProtectedBeats,
         sendApiError
     } = deps;
 
@@ -707,6 +708,49 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error("Error saving Stage 1 draft:", error);
             sendApiError(res, error, 'Failed to save Stage 1 draft');
+        }
+    });
+
+    // PUT the Stage 2 shields — `data.stage2_outline.protected_beats` — on their own.
+    //
+    // The shield toggle used to change browser memory and light the Approve button,
+    // and nothing reached the server until the writer re-approved the outline. On an
+    // approved project that button is a "regenerate Stage 3?" flow, not a save, so
+    // every shield set in the browser vanished on refresh (found on prod 2026-09-22
+    // while closing the R1 re-shield item). A generic `PUT /api/projects/:id` is the
+    // wrong tool for it: a stage PUT must carry the whole outline, which re-derives
+    // Stage 4, snapshots a version and hashes for a revision — all for a click that
+    // changed no story.
+    //
+    // Shielding is not a content edit. This merges into the existing stage object,
+    // keeps `_meta`, stamps nothing and derives nothing: a downstream stage is not
+    // stale because a beat is now protected from FUTURE regenerations.
+    app.put('/api/projects/:id/stage2-protected-beats', requireAuth, async (req, res) => {
+        try {
+            const { id } = req.params;
+            assertValidProjectId(id);
+            await assertProjectExists(id);
+
+            const raw = req.body?.protected_beats;
+            if (!Array.isArray(raw)) {
+                throw new BadRequestError('protected_beats must be an array of beat labels');
+            }
+            const protected_beats = normalizeProtectedBeats(raw).map(beat => beat.label);
+
+            const updated = await updateProjectJSON(id, (project) => {
+                project.data = project.data || {};
+                const stage2 = project.data.stage2_outline;
+                if (!stage2 || !stage2.outline) {
+                    throw new BadRequestError('This project has no Stage 2 outline to protect beats on');
+                }
+                project.data.stage2_outline = { ...stage2, protected_beats };
+                return project;
+            });
+
+            res.json({ success: true, protected_beats: updated.data.stage2_outline.protected_beats });
+        } catch (error) {
+            console.error("Error saving Stage 2 protected beats:", error);
+            sendApiError(res, error, 'Failed to save protected beats');
         }
     });
 

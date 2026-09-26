@@ -829,6 +829,15 @@ test('Stage 2 outline generation supports streamed assistant revisions', () => {
     assert.match(appJs, /function currentStage2ProtectedBeats/);
     assert.match(appJs, /function stage2PayloadFromOutline/);
     assert.match(appJs, /stage2-protected-toggle/);
+    // The shield persists itself (2026-09-22): the toggle awaits its own save route and
+    // no longer lights Approve — on an approved project that was a re-approval flow,
+    // not a save, and every shield vanished on refresh.
+    assert.match(appJs, /function persistStage2ProtectedBeats/);
+    assert.match(appJs, /\/api\/projects\/\$\{activeProjectId\}\/stage2-protected-beats/);
+    assert.match(appJs, /await persistStage2ProtectedBeats\(nextLabels\)/);
+    assert.match(appJs, /setCurrentStage2ProtectedBeats\(previousLabels\)/);
+    assert.doesNotMatch(appJs, /aria-pressed', active \? 'true' : 'false'\);\s*markStage2Changed\(\);/);
+    assert.match(fs.readFileSync(require.resolve('../routes/projects.js'), 'utf8'), /app\.put\('\/api\/projects\/:id\/stage2-protected-beats', requireAuth/);
     assert.match(appJs, /updateCurrentStage2BeatDescription\(actKey, sequenceIndex, beatIndex, ta\.value\)/);
     assert.match(appJs, /getSnapshot: \(\) => stage2PayloadFromOutline\(getCurrentStage2Outline\(\)\)/);
     assert.match(appJs, /const currentBeats = getCurrentStage2Outline\(\)/);
