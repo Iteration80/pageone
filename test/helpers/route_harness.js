@@ -100,6 +100,10 @@ async function startTestServer({ env = {} } = {}) {
         // only clue was the test's duration). No key means such a route fails
         // fast and honestly with a 500 the test can see.
         GEMINI_API_KEY: '',
+        // The boot-time model-update check would fetch three public price tables.
+        // Tests boot without startServer(), so it never runs here anyway, but a
+        // test that DOES call startServer must still not touch the network.
+        MODEL_UPDATES: 'off',
         ANTHROPIC_API_KEY: '',
         // The OpenAI-compatible family, same reason (Phase 5 item 2). These are also
         // the instrument for item 3: with every house key blank, a bring-your-own

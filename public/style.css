@@ -1074,6 +1074,35 @@ textarea.synopsis-input {
     line-height: 1.5;
 }
 
+.settings-updates {
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 0.78rem;
+    color: #d1d5db;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settings-updates.has-news {
+    border-color: #3b82f6;
+}
+
+.settings-updates .updates-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.settings-updates .updates-muted {
+    color: #6b7280;
+    font-size: 0.72rem;
+}
+
 .settings-build-footer {
     border-top: 1px solid var(--card-border);
     padding-top: 12px;

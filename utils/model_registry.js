@@ -112,6 +112,10 @@ function normaliseModel(raw) {
         pricing: normalisePricing(raw?.pricing),
         enabled: raw?.enabled !== false,
         deprecated: Boolean(raw?.deprecated),
+        // The id that replaces this one, if any — what "Opus 4.8 is retired, move to
+        // Opus 5.5?" is built from. Curated in the bundle; no price source publishes
+        // it. A successor without `deprecated` is a suggestion, not a retirement.
+        successor: cleanId(raw?.successor) || null,
         verified: normaliseVerified(raw?.verified)
     };
 }

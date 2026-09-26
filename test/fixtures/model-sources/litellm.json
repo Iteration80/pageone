@@ -1,0 +1,436 @@
+{
+ "claude-haiku-4-5-20251001": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.000005,
+  "mode": "chat"
+ },
+ "claude-haiku-4-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.000005,
+  "mode": "chat"
+ },
+ "claude-sonnet-4-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000015,
+  "mode": "chat"
+ },
+ "claude-sonnet-4-5-20250929": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000015,
+  "mode": "chat"
+ },
+ "claude-sonnet-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.00001,
+  "mode": "chat"
+ },
+ "claude-sonnet-4-6": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000015,
+  "mode": "chat"
+ },
+ "claude-sonnet-4-5-20250929-v1:0": {
+  "litellm_provider": "bedrock",
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000015,
+  "mode": "chat"
+ },
+ "claude-opus-4-5-20251101": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-6": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-6-20260205": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-7": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-7-20260416": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-fable-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.00001,
+  "output_cost_per_token": 0.00005,
+  "mode": "chat"
+ },
+ "claude-fable-5-1": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.00001,
+  "output_cost_per_token": 0.00005,
+  "mode": "chat"
+ },
+ "claude-opus-5-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000004,
+  "output_cost_per_token": 0.00002,
+  "mode": "chat"
+ },
+ "claude-opus-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "claude-opus-4-8": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000025,
+  "mode": "chat"
+ },
+ "gemini/gemini-live-2.5-flash-preview-native-audio-09-2025": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000002,
+  "mode": "realtime"
+ },
+ "gemini/gemini-robotics-er-2-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.000005,
+  "mode": "chat"
+ },
+ "gemini/gemini-embedding-001": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 1.5e-7,
+  "output_cost_per_token": 0,
+  "deprecation_date": "2028-05-14",
+  "mode": "embedding"
+ },
+ "gemini/gemini-embedding-2": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 2e-7,
+  "output_cost_per_token": 0,
+  "mode": "embedding"
+ },
+ "gemini/gemini-3-pro-image-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "deprecation_date": "2026-06-25",
+  "mode": "image_generation"
+ },
+ "gemini/gemini-3.1-flash-image-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000003,
+  "deprecation_date": "2026-06-25",
+  "mode": "image_generation"
+ },
+ "gemini/gemini-3.1-flash-lite-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 2.5e-7,
+  "output_cost_per_token": 0.0000015,
+  "deprecation_date": "2026-05-25",
+  "mode": "chat"
+ },
+ "gemini/gemini-embedding-2-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 2e-7,
+  "output_cost_per_token": 0,
+  "mode": "embedding"
+ },
+ "gemini/gemini-2.5-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.0000025,
+  "mode": "chat"
+ },
+ "gemini/gemini-2.5-flash-image": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.0000025,
+  "deprecation_date": "2026-10-02",
+  "mode": "image_generation"
+ },
+ "gemini/gemini-3-pro-image": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "mode": "image_generation"
+ },
+ "gemini/gemini-3.1-flash-image": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000003,
+  "mode": "image_generation"
+ },
+ "gemini/gemini-3.1-flash-lite-image": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 2.5e-7,
+  "output_cost_per_token": 0.0000015,
+  "mode": "image_generation"
+ },
+ "gemini/gemini-2.5-flash-lite": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 1e-7,
+  "output_cost_per_token": 4e-7,
+  "mode": "chat"
+ },
+ "gemini/gemini-flash-latest": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.00000375,
+  "mode": "chat"
+ },
+ "gemini/gemini-flash-lite-latest": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.0000025,
+  "mode": "chat"
+ },
+ "gemini/gemini-2.5-flash-preview-tts": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.00001,
+  "mode": "audio_speech"
+ },
+ "gemini/gemini-2.5-pro": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.00000125,
+  "output_cost_per_token": 0.00001,
+  "mode": "chat"
+ },
+ "gemini/gemini-2.5-computer-use-preview-10-2025": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.00000125,
+  "output_cost_per_token": 0.00001,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.1-flash-lite": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 2.5e-7,
+  "output_cost_per_token": 0.0000015,
+  "deprecation_date": "2027-05-07",
+  "mode": "chat"
+ },
+ "gemini/gemini-3.5-flash-lite": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.0000025,
+  "mode": "chat"
+ },
+ "gemini/gemini-3-flash-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000003,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.5-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.0000015,
+  "output_cost_per_token": 0.000009,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.6-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.00000375,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.7-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.00000375,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.8-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.00000375,
+  "mode": "chat"
+ },
+ "gemini/gemini-omni-flash-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.0000015,
+  "output_cost_per_token": 0.000009,
+  "deprecation_date": "2026-09-30",
+  "mode": "chat"
+ },
+ "gemini/gemini-3.1-pro-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.1-pro-preview-customtools": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "mode": "chat"
+ },
+ "gemini/gemini-2.5-pro-preview-tts": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.00002,
+  "mode": "chat"
+ },
+ "gemini/gemini-exp-1114": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0,
+  "output_cost_per_token": 0,
+  "mode": "chat"
+ },
+ "gemini/gemini-exp-1206": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0,
+  "output_cost_per_token": 0,
+  "mode": "chat"
+ },
+ "gemini/gemini-gemma-2-27b-it": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3.5e-7,
+  "output_cost_per_token": 0.00000105,
+  "mode": "chat"
+ },
+ "gemini/gemini-gemma-2-9b-it": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 3.5e-7,
+  "output_cost_per_token": 0.00000105,
+  "mode": "chat"
+ },
+ "gemini/gemini-2.0-flash-exp-image-generation": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0,
+  "output_cost_per_token": 0,
+  "mode": "image_generation"
+ },
+ "gemini/gemini-2.5-flash-native-audio-latest": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000002,
+  "mode": "realtime"
+ },
+ "gemini/gemini-2.5-flash-native-audio-preview-09-2025": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000002,
+  "mode": "realtime"
+ },
+ "gemini/gemini-2.5-flash-native-audio-preview-12-2025": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000002,
+  "mode": "realtime"
+ },
+ "gemini/gemini-3.1-flash-live-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.0000045,
+  "mode": "realtime"
+ },
+ "gemini/gemini-3.1-flash-tts-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.00002,
+  "mode": "audio_speech"
+ },
+ "gemini/gemini-3.8-flash-tts": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000009,
+  "mode": "audio_speech"
+ },
+ "gemini/gemini-3.8-flash-lite-tts": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 5e-7,
+  "output_cost_per_token": 0.000006,
+  "mode": "audio_speech"
+ },
+ "gemini/gemini-pro-latest": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "mode": "chat"
+ },
+ "claude-mythos-5": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.00001,
+  "output_cost_per_token": 0.00005,
+  "mode": "chat"
+ },
+ "claude-mythos-5-1": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.00001,
+  "output_cost_per_token": 0.00005,
+  "mode": "chat"
+ },
+ "claude-mythos-preview": {
+  "litellm_provider": "anthropic",
+  "input_cost_per_token": 0.00001,
+  "output_cost_per_token": 0.00005,
+  "deprecation_date": "2026-06-09",
+  "mode": "chat"
+ },
+ "gemini/gemini-robotics-er-2-streaming-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.000005,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.5-live-translate-preview": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.0000035,
+  "output_cost_per_token": 0.000021,
+  "mode": "realtime"
+ },
+ "gemini/gemini-3.5-transcribe": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000012,
+  "mode": "audio_transcription"
+ },
+ "gemini/gemini-3.5-transcribe-live": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.0000035,
+  "output_cost_per_token": 0.000021,
+  "mode": "audio_transcription"
+ },
+ "gemini/gemini-omni-1.1-flash": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 0.0000015,
+  "output_cost_per_token": 0.000009,
+  "mode": "chat"
+ },
+ "gemini/gemini-3.8-live": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.0000045,
+  "mode": "realtime"
+ },
+ "gemini/gemini-3.8-live-extended-thinking": {
+  "litellm_provider": "gemini",
+  "input_cost_per_token": 7.5e-7,
+  "output_cost_per_token": 0.0000045,
+  "mode": "realtime"
+ }
+}

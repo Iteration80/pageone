@@ -13,6 +13,7 @@ const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./util
 const userSettings = require('./utils/user_settings');
 // The one table of models, providers and prices, as data (Phase 5 item 1).
 const modelRegistry = require('./utils/model_registry');
+const modelUpdates = require('./utils/model_updates');
 // The one answer to "which key talks to this provider" (Phase 5 items 2–3).
 const apiKeys = require('./utils/api_keys');
 // Per-person API keys, encrypted at rest, for bring-your-own-keys writers.
@@ -4685,6 +4686,8 @@ registerModelRoutes(app, {
     userKeys,
     providerKeyFor,
     recordVerificationUsage,
+    modelUpdates,
+    getStageModels: () => ({ ...(appSettings.stageModels || {}) }),
     BadRequestError,
     sendApiError
 });
@@ -5062,6 +5065,20 @@ async function startServer() {
         console.log('[auth] APP_SECRET set — shared-secret API authentication active.');
     } else {
         console.log('[auth] No auth configured — server is open (localhost dev mode).');
+    }
+
+    // Model updates at boot: merge the bundle, add the newest model of each family
+    // where two price sources agree, refresh prices that moved. Fire-and-forget —
+    // a slow or dead source must never delay the listen. The route harness sets
+    // MODEL_UPDATES=off so no test touches the network. See utils/model_updates.js.
+    if (process.env.MODEL_UPDATES !== 'off') {
+        modelUpdates.checkForUpdates({ apply: true, stageModels: { ...(appSettings.stageModels || {}) }, by: 'boot' })
+            .then(({ plan, applied, state }) => {
+                const sources = Object.entries(state.sources || {}).map(([n, s]) => `${n}:${s.ok ? 'ok' : 'FAIL'}`).join(' ');
+                console.log(`[models] update check — sources ${sources}; +${applied.added.length} row(s) ${applied.added.join(',') || '-'}; ${applied.priced.length} price(s) refreshed; ${plan.conflicts.length} conflict(s); ${plan.retirements.length} retirement(s) to offer.`);
+                if (plan.tooFewSources) console.warn('[models] fewer than two price sources answered — nothing was added or re-priced.');
+            })
+            .catch(err => console.warn(`[models] update check failed: ${err.message}`));
     }
 
     app.listen(PORT, () => {

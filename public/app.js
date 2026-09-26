@@ -12879,6 +12879,7 @@ async function loadBuildInfo() {
         list.innerHTML = '';
         const stale = registry.stalePricing || [];
         for (const model of registry.models || []) list.appendChild(modelRowElement(model, stale));
+        renderModelUpdates();
 
         // Auto's map. Only real, enabled models — "Auto: Auto" is not a thing, and a
         // recommendation nobody's dropdown can offer is a recommendation to nowhere.
@@ -12917,6 +12918,161 @@ async function loadBuildInfo() {
             });
         }
     }
+
+    // ─── Automatic model updates ───────────────────────────────────────────────
+    // The boot-time check adds and re-prices on its own (two sources agreeing). This
+    // banner is where the admin sees what it did and takes the two decisions that are
+    // theirs: spend money on Verify, and move defaults/Auto to a successor.
+    let updatesRenderSequence = 0;
+    async function renderModelUpdates() {
+        const box = document.getElementById('settings-models-updates');
+        if (!box) return;
+        const mine = ++updatesRenderSequence;
+        let state;
+        try {
+            state = await adminCall('/api/admin/models/updates');
+        } catch (err) {
+            box.classList.add('hidden');
+            return;
+        }
+        if (mine !== updatesRenderSequence) return;
+        box.innerHTML = '';
+        const added = state.unacknowledged?.added || [];
+        const priced = state.unacknowledged?.priced || [];
+        const conflicts = state.conflicts || [];
+        const retirements = state.retirements || [];
+        const waiting = state.awaitingSecondSource || [];
+        const hasNews = added.length || priced.length || conflicts.length || retirements.length;
+        box.classList.toggle('has-news', Boolean(hasNews));
+
+        const line = (text, cls = '') => {
+            const p = document.createElement('div');
+            if (cls) p.className = cls;
+            p.textContent = text;
+            return p;
+        };
+        const button = (label, onClick, { title = '' } = {}) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'secondary-btn';
+            b.style.cssText = 'padding:3px 10px;font-size:0.75rem';
+            b.textContent = label;
+            if (title) b.title = title;
+            b.addEventListener('click', onClick);
+            return b;
+        };
+
+        // Header: when, and which sources answered.
+        const sources = Object.entries(state.sources || {});
+        const failed = sources.filter(([, v]) => !v.ok).map(([n]) => n);
+        const when = state.lastCheckedAt ? new Date(state.lastCheckedAt).toLocaleString() : 'never';
+        box.appendChild(line(`Model updates — last check ${when}${sources.length ? ` · ${sources.length - failed.length}/${sources.length} price sources answered` : ''}${failed.length ? ` (failed: ${failed.join(', ')})` : ''}${state.tooFewSources ? ' — fewer than two agreed, nothing was written' : ''}.`, 'updates-muted'));
+
+        if (added.length) {
+            const row = document.createElement('div');
+            row.className = 'updates-row';
+            row.appendChild(line(`New since you last looked: ${added.map(a => a.label || a.id).join(', ')}. Unverified until Verify runs.`));
+            row.appendChild(button('Verify new models', async () => {
+                const ok = await confirmDialog({
+                    title: `Verify ${added.length} new model${added.length === 1 ? '' : 's'}?`,
+                    message: `This sends real requests — one per stage per model, ${added.length} model${added.length === 1 ? '' : 's'} × 9 stages — each carrying that stage's own response schema. It costs real money, billed to your account.`,
+                    confirmLabel: 'Verify'
+                });
+                if (!ok) return;
+                modelsStatus(`Verifying ${added.map(a => a.id).join(', ')}…`);
+                const summary = [];
+                for (const a of added) {
+                    try {
+                        const body = await adminCall(`/api/admin/models/${encodeURIComponent(a.id)}/verify`, { method: 'POST', body: '{}' });
+                        const passed = body.results.filter(r => r.ok).length;
+                        summary.push(`${a.id}: ${passed}/${body.results.length}`);
+                    } catch (err) {
+                        summary.push(`${a.id}: could not verify — ${err.message}`);
+                    }
+                }
+                modelsStatus(`Verify done — ${summary.join(' · ')}`);
+                renderModelsPanel();
+            }, { title: 'Runs the same Verify as each row\'s button, one model after another.' }));
+            box.appendChild(row);
+        }
+        if (priced.length) {
+            box.appendChild(line(`Prices refreshed: ${priced.map(p => `${modelLabel(p.id)} $${p.from.inputPerMTok}/$${p.from.outputPerMTok} → $${p.to.inputPerMTok}/$${p.to.outputPerMTok}`).join(' · ')}.`));
+        }
+        if (conflicts.length) {
+            box.appendChild(line(`Price sources disagree — nothing written: ${conflicts.map(c => `${modelLabel(c.id)} (${c.values.map(v => `${v.source} $${v.inputPerMTok}/$${v.outputPerMTok}`).join(', ')})`).join(' · ')}. Set the price by hand if you know which is right.`, 'is-warning'));
+        }
+        for (const r of retirements) {
+            const row = document.createElement('div');
+            row.className = 'updates-row';
+            const uses = [];
+            if (r.stages.length) uses.push(`${r.stages.length} stage default${r.stages.length === 1 ? '' : 's'}`);
+            if (r.autoStages.length) uses.push(`Auto on ${r.autoStages.length} stage${r.autoStages.length === 1 ? '' : 's'}`);
+            row.appendChild(line(`${r.label} ${r.deprecated ? 'is retired' : 'has a successor'} — ${r.successorLabel} replaces it. Still used by ${uses.join(' and ')}.`, r.deprecated ? 'is-warning' : ''));
+            row.appendChild(button(`Move to ${r.successorLabel}`, async () => {
+                const ok = await confirmDialog({
+                    title: `Move to ${r.successorLabel}?`,
+                    message: `Every stage default and Auto recommendation currently on ${r.label} will point at ${r.successorLabel} instead. Writers who chose ${r.label} for themselves are not touched. ${r.successorLabel} is ${verifyMark(r.successor, 1).mark === '✓' ? 'verified' : 'not yet verified'} on Stage 1 — run Verify first if you want evidence before the switch.`,
+                    confirmLabel: 'Move'
+                });
+                if (!ok) return;
+                try {
+                    if (r.stages.length) {
+                        const current = await (await fetch('/api/settings')).json();
+                        const stageModels = { ...(current.globalStageModels || current.stageModels || {}) };
+                        for (const k of r.stages) stageModels[k] = r.successor;
+                        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stageModels }) });
+                        if (!res.ok) throw new Error(await errorTextFrom(res, 'Could not save the deployment defaults'));
+                    }
+                    if (r.autoStages.length) {
+                        const recommended = { ...(modelRegistry.recommended || {}) };
+                        for (const k of r.autoStages) recommended[k] = r.successor;
+                        await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
+                    }
+                    modelsStatus(`Moved ${uses.join(' and ')} from ${r.label} to ${r.successorLabel}.`);
+                } catch (err) {
+                    modelsStatus(`Could not move to ${r.successorLabel}: ${err.message}`, true);
+                }
+                await loadModelRegistry();
+                renderModelsPanel();
+                // The Models tab and the Deployment Defaults list read the same settings — rebuild them.
+                openSettingsModal();
+            }));
+            box.appendChild(row);
+        }
+        if (waiting.length) {
+            box.appendChild(line(`Known to one source only, not added yet: ${waiting.map(w => `${w.id} (${w.source})`).join(', ')}. Usually a launch-day lag; checked again on the next deploy.`, 'updates-muted'));
+        }
+        if (hasNews && (added.length || priced.length)) {
+            const row = document.createElement('div');
+            row.className = 'updates-row';
+            row.appendChild(button('Dismiss', async () => {
+                try { await adminCall('/api/admin/models/updates/acknowledge', { method: 'POST', body: '{}' }); } catch {}
+                renderModelUpdates();
+            }, { title: 'Clears the "new since you last looked" list. Rows stay; retirements stay until acted on.' }));
+            box.appendChild(row);
+        }
+        box.classList.remove('hidden');
+    }
+
+    document.getElementById('btnAdminCheckUpdates')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btnAdminCheckUpdates');
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+        try {
+            const body = await adminCall('/api/admin/models/updates/check', { method: 'POST', body: '{}' });
+            const a = body.applied || { added: [], priced: [] };
+            modelsStatus(body.plan?.tooFewSources
+                ? 'Fewer than two price sources answered — nothing was written.'
+                : `Checked. ${a.added.length ? `Added ${a.added.join(', ')}. ` : 'No new models. '}${a.priced.length ? `Re-priced ${a.priced.join(', ')}. ` : ''}${(body.plan?.conflicts || []).length ? `${body.plan.conflicts.length} price conflict(s) to look at.` : ''}`);
+        } catch (err) {
+            modelsStatus(`Could not check for updates: ${err.message}`, true);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Check for updates';
+        }
+        await loadModelRegistry();
+        renderModelsPanel();
+    });
 
     document.getElementById('btnAdminSaveRecommended')?.addEventListener('click', async () => {
         const recommended = {};

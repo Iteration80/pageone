@@ -1376,6 +1376,11 @@
                     unpriced model spends real money and reports $0.00.
                 </p>
 
+                <!-- Automatic updates — what the boot-time check added or re-priced since
+                     the admin last looked, disagreements between price sources, and
+                     retirements to offer. Rendered by app.js renderModelUpdates(). -->
+                <div id="settings-models-updates" class="settings-updates hidden"></div>
+
                 <div id="settings-models-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
 
                 <!-- What "Auto (recommended)" resolves to. One map, no router, no
@@ -1427,6 +1432,7 @@
                     </select>
                     <input type="text" id="settings-model-discover-baseurl" class="modal-input" style="flex:1 1 200px;min-width:0;padding:4px 8px" placeholder="baseUrl (OpenAI-compatible)" autocomplete="off">
                     <button id="btnAdminDiscoverModels" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0">Discover models</button>
+                    <button id="btnAdminCheckUpdates" class="secondary-btn" type="button" style="padding:4px 12px;flex-shrink:0" title="Reads three public price tables and adds the newest model of each family where two of them agree on the price. Never runs Verify and never moves a default.">Check for updates</button>
                 </div>
                 <div id="settings-models-discovered" style="font-size:0.75rem;color:#9ca3af;margin-top:8px"></div>
                 <p id="settings-models-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
