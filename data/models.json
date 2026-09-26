@@ -83,6 +83,22 @@
       "verified": {}
     },
     {
+      "id": "claude-opus-5-5",
+      "label": "Claude Opus 5.5",
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 4,
+        "outputPerMTok": 20,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "checkedAt": "2026-09-25",
+        "note": "Added 2026-09-25. Cache reads are 0.05x input ($0.20) rather than the usual 0.1x — not modelled, PageOne sends no cache_control. Thinking cannot be disabled on this model; effort defaults to medium."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "verified": {}
+    },
+    {
       "id": "claude-opus-5",
       "label": "Claude Opus 5",
       "provider": "anthropic",
@@ -104,11 +120,11 @@
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 3.0,
-        "outputPerMTok": 15.0,
-        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
-        "checkedAt": "2026-08-16",
-        "note": null
+        "inputPerMTok": 2,
+        "outputPerMTok": 10,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "checkedAt": "2026-09-25",
+        "note": "The $2/$10 launch price became the standard price; the scheduled rise to $3/$15 on 2026-09-01 did not happen (pricing page footnote, read 2026-09-25). The 08-16 row had the planned $3/$15."
       },
       "enabled": true,
       "deprecated": false,

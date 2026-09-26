@@ -172,9 +172,21 @@ function extractJsonFromText(text, schema) {
 }
 
 // Models that have removed the temperature parameter (sending it → 400).
-// Applies to Opus 4.7+ and the entire Claude 5 family (Fable 5, Opus 5, Sonnet 5).
-// Haiku 4.5 and Opus/Sonnet 4.6 still accept temperature and are intentionally absent.
-const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7', 'claude-opus-4-8', 'claude-opus-5', 'claude-fable-5', 'claude-sonnet-5'];
+// Applies to Opus 4.7+ and the entire Claude 5 family (Fable 5/5.1, Opus 5/5.5,
+// Sonnet 5, Mythos). Haiku 4.5 and Opus/Sonnet 4.6 still accept temperature and are
+// intentionally absent.
+//
+// ⚠️ A RULE, not a list. The registry lets an admin add a Claude model from the
+// Settings form with no deploy, so an exact-id list is a 400 waiting to happen: the
+// first request on a freshly added `claude-opus-5-5` would have been rejected for
+// carrying `temperature`, and nothing in the add form could have warned about it.
+// The explicit ids stay for readability; the pattern is what actually guards.
+const CLAUDE_NO_TEMPERATURE = ['claude-opus-4-7', 'claude-opus-4-8', 'claude-opus-5', 'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-sonnet-5'];
+const CLAUDE_NO_TEMPERATURE_PATTERN = /^claude-(?:opus-4-[7-9]|opus-5|sonnet-5|fable-5|mythos-5)(?:-|$)/;
+function claudeRejectsTemperature(model = '') {
+    const id = String(model || '').trim();
+    return CLAUDE_NO_TEMPERATURE.includes(id) || CLAUDE_NO_TEMPERATURE_PATTERN.test(id);
+}
 
 async function callClaude({ model, anthropicApiKey, contents, config = {}, schema }) {
     const signal = config?.abortSignal;
@@ -183,7 +195,7 @@ async function callClaude({ model, anthropicApiKey, contents, config = {}, schem
     const messages = normalizeContentsForClaude(contents);
     const system = buildClaudeSystemPrompt(config?.systemInstruction, schema);
 
-    const temperatureParam = CLAUDE_NO_TEMPERATURE.includes(model)
+    const temperatureParam = claudeRejectsTemperature(model)
         ? {}
         : { temperature: config?.temperature ?? 0.7 };
 
@@ -434,7 +446,7 @@ async function chatWithTools({ model, geminiApiKey, anthropicApiKey, openaiApiKe
         const request = {
             model,
             max_tokens: maxTokens,
-            ...(CLAUDE_NO_TEMPERATURE.includes(model) ? {} : { temperature }),
+            ...(claudeRejectsTemperature(model) ? {} : { temperature }),
             ...(system ? { system } : {}),
             messages: toAnthropicMessages(messages),
             ...(tools.length ? { tools: toAnthropicTools(tools) } : {})
@@ -516,4 +528,5 @@ async function generateContent({ model, geminiApiKey, anthropicApiKey, openaiApi
     return callGemini({ model, geminiApiKey, contents, config, schema });
 }
 
-module.exports = { generateContent, chatWithTools };
+module.exports = {
+    claudeRejectsTemperature, generateContent, chatWithTools };
