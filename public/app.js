@@ -1284,6 +1284,62 @@ document.addEventListener('DOMContentLoaded', () => {
         renameModal.classList.add('hidden');
     }
 
+    // ─── Send a copy ─────────────────────────────────────────────────────────
+    let sendCopyProjectId = null;
+    const sendCopyModal = document.getElementById('sendCopyModal');
+    function sendCopyStatus(text, bad = false) {
+        const el = document.getElementById('sendCopyStatus');
+        if (!el) return;
+        el.textContent = text;
+        el.style.color = bad ? '#f87171' : '';
+    }
+    function openSendCopyModal(id, title) {
+        sendCopyProjectId = id;
+        const t = document.getElementById('sendCopyTitle');
+        if (t) t.textContent = `Send "${title || 'Untitled'}" to another writer on this deployment.`;
+        const input = document.getElementById('sendCopyEmail');
+        if (input) input.value = '';
+        sendCopyStatus('');
+        sendCopyModal?.classList.remove('hidden');
+        input?.focus();
+    }
+    function closeSendCopyModal() {
+        sendCopyModal?.classList.add('hidden');
+        sendCopyProjectId = null;
+    }
+    document.getElementById('cancelSendCopyBtn')?.addEventListener('click', closeSendCopyModal);
+    sendCopyModal?.addEventListener('click', (e) => { if (e.target === sendCopyModal) closeSendCopyModal(); });
+    document.getElementById('confirmSendCopyBtn')?.addEventListener('click', async () => {
+        const email = document.getElementById('sendCopyEmail')?.value.trim() || '';
+        if (!sendCopyProjectId) return;
+        if (!email.includes('@')) { sendCopyStatus('Enter the writer\'s email address.', true); return; }
+        const btn = document.getElementById('confirmSendCopyBtn');
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+        try {
+            const res = await fetch(`/api/projects/${sendCopyProjectId}/send-copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+            closeSendCopyModal();
+            noticeDialog({
+                title: 'Copy sent',
+                message: `${body.recipient} now has their own copy of "${body.title || 'Untitled'}".`
+                    + (body.styleCopied ? ` Your style "${body.styleCopied.from}" was copied to them as "${body.styleCopied.to}".` : '')
+                    + (body.styleDropped ? ` The style "${body.styleDropped}" could not be copied, so their copy has no style attached.` : '')
+                    + ' Your original is unchanged.'
+            });
+        } catch (err) {
+            sendCopyStatus(`Could not send: ${err.message}`, true);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Send copy';
+        }
+    });
+
     function openDeleteModal(id) {
         targetProjectId = id;
         deleteModal.classList.remove('hidden');
@@ -1353,6 +1409,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="edit-btn" data-id="${project.id}" title="Rename Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
+                    <button class="send-copy-btn ${authMode === 'google' ? '' : 'hidden'}" data-id="${project.id}" title="Send a copy to another writer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                    </button>
                     <button class="delete-btn" data-id="${project.id}" title="Delete Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     </button>
@@ -1365,6 +1424,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent card from opening
                 openRenameModal(project.id, project.title, project.author);
+            });
+
+            // Handle Send a copy
+            const sendCopyBtn = card.querySelector('.send-copy-btn');
+            sendCopyBtn?.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openSendCopyModal(project.id, project.title);
             });
 
             // Handle Delete

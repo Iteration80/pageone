@@ -1188,6 +1188,24 @@
         </div>
     </div>
 
+    <!-- Send a copy of a project to another writer. Copy, never link: the recipient
+         gets an independent duplicate under their own ownership (spend excluded, a
+         private style copied along). Shown only when signed in — there is nobody to
+         send to on an open server. -->
+    <div id="sendCopyModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Send a copy</h3>
+            <p id="sendCopyTitle"></p>
+            <input type="email" id="sendCopyEmail" class="modal-input" placeholder="writer@example.com" autocomplete="off">
+            <p class="settings-hint">They get their own independent copy of this project — every stage, its version history and uploaded sources. Your original stays as it is, and your spend stays yours. If the project uses one of your own styles, they get a copy of that too. They must already be on this deployment's allowlist.</p>
+            <p id="sendCopyStatus" class="settings-hint" style="min-height:1em"></p>
+            <div class="modal-actions">
+                <button id="cancelSendCopyBtn" class="secondary-btn">Cancel</button>
+                <button id="confirmSendCopyBtn" class="primary-btn">Send copy</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Project Modal -->
     <div id="deleteModal" class="modal-overlay hidden">
         <div class="modal-content">

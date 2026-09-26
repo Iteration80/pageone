@@ -45,6 +45,14 @@ function registerProjectRoutes(app, deps) {
         runAsSystem,
         sha256Hex,
         normalizeProtectedBeats,
+        // send-copy
+        styleStore,
+        uniqueStyleSlug,
+        atomicWriteFile,
+        runWithIdentity,
+        isAllowedEmail,
+        getSessionEmail,
+        isGoogleAuthEnabled,
         sendApiError
     } = deps;
 
@@ -751,6 +759,110 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error("Error saving Stage 2 protected beats:", error);
             sendApiError(res, error, 'Failed to save protected beats');
+        }
+    });
+
+    // ── Send a copy to another writer ──────────────────────────────────────────
+    //
+    // Handoff by COPY, never by link or transfer — Carsten's rule for styles (2026-08-16)
+    // applied to projects. The recipient gets an independent duplicate under their own
+    // ownership: a new id, `copied_from` provenance, version history and uploaded
+    // source files included, SPEND EXCLUDED (the sender's spend stays the sender's,
+    // and the recipient's monthly budget starts clean). The original is untouched;
+    // deleting it afterwards is the sender's separate decision.
+    //
+    // ⚠️ A project must never point at another tenant's file (multi-user Phase 3).
+    // If the project uses one of the sender's own styles, the recipient gets a copy of
+    // that style too, and the copy points at the copy. Bundled styles are shared
+    // library and keep their slug.
+    //
+    // ⚠️ Session-only, like every write that changes who owns what. A leaked token
+    // acting as the sender must not be able to scatter their work into other
+    // people's libraries. Tokens get 401 here on purpose.
+    //
+    // ⚠️ The copy is WRITTEN UNDER THE RECIPIENT'S IDENTITY. The creation chokepoint
+    // refuses a new project whose owner is not the caller, which is exactly right for
+    // every other creation; here the caller is deliberately making someone else's
+    // project, so the write runs as them. The READ stays the sender's — that is what
+    // makes a non-owner 404 on this route like on every other.
+    app.post('/api/projects/:id/send-copy', requireAuth, async (req, res) => {
+        try {
+            if (!isGoogleAuthEnabled()) {
+                throw new BadRequestError('Sending a copy needs Google sign-in to be configured — on an open server there is nobody to send it to.');
+            }
+            const sender = getSessionEmail(req);
+            if (!sender) return res.status(401).json({ error: 'Sign in with Google to send a copy of a project.' });
+
+            const { id } = req.params;
+            assertValidProjectId(id);
+            // Ownership FIRST. A non-owner must get the same 404 as on every other project
+            // route, whatever they put in the body — a 400 about the recipient would tell
+            // them the project exists.
+            const source = await readProjectJSONById(id);
+
+            const recipient = String(req.body?.email || '').trim().toLowerCase();
+            if (!recipient.includes('@')) throw new BadRequestError('Enter the email address of the writer to send this to.');
+            if (recipient === sender) throw new BadRequestError('That is your own address — a copy to yourself is just a duplicate.');
+            if (!isAllowedEmail(recipient)) {
+                throw new BadRequestError(`${recipient} is not on this deployment's allowlist. Ask the administrator to add them first.`);
+            }
+
+            // A fresh id that cannot collide with a project created in the same millisecond.
+            let copyId = Date.now().toString();
+            // eslint-disable-next-line no-await-in-loop
+            while (await fs.access(modulePath.join(DATA_DIR, `${copyId}.json`)).then(() => true, () => false)) {
+                copyId = String(Number(copyId) + 1);
+            }
+
+            const data = JSON.parse(JSON.stringify(source.data || {}));
+            delete data.apiUsage;
+
+            let styleCopied = null;
+            let styleDropped = null;
+            const styleSlug = typeof data.stage7_style === 'string' ? data.stage7_style : null;
+            if (styleSlug && !styleStore.isBundledSlug(styleSlug)) {
+                try {
+                    const copy = await styleStore.copyStyle(styleSlug, { uniqueStyleSlug, atomicWriteFile, owner: recipient });
+                    data.stage7_style = copy.meta.slug;
+                    styleCopied = { from: styleSlug, to: copy.meta.slug };
+                } catch (error) {
+                    // The style is gone or unreadable: the copy must not point at it.
+                    delete data.stage7_style;
+                    styleDropped = styleSlug;
+                    console.warn(`[send-copy] ${sender} → ${recipient}: style ${styleSlug} could not be copied (${error.message}); pointer dropped.`);
+                }
+            }
+
+            const copy = {
+                ...source,
+                id: copyId,
+                owner: recipient,
+                copied_from: { id: source.id, owner: sender, title: source.title || '', at: new Date().toISOString() },
+                data
+            };
+            delete copy.restoreVersionId;
+            delete copy.skipSnapshots;
+
+            await runWithIdentity({ email: recipient, method: 'session' }, () =>
+                writeJSONQueued(modulePath.join(DATA_DIR, `${copyId}.json`), copy));
+
+            // Uploaded source files live under <DATA_ROOT>/source-files/<projectId>/ and are
+            // addressed by project id + source id, so a directory copy keeps every path valid.
+            const sourceDir = modulePath.join(DATA_ROOT, 'source-files', String(source.id));
+            let sourceFilesCopied = false;
+            try {
+                await fs.access(sourceDir);
+                await fs.cp(sourceDir, modulePath.join(DATA_ROOT, 'source-files', copyId), { recursive: true });
+                sourceFilesCopied = true;
+            } catch (error) {
+                if (error.code !== 'ENOENT') throw error;
+            }
+
+            console.log(`[send-copy] ${sender} sent a copy of ${source.id} ("${source.title || ''}") to ${recipient} as ${copyId}${styleCopied ? ` (+ style ${styleCopied.from} → ${styleCopied.to})` : ''}`);
+            res.status(201).json({ ok: true, id: copyId, recipient, title: source.title || '', styleCopied, styleDropped, sourceFilesCopied });
+        } catch (error) {
+            console.error('send-copy error:', error.message);
+            sendApiError(res, error, 'Failed to send a copy of the project');
         }
     });
 

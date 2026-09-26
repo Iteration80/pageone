@@ -882,7 +882,8 @@ textarea.synopsis-input {
     margin-top: auto;
 }
 
-.edit-btn {
+.edit-btn,
+.send-copy-btn {
     background: transparent;
     border: none;
     color: var(--text-secondary);
@@ -895,7 +896,8 @@ textarea.synopsis-input {
     justify-content: center;
 }
 
-.edit-btn:hover {
+.edit-btn:hover,
+.send-copy-btn:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
 }

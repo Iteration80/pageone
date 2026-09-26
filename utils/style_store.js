@@ -43,7 +43,7 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
-const { hasScopedIdentity, currentUserEmail } = require('./request_identity');
+const { hasScopedIdentity, currentUserEmail, runWithIdentity } = require('./request_identity');
 const { parseStyleFile, stampStyleFrontMatter } = require('../agents/agent_7_style');
 
 /** Front-matter fields the server owns. A PUT may rewrite the body; never these. */
@@ -346,13 +346,17 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
      * dropped (the copy belongs to no project until a refine stamps one);
      * `copied_from` records provenance.
      */
-    async function copyStyle(slug, { uniqueStyleSlug, atomicWriteFile }) {
+    // `owner` lets a project handoff mint the copy for the RECIPIENT while the read
+    // happens as the sender (who is the one allowed to see the source style). Without
+    // it, copying under the recipient's identity 404s on the read, and copying under
+    // a system identity mints an unowned style that fails closed for everyone.
+    async function copyStyle(slug, { uniqueStyleSlug, atomicWriteFile, owner = undefined }) {
         const source = await readStyle(slug);            // 404 if not visible
         if (!source.directive) throw new NotFoundError(`Style "${slug}" not found`);
         const newSlug = await uniqueStyleSlug(source.meta.slug || slug);
         const stamp = {
             slug: newSlug,
-            owner: ownerStampForNewStyle(),
+            owner: owner !== undefined ? owner : ownerStampForNewStyle(),
             created: new Date().toISOString().slice(0, 10),
             visibility: 'private',
             copied_from: slug
@@ -368,6 +372,11 @@ function createStyleStore({ STYLES_DIR, BUNDLED_STYLES_DIR, NotFoundError, Forbi
         if (source.reference) {
             const reference = stampStyleFrontMatter(dropProjectId(source.reference), { ...stamp, paired_with: `${newSlug}-directive` });
             await atomicWriteFile(path.join(STYLES_DIR, `${newSlug}-reference.md`), reference);
+        }
+        // The finished copy belongs to `owner`; read it back as them, or the sender's
+        // scoped read 404s on a style that is (correctly) no longer theirs to see.
+        if (owner !== undefined) {
+            return runWithIdentity({ email: owner, method: 'session' }, () => readStyle(newSlug));
         }
         return readStyle(newSlug);
     }

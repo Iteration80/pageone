@@ -123,6 +123,8 @@ const PROJECT_ROUTES = [
     { method: 'PUT', path: id => `/api/projects/${id}`, body: { title: 'Renamed', data: {} } },
     { method: 'PUT', path: id => `/api/projects/${id}/stage1-draft`, body: { patch: { text: 'hello' } } },
     { method: 'PUT', path: id => `/api/projects/${id}/stage2-protected-beats`, body: { protected_beats: ['Finale'] } },
+    // Body must name an allowlisted recipient, or the owner is refused 400 for the wrong reason.
+    { method: 'POST', path: id => `/api/projects/${id}/send-copy`, body: { email: 'bob@example.com' } },
     // Body must pass this route's own validation, or Bob is refused with a 400 for
     // the wrong reason and the test proves nothing about ownership.
     { method: 'PATCH', path: id => `/api/projects/${id}/stage6-audit/dismiss`, body: { scene_number: 1, type: 'redundancy' } },

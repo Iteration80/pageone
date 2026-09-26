@@ -4953,6 +4953,13 @@ registerProjectRoutes(app, {
     runAsSystem: fn => runWithIdentity(null, fn),
     sha256Hex: text => crypto.createHash('sha256').update(String(text)).digest('hex'),
     normalizeProtectedBeats,
+    styleStore,
+    uniqueStyleSlug,
+    atomicWriteFile,
+    runWithIdentity,
+    isAllowedEmail,
+    getSessionEmail,
+    isGoogleAuthEnabled,
     sendApiError
 });
 
