@@ -999,6 +999,86 @@ textarea.synopsis-input {
     padding-top: 16px;
 }
 
+/* Settings modal tabs — see index.html #settingsModal for the split. */
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.settings-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.settings-tab:hover {
+    color: var(--text-primary);
+}
+
+.settings-tab.active {
+    color: var(--text-primary);
+    border-bottom-color: #3b82f6;
+}
+
+.settings-tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Inside a tab the first section needs no divider above it. */
+.settings-tab-panel > section.settings-build-panel:first-child {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.settings-stage-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: center;
+}
+
+.settings-stage-label {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.settings-stage-runs {
+    grid-column: 2;
+    font-size: 0.72rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.settings-stage-runs.is-warning,
+.settings-hint.is-warning {
+    color: #f59e0b;
+}
+
+.settings-stage-runs.is-danger {
+    color: #f87171;
+}
+
+.settings-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.settings-build-footer {
+    border-top: 1px solid var(--card-border);
+    padding-top: 12px;
+}
+
 .settings-build-fingerprint {
     color: var(--text-secondary);
     font-family: "Courier Prime", monospace;

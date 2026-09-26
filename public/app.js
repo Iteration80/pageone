@@ -12100,12 +12100,189 @@ async function loadBuildInfo() {
     let settingsPersonalModels = false;
     let settingsCanEditGlobal = true;
 
+    // ─── Settings tabs ───────────────────────────────────────────────────────
+    // Three tabs by WHO a setting belongs to (Models · Account · Admin). A tab is
+    // shown only when something inside it is visible, so the modal grows with the
+    // reader's standing instead of showing everyone every panel and hiding the
+    // insides. The footer Save writes the Models tab; the other tabs' sections
+    // each carry their own button, so Save steps aside there rather than saving
+    // something the reader cannot see.
+    const SETTINGS_TABS = ['models', 'account', 'admin'];
+    let activeSettingsTab = 'models';
+
+    function settingsTabHasContent(name) {
+        const panel = document.getElementById(`settings-panel-${name}`);
+        if (!panel) return false;
+        return Array.from(panel.querySelectorAll(':scope > section')).some(sec => !sec.classList.contains('hidden'));
+    }
+
+    function selectSettingsTab(name) {
+        if (!settingsTabHasContent(name)) name = 'models';
+        activeSettingsTab = name;
+        SETTINGS_TABS.forEach(tab => {
+            const btn = document.getElementById(`settings-tab-${tab}`);
+            btn?.classList.toggle('active', tab === name);
+            btn?.setAttribute('aria-selected', tab === name ? 'true' : 'false');
+            document.getElementById(`settings-panel-${tab}`)?.classList.toggle('hidden', tab !== name);
+        });
+        document.getElementById('saveSettingsBtn')?.classList.toggle('hidden', name !== 'models');
+    }
+
+    function refreshSettingsTabs() {
+        SETTINGS_TABS.forEach(tab => {
+            document.getElementById(`settings-tab-${tab}`)?.classList.toggle('hidden', !settingsTabHasContent(tab));
+        });
+        selectSettingsTab(activeSettingsTab);
+    }
+
+    SETTINGS_TABS.forEach(tab => {
+        document.getElementById(`settings-tab-${tab}`)?.addEventListener('click', () => selectSettingsTab(tab));
+    });
+
+    /** Registry row for an id, enabled or not — the dropdowns only list enabled ones. */
+    function registryRow(id) {
+        return (modelRegistry.models || []).find(m => m.id === id) || null;
+    }
+
+    /** Label for a saved value the dropdown would not otherwise offer — say WHY it is odd. */
+    function savedModelOptionLabel(id) {
+        const row = registryRow(id);
+        if (row) return `${row.label} (deprecated — still runs)`;
+        return `${id} (saved — not in the registry)`;
+    }
+
+    /**
+     * What will actually run on a stage given the dropdown's value, in one sentence.
+     * The dropdown answers "what can I pick"; this answers "what happens if I close
+     * the modal now" — the question the old modal made the writer assemble from an
+     * inherit label, an Auto label and a ✓/?/✗ prefix. `inherited` is the deployment
+     * default for the stage, `resolved` what the server says this reader runs today.
+     */
+    function describeStageChoice(stageNum, value, { inherited = '', resolved = '', layer = 'personal' } = {}) {
+        let modelId = value;
+        let why;
+        if (!value) {
+            modelId = inherited === 'auto' ? resolved : (inherited || resolved);
+            why = inherited === 'auto' ? 'deployment default is Auto' : 'deployment default';
+        } else if (value === 'auto') {
+            modelId = modelRegistry.recommended?.[String(stageNum)] || '';
+            why = modelId ? 'Auto' : 'Auto — nothing recommended for this stage';
+        } else {
+            why = layer === 'personal' ? 'your choice' : 'deployment default';
+        }
+        if (!modelId) return { text: `Runs on: nothing resolved · ${why}`, level: 'danger' };
+        const row = registryRow(modelId);
+        const name = row?.label || modelLabel(modelId);
+        const flags = [];
+        let level = 'ok';
+        if (!row) {
+            flags.push('not in the model registry — spend will be unpriced');
+            level = 'warning';
+        } else if (row.deprecated || row.enabled === false) {
+            flags.push('deprecated — still runs, but pick a current model');
+            level = 'warning';
+        }
+        const { mark } = verifyMark(modelId, stageNum);
+        if (mark === '✗') {
+            flags.push('failed Verify on this stage — the stage will refuse it');
+            level = 'danger';
+        } else if (mark === '?') {
+            flags.push('unverified on this stage');
+        }
+        return { text: `Runs on ${name} · ${why}${flags.length ? ' · ' + flags.join(' · ') : ''}`, level };
+    }
+
+    /** "Stage N: Label | select" with the plain-language readout underneath, kept live. */
+    function stageModelRow(num, label, select, ctx = {}) {
+        const row = document.createElement('div');
+        row.className = 'settings-stage-row';
+        const lbl = document.createElement('span');
+        lbl.className = 'settings-stage-label';
+        lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
+        const runs = document.createElement('span');
+        runs.className = 'settings-stage-runs';
+        const update = () => {
+            const d = describeStageChoice(num, select.value, ctx);
+            runs.textContent = d.text;
+            runs.classList.toggle('is-warning', d.level === 'warning');
+            runs.classList.toggle('is-danger', d.level === 'danger');
+        };
+        select.addEventListener('change', update);
+        update();
+        row.append(lbl, select, runs);
+        return row;
+    }
+
+    /**
+     * Auto's recommended map and the deployment defaults are two answers to the same
+     * question, and where they differ every writer's dropdown shows the disagreement
+     * as its top two options. Say it where the admin sets both, with a one-click fix
+     * that never recommends a deprecated model — that is the client's rule, the route
+     * accepts any registry id.
+     */
+    function renderRecommendedConflicts(globalModels = {}) {
+        const box = document.getElementById('settings-global-models-conflicts');
+        if (!box) return;
+        const rec = modelRegistry.recommended || {};
+        const diffs = [];
+        STAGE_MODEL_LABELS.forEach(([num, label]) => {
+            const def = globalModels[`stage${num}`];
+            if (!def || def === 'auto') return;
+            if ((rec[String(num)] || '') !== def) diffs.push({ num, label, def, rec: rec[String(num)] || '' });
+        });
+        box.innerHTML = '';
+        box.classList.toggle('is-warning', diffs.length > 0);
+        if (!diffs.length) {
+            box.textContent = 'Auto recommends the same model as the deployment default on every stage.';
+            return;
+        }
+        const p = document.createElement('p');
+        p.className = 'settings-hint is-warning';
+        p.textContent = `Auto recommends a different model than the deployment default on ${diffs.length} stage${diffs.length === 1 ? '' : 's'}: `
+            + diffs.map(d => `${displayStageNumber(d.num)} ${d.label} (default ${modelLabel(d.def)}, Auto ${d.rec ? modelLabel(d.rec) : 'none'})`).join(' · ')
+            + '. Writers see both as the top two options of every dropdown.';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'btnAdminMatchRecommended';
+        btn.className = 'secondary-btn';
+        btn.style.cssText = 'padding:4px 12px;margin-top:8px';
+        btn.textContent = 'Set Auto to match these defaults';
+        btn.addEventListener('click', async () => {
+            const recommended = { ...rec };
+            const skipped = [];
+            STAGE_MODEL_LABELS.forEach(([num, label]) => {
+                const def = globalModels[`stage${num}`];
+                if (!def || def === 'auto') return;
+                const row = registryRow(def);
+                if (!row || row.enabled === false || row.deprecated) {
+                    skipped.push(`${displayStageNumber(num)} ${label} — ${row ? row.label : def} is deprecated, Auto must not recommend it`);
+                    return;
+                }
+                recommended[String(num)] = def;
+            });
+            try {
+                await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
+                await loadModelRegistry();
+                modelsStatus(skipped.length
+                    ? `Auto updated where the default is a current model. Left alone: ${skipped.join('; ')}.`
+                    : 'Auto now recommends the deployment defaults.', skipped.length > 0);
+            } catch (err) {
+                modelsStatus(`Could not update Auto: ${err.message}`, true);
+            }
+            renderRecommendedConflicts(globalModels);
+            renderModelsPanel();
+        });
+        box.append(p, btn);
+    }
+
     function modelLabel(value) {
         // `auto` is a sentinel, not a registry row, so it has no label to look up —
         // and showing the raw word where a model name belongs makes the deployment
         // default read like a broken value rather than a deliberate choice.
         if (value === 'auto') return 'Auto (recommended)';
-        return MODEL_OPTIONS.find(opt => opt.value === value)?.label || value;
+        // A deprecated row is not in MODEL_OPTIONS (the dropdowns list enabled models)
+        // but it can still be the saved default — name it, not its id.
+        return MODEL_OPTIONS.find(opt => opt.value === value)?.label || registryRow(value)?.label || value;
     }
 
     /**
@@ -12147,7 +12324,7 @@ async function loadBuildInfo() {
         };
         let options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
             ? MODEL_OPTIONS.map(withMark)
-            : [{ value: currentModel, label: `${currentModel} (saved)` }, ...MODEL_OPTIONS.map(withMark)];
+            : [{ value: currentModel, label: savedModelOptionLabel(currentModel) }, ...MODEL_OPTIONS.map(withMark)];
         if (includeAuto) {
             const auto = modelRegistry.recommended?.[String(stageNum)];
             options = [{
@@ -13229,33 +13406,30 @@ async function loadBuildInfo() {
         const container = document.getElementById('settings-stage-models');
         container.innerHTML = '';
         STAGE_MODEL_LABELS.forEach(([num, label]) => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;gap:12px';
-            const lbl = document.createElement('span');
-            lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
-            lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
-            row.appendChild(lbl);
+            const inherited = globalModels[`stage${num}`] || resolved[`stage${num}`] || '';
+            let select;
             if (settingsPersonalModels) {
-                const inherited = globalModels[`stage${num}`] || resolved[`stage${num}`];
                 // When the default is itself Auto, name what Auto resolves to for
                 // THIS reader rather than nesting "(Auto (recommended))" — the label
                 // exists to answer "what will actually run if I leave this alone".
                 const inheritedLabel = inherited === 'auto'
                     ? (resolved[`stage${num}`] ? `Auto → ${modelLabel(resolved[`stage${num}`])}` : 'Auto — nothing available')
                     : modelLabel(inherited);
-                row.appendChild(buildModelSelect(num, myModels[`stage${num}`] || '', {
-                    inheritLabel: inherited
-                        ? `Deployment default (${inheritedLabel})`
-                        : 'Deployment default'
-                }));
+                select = buildModelSelect(num, myModels[`stage${num}`] || '', {
+                    inheritLabel: inherited ? `Deployment default (${inheritedLabel})` : 'Deployment default'
+                });
             } else {
-                row.appendChild(buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview'));
+                select = buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview');
             }
-            container.appendChild(row);
+            container.appendChild(stageModelRow(num, label, select, {
+                inherited,
+                resolved: resolved[`stage${num}`] || '',
+                layer: settingsPersonalModels ? 'personal' : 'deployment'
+            }));
         });
 
         // Deployment defaults — a second, separately saved list, for admins who also
-        // have a personal layer sitting on top of it.
+        // have a personal layer sitting on top of it. Lives on the Admin tab.
         const globalPanel = document.getElementById('settings-global-models-panel');
         if (globalPanel) {
             const showGlobal = settingsPersonalModels && settings.canEditGlobalModels;
@@ -13266,20 +13440,19 @@ async function loadBuildInfo() {
                 const status = document.getElementById('settings-global-models-status');
                 if (status) status.textContent = '';
                 STAGE_MODEL_LABELS.forEach(([num, label]) => {
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display:flex;align-items:center;gap:12px';
-                    const lbl = document.createElement('span');
-                    lbl.style.cssText = 'width:130px;font-size:0.8rem;color:#9ca3af;flex-shrink:0';
-                    lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
-                    row.appendChild(lbl);
-                    row.appendChild(buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview', {
+                    const select = buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview', {
                         idPrefix: 'settings-global-model-stage'
+                    });
+                    gContainer.appendChild(stageModelRow(num, label, select, {
+                        resolved: resolved[`stage${num}`] || '',
+                        layer: 'deployment'
                     }));
-                    gContainer.appendChild(row);
                 });
+                renderRecommendedConflicts(globalModels);
             }
         }
 
+        refreshSettingsTabs();
         settingsModal.classList.remove('hidden');
     }
 
@@ -13311,13 +13484,14 @@ async function loadBuildInfo() {
         return fallback;
     }
 
+    // The footer Save writes the Models tab and nothing else. The deployment API
+    // keys used to ride along in the same POST; they are a global setting on the
+    // Admin tab now, with their own button, so pressing Save on the Models tab can
+    // never touch a key the reader is not looking at.
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-        const geminiApiKey = document.getElementById('settings-gemini-key').value.trim();
-        const anthropicApiKey = document.getElementById('settings-anthropic-key').value.trim();
-
         try {
             if (settingsPersonalModels) {
-                // Signed in: the top list is YOURS. It never touches the deployment
+                // Signed in: the list is YOURS. It never touches the deployment
                 // default, and it is stored sparse so an inherited stage keeps
                 // following the default rather than freezing today's value.
                 const res = await fetch('/api/settings/my-models', {
@@ -13326,27 +13500,11 @@ async function loadBuildInfo() {
                     body: JSON.stringify({ stageModels: collectStageModels('settings-model-stage', { sparse: true }) })
                 });
                 if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
-                // API keys, where the deployment lets them be set at runtime, are
-                // still a global setting — only send them when there is one to send
-                // and the caller is entitled to, so a writer pressing Save does not
-                // get a 403 for a field they never filled in.
-                if ((geminiApiKey || anthropicApiKey) && settingsCanEditGlobal) {
-                    const keyRes = await fetch('/api/settings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ geminiApiKey, anthropicApiKey })
-                    });
-                    if (!keyRes.ok) throw new Error(await errorTextFrom(keyRes, 'Save failed'));
-                }
             } else {
                 const res = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        geminiApiKey,
-                        anthropicApiKey,
-                        stageModels: collectStageModels('settings-model-stage')
-                    })
+                    body: JSON.stringify({ stageModels: collectStageModels('settings-model-stage') })
                 });
                 if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
             }
@@ -13354,6 +13512,37 @@ async function loadBuildInfo() {
         } catch (err) {
             console.error('Failed to save settings:', err);
             noticeDialog({ message: `Failed to save settings. ${err.message}` });
+        }
+    });
+
+    document.getElementById('btnSaveApiKeys')?.addEventListener('click', async () => {
+        const status = document.getElementById('settings-api-keys-status');
+        const say = (text, bad = false) => {
+            if (status) {
+                status.textContent = text;
+                status.style.color = bad ? '#f87171' : '#9ca3af';
+            }
+        };
+        const geminiField = document.getElementById('settings-gemini-key');
+        const anthropicField = document.getElementById('settings-anthropic-key');
+        const geminiApiKey = geminiField?.value.trim() || '';
+        const anthropicApiKey = anthropicField?.value.trim() || '';
+        if (!geminiApiKey && !anthropicApiKey) {
+            say('Nothing to save — both fields are empty, existing keys are kept.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ geminiApiKey, anthropicApiKey })
+            });
+            if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+            if (geminiField) geminiField.value = '';
+            if (anthropicField) anthropicField.value = '';
+            say('API keys saved.');
+        } catch (err) {
+            say(`Could not save the API keys: ${err.message}`, true);
         }
     });
 
@@ -13373,6 +13562,7 @@ async function loadBuildInfo() {
             });
             if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
             say('Deployment defaults saved — everyone who has not chosen their own follows these.');
+            renderRecommendedConflicts(collectStageModels('settings-global-model-stage'));
         } catch (err) {
             say(`Could not save the deployment defaults: ${err.message}`, true);
         }

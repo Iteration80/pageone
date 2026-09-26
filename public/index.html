@@ -1214,27 +1214,22 @@
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width:560px;max-height:80vh;overflow-y:auto">
+        <div class="modal-content settings-modal" style="max-width:600px;max-height:85vh;overflow-y:auto">
             <h3>Settings</h3>
 
-            <section id="settings-api-key-section" style="margin-bottom:24px">
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
-                <label style="display:block;margin-bottom:12px">
-                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Gemini API Key</span>
-                    <input type="password" id="settings-gemini-key" class="modal-input" style="width:100%"
-                           placeholder="AIza... (leave blank to keep existing)" autocomplete="off">
-                </label>
-                <label style="display:block">
-                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Anthropic API Key</span>
-                    <input type="password" id="settings-anthropic-key" class="modal-input" style="width:100%"
-                           placeholder="sk-ant-... (leave blank to keep existing)" autocomplete="off">
-                </label>
-            </section>
-            <section id="settings-api-key-managed" class="hidden" style="margin-bottom:24px">
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
-                <p style="font-size:0.85rem;color:#9ca3af;line-height:1.5">API keys are managed by the deployed server environment for this private build.</p>
-            </section>
+            <!-- Three tabs, by WHO the setting is for: Models = what runs your stages ·
+                 Account = you (keys, tokens, sign-out) · Admin = the deployment (its keys,
+                 its defaults, its people, its model registry). A tab with nothing visible
+                 in it is hidden by app.js (refreshSettingsTabs), so a house writer sees one
+                 tab and an admin sees three. Every section keeps its id — the scripts that
+                 fill and hide them are unchanged; only where they sit moved. -->
+            <div class="settings-tabs" role="tablist">
+                <button type="button" class="settings-tab active" role="tab" id="settings-tab-models" data-settings-tab="models" aria-selected="true">Models</button>
+                <button type="button" class="settings-tab hidden" role="tab" id="settings-tab-account" data-settings-tab="account" aria-selected="false">Account</button>
+                <button type="button" class="settings-tab hidden" role="tab" id="settings-tab-admin" data-settings-tab="admin" aria-selected="false">Admin</button>
+            </div>
 
+            <div class="settings-tab-panel" id="settings-panel-models" data-settings-panel="models">
             <section>
                 <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px">Model Per Stage</h4>
                 <p id="settings-stage-models-note" style="font-size:0.75rem;color:#6b7280;margin-bottom:12px;line-height:1.5"></p>
@@ -1242,24 +1237,16 @@
                     <!-- Injected by JS -->
                 </div>
             </section>
+            </div>
 
-            <!-- Deployment defaults — admins only, and a separate save from the
-                 personal list above. Everyone inherits these for any stage they
-                 have not chosen for themselves. -->
-            <section id="settings-global-models-panel" class="hidden" style="margin-top:24px;padding-top:20px;border-top:1px solid #374151">
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px">Deployment Defaults <span style="color:#6b7280;text-transform:none;letter-spacing:0">· admin</span></h4>
-                <p style="font-size:0.75rem;color:#6b7280;margin-bottom:12px;line-height:1.5">
-                    What every writer runs on unless they have picked something else for that stage. Saved separately from your own preferences above.
+            <div class="settings-tab-panel hidden" id="settings-panel-account" data-settings-panel="account">
+            <section id="settings-account-panel" class="settings-build-panel hidden">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Account</h4>
+                <p style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+                    <span id="settings-account-email" style="font-size:0.85rem;color:#d1d5db"></span>
+                    <button id="btnSignOut" class="secondary-btn" type="button" style="padding:4px 12px">Sign out</button>
                 </p>
-                <div id="settings-global-stage-models" style="display:flex;flex-direction:column;gap:8px">
-                    <!-- Injected by JS -->
-                </div>
-                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-                    <button id="btnSaveGlobalModels" class="btn-secondary" style="font-size:0.8rem">Save deployment defaults</button>
-                    <span id="settings-global-models-status" style="font-size:0.75rem;color:#9ca3af"></span>
-                </div>
             </section>
-
             <!-- Your API keys — shown only to writers the administrator has put on
                  bring-your-own-keys. House writers never see this, which is the point. -->
             <section id="settings-my-keys-panel" class="settings-build-panel hidden">
@@ -1268,15 +1255,6 @@
                 <div id="settings-my-keys-list" style="display:flex;flex-direction:column;gap:6px"></div>
                 <p id="settings-my-keys-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
             </section>
-
-            <section id="settings-account-panel" class="settings-build-panel hidden">
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Account</h4>
-                <p style="display:flex;align-items:center;gap:12px;justify-content:space-between">
-                    <span id="settings-account-email" style="font-size:0.85rem;color:#d1d5db"></span>
-                    <button id="btnSignOut" class="secondary-btn" type="button" style="padding:4px 12px">Sign out</button>
-                </p>
-            </section>
-
             <!-- Access tokens. Shown only when signed in via Google — a token is minted
                  from a session and belongs to the signed-in account, so there is nothing
                  this panel could mean without one. app.js keeps it hidden otherwise. -->
@@ -1315,7 +1293,48 @@
                     </div>
                 </div>
             </section>
+            </div>
 
+            <div class="settings-tab-panel hidden" id="settings-panel-admin" data-settings-panel="admin">
+            <section id="settings-api-key-section" style="margin-bottom:24px">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">Deployment API keys</h4>
+                <p class="settings-hint" style="margin-bottom:10px">The keys every <em>house</em> writer runs on. Leave a field blank to keep the existing key.</p>
+                <label style="display:block;margin-bottom:12px">
+                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Gemini API Key</span>
+                    <input type="password" id="settings-gemini-key" class="modal-input" style="width:100%"
+                           placeholder="AIza... (leave blank to keep existing)" autocomplete="off">
+                </label>
+                <label style="display:block">
+                    <span style="font-size:0.85rem;color:#d1d5db;display:block;margin-bottom:4px">Anthropic API Key</span>
+                    <input type="password" id="settings-anthropic-key" class="modal-input" style="width:100%"
+                           placeholder="sk-ant-... (leave blank to keep existing)" autocomplete="off">
+                </label>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                    <button id="btnSaveApiKeys" class="secondary-btn" type="button" style="padding:4px 12px">Save API keys</button>
+                    <span id="settings-api-keys-status" style="font-size:0.75rem;color:#9ca3af"></span>
+                </div>
+            </section>
+            <section id="settings-api-key-managed" class="hidden" style="margin-bottom:24px">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:12px">API Keys</h4>
+                <p style="font-size:0.85rem;color:#9ca3af;line-height:1.5">API keys are managed by the deployed server environment for this private build.</p>
+            </section>
+            <!-- Deployment defaults — admins only, and a separate save from the
+                 personal list above. Everyone inherits these for any stage they
+                 have not chosen for themselves. -->
+            <section id="settings-global-models-panel" class="hidden" style="margin-top:24px;padding-top:20px;border-top:1px solid #374151">
+                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px">Deployment Defaults <span style="color:#6b7280;text-transform:none;letter-spacing:0">· admin</span></h4>
+                <p style="font-size:0.75rem;color:#6b7280;margin-bottom:12px;line-height:1.5">
+                    What every writer runs on unless they have picked something else for that stage. Saved separately from your own choices on the Models tab.
+                </p>
+                <div id="settings-global-stage-models" style="display:flex;flex-direction:column;gap:8px">
+                    <!-- Injected by JS -->
+                </div>
+                <div id="settings-global-models-conflicts" class="settings-hint" style="margin-top:10px"></div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                    <button id="btnSaveGlobalModels" class="btn-secondary" style="font-size:0.8rem">Save deployment defaults</button>
+                    <span id="settings-global-models-status" style="font-size:0.75rem;color:#9ca3af"></span>
+                </div>
+            </section>
             <!-- Administration (multi-user Phase 4). Shown only when /api/me says the
                  signed-in account is an administrator; every route re-checks server-side,
                  so hiding this is a courtesy, not a control. Rendered by app.js. -->
@@ -1346,7 +1365,6 @@
                 </div>
                 <p id="settings-admin-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
             </section>
-
             <!-- Models — the registry. Admin only; the server re-checks every call. -->
             <section id="settings-models-panel" class="settings-build-panel hidden">
                 <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Models</h4>
@@ -1413,13 +1431,11 @@
                 <div id="settings-models-discovered" style="font-size:0.75rem;color:#9ca3af;margin-top:8px"></div>
                 <p id="settings-models-status" style="font-size:0.72rem;color:#6b7280;margin-top:8px;min-height:1em"></p>
             </section>
+            </div>
 
-            <section class="settings-build-panel">
-                <h4 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:8px">Build</h4>
-                <p id="settings-build-fingerprint" class="settings-build-fingerprint">Build unavailable</p>
-            </section>
+            <p id="settings-build-fingerprint" class="settings-build-fingerprint settings-build-footer">Build unavailable</p>
 
-            <div class="modal-actions" style="margin-top:24px">
+            <div class="modal-actions" style="margin-top:8px">
                 <button id="cancelSettingsBtn" class="secondary-btn">Cancel</button>
                 <button id="saveSettingsBtn" class="primary-btn">Save</button>
             </div>
