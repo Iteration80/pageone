@@ -61,8 +61,6 @@ function registerModelRoutes(app, deps) {
         userKeys,
         providerKeyFor,
         recordVerificationUsage,
-        modelUpdates,
-        getStageModels,
         BadRequestError,
         sendApiError
     } = deps;
@@ -399,52 +397,6 @@ function registerModelRoutes(app, deps) {
     }
 
     // ── Key mode, per person (admin) ───────────────────────────────────────────
-    // ── Automatic model updates (utils/model_updates.js) ─────────────────────────
-    //
-    // GET is admin-token-ok like the overview: a script may ask "anything new?".
-    // The check WRITES rows (with prices two sources agreed on) and the acknowledge
-    // clears the banner — both session-only, like every other registry mutation.
-    // What the banner OFFERS (Verify, moving defaults to a successor) goes through
-    // the existing routes and stays a click, never a consequence of the check.
-    app.get('/api/admin/models/updates', requireAuth, (req, res) => {
-        if (isGoogleAuthEnabled() && !isAdminEmail(req.userEmail)) {
-            return res.status(403).json({ error: 'This operation is restricted to the deployment administrator.' });
-        }
-        res.json({
-            ...modelUpdates.readState(),
-            retirements: modelUpdates.currentRetirements({ stageModels: getStageModels() })
-        });
-    });
-
-    app.post('/api/admin/models/updates/check', requireAdminSession, async (req, res) => {
-        try {
-            const { plan, applied, state } = await modelUpdates.checkForUpdates({
-                apply: true,
-                stageModels: getStageModels(),
-                by: req.userEmail
-            });
-            console.log(`[models] ${req.userEmail} checked for model updates: +${applied.added.length} row(s), ${applied.priced.length} price(s), ${plan.conflicts.length} conflict(s)`);
-            res.json({
-                ok: true,
-                plan: { added: plan.added.map(r => r.id), bundleAdds: plan.bundleAdds.map(r => r.id), priced: plan.priced, conflicts: plan.conflicts, awaitingSecondSource: plan.awaitingSecondSource, tooFewSources: Boolean(plan.tooFewSources) },
-                applied,
-                ...state,
-                retirements: modelUpdates.currentRetirements({ stageModels: getStageModels() }),
-                ...registryPayload()
-            });
-        } catch (error) {
-            sendApiError(res, error, 'Failed to check for model updates');
-        }
-    });
-
-    app.post('/api/admin/models/updates/acknowledge', requireAdminSession, (req, res) => {
-        try {
-            res.json({ ok: true, ...modelUpdates.acknowledge() });
-        } catch (error) {
-            sendApiError(res, error, 'Failed to acknowledge model updates');
-        }
-    });
-
     app.put('/api/admin/key-mode', requireAdminSession, async (req, res) => {
         try {
             const email = String(req.body?.email || '').trim().toLowerCase();

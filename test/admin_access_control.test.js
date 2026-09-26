@@ -279,12 +279,7 @@ const COVERED_ADMIN_ROUTES = new Set([
     'POST /api/admin/models/discover',
     // → test/key_modes.test.js
     'PUT /api/admin/key-mode',
-    'POST /api/admin/models/:id/verify',
-    // → test/model_updates.test.js (GET is admin-token-ok like the overview; the
-    //   check writes registry rows and the acknowledge clears the banner — session-only)
-    'GET /api/admin/models/updates',
-    'POST /api/admin/models/updates/check',
-    'POST /api/admin/models/updates/acknowledge'
+    'POST /api/admin/models/:id/verify'
 ]);
 
 test('every /api/admin route is covered by an explicit non-admin and session-only case', async () => {

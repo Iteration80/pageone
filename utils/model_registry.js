@@ -116,6 +116,9 @@ function normaliseModel(raw) {
         // Opus 5.5?" is built from. Curated in the bundle; no price source publishes
         // it. A successor without `deprecated` is a suggestion, not a retirement.
         successor: cleanId(raw?.successor) || null,
+        // Display order in the writer's picker (lower first); curated in the bundle.
+        // Rows without one sort after every row that has one.
+        order: Number.isFinite(Number(raw?.order)) && raw?.order !== null && raw?.order !== '' ? Number(raw.order) : null,
         verified: normaliseVerified(raw?.verified)
     };
 }

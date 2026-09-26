@@ -45,6 +45,7 @@ function registerProjectRoutes(app, deps) {
         runAsSystem,
         sha256Hex,
         normalizeProtectedBeats,
+        modelRegistry,
         // send-copy
         styleStore,
         uniqueStyleSlug,
@@ -759,6 +760,59 @@ function registerProjectRoutes(app, deps) {
         } catch (error) {
             console.error("Error saving Stage 2 protected beats:", error);
             sendApiError(res, error, 'Failed to save protected beats');
+        }
+    });
+
+    // ── One model per project ───────────────────────────────────────────────────
+    //
+    // `data.model` is the model every stage of this project runs on — the picker in
+    // the workspace sidebar. Empty = the deployment default. Read by the project
+    // chokepoints into the request context (server.js noteProjectModel), so every
+    // generation call in a request that opened this project uses it without the
+    // agents knowing. `resolved` in the reply is the same resolver getModelConfig()
+    // calls, evaluated inside this request — the honest instrument, not a mirror.
+    const requestIdentity = require('../utils/request_identity');
+    function resolvedForRequest() {
+        const out = {};
+        for (const stage of [1, 2, 3, 5, 6, 7, 8, 9, 10]) out[`stage${stage}`] = resolveStageModel(stage, requestIdentity.currentUserEmail());
+        return out;
+    }
+
+    app.get('/api/projects/:id/model', requireAuth, async (req, res) => {
+        try {
+            const { id } = req.params;
+            assertValidProjectId(id);
+            const project = await readProjectJSONById(id);
+            res.json({ model: typeof project.data?.model === 'string' ? project.data.model : '', resolved: resolvedForRequest() });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to read the project model');
+        }
+    });
+
+    app.put('/api/projects/:id/model', requireAuth, async (req, res) => {
+        try {
+            const { id } = req.params;
+            assertValidProjectId(id);
+            await assertProjectExists(id);
+            const model = String(req.body?.model ?? '').trim();
+            if (model) {
+                const row = modelRegistry.getModel(model);
+                if (!row) throw new BadRequestError(`${model} is not in the model registry.`);
+                if (!row.enabled) throw new BadRequestError(`${row.label || model} is disabled on this deployment.`);
+            }
+            await updateProjectJSON(id, (project) => {
+                project.data = project.data || {};
+                if (model) project.data.model = model;
+                else delete project.data.model;
+                return project;
+            });
+            // The chokepoint noted the model as it was BEFORE this write (first read
+            // wins); answer with what will run from now on by resolving afresh.
+            const identity = requestIdentity.currentIdentity();
+            if (identity) identity.projectModel = model || null;
+            res.json({ ok: true, model, resolved: resolvedForRequest() });
+        } catch (error) {
+            sendApiError(res, error, 'Failed to set the project model');
         }
     });
 

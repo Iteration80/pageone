@@ -1041,33 +1041,8 @@ textarea.synopsis-input {
     padding-top: 0;
 }
 
-.settings-stage-row {
-    display: grid;
-    grid-template-columns: 130px 1fr;
-    column-gap: 12px;
-    row-gap: 2px;
-    align-items: center;
-}
-
-.settings-stage-label {
-    font-size: 0.8rem;
-    color: #9ca3af;
-}
-
-.settings-stage-runs {
-    grid-column: 2;
-    font-size: 0.72rem;
-    color: #6b7280;
-    line-height: 1.4;
-}
-
-.settings-stage-runs.is-warning,
 .settings-hint.is-warning {
     color: #f59e0b;
-}
-
-.settings-stage-runs.is-danger {
-    color: #f87171;
 }
 
 .settings-hint {
@@ -1076,38 +1051,61 @@ textarea.synopsis-input {
     line-height: 1.5;
 }
 
-.settings-updates {
-    border: 1px solid #374151;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin-bottom: 12px;
-    font-size: 0.78rem;
-    color: #d1d5db;
-    line-height: 1.5;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.settings-updates.has-news {
-    border-color: #3b82f6;
-}
-
-.settings-updates .updates-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.settings-updates .updates-muted {
-    color: #6b7280;
-    font-size: 0.72rem;
-}
-
 .settings-build-footer {
     border-top: 1px solid var(--card-border);
     padding-top: 12px;
+}
+
+/* Sidebar project-model picker (one model per project, 2026-09-26). */
+.project-model {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 16px 12px;
+}
+
+.project-model-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+
+.project-model-select {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+}
+
+.project-model-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 1.2em;
+}
+
+.project-model-default {
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.project-model-default:hover {
+    color: var(--text-primary);
+}
+
+.project-model-status {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
 }
 
 .settings-build-fingerprint {

@@ -61,9 +61,32 @@ function currentUserEmail() {
     return currentIdentity()?.email || null;
 }
 
+/**
+ * The model the current request's PROJECT asks for, if the project it read
+ * declares one (`data.model`). Set by the project chokepoints the first time a
+ * project carrying a model is read in a request; resolveStageModel() consults it
+ * before any per-person or deployment default. Lives on the identity object so
+ * there is exactly one request-scoped context, and so a system call (no identity)
+ * can never carry a stale project model into another request.
+ */
+function setRequestProjectModel(model) {
+    const identity = currentIdentity();
+    if (!identity || typeof identity !== 'object') return false;
+    if (identity.projectModel) return false; // first project with a model wins
+    if (typeof model !== 'string' || !model.trim()) return false;
+    identity.projectModel = model.trim();
+    return true;
+}
+
+function currentProjectModel() {
+    return currentIdentity()?.projectModel || null;
+}
+
 module.exports = {
     runWithIdentity,
     currentIdentity,
     currentUserEmail,
-    hasScopedIdentity
+    hasScopedIdentity,
+    setRequestProjectModel,
+    currentProjectModel
 };

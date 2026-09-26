@@ -18,7 +18,11 @@ const { signSession } = require('../utils/auth');
 // token test.
 
 const FIXTURES = path.join(__dirname, 'fixtures', 'model-sources');
-const BUNDLE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'models.json'), 'utf8'));
+const REAL_BUNDLE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'models.json'), 'utf8'));
+// The rows the sources would discover on 2026-09-25 — stripped from the bundle in
+// these tests so the "discover" path is what gets exercised, not the bundle merge.
+const SOURCE_DISCOVERED = ['claude-fable-5-1', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+const BUNDLE = { ...REAL_BUNDLE, models: REAL_BUNDLE.models.filter(m => !SOURCE_DISCOVERED.includes(m.id)) };
 
 async function fixtureSources() {
     const { parsed, status } = await mu.loadSources({ fixtureDir: FIXTURES, now: Date.parse('2026-09-25T12:00:00Z') });
@@ -111,116 +115,106 @@ test('a row checked or edited today is never overwritten by the sources', async 
     assert.equal(sonnet.skipped, 'edited today');
 });
 
-// ─── Route harness ─────────────────────────────────────────────────────────────
+// ─── The CLI (what a Claude Code session runs) and the boot-time bundle merge ────
+//
+// Since 2026-09-26 the app never fetches the sources: `npm run models:check` does,
+// against whatever DATA_ROOT points at (locally, the bundle itself). The app only
+// merges the bundle at boot (`bundleOnly`). Both are exercised in a child process
+// so DATA_ROOT is bound fresh.
 
-const GOOGLE_ENV = {
-    GOOGLE_CLIENT_ID: 'test-client-id.apps.googleusercontent.com',
-    GOOGLE_CLIENT_SECRET: 'test-client-secret',
-    ALLOWED_EMAILS: 'alice@example.com, bob@example.com',
-    SESSION_SECRET: 'test-session-secret',
-    OAUTH_BASE_URL: 'https://pageone.test',
-    MODEL_UPDATES_FIXTURE_DIR: FIXTURES
-};
-const ALICE = 'alice@example.com';
-const BOB = 'bob@example.com';
-const as = email => ({ pageone_session: signSession(email, GOOGLE_ENV.SESSION_SECRET) });
+const { execFileSync } = require('child_process');
 
-async function withServer(run, env = {}) {
-    const server = await startTestServer({ env: { ...GOOGLE_ENV, ...env } });
-    try { return await run(server); } finally { await server.close(); }
+function tempStore(mutate = store => store) {
+    const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pageone-models-check-'));
+    const store = JSON.parse(JSON.stringify(BUNDLE));
+    fs.writeFileSync(path.join(dataRoot, 'models.json'), JSON.stringify(mutate(store), null, 2));
+    return dataRoot;
 }
 
-async function mintToken(request, email) {
-    const res = await request('/api/tokens', { method: 'POST', cookies: as(email), json: { name: 'script' } });
-    assert.equal(res.status, 201, res.text);
-    return res.json.token;
+function runCli(dataRoot, args = [], extraEnv = {}) {
+    return execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'models-check.js'), ...args], {
+        env: { ...process.env, DATA_ROOT: dataRoot, MODEL_UPDATES_FIXTURE_DIR: FIXTURES, ...extraEnv },
+        encoding: 'utf8'
+    });
 }
 
-test('the check route adds agreed models to a real deployment registry, records them as unseen, and never touches Verify results', async () => {
-    await withServer(async ({ request, dataRoot }) => {
-        // Prod-shaped deployment copy: no Opus 5.5, a stale Sonnet price, one Verify result to protect.
-        const store = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'models.json'), 'utf8'));
-        store.models = store.models.filter(m => m.id !== 'claude-opus-5-5').map(m => {
-            if (m.id === 'claude-sonnet-5') return { ...m, pricing: { ...m.pricing, inputPerMTok: 3, outputPerMTok: 15, checkedAt: '2026-08-16' }, verified: { 1: { ok: true, at: 1, by: ALICE } } };
-            return m;
-        });
-        fs.writeFileSync(path.join(dataRoot, 'models.json'), JSON.stringify(store, null, 2));
+test('npm run models:check adds agreed models and re-prices, and never touches a Verify result', () => {
+    const dataRoot = tempStore(store => {
+        store.models = store.models.filter(m => m.id !== 'claude-opus-5-5').map(m => (m.id === 'claude-sonnet-5'
+            ? { ...m, pricing: { ...m.pricing, inputPerMTok: 3, outputPerMTok: 15, checkedAt: '2026-08-16' }, verified: { 1: { ok: true, at: 1, by: 'alice@example.com' } } }
+            : m));
+        return store;
+    });
+    try {
+        const dry = runCli(dataRoot, ['--dry-run']);
+        assert.match(dry, /would add/);
+        const untouched = JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8'));
+        assert.equal(untouched.models.some(m => m.id === 'claude-fable-5-1'), false, '--dry-run writes nothing');
 
-        const before = await request('/api/admin/models/updates', { cookies: as(ALICE) });
-        assert.equal(before.status, 200, before.text);
-        assert.equal(before.json.lastCheckedAt, null, 'nothing has run — the harness keeps the boot check off');
-
-        const res = await request('/api/admin/models/updates/check', { method: 'POST', cookies: as(ALICE), json: {} });
-        assert.equal(res.status, 200, res.text);
-        assert.ok(res.json.applied.added.includes('claude-opus-5-5'), 'bundle row merged');
-        assert.ok(res.json.applied.added.includes('claude-fable-5-1'), 'agreed new model added');
-        assert.ok(res.json.applied.priced.includes('claude-sonnet-5'));
-        assert.deepEqual(res.json.applied.errors, []);
-
-        const onDisk = JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8'));
-        const fable = onDisk.models.find(m => m.id === 'claude-fable-5-1');
+        const out = runCli(dataRoot);
+        assert.match(out, /claude-fable-5-1/, 'named under whichever heading it arrived — bundle or sources');
+        const after = JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8'));
+        assert.ok(after.models.some(m => m.id === 'claude-opus-5-5'), 'bundle row merged');
+        const fable = after.models.find(m => m.id === 'claude-fable-5-1');
         assert.deepEqual([fable.pricing.inputPerMTok, fable.pricing.outputPerMTok], [10, 50]);
-        assert.deepEqual(fable.verified, {}, 'an added row starts unverified');
-        const sonnet = onDisk.models.find(m => m.id === 'claude-sonnet-5');
+        assert.deepEqual(fable.verified, {});
+        const sonnet = after.models.find(m => m.id === 'claude-sonnet-5');
         assert.deepEqual([sonnet.pricing.inputPerMTok, sonnet.pricing.outputPerMTok], [2, 10]);
-        assert.deepEqual(sonnet.verified, { 1: { ok: true, at: 1, by: ALICE, error: null } }, 'a price refresh must not touch Verify');
-        assert.equal(onDisk.models.find(m => m.id === 'claude-opus-4-8').successor, 'claude-opus-5-5', 'successor links merged from the bundle');
+        assert.deepEqual(sonnet.verified, { 1: { ok: true, at: 1, by: 'alice@example.com', error: null } }, 'a price refresh must not touch Verify');
+        assert.equal(after.models.find(m => m.id === 'claude-opus-4-8').successor, 'claude-opus-5-5');
+        assert.equal(after.models.find(m => m.id === 'claude-opus-5-5').order, 1, 'display order merged from the bundle');
 
-        // The registry the dropdowns read now offers the new rows.
-        const models = await request('/api/models', { cookies: as(BOB) });
-        assert.ok(models.json.models.some(m => m.id === 'claude-fable-5-1' && m.enabled));
-
-        // Unseen until acknowledged; acknowledged clears the list but keeps the rows.
-        const after = await request('/api/admin/models/updates', { cookies: as(ALICE) });
-        assert.ok(after.json.unacknowledged.added.map(a => a.id).includes('claude-fable-5-1'));
-        assert.ok(after.json.unacknowledged.priced.map(p => p.id).includes('claude-sonnet-5'));
-        const ack = await request('/api/admin/models/updates/acknowledge', { method: 'POST', cookies: as(ALICE), json: {} });
-        assert.equal(ack.status, 200);
-        const cleared = await request('/api/admin/models/updates', { cookies: as(ALICE) });
-        assert.deepEqual(cleared.json.unacknowledged, { added: [], priced: [] });
-        assert.ok(JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8')).models.some(m => m.id === 'claude-fable-5-1'));
-
-        // Running it again is a no-op — nothing new, nothing re-added.
-        const again = await request('/api/admin/models/updates/check', { method: 'POST', cookies: as(ALICE), json: {} });
-        assert.deepEqual(again.json.applied.added, []);
-        assert.deepEqual(again.json.applied.priced, []);
-    });
+        const again = runCli(dataRoot);
+        assert.match(again, /New models with an agreed price \(added\): none/);
+        assert.match(again, /Bundle rows missing on this store: none/, 'idempotent');
+    } finally {
+        fs.rmSync(dataRoot, { recursive: true, force: true });
+    }
 });
 
-test('retirements are offered from the live defaults, and the check is session-only', async () => {
-    await withServer(async ({ request }) => {
-        await request('/api/admin/models/updates/check', { method: 'POST', cookies: as(ALICE), json: {} });
-        const set = await request('/api/settings', { method: 'POST', cookies: as(ALICE), json: { stageModels: { stage1: 'claude-opus-4-8', stage2: 'claude-opus-4-8' } } });
-        assert.equal(set.status, 200, set.text);
-        const state = await request('/api/admin/models/updates', { cookies: as(ALICE) });
-        assert.deepEqual(state.json.retirements.map(r => [r.id, r.successor, r.stages]), [['claude-opus-4-8', 'claude-opus-5-5', ['stage1', 'stage2']]]);
-
-        const token = await mintToken(request, ALICE);
-        const viaToken = await request('/api/admin/models/updates/check', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, json: {} });
-        assert.equal(viaToken.status, 401, 'a token must not be able to write registry rows');
-        const bob = await request('/api/admin/models/updates/check', { method: 'POST', cookies: as(BOB), json: {} });
-        assert.equal(bob.status, 403);
-        const bobReads = await request('/api/admin/models/updates', { cookies: as(BOB) });
-        assert.equal(bobReads.status, 403);
-        const readViaToken = await request('/api/admin/models/updates', { headers: { Authorization: `Bearer ${token}` } });
-        assert.equal(readViaToken.status, 200, 'an admin token may read, like the overview');
-    });
-});
-
-test('with fewer than two sources answering, nothing is written', async () => {
+test('with fewer than two sources answering, the CLI writes nothing and says so', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pageone-one-source-'));
     fs.copyFileSync(path.join(FIXTURES, 'openrouter.json'), path.join(dir, 'openrouter.json'));
+    const dataRoot = tempStore();
     try {
-        await withServer(async ({ request }) => {
-            const res = await request('/api/admin/models/updates/check', { method: 'POST', cookies: as(ALICE), json: {} });
-            assert.equal(res.status, 200, res.text);
-            assert.equal(res.json.plan.tooFewSources, true);
-            assert.deepEqual(res.json.applied.added, [], 'nothing from the sources, and the bundle is already the deployment copy here');
-            assert.deepEqual(res.json.applied.priced, []);
-            assert.equal(res.json.sources.openrouter.ok, true);
-            assert.equal(res.json.sources.litellm.ok, false);
-        }, { MODEL_UPDATES_FIXTURE_DIR: dir });
+        let out = '';
+        let code = 0;
+        try { out = runCli(dataRoot, [], { MODEL_UPDATES_FIXTURE_DIR: dir }); } catch (err) { out = String(err.stdout || ''); code = err.status; }
+        assert.equal(code, 2);
+        assert.match(out, /Fewer than two sources answered/);
+        const after = JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8'));
+        const bundleIds = new Set(REAL_BUNDLE.models.map(m => m.id));
+        assert.ok(after.models.every(m => bundleIds.has(m.id)), 'nothing arrived from a single source — only the bundle merge may run');
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(dataRoot, { recursive: true, force: true });
+    }
+});
+
+test('the boot-time merge is bundle-only: no source is read, bundle rows and links arrive, nothing is added from the internet', async () => {
+    const dataRoot = tempStore(store => {
+        store.models = store.models.filter(m => m.id !== 'claude-opus-5-5').map(m => ({ ...m, successor: null, order: null }));
+        return store;
+    });
+    try {
+        const out = execFileSync(process.execPath, ['-e', `
+            const mu = require(${JSON.stringify(path.join(__dirname, '..', 'utils', 'model_updates.js'))});
+            mu.checkForUpdates({ apply: true, bundleOnly: true, fetchImpl: () => { throw new Error('NETWORK TOUCHED'); } })
+              .then(({ plan, applied }) => console.log(JSON.stringify({ bundleOnly: plan.bundleOnly, added: applied.added, priced: applied.priced, patched: applied.successorPatches.length, tooFew: plan.tooFewSources })))
+              .catch(err => { console.error(err.message); process.exit(1); });
+        `], { env: { ...process.env, DATA_ROOT: dataRoot, MODEL_UPDATES_FIXTURE_DIR: '' }, encoding: 'utf8' });
+        const result = JSON.parse(out.trim().split('\n').pop());
+        assert.equal(result.bundleOnly, true);
+        assert.equal(result.tooFew, false, 'bundle-only is not a failed source check');
+        const bundleIds = new Set(REAL_BUNDLE.models.map(m => m.id));
+        assert.ok(result.added.includes('claude-opus-5-5'));
+        assert.ok(result.added.every(id => bundleIds.has(id)), `only bundle rows: ${result.added}`);
+        assert.deepEqual(result.priced, []);
+        assert.ok(result.patched >= 8, `successor/order links merged: ${result.patched}`);
+        const after = JSON.parse(fs.readFileSync(path.join(dataRoot, 'models.json'), 'utf8'));
+        assert.ok(after.models.every(m => bundleIds.has(m.id)), 'no row outside the bundle');
+        assert.equal(after.models.find(m => m.id === 'claude-opus-4-8').successor, 'claude-opus-5-5');
+    } finally {
+        fs.rmSync(dataRoot, { recursive: true, force: true });
     }
 });

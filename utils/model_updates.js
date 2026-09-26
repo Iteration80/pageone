@@ -334,7 +334,8 @@ function reconcile({ registry, bundle, parsed, stageModels = {}, now = Date.now(
         priced.push({ id, from: current, to: { inputPerMTok: info.inputPerMTok, outputPerMTok: info.outputPerMTok }, agreedBy: info.agreedBy });
     }
 
-    // 4. Successor links and deprecations the bundle knows and the deployment does not.
+    // 4. Successor links, deprecations, display order and the curated label the bundle
+    //    knows and the deployment does not. The bundle is the repo — the trusted source.
     const successorPatches = [];
     for (const row of models) {
         const b = bundleById.get(row.id);
@@ -342,6 +343,7 @@ function reconcile({ registry, bundle, parsed, stageModels = {}, now = Date.now(
         const patch = {};
         if (b.successor && row.successor !== b.successor) patch.successor = b.successor;
         if (b.deprecated && !row.deprecated) patch.deprecated = true;
+        if (Number.isFinite(Number(b.order)) && Number(row.order) !== Number(b.order)) patch.order = Number(b.order);
         if (Object.keys(patch).length) successorPatches.push({ id: row.id, patch });
     }
 
@@ -493,16 +495,19 @@ async function applyPlan(plan, { by = 'auto-update' } = {}) {
  * The whole job: load sources → reconcile against the live registry and the bundle →
  * apply the automatic part → remember what the admin has not acknowledged yet.
  */
-async function checkForUpdates({ apply = true, fetchImpl, fixtureDir, stageModels = {}, now = Date.now(), by = 'auto-update' } = {}) {
+async function checkForUpdates({ apply = true, bundleOnly = false, fetchImpl, fixtureDir, stageModels = {}, now = Date.now(), by = 'auto-update' } = {}) {
     await modelRegistry.ensureSeeded?.();
-    const { parsed, status } = await loadSources({ fetchImpl, fixtureDir, now });
+    // bundleOnly: no network at all — merge rows, prices-as-bundled, successor links and
+    // order from the repo's registry file. This is what the app does at boot since
+    // 2026-09-26; the live sources are consulted from `npm run models:check`.
+    const { parsed, status } = bundleOnly ? { parsed: {}, status: {} } : await loadSources({ fetchImpl, fixtureDir, now });
     const usable = Object.values(status).filter(s => s.ok).length;
     const registry = { models: modelRegistry.listModels(), recommended: modelRegistry.getRecommended() };
     let bundle = { models: [] };
     try { bundle = JSON.parse(fs.readFileSync(modelRegistry._bundledPath, 'utf8')); } catch {}
     const plan = usable >= 2
         ? reconcile({ registry, bundle, parsed, stageModels, now })
-        : { ...reconcile({ registry, bundle, parsed: {}, stageModels, now }), added: [], priced: [], conflicts: [], awaitingSecondSource: [], tooFewSources: true };
+        : { ...reconcile({ registry, bundle, parsed: {}, stageModels, now }), added: [], priced: [], conflicts: [], awaitingSecondSource: [], tooFewSources: !bundleOnly, bundleOnly };
     const applied = apply ? await applyPlan(plan, { by }) : null;
 
     const state = readState();

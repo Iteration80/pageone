@@ -8,7 +8,7 @@ const fsSync = require('fs');
 const path = require('path');
 // Request-scoped caller identity — the ownership chokepoints below read from this
 // rather than from a parameter, so no route can forget to pass it.
-const { runWithIdentity, currentUserEmail, hasScopedIdentity } = require('./utils/request_identity');
+const { runWithIdentity, currentUserEmail, hasScopedIdentity, setRequestProjectModel, currentProjectModel } = require('./utils/request_identity');
 // Per-person preferences layered over the server-global settings (Phase 5 item 0).
 const userSettings = require('./utils/user_settings');
 // The one table of models, providers and prices, as data (Phase 5 item 1).
@@ -213,8 +213,19 @@ function callerMayAccessProject(project) {
  * exist" is answerable by anyone who can guess an id. A non-owner should not be
  * able to tell an existing project from an absent one.
  */
+/**
+ * A project may carry ONE model for every stage (`data.model`, set from the picker in
+ * the workspace sidebar). Noted here, in the same chokepoint that decides access, so
+ * the ~30 getModelConfig() call sites pick it up without knowing a project exists.
+ */
+function noteProjectModel(project) {
+    const model = project?.data?.model;
+    if (typeof model === 'string' && model.trim()) setRequestProjectModel(model);
+    return project;
+}
+
 function assertProjectAccess(project, notFoundMessage = 'Project not found') {
-    if (callerMayAccessProject(project)) return project;
+    if (callerMayAccessProject(project)) return noteProjectModel(project);
     console.warn(`[ownership] denied ${currentUserEmail()} access to project ${project?.id} (owner: ${projectOwner(project) || 'none'})`);
     throw new NotFoundError(notFoundMessage);
 }
@@ -538,7 +549,11 @@ function resolveAutoModel(stageNum, email) {
  * Returns null only when the choice is Auto and nothing is reachable.
  */
 function resolveStageModel(stageNum, email) {
-    const chosen = userSettings.getUserStageModel(email, stageNum)
+    // The project's own choice outranks everything: one model per project is what a
+    // writer sees and sets (2026-09-26). The per-person and per-stage layers below it
+    // remain as data for existing deployments but have no UI any more.
+    const chosen = currentProjectModel()
+        || userSettings.getUserStageModel(email, stageNum)
         || appSettings.stageModels?.[`stage${stageNum}`]
         || process.env.GEMINI_MODEL;
     if (chosen === AUTO_MODEL) return resolveAutoModel(stageNum, email);
@@ -4686,8 +4701,6 @@ registerModelRoutes(app, {
     userKeys,
     providerKeyFor,
     recordVerificationUsage,
-    modelUpdates,
-    getStageModels: () => ({ ...(appSettings.stageModels || {}) }),
     BadRequestError,
     sendApiError
 });
@@ -4953,6 +4966,7 @@ registerProjectRoutes(app, {
     runAsSystem: fn => runWithIdentity(null, fn),
     sha256Hex: text => crypto.createHash('sha256').update(String(text)).digest('hex'),
     normalizeProtectedBeats,
+    modelRegistry,
     styleStore,
     uniqueStyleSlug,
     atomicWriteFile,
@@ -5078,11 +5092,15 @@ async function startServer() {
     // where two price sources agree, refresh prices that moved. Fire-and-forget —
     // a slow or dead source must never delay the listen. The route harness sets
     // MODEL_UPDATES=off so no test touches the network. See utils/model_updates.js.
+    // ⚠️ Since 2026-09-26 the LIVE price sources are consulted from a Claude Code
+    // session (`npm run models:check`), not by the app: the app only merges what the
+    // repo's bundle carries (rows, prices, successor links, order). MODEL_UPDATES=on
+    // re-enables the network check at boot; the harness sets it off.
     if (process.env.MODEL_UPDATES !== 'off') {
-        modelUpdates.checkForUpdates({ apply: true, stageModels: { ...(appSettings.stageModels || {}) }, by: 'boot' })
+        modelUpdates.checkForUpdates({ apply: true, bundleOnly: process.env.MODEL_UPDATES !== 'on', stageModels: { ...(appSettings.stageModels || {}) }, by: 'boot' })
             .then(({ plan, applied, state }) => {
                 const sources = Object.entries(state.sources || {}).map(([n, s]) => `${n}:${s.ok ? 'ok' : 'FAIL'}`).join(' ');
-                console.log(`[models] update check — sources ${sources}; +${applied.added.length} row(s) ${applied.added.join(',') || '-'}; ${applied.priced.length} price(s) refreshed; ${plan.conflicts.length} conflict(s); ${plan.retirements.length} retirement(s) to offer.`);
+                console.log(`[models] ${plan.bundleOnly ? 'bundle merge' : `update check — sources ${sources}`}; +${applied.added.length} row(s) ${applied.added.join(',') || '-'}; ${applied.priced.length} price(s) refreshed; ${plan.successorPatches.length} row(s) patched from the bundle.`);
                 if (plan.tooFewSources) console.warn('[models] fewer than two price sources answered — nothing was added or re-priced.');
             })
             .catch(err => console.warn(`[models] update check failed: ${err.message}`));

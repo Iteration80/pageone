@@ -194,8 +194,12 @@ const displayStageNumber = stageId => DISPLAY_STAGE_NUMBERS[Number(stageId)] || 
 const displayStageLabel = stageId => DISPLAY_STAGE_LABELS[Number(stageId)] || `Stage ${stageId}`;
 const displayStageName = stageId => `Stage ${displayStageNumber(stageId)} ${displayStageLabel(stageId)}`;
 
+// ⚠️ TOP-LEVEL BY DESIGN (2026-09-26). The sidebar model picker's handlers live
+// outside the DOMContentLoaded closure (with the settings code) and need the open
+// project's id; a declaration inside the closure is a ReferenceError at click time.
+let activeProjectId = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-    let activeProjectId = null;
     let targetProjectId = null; // Used for rename and delete operations
     let activeStageNum = 1;
     let currentDraftSceneNumber = 1;
@@ -2028,6 +2032,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error("Failed to fetch project details");
             const projectDetails = await res.json();
             setCurrentProjectData(projectDetails.data);
+            renderProjectModelPicker(projectDetails.data);
 
             resultsContainer.innerHTML = ''; // Start clean
             document.querySelector('.prompt-section')?.classList.remove('hidden'); // Reset for fresh load
@@ -12139,8 +12144,12 @@ async function loadBuildInfo() {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const payload = await res.json();
             modelRegistry = payload;
+            // The writer's list: enabled, not retired, not superseded (a row with a
+            // successor is offered through its successor), in the bundle's curated
+            // order — rows without an order sort last, alphabetically.
             MODEL_OPTIONS = (payload.models || [])
-                .filter(m => m.enabled)
+                .filter(m => m.enabled && !m.deprecated && !m.successor)
+                .sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || String(a.label || a.id).localeCompare(String(b.label || b.id)))
                 .map(m => ({ value: m.id, label: m.label || m.id }));
             window.ModelPricing.setPricingTable(payload.pricingTable || {});
         } catch (err) {
@@ -12171,9 +12180,7 @@ async function loadBuildInfo() {
     // Three tabs by WHO a setting belongs to (Models · Account · Admin). A tab is
     // shown only when something inside it is visible, so the modal grows with the
     // reader's standing instead of showing everyone every panel and hiding the
-    // insides. The footer Save writes the Models tab; the other tabs' sections
-    // each carry their own button, so Save steps aside there rather than saving
-    // something the reader cannot see.
+    // insides. Every section carries its own button; there is no footer Save.
     const SETTINGS_TABS = ['models', 'account', 'admin'];
     let activeSettingsTab = 'models';
 
@@ -12192,7 +12199,6 @@ async function loadBuildInfo() {
             btn?.setAttribute('aria-selected', tab === name ? 'true' : 'false');
             document.getElementById(`settings-panel-${tab}`)?.classList.toggle('hidden', tab !== name);
         });
-        document.getElementById('saveSettingsBtn')?.classList.toggle('hidden', name !== 'models');
     }
 
     function refreshSettingsTabs() {
@@ -12211,145 +12217,133 @@ async function loadBuildInfo() {
         return (modelRegistry.models || []).find(m => m.id === id) || null;
     }
 
-    /** Label for a saved value the dropdown would not otherwise offer — say WHY it is odd. */
-    function savedModelOptionLabel(id) {
-        const row = registryRow(id);
-        if (row) return `${row.label} (deprecated — still runs)`;
-        return `${id} (saved — not in the registry)`;
-    }
-
-    /**
-     * What will actually run on a stage given the dropdown's value, in one sentence.
-     * The dropdown answers "what can I pick"; this answers "what happens if I close
-     * the modal now" — the question the old modal made the writer assemble from an
-     * inherit label, an Auto label and a ✓/?/✗ prefix. `inherited` is the deployment
-     * default for the stage, `resolved` what the server says this reader runs today.
-     */
-    function describeStageChoice(stageNum, value, { inherited = '', resolved = '', layer = 'personal' } = {}) {
-        let modelId = value;
-        let why;
-        if (!value) {
-            modelId = inherited === 'auto' ? resolved : (inherited || resolved);
-            why = inherited === 'auto' ? 'deployment default is Auto' : 'deployment default';
-        } else if (value === 'auto') {
-            modelId = modelRegistry.recommended?.[String(stageNum)] || '';
-            why = modelId ? 'Auto' : 'Auto — nothing recommended for this stage';
-        } else {
-            why = layer === 'personal' ? 'your choice' : 'deployment default';
-        }
-        if (!modelId) return { text: `Runs on: nothing resolved · ${why}`, level: 'danger' };
-        const row = registryRow(modelId);
-        const name = row?.label || modelLabel(modelId);
-        const flags = [];
-        let level = 'ok';
-        if (!row) {
-            flags.push('not in the model registry — spend will be unpriced');
-            level = 'warning';
-        } else if (row.deprecated || row.enabled === false) {
-            flags.push('deprecated — still runs, but pick a current model');
-            level = 'warning';
-        }
-        const { mark } = verifyMark(modelId, stageNum);
-        if (mark === '✗') {
-            flags.push('failed Verify on this stage — the stage will refuse it');
-            level = 'danger';
-        } else if (mark === '?') {
-            flags.push('unverified on this stage');
-        }
-        return { text: `Runs on ${name} · ${why}${flags.length ? ' · ' + flags.join(' · ') : ''}`, level };
-    }
-
-    /** "Stage N: Label | select" with the plain-language readout underneath, kept live. */
-    function stageModelRow(num, label, select, ctx = {}) {
-        const row = document.createElement('div');
-        row.className = 'settings-stage-row';
-        const lbl = document.createElement('span');
-        lbl.className = 'settings-stage-label';
-        lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
-        const runs = document.createElement('span');
-        runs.className = 'settings-stage-runs';
-        const update = () => {
-            const d = describeStageChoice(num, select.value, ctx);
-            runs.textContent = d.text;
-            runs.classList.toggle('is-warning', d.level === 'warning');
-            runs.classList.toggle('is-danger', d.level === 'danger');
-        };
-        select.addEventListener('change', update);
-        update();
-        row.append(lbl, select, runs);
-        return row;
-    }
-
-    /**
-     * Auto's recommended map and the deployment defaults are two answers to the same
-     * question, and where they differ every writer's dropdown shows the disagreement
-     * as its top two options. Say it where the admin sets both, with a one-click fix
-     * that never recommends a deprecated model — that is the client's rule, the route
-     * accepts any registry id.
-     */
-    function renderRecommendedConflicts(globalModels = {}) {
-        const box = document.getElementById('settings-global-models-conflicts');
-        if (!box) return;
-        const rec = modelRegistry.recommended || {};
-        const diffs = [];
-        STAGE_MODEL_LABELS.forEach(([num, label]) => {
-            const def = globalModels[`stage${num}`];
-            if (!def || def === 'auto') return;
-            if ((rec[String(num)] || '') !== def) diffs.push({ num, label, def, rec: rec[String(num)] || '' });
-        });
-        box.innerHTML = '';
-        box.classList.toggle('is-warning', diffs.length > 0);
-        if (!diffs.length) {
-            box.textContent = 'Auto recommends the same model as the deployment default on every stage.';
-            return;
-        }
-        const p = document.createElement('p');
-        p.className = 'settings-hint is-warning';
-        p.textContent = `Auto recommends a different model than the deployment default on ${diffs.length} stage${diffs.length === 1 ? '' : 's'}: `
-            + diffs.map(d => `${displayStageNumber(d.num)} ${d.label} (default ${modelLabel(d.def)}, Auto ${d.rec ? modelLabel(d.rec) : 'none'})`).join(' · ')
-            + '. Writers see both as the top two options of every dropdown.';
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'btnAdminMatchRecommended';
-        btn.className = 'secondary-btn';
-        btn.style.cssText = 'padding:4px 12px;margin-top:8px';
-        btn.textContent = 'Set Auto to match these defaults';
-        btn.addEventListener('click', async () => {
-            const recommended = { ...rec };
-            const skipped = [];
-            STAGE_MODEL_LABELS.forEach(([num, label]) => {
-                const def = globalModels[`stage${num}`];
-                if (!def || def === 'auto') return;
-                const row = registryRow(def);
-                if (!row || row.enabled === false || row.deprecated) {
-                    skipped.push(`${displayStageNumber(num)} ${label} — ${row ? row.label : def} is deprecated, Auto must not recommend it`);
-                    return;
-                }
-                recommended[String(num)] = def;
-            });
-            try {
-                await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
-                await loadModelRegistry();
-                modelsStatus(skipped.length
-                    ? `Auto updated where the default is a current model. Left alone: ${skipped.join('; ')}.`
-                    : 'Auto now recommends the deployment defaults.', skipped.length > 0);
-            } catch (err) {
-                modelsStatus(`Could not update Auto: ${err.message}`, true);
-            }
-            renderRecommendedConflicts(globalModels);
-            renderModelsPanel();
-        });
-        box.append(p, btn);
-    }
-
     function modelLabel(value) {
-        // `auto` is a sentinel, not a registry row, so it has no label to look up —
-        // and showing the raw word where a model name belongs makes the deployment
-        // default read like a broken value rather than a deliberate choice.
-        if (value === 'auto') return 'Auto (recommended)';
-        // A deprecated row is not in MODEL_OPTIONS (the dropdowns list enabled models)
-        // but it can still be the saved default — name it, not its id.
+        // `auto` is a legacy sentinel some deployments may still hold; not a registry row.
+        if (value === 'auto') return 'Auto';
+        // A retired row is not in MODEL_OPTIONS (the picker lists current models) but
+        // it can still be a saved default — name it, not its id.
         return MODEL_OPTIONS.find(opt => opt.value === value)?.label || registryRow(value)?.label || value;
+    }
+
+    // ─── One model per project (2026-09-26) ─────────────────────────────────
+    // A writer picks a model for a PROJECT, from the sidebar. Every stage runs on it.
+    // The deployment default is one model too (set from the Models tab or the
+    // "Make default" button). The per-stage and per-person layers still exist as
+    // server data for older deployments but have no UI any more — that was the
+    // complexity Carsten asked to remove.
+
+    /** The deployment's default as one model, or the first stage's when it varies. */
+    function deploymentDefaultModel(settings = {}) {
+        const g = settings.globalStageModels || settings.stageModels || {};
+        const values = STAGE_MODEL_LABELS.map(([n]) => g[`stage${n}`] || null);
+        const first = values.find(Boolean) || null;
+        const uniform = Boolean(first) && values.every(v => !v || v === first);
+        const resolvedFirst = (settings.resolvedStageModels || {}).stage1 || first;
+        return { model: first, uniform, resolvedFirst };
+    }
+
+    function defaultModelLabel(settings = {}) {
+        const d = deploymentDefaultModel(settings);
+        if (!d.model) return 'the built-in default';
+        return d.uniform ? modelLabel(d.model) : `${modelLabel(d.resolvedFirst || d.model)} (varies by stage)`;
+    }
+
+    async function saveDeploymentDefault(modelId) {
+        const stageModels = {};
+        STAGE_MODEL_LABELS.forEach(([n]) => { stageModels[`stage${n}`] = modelId; });
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageModels })
+        });
+        if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+    }
+
+    /** Models tab: one sentence, plus the default select for admins. */
+    function renderDefaultModelSection(settings = {}) {
+        const note = document.getElementById('settings-model-note');
+        const row = document.getElementById('settings-default-model-row');
+        const select = document.getElementById('settings-default-model');
+        const status = document.getElementById('settings-default-model-status');
+        if (status) status.textContent = '';
+        if (note) note.textContent = `New projects run on ${defaultModelLabel(settings)}. Pick a different model for any project from its sidebar.`;
+        const canEdit = settings.canEditGlobalModels !== false;
+        row?.classList.toggle('hidden', !canEdit);
+        if (canEdit && select) {
+            const d = deploymentDefaultModel(settings);
+            buildModelSelect(d.model || '', { into: select });
+        }
+    }
+
+    document.getElementById('btnSaveDefaultModel')?.addEventListener('click', async () => {
+        const select = document.getElementById('settings-default-model');
+        const status = document.getElementById('settings-default-model-status');
+        const say = (t, bad = false) => { if (status) { status.textContent = t; status.style.color = bad ? '#f87171' : '#9ca3af'; } };
+        if (!select?.value) { say('Pick a model first.', true); return; }
+        try {
+            await saveDeploymentDefault(select.value);
+            say(`${modelLabel(select.value)} is now the default for every project.`);
+            if (activeProjectId && window.currentProjectData) renderProjectModelPicker(window.currentProjectData);
+        } catch (err) {
+            say(`Could not save: ${err.message}`, true);
+        }
+    });
+
+    /** The sidebar picker: fill it for the open project and wire its two actions once. */
+    let projectPickerWired = false;
+    async function renderProjectModelPicker(data = {}) {
+        const box = document.getElementById('projectModelBox');
+        const select = document.getElementById('projectModelSelect');
+        const makeDefault = document.getElementById('btnMakeDefaultModel');
+        const status = document.getElementById('projectModelStatus');
+        if (!box || !select) return;
+        await loadModelRegistry();
+        let settings = {};
+        try { settings = await (await fetch('/api/settings')).json(); } catch {}
+        const current = typeof data?.model === 'string' ? data.model : '';
+        buildModelSelect(current, { into: select, inheritLabel: `Default · ${defaultModelLabel(settings)}` });
+        const canEdit = settings.canEditGlobalModels !== false;
+        makeDefault?.classList.toggle('hidden', !canEdit);
+        if (status) status.textContent = '';
+        if (projectPickerWired) return;
+        projectPickerWired = true;
+        const say = (t, bad = false) => { if (status) { status.textContent = t; status.style.color = bad ? '#f87171' : '#9ca3af'; } };
+        select.addEventListener('change', async () => {
+            if (!activeProjectId) return;
+            const value = select.value;
+            try {
+                const res = await fetch(`/api/projects/${activeProjectId}/model`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: value })
+                });
+                if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
+                if (window.currentProjectData) {
+                    if (value) window.currentProjectData.model = value;
+                    else delete window.currentProjectData.model;
+                }
+                say(value ? `Every stage now runs on ${modelLabel(value)}.` : 'Following the deployment default.');
+            } catch (err) {
+                say(`Could not save: ${err.message}`, true);
+            }
+        });
+        makeDefault?.addEventListener('click', async () => {
+            const value = select.value || deploymentDefaultModel(settings).resolvedFirst;
+            if (!value) { say('Pick a model first.', true); return; }
+            const ok = await confirmDialog({
+                title: `Make ${modelLabel(value)} the default?`,
+                message: `Every project that follows the default — including new ones — will run every stage on ${modelLabel(value)}. Projects with their own pick are not touched.`,
+                confirmLabel: 'Make default'
+            });
+            if (!ok) return;
+            try {
+                await saveDeploymentDefault(value);
+                say(`${modelLabel(value)} is now the default for every project.`);
+                renderProjectModelPicker(window.currentProjectData || {});
+            } catch (err) {
+                say(`Could not save: ${err.message}`, true);
+            }
+        });
     }
 
     /**
@@ -12368,46 +12362,26 @@ async function loadBuildInfo() {
         return { mark: '✗', title: `Verified as NOT working${verdict.error ? `: ${verdict.error}` : ''} — this stage will refuse it.` };
     }
 
-    function buildModelSelect(stageNum, currentModel, { idPrefix = 'settings-model-stage', inheritLabel = null, includeAuto = true } = {}) {
-        const select = document.createElement('select');
-        select.id = `${idPrefix}${stageNum}`;
-        select.className = 'modal-input';
-        select.style.cssText = 'flex:1;padding:4px 8px';
+    function buildModelSelect(currentModel, { inheritLabel = null, into = null } = {}) {
+        const select = into || document.createElement('select');
+        if (!into) select.className = 'modal-input';
+        select.innerHTML = '';
 
-        // A saved model that isn't in the list gets an option of its own, so the modal
-        // always shows what is actually configured.
+        // A saved model that isn't in the list gets an option of its own, so the
+        // dropdown always shows what is actually configured.
         //
-        // ⚠️ Without this the select silently displays its FIRST option instead, and
-        // Save then writes that back — so opening Settings and saving would have
-        // rewritten every stage to whatever happened to be first. Found 2026-08-03
-        // with all ten stages reading "Gemini 3.1 Pro" while nine of them were running
-        // `gemini-3.6-flash`, which had been dropped from this list by `d965963`.
+        // ⚠️ Without this the select silently displays its FIRST option instead, and a
+        // save then writes that back — found 2026-08-03 with nine stages misreported.
         // A dropdown is a claim about current state; it must never misreport one.
-        // ✓/?/✗ rides in the option label, so the writer sees what is known about a
-        // model FOR THIS STAGE at the moment they pick it, not after it fails.
-        const withMark = opt => {
-            const { mark } = verifyMark(opt.value, stageNum);
-            return { ...opt, label: `${mark} ${opt.label}` };
-        };
         let options = MODEL_OPTIONS.some(opt => opt.value === currentModel)
-            ? MODEL_OPTIONS.map(withMark)
-            : [{ value: currentModel, label: savedModelOptionLabel(currentModel) }, ...MODEL_OPTIONS.map(withMark)];
-        if (includeAuto) {
-            const auto = modelRegistry.recommended?.[String(stageNum)];
-            options = [{
-                value: 'auto',
-                label: auto ? `Auto (recommended: ${modelLabel(auto)})` : 'Auto (recommended)'
-            }, ...options];
-        }
+            ? [...MODEL_OPTIONS]
+            : [...(currentModel ? [{ value: currentModel, label: registryRow(currentModel) ? `${registryRow(currentModel).label} (retired — still runs)` : `${currentModel} (saved — not in the registry)` }] : []), ...MODEL_OPTIONS];
         if (inheritLabel !== null) {
             // ⚠️ The inherit option carries value '' and must come FIRST, because ''
-            // is also what a stage with no personal choice holds — without it the
-            // select would fall through to its first real model and Save would turn
-            // every inherited stage into an explicit pin. Same failure as 2026-08-03,
-            // one layer up.
+            // is also what a project with no pick holds — without it the select would
+            // fall through to its first real model and a save would pin it.
             options = [{ value: '', label: inheritLabel }, ...options.filter(opt => opt.value !== '')];
         }
-
         options.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
@@ -12781,162 +12755,64 @@ async function loadBuildInfo() {
         return value;
     }
 
-    function modelRowElement(model, staleIds) {
+    /** Admin → Models: one line per pickable model, its Verify state, one button. */
+    function modelStatusRow(model) {
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid #374151;border-radius:6px';
-
-        const top = document.createElement('div');
-        top.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 10px;border:1px solid #374151;border-radius:6px';
         const name = document.createElement('span');
-        name.style.cssText = `font-size:0.85rem;color:${model.enabled ? '#e5e7eb' : '#6b7280'}`;
+        name.style.cssText = 'font-size:0.85rem;color:#e5e7eb';
         name.textContent = model.label || model.id;
-        top.appendChild(name);
+        row.appendChild(name);
         const id = document.createElement('code');
         id.style.cssText = 'font-size:0.7rem;color:#6b7280';
         id.textContent = model.id;
-        top.appendChild(id);
-        top.appendChild(adminChip(model.provider || 'no provider', model.provider ? '#60a5fa' : '#f87171'));
-        if (!model.enabled) top.appendChild(adminChip('disabled', '#6b7280'));
-        if (model.deprecated) top.appendChild(adminChip('deprecated', '#6b7280'));
-        if (staleIds.includes(model.id)) {
-            const chip = adminChip(`price unchecked since ${model.pricing.checkedAt || 'never'}`, '#fbbf24');
-            chip.title = 'Nobody has compared this rate to the provider\'s page in over 90 days. '
-                + 'Two Gemini rows were wrong for months exactly this way.';
-            top.appendChild(chip);
-        }
-        if (model.pricing.inputPerMTok === null) {
-            const chip = adminChip('no price', '#f87171');
-            chip.title = 'This model spends real money and reports $0.00 in every spend figure.';
-            top.appendChild(chip);
-        }
-        if (model.pricing.note) {
-            const note = document.createElement('span');
-            note.style.cssText = 'font-size:0.68rem;color:#9ca3af';
-            note.textContent = model.pricing.note;
-            top.appendChild(note);
-        }
-        row.appendChild(top);
+        row.appendChild(id);
+        if (model.deprecated) row.appendChild(adminChip('retired', '#6b7280'));
 
-        const fields = document.createElement('div');
-        fields.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
-        const input = (value, placeholder, width, title) => {
-            const el = document.createElement('input');
-            el.type = 'text';
-            el.className = 'modal-input';
-            el.style.cssText = `padding:3px 6px;font-size:0.75rem;min-width:0;${width}`;
-            el.value = value ?? '';
-            el.placeholder = placeholder;
-            if (title) el.title = title;
-            return el;
-        };
-        const labelInput = input(model.label, 'display name', 'flex:1 1 130px');
-        const inInput = input(model.pricing.inputPerMTok, '$ in / M', 'flex:0 0 84px', 'USD per million input tokens, as published');
-        const outInput = input(model.pricing.outputPerMTok, '$ out / M', 'flex:0 0 84px', 'USD per million output tokens, as published');
-        const sourceInput = input(model.pricing.source, 'price source URL', 'flex:2 1 200px');
-        const baseUrlInput = input(model.baseUrl, 'baseUrl', 'flex:1 1 160px');
-        baseUrlInput.style.display = model.provider === 'openai-compatible' ? '' : 'none';
-        for (const el of [labelInput, inInput, outInput, sourceInput, baseUrlInput]) fields.appendChild(el);
+        const stages = STAGE_MODEL_LABELS.map(([num, label]) => ({ num, label, ...verifyMark(model.id, num) }));
+        const passed = stages.filter(st => st.mark === '✓');
+        const failed = stages.filter(st => st.mark === '✗');
+        const state = document.createElement('span');
+        state.style.cssText = `font-size:0.72rem;margin-left:auto;color:${failed.length ? '#f87171' : passed.length === stages.length ? '#34d399' : '#9ca3af'}`;
+        state.textContent = failed.length
+            ? `fails on ${failed.map(st => st.label).join(', ')}`
+            : passed.length === stages.length ? 'works on every stage'
+                : passed.length ? `works on ${passed.length}/${stages.length} stages` : 'not checked yet';
+        state.title = stages.map(st => `${st.mark} Stage ${displayStageNumber(st.num)} ${st.label} — ${st.title}`).join('\n');
+        row.appendChild(state);
 
-        const enabledLabel = document.createElement('label');
-        enabledLabel.style.cssText = 'font-size:0.72rem;color:#9ca3af;display:flex;align-items:center;gap:4px;flex-shrink:0';
-        const enabled = document.createElement('input');
-        enabled.type = 'checkbox';
-        enabled.checked = model.enabled;
-        enabledLabel.append(enabled, document.createTextNode('offered'));
-        fields.appendChild(enabledLabel);
-
-        // Per-stage verification status. ⚠️ Before Verify existed the honest answer
-        // was "we don't know" for every model but the two Gemini defaults, and this
-        // row is where that stops being invisible.
-        const verifyLine = document.createElement('div');
-        verifyLine.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:0.7rem;color:#9ca3af';
-        const stages = STAGE_MODEL_LABELS.map(([num, label]) => ({ num, label }));
-        let unknown = 0;
-        for (const { num, label } of stages) {
-            const { mark, title } = verifyMark(model.id, num);
-            if (mark === '?') unknown += 1;
-            const chip = document.createElement('span');
-            chip.style.cssText = `padding:0 4px;border-radius:3px;color:${mark === '✓' ? '#34d399' : mark === '✗' ? '#f87171' : '#6b7280'}`;
-            chip.textContent = `${mark}${displayStageNumber(num)}`;
-            chip.title = `Stage ${displayStageNumber(num)} ${label} — ${title}`;
-            verifyLine.appendChild(chip);
-        }
-        if (unknown === stages.length) {
-            const never = document.createElement('span');
-            never.style.cssText = 'color:#6b7280';
-            never.textContent = '— never verified';
-            verifyLine.appendChild(never);
-        }
         const verifyBtn = document.createElement('button');
         verifyBtn.className = 'secondary-btn';
         verifyBtn.type = 'button';
-        verifyBtn.style.cssText = 'padding:1px 8px;font-size:0.7rem;flex-shrink:0;margin-left:4px';
-        verifyBtn.textContent = 'Verify all stages';
-        verifyBtn.title = "Makes ONE real request per stage, carrying that stage's actual response schema. "
-            + 'This costs money and is billed to you.';
+        verifyBtn.style.cssText = 'padding:2px 10px;font-size:0.72rem;flex-shrink:0';
+        verifyBtn.textContent = 'Check this model works';
+        verifyBtn.title = "Makes ONE real request per stage, carrying that stage's actual response schema. This costs money and is billed to you.";
         verifyBtn.addEventListener('click', async () => {
             const ok = await confirmDialog({
-                title: `Verify ${model.label || model.id}?`,
-                message: `This sends ${stages.length} real requests — one per stage, each carrying that stage's own `
-                    + 'response schema — and records whether the model accepted it and returned parseable output. '
-                    + 'It costs real money, billed to your account.',
-                confirmLabel: 'Verify'
+                title: `Check ${model.label || model.id}?`,
+                message: `This sends ${stages.length} real requests — one per stage, each carrying that stage's own response schema — and records whether the model accepted it and returned parseable output. It costs real money, billed to your account.`,
+                confirmLabel: 'Check'
             });
             if (!ok) return;
             verifyBtn.disabled = true;
-            verifyBtn.textContent = 'Verifying…';
+            verifyBtn.textContent = 'Checking…';
             try {
                 const body = await adminCall(`/api/admin/models/${encodeURIComponent(model.id)}/verify`, { method: 'POST', body: '{}' });
-                const passed = body.results.filter(r => r.ok).length;
-                const failed = body.results.filter(r => !r.ok);
-                modelsStatus(failed.length
-                    ? `${model.id}: ${passed}/${body.results.length} stages passed. Failed — ${failed.map(f => `${f.label}: ${f.error}`).join(' · ')}`
-                    : `${model.id}: all ${passed} stages passed.`, failed.length > 0);
+                const okCount = body.results.filter(r => r.ok).length;
+                const bad = body.results.filter(r => !r.ok);
+                modelsStatus(bad.length
+                    ? `${model.label || model.id}: ${okCount}/${body.results.length} stages passed. Failed — ${bad.map(f => `${f.label}: ${f.error}`).join(' · ')}`
+                    : `${model.label || model.id}: works on all ${okCount} stages.`, bad.length > 0);
             } catch (err) {
-                modelsStatus(`Could not verify ${model.id}: ${err.message}`, true);
+                modelsStatus(`Could not check ${model.id}: ${err.message}`, true);
             }
             renderModelsPanel();
         });
-        verifyLine.appendChild(verifyBtn);
-
-        const save = document.createElement('button');
-        save.className = 'secondary-btn';
-        save.type = 'button';
-        save.style.cssText = 'padding:3px 10px;font-size:0.75rem;flex-shrink:0';
-        save.textContent = 'Save';
-        save.addEventListener('click', async () => {
-            try {
-                await adminCall(`/api/admin/models/${encodeURIComponent(model.id)}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({
-                        label: labelInput.value.trim() || model.id,
-                        enabled: enabled.checked,
-                        baseUrl: baseUrlInput.value.trim() || null,
-                        pricing: {
-                            inputPerMTok: parsePrice(inInput.value),
-                            outputPerMTok: parsePrice(outInput.value),
-                            source: sourceInput.value.trim() || null,
-                            // Editing a rate IS re-checking it — stamping the date
-                            // here is what makes the 90-day flag mean anything.
-                            checkedAt: new Date().toISOString().slice(0, 10)
-                        }
-                    })
-                });
-                modelsStatus(`${model.id} saved.`);
-            } catch (err) {
-                modelsStatus(`Could not save ${model.id}: ${err.message}`, true);
-            }
-            await loadModelRegistry();
-            renderModelsPanel();
-        });
-        fields.appendChild(save);
-        row.appendChild(fields);
-        row.appendChild(verifyLine);
+        row.appendChild(verifyBtn);
         return row;
     }
 
     let modelsRenderSequence = 0;
-
     async function renderModelsPanel() {
         const list = document.getElementById('settings-models-list');
         if (!list) return;
@@ -12944,295 +12820,11 @@ async function loadBuildInfo() {
         const registry = await loadModelRegistry();
         if (mine !== modelsRenderSequence) return; // an overtaken render drops its result
         list.innerHTML = '';
-        const stale = registry.stalePricing || [];
-        for (const model of registry.models || []) list.appendChild(modelRowElement(model, stale));
-        renderModelUpdates();
-
-        // Auto's map. Only real, enabled models — "Auto: Auto" is not a thing, and a
-        // recommendation nobody's dropdown can offer is a recommendation to nowhere.
-        const recContainer = document.getElementById('settings-models-recommended');
-        if (recContainer) {
-            recContainer.innerHTML = '';
-            STAGE_MODEL_LABELS.forEach(([num, label]) => {
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:10px';
-                const lbl = document.createElement('span');
-                lbl.style.cssText = 'width:130px;font-size:0.78rem;color:#9ca3af;flex-shrink:0';
-                lbl.textContent = `Stage ${displayStageNumber(num)}: ${label}`;
-                row.appendChild(lbl);
-                row.appendChild(buildModelSelect(num, (registry.recommended || {})[String(num)] || '', {
-                    idPrefix: 'settings-recommended-stage',
-                    includeAuto: false,
-                    inheritLabel: 'No recommendation'
-                }));
-                // ⚠️ Say it out loud when the recommendation and its probe disagree.
-                // The server now honours the recommendation anyway (server.js
-                // resolveAutoModel) — which is right, a probe is one request and a
-                // recommendation is a standing judgement — but an unsurfaced
-                // disagreement is how a stage silently ran on the wrong model for a
-                // day on 2026-08-26. The admin should see the conflict where they set it.
-                const recId = (registry.recommended || {})[String(num)];
-                const recRow = recId && (registry.models || []).find(m => m.id === recId);
-                if (recRow && recRow.verified?.[String(num)]?.ok === false) {
-                    const warn = document.createElement('span');
-                    warn.style.cssText = 'font-size:0.72rem;color:#f59e0b;flex-shrink:0';
-                    warn.textContent = '⚠️ failed Verify here — used anyway';
-                    warn.title = String(recRow.verified[String(num)].error || 'This model failed its verification probe for this stage.')
-                        + '\n\nAuto still uses it because you recommended it. Re-verify, or change the recommendation.';
-                    row.appendChild(warn);
-                }
-                recContainer.appendChild(row);
-            });
-        }
+        const rows = (registry.models || [])
+            .filter(m => m.enabled)
+            .sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || String(a.label || a.id).localeCompare(String(b.label || b.id)));
+        for (const model of rows) list.appendChild(modelStatusRow(model));
     }
-
-    // ─── Automatic model updates ───────────────────────────────────────────────
-    // The boot-time check adds and re-prices on its own (two sources agreeing). This
-    // banner is where the admin sees what it did and takes the two decisions that are
-    // theirs: spend money on Verify, and move defaults/Auto to a successor.
-    let updatesRenderSequence = 0;
-    async function renderModelUpdates() {
-        const box = document.getElementById('settings-models-updates');
-        if (!box) return;
-        const mine = ++updatesRenderSequence;
-        let state;
-        try {
-            state = await adminCall('/api/admin/models/updates');
-        } catch (err) {
-            box.classList.add('hidden');
-            return;
-        }
-        if (mine !== updatesRenderSequence) return;
-        box.innerHTML = '';
-        const added = state.unacknowledged?.added || [];
-        const priced = state.unacknowledged?.priced || [];
-        const conflicts = state.conflicts || [];
-        const retirements = state.retirements || [];
-        const waiting = state.awaitingSecondSource || [];
-        const hasNews = added.length || priced.length || conflicts.length || retirements.length;
-        box.classList.toggle('has-news', Boolean(hasNews));
-
-        const line = (text, cls = '') => {
-            const p = document.createElement('div');
-            if (cls) p.className = cls;
-            p.textContent = text;
-            return p;
-        };
-        const button = (label, onClick, { title = '' } = {}) => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'secondary-btn';
-            b.style.cssText = 'padding:3px 10px;font-size:0.75rem';
-            b.textContent = label;
-            if (title) b.title = title;
-            b.addEventListener('click', onClick);
-            return b;
-        };
-
-        // Header: when, and which sources answered.
-        const sources = Object.entries(state.sources || {});
-        const failed = sources.filter(([, v]) => !v.ok).map(([n]) => n);
-        const when = state.lastCheckedAt ? new Date(state.lastCheckedAt).toLocaleString() : 'never';
-        box.appendChild(line(`Model updates — last check ${when}${sources.length ? ` · ${sources.length - failed.length}/${sources.length} price sources answered` : ''}${failed.length ? ` (failed: ${failed.join(', ')})` : ''}${state.tooFewSources ? ' — fewer than two agreed, nothing was written' : ''}.`, 'updates-muted'));
-
-        if (added.length) {
-            const row = document.createElement('div');
-            row.className = 'updates-row';
-            row.appendChild(line(`New since you last looked: ${added.map(a => a.label || a.id).join(', ')}. Unverified until Verify runs.`));
-            row.appendChild(button('Verify new models', async () => {
-                const ok = await confirmDialog({
-                    title: `Verify ${added.length} new model${added.length === 1 ? '' : 's'}?`,
-                    message: `This sends real requests — one per stage per model, ${added.length} model${added.length === 1 ? '' : 's'} × 9 stages — each carrying that stage's own response schema. It costs real money, billed to your account.`,
-                    confirmLabel: 'Verify'
-                });
-                if (!ok) return;
-                modelsStatus(`Verifying ${added.map(a => a.id).join(', ')}…`);
-                const summary = [];
-                for (const a of added) {
-                    try {
-                        const body = await adminCall(`/api/admin/models/${encodeURIComponent(a.id)}/verify`, { method: 'POST', body: '{}' });
-                        const passed = body.results.filter(r => r.ok).length;
-                        summary.push(`${a.id}: ${passed}/${body.results.length}`);
-                    } catch (err) {
-                        summary.push(`${a.id}: could not verify — ${err.message}`);
-                    }
-                }
-                modelsStatus(`Verify done — ${summary.join(' · ')}`);
-                renderModelsPanel();
-            }, { title: 'Runs the same Verify as each row\'s button, one model after another.' }));
-            box.appendChild(row);
-        }
-        if (priced.length) {
-            box.appendChild(line(`Prices refreshed: ${priced.map(p => `${modelLabel(p.id)} $${p.from.inputPerMTok}/$${p.from.outputPerMTok} → $${p.to.inputPerMTok}/$${p.to.outputPerMTok}`).join(' · ')}.`));
-        }
-        if (conflicts.length) {
-            box.appendChild(line(`Price sources disagree — nothing written: ${conflicts.map(c => `${modelLabel(c.id)} (${c.values.map(v => `${v.source} $${v.inputPerMTok}/$${v.outputPerMTok}`).join(', ')})`).join(' · ')}. Set the price by hand if you know which is right.`, 'is-warning'));
-        }
-        for (const r of retirements) {
-            const row = document.createElement('div');
-            row.className = 'updates-row';
-            const uses = [];
-            if (r.stages.length) uses.push(`${r.stages.length} stage default${r.stages.length === 1 ? '' : 's'}`);
-            if (r.autoStages.length) uses.push(`Auto on ${r.autoStages.length} stage${r.autoStages.length === 1 ? '' : 's'}`);
-            row.appendChild(line(`${r.label} ${r.deprecated ? 'is retired' : 'has a successor'} — ${r.successorLabel} replaces it. Still used by ${uses.join(' and ')}.`, r.deprecated ? 'is-warning' : ''));
-            row.appendChild(button(`Move to ${r.successorLabel}`, async () => {
-                const ok = await confirmDialog({
-                    title: `Move to ${r.successorLabel}?`,
-                    message: `Every stage default and Auto recommendation currently on ${r.label} will point at ${r.successorLabel} instead. Writers who chose ${r.label} for themselves are not touched. ${r.successorLabel} is ${verifyMark(r.successor, 1).mark === '✓' ? 'verified' : 'not yet verified'} on Stage 1 — run Verify first if you want evidence before the switch.`,
-                    confirmLabel: 'Move'
-                });
-                if (!ok) return;
-                try {
-                    if (r.stages.length) {
-                        const current = await (await fetch('/api/settings')).json();
-                        const stageModels = { ...(current.globalStageModels || current.stageModels || {}) };
-                        for (const k of r.stages) stageModels[k] = r.successor;
-                        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stageModels }) });
-                        if (!res.ok) throw new Error(await errorTextFrom(res, 'Could not save the deployment defaults'));
-                    }
-                    if (r.autoStages.length) {
-                        const recommended = { ...(modelRegistry.recommended || {}) };
-                        for (const k of r.autoStages) recommended[k] = r.successor;
-                        await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
-                    }
-                    modelsStatus(`Moved ${uses.join(' and ')} from ${r.label} to ${r.successorLabel}.`);
-                } catch (err) {
-                    modelsStatus(`Could not move to ${r.successorLabel}: ${err.message}`, true);
-                }
-                await loadModelRegistry();
-                renderModelsPanel();
-                // The Models tab and the Deployment Defaults list read the same settings — rebuild them.
-                openSettingsModal();
-            }));
-            box.appendChild(row);
-        }
-        if (waiting.length) {
-            box.appendChild(line(`Known to one source only, not added yet: ${waiting.map(w => `${w.id} (${w.source})`).join(', ')}. Usually a launch-day lag; checked again on the next deploy.`, 'updates-muted'));
-        }
-        if (hasNews && (added.length || priced.length)) {
-            const row = document.createElement('div');
-            row.className = 'updates-row';
-            row.appendChild(button('Dismiss', async () => {
-                try { await adminCall('/api/admin/models/updates/acknowledge', { method: 'POST', body: '{}' }); } catch {}
-                renderModelUpdates();
-            }, { title: 'Clears the "new since you last looked" list. Rows stay; retirements stay until acted on.' }));
-            box.appendChild(row);
-        }
-        box.classList.remove('hidden');
-    }
-
-    document.getElementById('btnAdminCheckUpdates')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btnAdminCheckUpdates');
-        btn.disabled = true;
-        btn.textContent = 'Checking…';
-        try {
-            const body = await adminCall('/api/admin/models/updates/check', { method: 'POST', body: '{}' });
-            const a = body.applied || { added: [], priced: [] };
-            modelsStatus(body.plan?.tooFewSources
-                ? 'Fewer than two price sources answered — nothing was written.'
-                : `Checked. ${a.added.length ? `Added ${a.added.join(', ')}. ` : 'No new models. '}${a.priced.length ? `Re-priced ${a.priced.join(', ')}. ` : ''}${(body.plan?.conflicts || []).length ? `${body.plan.conflicts.length} price conflict(s) to look at.` : ''}`);
-        } catch (err) {
-            modelsStatus(`Could not check for updates: ${err.message}`, true);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Check for updates';
-        }
-        await loadModelRegistry();
-        renderModelsPanel();
-    });
-
-    document.getElementById('btnAdminSaveRecommended')?.addEventListener('click', async () => {
-        const recommended = {};
-        STAGE_MODEL_LABELS.forEach(([num]) => {
-            const sel = document.getElementById(`settings-recommended-stage${num}`);
-            // '' = no recommendation for this stage; Auto then falls straight to
-            // "cheapest reachable, verified first" rather than storing a fake pick.
-            if (sel && sel.value) recommended[String(num)] = sel.value;
-        });
-        try {
-            await adminCall('/api/admin/models-recommended', { method: 'PUT', body: JSON.stringify({ recommended }) });
-            modelsStatus('Auto recommendations saved.');
-        } catch (err) {
-            modelsStatus(`Could not save the recommendations: ${err.message}`, true);
-        }
-        renderModelsPanel();
-    });
-
-    document.getElementById('btnAdminAddModel')?.addEventListener('click', async () => {
-        const value = id => document.getElementById(id).value.trim();
-        try {
-            await adminCall('/api/admin/models', {
-                method: 'POST',
-                body: JSON.stringify({
-                    id: value('settings-model-new-id'),
-                    label: value('settings-model-new-label') || value('settings-model-new-id'),
-                    provider: value('settings-model-new-provider'),
-                    baseUrl: value('settings-model-new-baseurl') || null,
-                    enabled: true,
-                    pricing: {
-                        inputPerMTok: parsePrice(value('settings-model-new-in')),
-                        outputPerMTok: parsePrice(value('settings-model-new-out')),
-                        source: value('settings-model-new-source') || null,
-                        checkedAt: new Date().toISOString().slice(0, 10)
-                    }
-                })
-            });
-            modelsStatus(`${value('settings-model-new-id')} added. It is unverified until you run Verify on the stages you want it for.`);
-            for (const id of ['id', 'label', 'baseurl', 'in', 'out', 'source']) {
-                document.getElementById(`settings-model-new-${id}`).value = '';
-            }
-        } catch (err) {
-            modelsStatus(`Could not add the model: ${err.message}`, true);
-        }
-        renderModelsPanel();
-    });
-
-    document.getElementById('btnAdminDiscoverModels')?.addEventListener('click', async () => {
-        const out = document.getElementById('settings-models-discovered');
-        const provider = document.getElementById('settings-model-discover-provider').value;
-        const baseUrl = document.getElementById('settings-model-discover-baseurl').value.trim();
-        out.textContent = 'Asking…';
-        try {
-            const body = await adminCall('/api/admin/models/discover', {
-                method: 'POST',
-                body: JSON.stringify({ provider, baseUrl })
-            });
-            const fresh = body.found.filter(m => !m.registered);
-            out.innerHTML = '';
-            const summary = document.createElement('div');
-            summary.style.cssText = 'margin-bottom:4px;color:#d1d5db';
-            summary.textContent = `${provider} serves ${body.found.length} model(s); ${fresh.length} not in the registry. ${body.note}`;
-            out.appendChild(summary);
-            for (const model of fresh) {
-                const line = document.createElement('div');
-                line.style.cssText = 'display:flex;align-items:center;gap:8px;padding:1px 0';
-                const code = document.createElement('code');
-                code.style.cssText = 'color:#9ca3af';
-                code.textContent = model.id;
-                const use = document.createElement('button');
-                use.className = 'secondary-btn';
-                use.type = 'button';
-                use.style.cssText = 'padding:1px 8px;font-size:0.7rem';
-                use.textContent = 'Use in the add form';
-                // Fills the form, never adds the row: the price is still missing and
-                // only a person can supply it. This is the whole reason discovery
-                // does not write.
-                use.addEventListener('click', () => {
-                    document.getElementById('settings-model-new-id').value = model.id;
-                    document.getElementById('settings-model-new-label').value = model.label || model.id;
-                    document.getElementById('settings-model-new-provider').value = provider;
-                    document.getElementById('settings-model-new-baseurl').value = provider === 'openai-compatible' ? baseUrl : '';
-                    modelsStatus(`${model.id} filled in — it still needs a price and its source URL.`);
-                });
-                line.append(code, use);
-                out.appendChild(line);
-            }
-            if (!fresh.length) out.appendChild(document.createTextNode('Nothing new.'));
-        } catch (err) {
-            out.textContent = '';
-            modelsStatus(`Discovery failed: ${err.message}`, true);
-        }
-    });
 
     async function renderAdminPanel() {
         const list = document.getElementById('settings-admin-people');
@@ -13606,74 +13198,9 @@ async function loadBuildInfo() {
         document.getElementById('settings-gemini-key').value = '';
         document.getElementById('settings-anthropic-key').value = '';
 
-        // ─── Per-stage model dropdowns ──────────────────────────────────────
-        //
-        // TWO LAYERS (Phase 5 item 0). Signed in, the top list edits YOUR OWN
-        // preference and each stage may say "use the deployment default"; admins get
-        // a second list below for the deployment default itself. Without a signed-in
-        // account (open dev, break-glass) there is no personal layer at all and the
-        // top list IS the deployment default — which is exactly what it always was.
         settingsPersonalModels = Boolean(settings.hasPersonalModels);
         settingsCanEditGlobal = settings.canEditGlobalModels !== false;
-        const globalModels = settings.globalStageModels || settings.stageModels || {};
-        const myModels = settings.myStageModels || {};
-        const resolved = settings.resolvedStageModels || {};
-
-        const note = document.getElementById('settings-stage-models-note');
-        if (note) {
-            note.textContent = settingsPersonalModels
-                ? 'Your own choices. A stage left on “Deployment default” follows whatever the administrator sets.'
-                : 'The models this deployment runs each stage on.';
-        }
-
-        const container = document.getElementById('settings-stage-models');
-        container.innerHTML = '';
-        STAGE_MODEL_LABELS.forEach(([num, label]) => {
-            const inherited = globalModels[`stage${num}`] || resolved[`stage${num}`] || '';
-            let select;
-            if (settingsPersonalModels) {
-                // When the default is itself Auto, name what Auto resolves to for
-                // THIS reader rather than nesting "(Auto (recommended))" — the label
-                // exists to answer "what will actually run if I leave this alone".
-                const inheritedLabel = inherited === 'auto'
-                    ? (resolved[`stage${num}`] ? `Auto → ${modelLabel(resolved[`stage${num}`])}` : 'Auto — nothing available')
-                    : modelLabel(inherited);
-                select = buildModelSelect(num, myModels[`stage${num}`] || '', {
-                    inheritLabel: inherited ? `Deployment default (${inheritedLabel})` : 'Deployment default'
-                });
-            } else {
-                select = buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview');
-            }
-            container.appendChild(stageModelRow(num, label, select, {
-                inherited,
-                resolved: resolved[`stage${num}`] || '',
-                layer: settingsPersonalModels ? 'personal' : 'deployment'
-            }));
-        });
-
-        // Deployment defaults — a second, separately saved list, for admins who also
-        // have a personal layer sitting on top of it. Lives on the Admin tab.
-        const globalPanel = document.getElementById('settings-global-models-panel');
-        if (globalPanel) {
-            const showGlobal = settingsPersonalModels && settings.canEditGlobalModels;
-            globalPanel.classList.toggle('hidden', !showGlobal);
-            if (showGlobal) {
-                const gContainer = document.getElementById('settings-global-stage-models');
-                gContainer.innerHTML = '';
-                const status = document.getElementById('settings-global-models-status');
-                if (status) status.textContent = '';
-                STAGE_MODEL_LABELS.forEach(([num, label]) => {
-                    const select = buildModelSelect(num, globalModels[`stage${num}`] || 'gemini-3.1-pro-preview', {
-                        idPrefix: 'settings-global-model-stage'
-                    });
-                    gContainer.appendChild(stageModelRow(num, label, select, {
-                        resolved: resolved[`stage${num}`] || '',
-                        layer: 'deployment'
-                    }));
-                });
-                renderRecommendedConflicts(globalModels);
-            }
-        }
+        renderDefaultModelSection(settings);
 
         refreshSettingsTabs();
         settingsModal.classList.remove('hidden');
@@ -13687,18 +13214,6 @@ async function loadBuildInfo() {
     document.getElementById('btnOpenSettingsHub')?.addEventListener('click', openSettingsModal);
     document.getElementById('cancelSettingsBtn')?.addEventListener('click', closeSettingsModal);
 
-    /** Read one of the two per-stage lists. `sparse` drops the "inherit" choices. */
-    function collectStageModels(idPrefix, { sparse = false } = {}) {
-        const stageModels = {};
-        STAGE_MODEL_LABELS.forEach(([num]) => {
-            const sel = document.getElementById(`${idPrefix}${num}`);
-            if (!sel) return;
-            if (sparse && !sel.value) return; // '' = inherit — store nothing at all
-            stageModels[`stage${num}`] = sel.value;
-        });
-        return stageModels;
-    }
-
     async function errorTextFrom(res, fallback) {
         try {
             const body = await res.json();
@@ -13706,37 +13221,6 @@ async function loadBuildInfo() {
         } catch {}
         return fallback;
     }
-
-    // The footer Save writes the Models tab and nothing else. The deployment API
-    // keys used to ride along in the same POST; they are a global setting on the
-    // Admin tab now, with their own button, so pressing Save on the Models tab can
-    // never touch a key the reader is not looking at.
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-        try {
-            if (settingsPersonalModels) {
-                // Signed in: the list is YOURS. It never touches the deployment
-                // default, and it is stored sparse so an inherited stage keeps
-                // following the default rather than freezing today's value.
-                const res = await fetch('/api/settings/my-models', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stageModels: collectStageModels('settings-model-stage', { sparse: true }) })
-                });
-                if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
-            } else {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stageModels: collectStageModels('settings-model-stage') })
-                });
-                if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
-            }
-            closeSettingsModal();
-        } catch (err) {
-            console.error('Failed to save settings:', err);
-            noticeDialog({ message: `Failed to save settings. ${err.message}` });
-        }
-    });
 
     document.getElementById('btnSaveApiKeys')?.addEventListener('click', async () => {
         const status = document.getElementById('settings-api-keys-status');
@@ -13766,28 +13250,6 @@ async function loadBuildInfo() {
             say('API keys saved.');
         } catch (err) {
             say(`Could not save the API keys: ${err.message}`, true);
-        }
-    });
-
-    document.getElementById('btnSaveGlobalModels')?.addEventListener('click', async () => {
-        const status = document.getElementById('settings-global-models-status');
-        const say = (text, bad = false) => {
-            if (status) {
-                status.textContent = text;
-                status.style.color = bad ? '#f87171' : '#9ca3af';
-            }
-        };
-        try {
-            const res = await fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stageModels: collectStageModels('settings-global-model-stage') })
-            });
-            if (!res.ok) throw new Error(await errorTextFrom(res, 'Save failed'));
-            say('Deployment defaults saved — everyone who has not chosen their own follows these.');
-            renderRecommendedConflicts(collectStageModels('settings-global-model-stage'));
-        } catch (err) {
-            say(`Could not save the deployment defaults: ${err.message}`, true);
         }
     });
 

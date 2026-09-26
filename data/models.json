@@ -1,22 +1,5 @@
 {
   "version": 1,
-  "_comment": [
-    "THE MODEL REGISTRY — the one table of models, providers and prices.",
-    "This file in the repo is the BUNDLED DEFAULT. On a deployment it is copied once",
-    "into <DATA_ROOT>/models.json and that copy is what Settings -> Administration ->",
-    "Models edits; the bundle is never written to on a deployment. Locally DATA_ROOT",
-    "IS this directory, so local edits land here — same arrangement as data/styles.",
-    "",
-    "PRICES ARE PER MILLION TOKENS, in USD, exactly as the provider publishes them.",
-    "That is deliberate: two Gemini rows were wrong for months because nothing ever",
-    "compared them to the source page, and a per-token float cannot be compared by eye.",
-    "Every row carries the URL it was read from and the date it was read. No provider",
-    "API exposes pricing, so this is hand-entered and the admin UI flags rows that have",
-    "not been checked in 90 days.",
-    "",
-    "`verified` is written ONLY by the admin Verify action (one real request per stage",
-    "schema). Never hand-edit it — a hand-written tick is a claim nobody tested."
-  ],
   "models": [
     {
       "id": "gemini-3.6-flash",
@@ -32,6 +15,8 @@
       },
       "enabled": true,
       "deprecated": false,
+      "successor": null,
+      "order": 4,
       "verified": {}
     },
     {
@@ -40,47 +25,52 @@
       "provider": "gemini",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 2.0,
-        "outputPerMTok": 12.0,
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
         "source": "https://ai.google.dev/gemini-api/docs/pricing",
         "checkedAt": "2026-08-16",
         "note": "The above-200k-prompt tier ($4/$18) is not modelled; PageOne prompts stay under it."
       },
       "enabled": true,
       "deprecated": false,
+      "successor": null,
+      "order": 3,
       "verified": {}
     },
     {
       "id": "gemini-3-flash-preview",
       "label": "Gemini 3 Flash",
+      "successor": "gemini-3.6-flash",
       "provider": "gemini",
       "baseUrl": null,
       "pricing": {
         "inputPerMTok": 0.5,
-        "outputPerMTok": 3.0,
+        "outputPerMTok": 3,
         "source": "https://ai.google.dev/gemini-api/docs/pricing",
         "checkedAt": "2026-08-16",
         "note": null
       },
       "enabled": true,
       "deprecated": false,
+      "order": 9,
       "verified": {}
     },
     {
       "id": "claude-fable-5",
       "label": "Claude Fable 5",
-      "successor": "claude-fable-5-1",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 10.0,
-        "outputPerMTok": 50.0,
+        "inputPerMTok": 10,
+        "outputPerMTok": 50,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": null
       },
       "enabled": true,
       "deprecated": false,
+      "successor": "claude-fable-5-1",
+      "order": 7,
       "verified": {}
     },
     {
@@ -97,22 +87,26 @@
       },
       "enabled": true,
       "deprecated": false,
+      "successor": null,
+      "order": 1,
       "verified": {}
     },
     {
       "id": "claude-opus-5",
       "label": "Claude Opus 5",
+      "successor": "claude-opus-5-5",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 5.0,
-        "outputPerMTok": 25.0,
+        "inputPerMTok": 5,
+        "outputPerMTok": 25,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": null
       },
       "enabled": true,
       "deprecated": false,
+      "order": 8,
       "verified": {}
     },
     {
@@ -129,6 +123,8 @@
       },
       "enabled": true,
       "deprecated": false,
+      "successor": null,
+      "order": 2,
       "verified": {}
     },
     {
@@ -137,37 +133,39 @@
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 1.0,
-        "outputPerMTok": 5.0,
+        "inputPerMTok": 1,
+        "outputPerMTok": 5,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": null
       },
       "enabled": true,
       "deprecated": false,
+      "successor": null,
+      "order": 5,
       "verified": {}
     },
     {
       "id": "gemini-2.5-pro-preview-05-06",
       "label": "Gemini 2.5 Pro",
-      "successor": "gemini-3.1-pro-preview",
       "provider": "gemini",
       "baseUrl": null,
       "pricing": {
         "inputPerMTok": 1.25,
-        "outputPerMTok": 10.0,
+        "outputPerMTok": 10,
         "source": "https://ai.google.dev/gemini-api/docs/pricing",
         "checkedAt": "2026-08-16",
         "note": "Superseded — kept so historical spend on projects that used it still prices."
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "gemini-3.1-pro-preview",
+      "order": null,
       "verified": {}
     },
     {
       "id": "gemini-2.0-flash",
       "label": "Gemini 2.0 Flash",
-      "successor": "gemini-3.6-flash",
       "provider": "gemini",
       "baseUrl": null,
       "pricing": {
@@ -179,12 +177,13 @@
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "gemini-3.6-flash",
+      "order": null,
       "verified": {}
     },
     {
       "id": "gemini-2.0-flash-001",
       "label": "Gemini 2.0 Flash",
-      "successor": "gemini-3.6-flash",
       "provider": "gemini",
       "baseUrl": null,
       "pricing": {
@@ -196,75 +195,136 @@
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "gemini-3.6-flash",
+      "order": null,
       "verified": {}
     },
     {
       "id": "claude-opus-4-8",
       "label": "Claude Opus 4.8",
-      "successor": "claude-opus-5-5",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 5.0,
-        "outputPerMTok": 25.0,
+        "inputPerMTok": 5,
+        "outputPerMTok": 25,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": "Superseded — kept so historical spend on projects that used it still prices."
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "claude-opus-5-5",
+      "order": null,
       "verified": {}
     },
     {
       "id": "claude-opus-4-7",
       "label": "Claude Opus 4.7",
-      "successor": "claude-opus-5-5",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 5.0,
-        "outputPerMTok": 25.0,
+        "inputPerMTok": 5,
+        "outputPerMTok": 25,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": "Superseded — kept so historical spend on projects that used it still prices."
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "claude-opus-5-5",
+      "order": null,
       "verified": {}
     },
     {
       "id": "claude-opus-4-6",
       "label": "Claude Opus 4.6",
-      "successor": "claude-opus-5-5",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 5.0,
-        "outputPerMTok": 25.0,
+        "inputPerMTok": 5,
+        "outputPerMTok": 25,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": "Superseded — kept so historical spend on projects that used it still prices."
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "claude-opus-5-5",
+      "order": null,
       "verified": {}
     },
     {
       "id": "claude-sonnet-4-6",
       "label": "Claude Sonnet 4.6",
-      "successor": "claude-sonnet-5",
       "provider": "anthropic",
       "baseUrl": null,
       "pricing": {
-        "inputPerMTok": 3.0,
-        "outputPerMTok": 15.0,
+        "inputPerMTok": 3,
+        "outputPerMTok": 15,
         "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
         "checkedAt": "2026-08-16",
         "note": "Superseded — kept so historical spend on projects that used it still prices."
       },
       "enabled": false,
       "deprecated": true,
+      "successor": "claude-sonnet-5",
+      "order": null,
       "verified": {}
+    },
+    {
+      "id": "claude-fable-5-1",
+      "label": "Claude Fable 5.1",
+      "order": null,
+      "provider": "anthropic",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 10,
+        "outputPerMTok": 50,
+        "source": "auto: anthropic-docs + openrouter + litellm agree — https://platform.claude.com/docs/en/about-claude/pricing ; https://openrouter.ai/api/v1/models ; https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+        "checkedAt": "2026-09-26",
+        "note": "Added automatically on 2026-09-26. Unverified until Verify is run."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "successor": null,
+      "verified": {}
+    },
+    {
+      "id": "gemini-3.8-flash",
+      "label": "Gemini 3.8 Flash",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 3.75,
+        "source": "auto: openrouter + litellm agree — https://openrouter.ai/api/v1/models ; https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+        "checkedAt": "2026-09-26",
+        "note": "Added automatically on 2026-09-26. Unverified until Verify is run."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "successor": null,
+      "order": null,
+      "verified": {}
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "label": "Gemini 3.5 Flash Lite",
+      "provider": "gemini",
+      "baseUrl": null,
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "source": "auto: openrouter + litellm agree — https://openrouter.ai/api/v1/models ; https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+        "checkedAt": "2026-09-26",
+        "note": "Added automatically on 2026-09-26. Unverified until Verify is run."
+      },
+      "enabled": true,
+      "deprecated": false,
+      "successor": null,
+      "order": null,
+      "verified": {},
+      "addedBy": "models:check"
     }
   ],
   "recommended": {

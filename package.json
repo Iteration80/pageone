@@ -15,7 +15,8 @@
     "migrate:project-owners": "node scripts/stamp-project-owners.js",
     "migrate:style-owners": "node scripts/stamp-style-owners.js",
     "backup:prod": "node scripts/backup-prod.js",
-    "push:prod": "node scripts/push-prod.js"
+    "push:prod": "node scripts/push-prod.js",
+    "models:check": "node scripts/models-check.js"
   },
   "keywords": [],
   "author": "",

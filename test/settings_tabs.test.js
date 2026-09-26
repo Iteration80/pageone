@@ -3,83 +3,68 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-// The Settings modal is three tabs by WHO a setting is for — Models (what runs
-// your stages) · Account (you) · Admin (the deployment). 2026-09-25, after the
-// modal had grown to ten stacked sections, two identical nine-row dropdown lists
-// for admins, and three headings that said "API Keys". These pins hold the split:
-// every section keeps its id (the fill/hide scripts did not change), only where it
-// sits did. Guard breaks: a section moved out of its tab → the containment test ·
-// footer Save posting keys again → the save-shape test · readout removed → the
-// helper pins.
+// Settings, after the 2026-09-26 simplification: a writer picks ONE model per
+// project from the sidebar; the Models tab is one sentence plus (for admins) one
+// default select; Admin holds deployment keys, people and budgets, and a compact
+// model list whose only action is "Check this model works". Everything an operator
+// wanted — per-stage lists, the Auto editor, the registry editor, Discover, the
+// updates banner — is gone from the app; model curation happens in the repo.
+// Guard breaks: a per-stage list creeping back → test 1 · the sidebar picker or its
+// save path removed → test 2 · the footer Save returning → test 1 · a registry
+// editor returning → test 3.
 
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const APP = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-const CSS = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
 
 function panel(name) {
     const start = INDEX.indexOf(`id="settings-panel-${name}"`);
     assert.ok(start > 0, `settings-panel-${name} exists`);
-    const rest = INDEX.slice(start + 1); // past this panel's own id, to the next panel's
+    const rest = INDEX.slice(start + 1);
     const next = rest.search(/id="settings-panel-(?:models|account|admin)"|id="settings-build-fingerprint"/);
-    assert.ok(next > 0, `something follows settings-panel-${name}`);
+    assert.ok(next > 0);
     return rest.slice(0, next);
 }
 
-test('the modal has three tabs and every section sits in the tab for whom it is', () => {
+test('three tabs; the Models tab is one sentence and one default select; no per-stage list anywhere; no footer Save', () => {
     for (const tab of ['models', 'account', 'admin']) {
-        assert.match(INDEX, new RegExp(`id="settings-tab-${tab}"[^>]*data-settings-tab="${tab}"`), `tab button for ${tab}`);
+        assert.match(INDEX, new RegExp(`id="settings-tab-${tab}"[^>]*data-settings-tab="${tab}"`));
     }
     const models = panel('models');
+    assert.match(models, /id="settings-model-note"/);
+    assert.match(models, /id="settings-default-model"/);
+    assert.match(models, /id="btnSaveDefaultModel"/);
+    for (const gone of ['settings-stage-models', 'settings-global-stage-models', 'settings-global-models-panel', 'settings-model-stage', 'settings-recommended', 'settings-models-updates', 'settings-model-new-id', 'btnAdminDiscoverModels', 'btnAdminCheckUpdates', 'btnSaveGlobalModels', 'saveSettingsBtn']) {
+        assert.doesNotMatch(INDEX, new RegExp(gone), `${gone} must not come back`);
+    }
     const account = panel('account');
+    for (const id of ['settings-account-panel', 'settings-my-keys-panel', 'settings-tokens-panel']) assert.match(account, new RegExp(`id="${id}"`));
     const admin = panel('admin');
-    assert.match(models, /id="settings-stage-models"/, 'the per-stage list is on Models');
-    assert.doesNotMatch(models, /id="settings-global-stage-models"/, 'the deployment defaults are NOT on Models — that was the two-identical-lists problem');
-    for (const id of ['settings-account-panel', 'settings-my-keys-panel', 'settings-tokens-panel']) {
-        assert.match(account, new RegExp(`id="${id}"`), `${id} is on Account`);
-    }
-    for (const id of ['settings-api-key-section', 'settings-api-key-managed', 'settings-global-models-panel', 'settings-admin-panel', 'settings-models-panel']) {
-        assert.match(admin, new RegExp(`id="${id}"`), `${id} is on Admin`);
-    }
-    // One "API Keys" heading is the deployment's, one is yours; the third is gone.
-    assert.equal((INDEX.match(/>API Keys<\/h4>/g) || []).length, 1, 'exactly one bare "API Keys" heading (the managed-by-server note)');
-    assert.match(INDEX, />Deployment API keys<\/h4>/);
-    assert.match(INDEX, />Your API Keys<\/h4>/);
-    // The build fingerprint survives as a footer, outside the tabs, same id.
+    for (const id of ['settings-api-key-section', 'settings-admin-panel', 'settings-models-panel', 'settings-models-list']) assert.match(admin, new RegExp(`id="${id}"`));
+    assert.match(INDEX, /id="cancelSettingsBtn"[^>]*>Close</);
     assert.match(INDEX, /id="settings-build-fingerprint"/);
 });
 
-test('the footer Save writes stage models only; the deployment keys have their own button', () => {
-    const start = APP.indexOf("document.getElementById('saveSettingsBtn')?.addEventListener('click'");
-    const end = APP.indexOf("document.getElementById('btnSaveApiKeys')?.addEventListener('click'");
-    assert.ok(start > 0 && end > start, 'both handlers exist, Save first');
-    const saveHandler = APP.slice(start, end);
-    assert.doesNotMatch(saveHandler, /geminiApiKey|anthropicApiKey/, 'Save must not touch the deployment keys — they live on another tab');
-    assert.match(saveHandler, /collectStageModels\('settings-model-stage', \{ sparse: true \}\)/, 'the personal map stays sparse');
-    assert.match(INDEX, /id="btnSaveApiKeys"/);
-    assert.match(APP, /document\.getElementById\('saveSettingsBtn'\)\?\.classList\.toggle\('hidden', name !== 'models'\)/, 'Save is hidden off the Models tab');
+test('the sidebar picker: one model per project, saved on change, with an admin-only Make default', () => {
+    assert.match(INDEX, /id="projectModelSelect"/);
+    assert.match(INDEX, /id="btnMakeDefaultModel"[^>]*class="[^"]*hidden/);
+    assert.match(APP, /async function renderProjectModelPicker\(data/);
+    assert.match(APP, /renderProjectModelPicker\(projectDetails\.data\)/, 'filled when a project opens');
+    assert.match(APP, /fetch\(`\/api\/projects\/\$\{activeProjectId\}\/model`, \{\s*method: 'PUT'/, 'the picker saves through the project-model route');
+    assert.match(APP, /async function saveDeploymentDefault\(modelId\)/);
+    assert.match(APP, /STAGE_MODEL_LABELS\.forEach\(\(\[n\]\) => \{ stageModels\[`stage\$\{n\}`\] = modelId; \}\)/, 'the default is one model written to every stage');
+    assert.match(APP, /MODEL_OPTIONS\.some\(opt => opt\.value === currentModel\)/, 'a saved model outside the list is still shown, never silently replaced');
+    assert.match(APP, /\.filter\(m => m\.enabled && !m\.deprecated && !m\.successor\)/, 'retired and superseded models are not offered');
+    assert.match(APP, /a\.order \?\? 1e9\) - \(b\.order \?\? 1e9\)/, 'the list follows the bundle\'s curated order');
 });
 
-test('every per-stage row carries a live readout of what will actually run', () => {
-    assert.match(APP, /function describeStageChoice\(stageNum, value/);
-    assert.match(APP, /function stageModelRow\(num, label, select, ctx/);
-    assert.match(APP, /select\.addEventListener\('change', update\)/, 'the readout follows the dropdown');
-    assert.match(APP, /deprecated — still runs, but pick a current model/, 'a deprecated-but-saved model is named as such');
-    assert.match(APP, /failed Verify on this stage — the stage will refuse it/);
-    assert.match(APP, /label: savedModelOptionLabel\(currentModel\)/, 'a saved id outside the list says why it is odd, not just "(saved)"');
-    assert.match(CSS, /\.settings-stage-runs\.is-danger/);
-});
-
-test('Auto-versus-default disagreement is surfaced on Admin with a fix that never recommends a deprecated model', () => {
-    assert.match(INDEX, /id="settings-global-models-conflicts"/);
-    assert.match(APP, /function renderRecommendedConflicts\(globalModels/);
-    assert.match(APP, /btn\.id = 'btnAdminMatchRecommended'/);
-    assert.match(APP, /if \(!row \|\| row\.enabled === false \|\| row\.deprecated\) \{\s*skipped\.push/, 'the client refuses to recommend a deprecated model — the route accepts any registry id');
-    assert.match(APP, /renderRecommendedConflicts\(collectStageModels\('settings-global-model-stage'\)\)/, 're-checked after the defaults are saved');
-});
-
-test('tabs are computed from what is visible, so a house writer sees one tab and an admin three', () => {
-    assert.match(APP, /function settingsTabHasContent\(name\)/);
+test('Admin → Models is a status list with one action; the operator machinery is gone from the client', () => {
+    assert.match(APP, /function modelStatusRow\(model\)/);
+    assert.match(APP, /verifyBtn\.textContent = 'Check this model works'/);
+    assert.match(APP, /\/api\/admin\/models\/\$\{encodeURIComponent\(model\.id\)\}\/verify/);
+    for (const gone of ['describeStageChoice', 'stageModelRow', 'renderRecommendedConflicts', 'renderModelUpdates', 'btnAdminAddModel', 'btnAdminDiscoverModels', 'btnAdminSaveRecommended', 'btnAdminCheckUpdates', 'collectStageModels', 'saveSettingsBtn', 'settings-model-stage', 'Auto \\(recommended']) {
+        assert.doesNotMatch(APP, new RegExp(gone), `${gone} must not come back to app.js`);
+    }
     assert.match(APP, /function refreshSettingsTabs\(\)/);
     const open = APP.slice(APP.indexOf('async function openSettingsModal()'), APP.indexOf('function closeSettingsModal()'));
-    assert.match(open, /refreshSettingsTabs\(\);\s*settingsModal\.classList\.remove\('hidden'\)/, 'tabs are refreshed after every panel has been shown or hidden, right before the modal opens');
+    assert.match(open, /renderDefaultModelSection\(settings\);\s*refreshSettingsTabs\(\);\s*settingsModal\.classList\.remove\('hidden'\)/);
 });

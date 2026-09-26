@@ -36,3 +36,6 @@ data/user-settings.json
 # Per-person API keys (bring-your-own). Encrypted at rest, but it is still the list
 # of who holds a live credential on this deployment — per-machine state, not source.
 data/user-keys.json
+
+# Runtime state of `npm run models:check` (what the admin has not acknowledged) — never the bundle
+data/model-updates.json
